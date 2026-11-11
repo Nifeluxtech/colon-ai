@@ -4,6 +4,8 @@
 // Stop: the app closes the request (we abort the provider call and keep the partial reply as 'stopped');
 // POST …/stop does the same from another request, even when a different worker holds the stream.
 const ai = require('../ai');
+const dynamic = require('../ai/dynamic');
+const calls = require('../ai/calls');
 const limits = require('../ai/limits');
 const sseLib = require('../ai/sse');
 const { SECURITY_HEADERS } = require('../http/headers');
@@ -50,15 +52,22 @@ async function respond(o) {
     if (store.isStopped) {
       poll = setInterval(() => { store.isStopped().then(s => { if (s) ctl.abort(); }).catch(() => {}); }, 2000);
     }
-    if (!ai.isConfigured(o.routing)) throw Object.assign(new Error('Colon Saga isn’t connected to an AI provider yet.'), { code: 'no_provider' });
+    // Live routing from the Admin Dashboard (cached ~30 s); routing.js defaults when the database has none.
+    const cfg = o.routing || await dynamic.load(o.db);
+    const route = cfg.africanLanguages.includes(o.language) ? 'african' : (o.mode || 'general');
+    const logCalls = (attempts, code) => { if (!o.routing) calls.record({ mode: o.mode, route, guest: !req.user, attempts: attempts || [], code }, o.db); };
+    if (!ai.isConfigured(cfg)) { logCalls([], 'no_provider'); throw Object.assign(new Error('Colon Saga isn’t connected to an AI provider yet.'), { code: 'no_provider' }); }
     await limits.consumeAll(o.counters, o.db);
     let result;
     try {
       result = await ai.generate({
-        mode: o.mode, language: o.language, model: o.model, name: o.name, messages: o.history, signal: ctl.signal, routing: o.routing, fetch: o.fetch,
+        mode: o.mode, language: o.language, model: o.model, name: o.name, messages: o.history, signal: ctl.signal, routing: cfg, fetch: o.fetch,
+        timeouts: cfg.hedge ? { ...(o.timeouts || {}), hedge: cfg.hedge } : o.timeouts,
         onDelta: (piece) => { text += piece; sse.send('delta', { text: piece }); },
       });
+      logCalls(result.attempts);
     } catch (e) {
+      if (e.name !== 'AbortError') logCalls(e.attempts, e.code || 'error');
       if (e.code === 'no_provider' || e.code === 'no_vision' || (e.code === 'provider_down' && !e.partial)) await limits.refundAll(o.counters, o.db);
       throw e;
     }
