@@ -1,84 +1,55 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" data-theme="dark">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="theme-color" content="#07080c">
-<meta name="color-scheme" content="dark">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,interactive-widget=resizes-content">
+<meta name="theme-color" content="#080F24">
+<meta name="color-scheme" content="dark light">
 <meta name="referrer" content="strict-origin-when-cross-origin">
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22%3E%3Crect width=%2224%22 height=%2224%22 rx=%226%22 fill=%22%23ff6a1a%22/%3E%3Cpath fill=%22%23fff%22 d=%22M12 4c2 2.6 3.7 4.5 3.7 7.3a3.7 3.7 0 0 1-7.4 0c0-1.3.5-2.4 1.3-3.4.2 1.1.7 1.8 1.5 2.2C11 8.1 11.3 6 12 4z%22/%3E%3C/svg%3E">
+<script>/* apply the saved theme before first paint */try{var t=localStorage.getItem('colon.theme')||'dark';if(t==='system')t=matchMedia('(prefers-color-scheme: light)').matches?'light':'dark';document.documentElement.setAttribute('data-theme',t);}catch(e){}</script>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 48 48%22%3E%3Crect width=%2248%22 height=%2248%22 rx=%2212%22 fill=%22%23080F24%22/%3E%3Cpath fill=%22%234169E1%22 d=%22M24 5c5 6 11 11 11 20a11 11 0 0 1-22 0c0-4 1.6-7.4 4.2-10.2.4 3.2 2 5.3 4.4 6.3C20.7 15 21.6 9.6 24 5z%22/%3E%3Cpath fill=%22%23FF9A3D%22 d=%22M24 20c2.3 3 5 5.3 5 9.2a5 5 0 0 1-10 0c0-1.9.7-3.4 2-4.6.2 1.4.9 2.4 2 2.8-.3-2.9.1-5.2 1-7.4z%22/%3E%3C/svg%3E">
+<link rel="preload" href="/ui/fonts/inter-latin.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="stylesheet" href="/brand/colon-intro.css">
 <link rel="stylesheet" href="/ui/colon-ui.css">
+<link rel="stylesheet" href="/ui/colon-browser.css">
+<link rel="stylesheet" href="css/chat.css">
 <script src="/brand/colon-intro.js" defer></script>
+<!-- Shared UI kit (packages/ui → /ui/) -->
 <script src="/ui/colon-app.js" defer></script>
+<script src="/ui/colon-store.js" defer></script>
+<script src="/ui/colon-markdown.js" defer></script>
+<script src="/ui/colon-url.js" defer></script>
+<script src="/ui/colon-browser-data.js" defer></script>
+<script src="/ui/colon-saga-browse.js" defer></script>
+<script src="/ui/colon-browser.js" defer></script>
+<!-- Colon AI -->
+<script src="js/chat-responder.js" defer></script>
+<script src="js/chat-data.js" defer></script>
+<script src="js/chat-media.js" defer></script>
+<script src="js/chat-pages.js" defer></script>
+<script src="js/chat-settings.js" defer></script>
+<script src="js/chat-app.js" defer></script>
 <title>Colon AI</title>
-<meta name="description" content="Colon AI by Nifelux: an AI assistant built for Africa.">
+<meta name="description" content="Colon AI by Nifelux: an AI assistant built for Africa, with Study, Developer and Research modes.">
 </head>
 <body>
 <div id="app"></div>
+<noscript><p style="font:16px system-ui;padding:24px;color:#fff;background:#080F24">Colon AI needs JavaScript turned on.</p></noscript>
 <script>
 document.addEventListener('DOMContentLoaded', function () {
-  var C = window.Colon, icon = C.icon, esc = C.esc;
-  var MODES = [
-    { id: 'general', label: 'General', icon: 'sparkle', hint: 'Ask Colon Saga anything' },
-    { id: 'study', label: 'Study', icon: 'book', hint: 'Explain, quiz and revise' },
-    { id: 'developer', label: 'Developer', icon: 'code', hint: 'Write, fix and explain code' },
-    { id: 'research', label: 'Research', icon: 'search', hint: 'Dig deep with sources' }
-  ];
-  var IDEAS = {
-    general: [['Plan my week', 'Balance work, church and the gym'], ['Explain inflation', 'In simple Nigerian terms'], ['Write a message', 'To my landlord about repairs'], ['Translate to Yorùbá', 'A short thank-you note']],
-    study: [['WAEC Chemistry', 'Quiz me on moles and mass'], ['JAMB English', 'Explain concord with examples'], ['Summarise a chapter', 'Upload notes, get key points'], ['Make flashcards', 'For Government, Unit 3']],
-    developer: [['Build a REST API', 'Node.js with MySQL'], ['Debug my code', 'Paste an error, get a fix'], ['Explain Paystack webhooks', 'With a working example'], ['Write SQL', 'Monthly sales by state']],
-    research: [['Agritech in Nigeria', 'Key players and trends'], ['Compare fintech apps', 'Fees and features in 2026'], ['NDPR basics', 'What a startup must do'], ['Solar for SMEs', 'Costs and payback in Lagos']]
-  };
-  var mode = localStorage.getItem('colon.mode') || 'general';
-
-  function home(view) {
-    var u = C.user, first = (u.name || '').split(' ')[0];
-    view.innerHTML = C.verifyBanner() +
-      '<section class="hero"><div class="orb">' + C.MARK + '</div>' +
-      '<h1 class="h1">' + (first ? 'Hi ' + esc(first) + ', ' : '') + '<span class="grad-text">what shall we do?</span></h1>' +
-      '<p class="lead" id="hint"></p></section>' +
-      '<div class="chips" role="tablist" aria-label="Mode">' + MODES.map(function (m) {
-        return '<button class="chip" role="tab" data-mode="' + m.id + '">' + icon(m.icon) + m.label + '</button>'; }).join('') + '</div>' +
-      '<div class="suggest" id="ideas"></div>' +
-      '<form class="composer" id="composer"><div class="box"><textarea rows="1" placeholder="Message Colon Saga…" aria-label="Message"></textarea>' +
-      '<button class="send" type="submit" aria-label="Send">' + icon('send') + '</button></div></form>';
-    C.bindBanner(view);
-    var ta = view.querySelector('textarea');
-    function setMode(id) {
-      mode = id; localStorage.setItem('colon.mode', id);
-      C.$$('.chip', view).forEach(function (c) { var on = c.dataset.mode === id; c.classList.toggle('on', on); c.setAttribute('aria-selected', on); });
-      var m = MODES.filter(function (x) { return x.id === id; })[0];
-      view.querySelector('#hint').textContent = m.hint + ' · Colon Saga';
-      view.querySelector('#ideas').innerHTML = IDEAS[id].map(function (i) { return '<button type="button"><b>' + esc(i[0]) + '</b><span>' + esc(i[1]) + '</span></button>'; }).join('');
-      C.$$('#ideas button', view).forEach(function (b) { b.addEventListener('click', function () { ta.value = b.querySelector('b').textContent + ': ' + b.querySelector('span').textContent; ta.dispatchEvent(new Event('input')); ta.focus(); }); });
-    }
-    C.$$('.chip', view).forEach(function (c) { c.addEventListener('click', function () { setMode(c.dataset.mode); }); });
-    setMode(mode);
-    ta.addEventListener('input', function () { ta.style.height = 'auto'; ta.style.height = Math.min(ta.scrollHeight, 160) + 'px'; });
-    ta.addEventListener('keydown', function (e) { if (e.key === 'Enter' && !e.shiftKey && matchMedia('(min-width:900px)').matches) { e.preventDefault(); view.querySelector('#composer').requestSubmit(); } });
-    view.querySelector('#composer').addEventListener('submit', function (e) {
-      e.preventDefault(); if (!ta.value.trim()) return;
-      C.toast('Colon Saga goes live in the next phase. Your account is ready for it.');
-    });
-  }
-
-  function history(view) {
-    view.innerHTML = '<h1 class="h1">History</h1><p class="lead">Your conversations, on every device.</p>' +
-      '<div class="card empty">' + icon('clock') + '<div class="h3" style="color:var(--text)">No conversations yet</div><p class="small">Chats you start with Colon Saga will appear here.</p><a class="btn primary" href="#/">Start chatting</a></div>';
-  }
-
+  var C = window.Colon, CW = window.CW;
+  function ws(path, title) { return { path: path, auth: true, bare: true, app: 'chat', title: title, render: CW.mount, update: CW.route }; }
   C.start({
-    app: 'chat', title: 'Colon AI', subtitle: 'AI by Nifelux',
+    app: 'chat', title: 'Colon AI', brand: 'COLON AI', subtitle: 'by Nifelux',
     nav: [
-      { href: '/', label: 'Chat', icon: 'chat' },
-      { href: '/history', label: 'History', icon: 'clock' },
-      { href: '/account', label: 'Account', icon: 'user', match: /^\/account/ }
+      { href: '/', label: 'Home', icon: 'home' },
+      { href: '/history', label: 'History', icon: 'history' },
+      { href: '/saved', label: 'Saved', icon: 'saved' },
+      { href: '/account', label: 'Profile', icon: 'user', match: /^\/account/ }
     ],
     routes: [
-      { path: '/', auth: true, composer: true, render: home },
-      { path: '/history', auth: true, title: 'History', render: history }
+      ws('/', ''), ws('/c/:id', ''), ws('/history', 'History'), ws('/saved', 'Saved'),
+      ws('/explore', 'Explore'), ws('/settings', 'Settings'), ws('/help', 'Help')
     ]
   });
 });
