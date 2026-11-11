@@ -7,8 +7,11 @@ package-lock.json
 .env.*
 !.env.example
 
-# Runtime
-tmp/
+# Runtime (created on the server by cPanel / Passenger)
+tmp
+/services/api/public
+.htaccess
+.user.ini
 *.log
 stderr.log
 

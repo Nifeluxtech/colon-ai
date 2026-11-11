@@ -1,7 +1,7 @@
+---
 # Nifelux · Colon AI — cPanel Git deployment ("Deploy HEAD Commit")
 # Repo clone path: /home/apparatu/repositories/colon-ai
 # API Node app root: repositories/colon-ai/services/api (runs in place)
----
 deployment:
   tasks:
     - export HOMEDIR=/home/apparatu
