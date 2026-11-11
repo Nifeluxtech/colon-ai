@@ -12,10 +12,23 @@ const router = new Router()
   .use(require('./routes/auth'))
   .use(require('./routes/account'))
   .use(require('./routes/admin'))
+  .use(require('./routes/admin-ai'))
+  .use(require('./routes/admin-platform'))
   .use(require('./routes/chat'))
   .use(require('./routes/uploads'));
 
 const { SECURITY_HEADERS } = require('./headers');
+const settings = require('../lib/settings');
+
+// Maintenance mode (Phase 4): new chat activity gets 503 with the admin's message. Reading history,
+// settings and sign-in keep working, and staff are exempt so they can test the fix.
+const CHAT_WRITE = /^\/(chat\/guest(\/extract)?|conversations(\/.*)?|messages\/[^/]+\/feedback|uploads(\/.*)?)$/;
+async function maintenance(req, path) {
+  if (['GET', 'HEAD', 'OPTIONS'].includes(req.method) || !CHAT_WRITE.test(path)) return null;
+  if (req.user && settings.STAFF.has(req.user.role)) return null;
+  const sys = await settings.system();
+  return sys.maintenance.on ? { error: 'maintenance', message: sys.maintenance.message || settings.SYSTEM_DEFAULT.maintenance.message } : null;
+}
 
 function cors(req, res) {
   const origin = req.headers.origin;
@@ -59,6 +72,8 @@ const server = http.createServer(async (req, res) => {
     req.cookies = parseCookies(req.headers.cookie);
     req.body = match.opts.body === 'raw' ? {} : await readJson(req, match.opts.bodyLimit);
     req.user = path === '/health' || path === '/' ? null : await sessions.load(req).catch(() => null);
+    const down = await maintenance(req, path);
+    if (down) return send(res, 503, down, { 'Retry-After': '300' });
     let result;
     for (const h of match.handlers) { result = await h(req, res); }
     if (res.headersSent || res.writableEnded) return; // the handler streamed or sent a file itself
