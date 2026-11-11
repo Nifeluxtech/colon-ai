@@ -71,7 +71,7 @@
           C.row('#/history', 'archive', 'Archived conversations', 'Find them in History → Archived') +
           '<button class="row" type="button" data-clear-files><span class="ico">' + C.icon('file') + '</span><span class="body"><span class="title">Clear uploaded files</span><span class="sub">Remove attachments stored for your chats.</span></span></button>' +
           '<button class="row" type="button" data-delete-all><span class="ico" style="color:var(--bad);background:var(--bad-bg)">' + C.icon('trash') + '</span><span class="body"><span class="title" style="color:var(--bad)">Delete all conversations</span><span class="sub">Permanently remove every chat and file.</span></span></button>') +
-        '<div class="set-out"><button class="btn block danger" type="button" data-signout>' + icon('out') + 'Sign out</button><p class="tiny muted" style="text-align:center;margin-top:14px">Colon AI v0.4.0 · ' + (data.kind === 'local' ? 'preview data mode' : 'synced') + ' · by Nifelux</p></div></div>';
+        '<div class="set-out"><button class="btn block danger" type="button" data-signout>' + icon('out') + 'Sign out</button><p class="tiny muted" style="text-align:center;margin-top:14px">Colon AI v0.4.1 · ' + (data.kind === 'local' ? 'preview data mode' : 'synced') + ' · by Nifelux</p></div></div>';
       bind(s);
       stats();
       if (ctx && ctx.query && ctx.query.get('s')) jump(ctx.query.get('s'));
