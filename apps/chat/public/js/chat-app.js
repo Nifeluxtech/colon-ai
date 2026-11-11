@@ -30,6 +30,23 @@
   CW.S = S; CW.MODES = MODES;
 
   function isMobile() { return innerWidth < 900; }
+  // Phase 4: brand name, announcement banner and maintenance notice come from the Admin Dashboard (GET /auth/config).
+  function brandName() { return String((C.config && C.config.brand_name) || 'Colon AI').toUpperCase(); }
+  function noticeBanner() {
+    var cfg = C.config || {}, out = '';
+    if (cfg.maintenance && cfg.maintenance.on) out += '<div class="banner bad cw-notice" role="status">' + icon('alert') + '<span>' + esc(cfg.maintenance.message) + '</span></div>';
+    var a = cfg.announcement;
+    if (a && a.text) {
+      var key = 'colon.banner.' + a.text.length + '.' + a.text.slice(0, 24);
+      var hidden = false; try { hidden = sessionStorage.getItem(key) === '1'; } catch (e) {}
+      if (!hidden) out += '<div class="banner ' + (a.tone === 'warn' ? '' : 'info') + ' cw-notice" role="status" data-banner="' + esc(key) + '">' + icon(a.tone === 'warn' ? 'alert' : 'bell') + '<span>' + esc(a.text) + '</span><button type="button" class="icon-btn sm" data-banner-x aria-label="Hide announcement">' + icon('x') + '</button></div>';
+    }
+    return out;
+  }
+  function bindNotice(root) {
+    var b = root.querySelector('[data-banner-x]'); if (!b) return;
+    b.addEventListener('click', function () { var box = b.closest('[data-banner]'); try { sessionStorage.setItem(box.getAttribute('data-banner'), '1'); } catch (e) {} box.remove(); });
+  }
   // Signed out: chat works, nothing is saved (guest adapter), and Log in / Sign up replace the account menu.
   function signedIn() { return !!C.user; }
   function ephemeral() { return data && data.kind === 'guest'; }
@@ -51,7 +68,7 @@
       '<a class="skip-link" href="#cw-input">Skip to message box</a>' +
       '<div class="cw" data-layout="none" data-view="chat">' +
       '<aside class="cw-side" id="cw-side" aria-label="Conversations">' +
-        '<div class="cw-side-top"><a href="#/" class="cw-logo" aria-label="Colon AI home">' + C.logo('COLON AI', 'by Nifelux') + '</a>' +
+        '<div class="cw-side-top"><a href="#/" class="cw-logo" aria-label="Colon AI home">' + C.logo(brandName(), 'by Nifelux') + '</a>' +
         '<button class="icon-btn sm cw-side-close" data-a="drawer-close" aria-label="Close menu">' + icon('x') + '</button></div>' +
         '<button class="btn primary block cw-new" data-a="new">' + icon('plus') + 'New Chat</button>' +
         '<label class="cw-search">' + icon('search') + '<input type="search" placeholder="Search chats…" aria-label="Search conversations" id="cw-q"><span class="kbd cw-hide-touch">Ctrl K</span></label>' +
@@ -67,7 +84,7 @@
       '<div class="cw-main">' +
         '<header class="cw-head">' +
           '<button class="icon-btn" data-a="sidebar" aria-label="Toggle sidebar" aria-controls="cw-side" data-tip="Sidebar">' + icon('sidebar') + '</button>' +
-          '<a href="#/" class="cw-head-logo" aria-label="Colon AI home">' + C.logo('COLON AI', false) + '</a>' +
+          '<a href="#/" class="cw-head-logo" aria-label="Colon AI home">' + C.logo(brandName(), false) + '</a>' +
           '<button class="cw-model" data-a="model" aria-haspopup="menu" aria-label="Choose model"><span class="cw-model-mark">' + C.MARK + '</span><span class="cw-model-t"><b data-model-name>Colon Saga</b><small data-mode-sub>General Assistant</small></span>' + icon('chevDown') + '</button>' +
           '<button class="cw-title" data-a="rename-current" aria-label="Rename conversation" data-tip="Rename"><span data-title></span>' + icon('edit') + '</button>' +
           '<span class="cw-head-sp"></span>' +
@@ -394,7 +411,7 @@
   /* ================= Welcome ================= */
   function renderWelcome() {
     var page = $('#cw-page'); page.className = 'cw-page cw-page-welcome';
-    page.innerHTML = (typeof C.verifyBanner === 'function' ? C.verifyBanner() : '') + '<section class="cw-welcome">' +
+    page.innerHTML = noticeBanner() + (typeof C.verifyBanner === 'function' ? C.verifyBanner() : '') + '<section class="cw-welcome">' +
       '<div class="cw-hero-mark" aria-hidden="true">' + C.MARK + '</div>' +
       '<h1 class="cw-hero-h">What can we explore today?</h1>' +
       '<p class="cw-hero-p">Your ideas, questions and ambitions start here.</p>' +
@@ -403,6 +420,7 @@
       }).join('') + '</div>' +
       '<div class="cw-welcome-modes chips" role="radiogroup" aria-label="Mode"></div></section>';
     if (typeof C.bindBanner === 'function') C.bindBanner(page);
+    bindNotice(page);
     renderModeChips();  // mode chips scroll with the welcome content, above the floating composer
   }
 
@@ -590,9 +608,24 @@
           if (m.role === 'user') return '<div class="cw-msg user"><div class="cw-bubble">' + (m.attachments && m.attachments.length ? '<div class="cw-atts">' + m.attachments.map(function (a) { return '<span class="cw-att-file">' + icon(a.kind === 'image' ? 'image' : 'fileText') + '<span><b>' + esc(a.name) + '</b></span></span>'; }).join('') + '</div>' : '') + (m.content ? '<div class="cw-user-text">' + esc(m.content) + '</div>' : '') + '</div></div>';
           return '<div class="cw-msg ai"><div class="cw-ai-head"><span class="cw-ai-mark">' + C.MARK + '</span><b>' + esc(modelName(m.model)) + '</b></div><div class="cw-ai-body"><div class="md">' + MD.render(m.content, { sources: m.sources }) + '</div></div>' + sourcesHtml(m.sources) + '</div>';
         }).join('') + '</div>' +
-        '<div class="cw-shared-cta"><a class="btn primary" href="#/">' + icon('plus') + 'Start your own chat</a></div>';
+        '<div class="cw-shared-cta"><a class="btn primary" href="#/">' + icon('plus') + 'Start your own chat</a><button type="button" class="btn ghost sm" data-report>' + icon('alert') + 'Report this chat</button></div>';
+      var rb = page.querySelector('[data-report]');
+      if (rb) rb.addEventListener('click', function () { reportShared(token, rb); });
     }).catch(function (e) {
       page.innerHTML = '<div class="empty cw-error-page">' + icon('link') + '<div class="h3">This link doesn’t work</div><p class="small">' + esc(e.message) + '</p><a class="btn primary" href="#/">' + icon('plus') + 'New chat</a></div>';
+    });
+  }
+
+  // Anyone can report a shared chat; it goes to the Admin Dashboard moderation queue.
+  var REPORT_REASONS = ['Harmful or dangerous', 'Hate or harassment', 'Sexual content', 'Spam or scam', 'Private information', 'Other'];
+  function reportShared(token, btn) {
+    C.sheet('<div class="h2">Report this chat</div><p class="small muted">Tell the Colon team what’s wrong. Reports are reviewed by moderators.</p><form class="form" novalidate>' +
+      C.field({ name: 'reason', label: 'Reason', type: 'select', value: REPORT_REASONS[0], options: REPORT_REASONS.map(function (r) { return [r, r]; }) }) +
+      C.field({ name: 'comment', label: 'Details (optional)', required: false, max: 1000 }) +
+      '<button class="btn primary block" type="submit">Send report</button><button class="btn ghost block" type="button" data-close>Cancel</button></form>', function (el, close) {
+      C.bindForm(el.querySelector('form'), function (d) {
+        return C.api('/shared/' + encodeURIComponent(token) + '/report', { method: 'POST', body: d }).then(function () { close(); C.toast('Thanks. Our moderators will review it.', 'ok'); btn.disabled = true; });
+      });
     });
   }
 
