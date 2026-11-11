@@ -28,7 +28,7 @@ Migration `0003_chat` runs by itself when the API starts.
 |---|---|---|---|
 | Groq | <https://console.groq.com/keys> (sign in, Create API Key) | `GROQ_API_KEY` | Qwen (`GROQ_MODEL`, default `qwen/qwen3.8-27b`): first choice for General, Study, Research |
 | OpenRouter | <https://openrouter.ai/settings/keys> | `OPENROUTER_API_KEY` | DeepSeek (`OPENROUTER_DEEPSEEK_MODEL`) and Gemma 4 (`OPENROUTER_GEMMA_MODEL`, default `google/gemma-4-31b-it:free`) |
-| Google AI Studio | <https://aistudio.google.com/apikey> | `GEMINI_API_KEY` | Gemma 4 (`GEMINI_MODEL`, default `gemma-4-31b-it`), also reads images |
+| Google AI Studio | <https://aistudio.google.com/apikey> | `GEMINI_API_KEY` | Gemma 4 (`GEMINI_MODEL`, default `gemma-4-31b-it`, native Gemini API), also reads images |
 | N-ATLaS (optional) | any OpenAI-compatible host serving the model (for example a Hugging Face Inference Endpoint or a vLLM server) | `NATLAS_BASE_URL` (ending in `/v1`), `NATLAS_API_KEY`, `NATLAS_MODEL` | Naijá, Yorùbá, Hausa and Igbo replies |
 
 Free models change often. If one disappears, the router skips it automatically (and logs `ai_provider_failed` with

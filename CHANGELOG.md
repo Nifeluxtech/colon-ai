@@ -1,5 +1,9 @@
 # Changelog
 
+## [Unreleased] — API fix
+### Fixed
+- **Google AI Studio (Gemma 4)**: Google doesn't serve Gemma models on its OpenAI-compatible endpoint, so every Gemma call failed and Saga answered "couldn't reach an AI provider". The client now talks to the native Gemini API (`/v1beta/models/{model}:streamGenerateContent?alt=sse`, `x-goog-api-key`), sending the system prompt as `systemInstruction`, assistant turns as `model`, images as `inlineData`, and hiding thought parts. New `GEMINI_THINKING` (default `minimal`, or `high`, or `off`).
+
 ## [0.4.0] — 2026-11-11 · Phase 3: Colon AI chat backend, model router v1, guest chat
 ### Added
 - **Chat API** (`services/api/src/http/routes/chat.js`, `uploads.js`): every endpoint the remote chat adapter expects. Conversations (list, search, create, rename, pin, archive, delete one or all, export), streamed replies as server-sent events (`user` → `start` → `delta`… → `done`, or `error {code}`), **Stop** (closing the stream, or `POST …/messages/:mid/stop`, which also reaches another worker), **regenerate** (new version replaces the reply), **edit** a sent message (re-answers from there), AI Browse notes, **feedback** (good/bad + reason + comment, stored with the provider and model for evaluation), **share links** (read-only `GET /shared/:token`, can be turned off), chat settings and stats, and `GET /models` from configuration.

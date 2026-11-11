@@ -1,5 +1,5 @@
 // Provider-agnostic OpenAI-compatible chat-completions client with streaming (Node's built-in fetch).
-// Works with Groq, OpenRouter, Google AI Studio (OpenAI endpoint), vLLM/TGI hosts (N-ATLaS) and anything
+// Works with Groq, OpenRouter, Google AI Studio (native streamGenerateContent, since Gemma isn't on its OpenAI endpoint), vLLM/TGI hosts (N-ATLaS) and anything
 // else that speaks POST {base}/chat/completions with "stream": true.
 const { createParser, thinkFilter } = require('./sse');
 
@@ -29,6 +29,69 @@ function errorMessage(text) {
     const e = Array.isArray(j) ? j[0] && j[0].error : j.error;
     return String((e && (e.message || e)) || j.message || text).slice(0, 300);
   } catch { return String(text || '').slice(0, 300); }
+}
+
+/* ---------- Google AI Studio native API (Gemma models are not served on its OpenAI endpoint) ---------- */
+function geminiParts(content) {
+  if (typeof content === 'string') return content ? [{ text: content }] : [];
+  if (!Array.isArray(content)) return [];
+  const out = [];
+  for (const p of content) {
+    if (!p) continue;
+    if (p.type === 'text' && p.text) out.push({ text: p.text });
+    else if (p.type === 'image_url') {
+      const u = String((p.image_url && (p.image_url.url || p.image_url)) || '');
+      const m = /^data:([^;,]+);base64,(.*)$/s.exec(u);
+      if (m) out.push({ inlineData: { mimeType: m[1], data: m[2] } });
+    }
+  }
+  return out;
+}
+
+function geminiBody(o) {
+  const system = [];
+  const contents = [];
+  for (const msg of o.messages || []) {
+    if (msg.role === 'system') { const t = typeof msg.content === 'string' ? msg.content : geminiParts(msg.content).map(x => x.text || '').join('\n'); if (t) system.push(t); continue; }
+    const role = msg.role === 'assistant' ? 'model' : 'user';
+    const parts = geminiParts(msg.content);
+    if (!parts.length) continue;
+    const last = contents[contents.length - 1];
+    if (last && last.role === role) last.parts.push(...parts); else contents.push({ role, parts });
+  }
+  const gen = {};
+  if (o.maxTokens) gen.maxOutputTokens = o.maxTokens;
+  if (o.temperature !== undefined) gen.temperature = o.temperature;
+  if (o.provider.thinkingLevel) gen.thinkingConfig = { thinkingLevel: o.provider.thinkingLevel };
+  return {
+    contents,
+    ...(system.length ? { systemInstruction: { parts: [{ text: system.join('\n\n') }] } } : {}),
+    ...(Object.keys(gen).length ? { generationConfig: gen } : {}),
+  };
+}
+
+function geminiChunk(j) {
+  const c = j && Array.isArray(j.candidates) ? j.candidates[0] : null;
+  let text = '', alive = false;
+  const parts = (c && c.content && c.content.parts) || [];
+  for (const p of parts) {
+    alive = true;
+    if (p.thought) continue;                 // hidden reasoning
+    if (typeof p.text === 'string') text += p.text;
+  }
+  let finish = null;
+  if (c && c.finishReason) finish = c.finishReason === 'MAX_TOKENS' ? 'length' : c.finishReason === 'STOP' ? 'stop' : String(c.finishReason).toLowerCase();
+  const u = j && j.usageMetadata;
+  const usage = u ? { prompt_tokens: u.promptTokenCount || 0, completion_tokens: u.candidatesTokenCount || 0, total_tokens: u.totalTokenCount || 0 } : null;
+  return { text, alive, finish, usage };
+}
+
+function geminiEmptyReason(list) {
+  for (const j of list) {
+    const b = j && j.promptFeedback && j.promptFeedback.blockReason;
+    if (b) return `The request was blocked by the provider (${b}).`;
+  }
+  return '';
 }
 
 /**
@@ -61,16 +124,22 @@ async function streamChat(o) {
   };
 
   try {
-    const body = {
+    const native = o.provider.native === 'gemini';
+    const base = String(o.provider.baseUrl).replace(/\/+$/, '');
+    const body = native ? geminiBody(o) : {
       model: o.model, messages: o.messages, stream: true,
       ...(o.maxTokens ? { max_tokens: o.maxTokens } : {}),
       ...(o.temperature !== undefined ? { temperature: o.temperature } : {}),
       ...(o.provider.body || {}),
     };
-    const res = await fetchImpl(`${String(o.provider.baseUrl).replace(/\/+$/, '')}/chat/completions`, {
+    const url = native
+      ? `${base}/models/${encodeURIComponent(o.model)}:streamGenerateContent?alt=sse`
+      : `${base}/chat/completions`;
+    const auth = native ? { 'x-goog-api-key': o.provider.apiKey } : { Authorization: `Bearer ${o.provider.apiKey}` };
+    const res = await fetchImpl(url, {
       method: 'POST',
       headers: {
-        Authorization: `Bearer ${o.provider.apiKey}`, 'Content-Type': 'application/json', Accept: 'text/event-stream',
+        ...auth, 'Content-Type': 'application/json', Accept: 'text/event-stream',
         ...(o.provider.headers || {}),
       },
       body: JSON.stringify(body),
@@ -82,7 +151,21 @@ async function streamChat(o) {
     }
     const type = String(res.headers.get('content-type') || '');
     if (type.includes('application/json')) {      // host ignored "stream": answer arrives in one piece
-      const j = JSON.parse(await res.text());
+      const raw = JSON.parse(await res.text());
+      if (native) {
+        const list = Array.isArray(raw) ? raw : [raw];
+        for (const j of list) {
+          if (j.error) throw new ProviderError(errorMessage(JSON.stringify(j)), { code: 'upstream_error' });
+          const g = geminiChunk(j);
+          emit(filter.push(g.text));
+          if (g.finish) finishReason = g.finish;
+          if (g.usage) usage = g.usage;
+        }
+        emit(filter.flush());
+        if (!live && finishReason !== 'length') throw new ProviderError(geminiEmptyReason(list) || 'The model returned an empty reply.', { code: 'empty' });
+        return { text, finishReason, usage };
+      }
+      const j = raw;
       if (j.error) throw new ProviderError(errorMessage(JSON.stringify(j)), { code: 'upstream_error' });
       const c = j.choices && j.choices[0];
       emit(filter.push((c && c.message && c.message.content) || '') + filter.flush());
@@ -95,6 +178,14 @@ async function streamChat(o) {
       let j;
       try { j = JSON.parse(data); } catch { return; }
       if (j.error) throw new ProviderError(errorMessage(JSON.stringify(j)), { code: j.error.code === 429 ? 'rate_limited' : 'upstream_error', partial: live });
+      if (native) {
+        const g = geminiChunk(j);
+        if (g.alive) arm(idleMs, 'idle');
+        emit(filter.push(g.text));
+        if (g.finish) finishReason = g.finish;
+        if (g.usage) usage = g.usage;
+        return;
+      }
       if (j.usage) usage = j.usage;
       const c = j.choices && j.choices[0];
       if (!c) return;
@@ -138,4 +229,4 @@ async function streamChat(o) {
   }
 }
 
-module.exports = { streamChat, ProviderError, codeForStatus };
+module.exports = { streamChat, ProviderError, codeForStatus, _gemini: { geminiBody, geminiChunk } };

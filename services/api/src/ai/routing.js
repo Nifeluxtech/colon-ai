@@ -21,7 +21,11 @@ function providers() {
       headers: { 'HTTP-Referer': env('APP_URL_CHAT', 'https://chat.apparatus.name.ng'), 'X-Title': 'Colon AI' },
     },
     gemini: {
-      name: 'Google AI Studio', baseUrl: env('GEMINI_BASE_URL', 'https://generativelanguage.googleapis.com/v1beta/openai'), apiKey: env('GEMINI_API_KEY', ''),
+      // Native Gemini API: Google serves Gemma models only there, not on its OpenAI-compatible endpoint.
+      name: 'Google AI Studio', baseUrl: env('GEMINI_BASE_URL', 'https://generativelanguage.googleapis.com/v1beta'), apiKey: env('GEMINI_API_KEY', ''),
+      native: 'gemini',
+      // Gemma 4 takes thinkingLevel "minimal" (fast, no hidden reasoning) or "high". Set GEMINI_THINKING=off to omit.
+      thinkingLevel: env('GEMINI_THINKING', 'minimal') === 'off' ? '' : env('GEMINI_THINKING', 'minimal'),
     },
     natlas: {
       // N-ATLaS (Nigerian Atlas for Languages & AI) on any OpenAI-compatible host (vLLM, HF endpoint, ...).
