@@ -11,16 +11,11 @@ const router = new Router()
   .use(require('./routes/health'))
   .use(require('./routes/auth'))
   .use(require('./routes/account'))
-  .use(require('./routes/admin'));
+  .use(require('./routes/admin'))
+  .use(require('./routes/chat'))
+  .use(require('./routes/uploads'));
 
-const SECURITY_HEADERS = {
-  'X-Content-Type-Options': 'nosniff',
-  'X-Frame-Options': 'DENY',
-  'Referrer-Policy': 'strict-origin-when-cross-origin',
-  'Cross-Origin-Resource-Policy': 'same-site',
-  'Strict-Transport-Security': 'max-age=31536000; includeSubDomains',
-  'Cache-Control': 'no-store',
-};
+const { SECURITY_HEADERS } = require('./headers');
 
 function cors(req, res) {
   const origin = req.headers.origin;
@@ -62,15 +57,17 @@ const server = http.createServer(async (req, res) => {
     req.query = url.searchParams;
     req.params = match.params;
     req.cookies = parseCookies(req.headers.cookie);
-    req.body = await readJson(req);
+    req.body = match.opts.body === 'raw' ? {} : await readJson(req, match.opts.bodyLimit);
     req.user = path === '/health' || path === '/' ? null : await sessions.load(req).catch(() => null);
     let result;
-    for (const h of match.handlers) { result = await h(req); }
+    for (const h of match.handlers) { result = await h(req, res); }
+    if (res.headersSent || res.writableEnded) return; // the handler streamed or sent a file itself
     const [code, body, headers] = result;
     send(res, code, body, headers);
   } catch (e) {
     const status = e.status || 500;
     if (status >= 500) log.error('request_failed', { path, err: e.message, code: e.code });
+    if (res.headersSent) { if (!res.writableEnded) res.end(); return; }
     send(res, status, {
       error: e.code || 'server_error',
       message: status >= 500 && !e.code ? 'Something went wrong. Please try again.' : e.message,

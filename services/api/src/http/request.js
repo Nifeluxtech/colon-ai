@@ -16,13 +16,13 @@ function parseCookies(header = '') {
   return out;
 }
 
-function readJson(req) {
+function readJson(req, max = MAX_BODY) {
   return new Promise((resolve, reject) => {
     if (req.method === 'GET' || req.method === 'HEAD') return resolve({});
     let size = 0; const chunks = [];
     req.on('data', c => {
       size += c.length;
-      if (size > MAX_BODY) { reject(Object.assign(new Error('Body too large'), { status: 413, code: 'too_large' })); req.destroy(); return; }
+      if (size > max) { reject(Object.assign(new Error('Body too large'), { status: 413, code: 'too_large' })); req.destroy(); return; }
       chunks.push(c);
     });
     req.on('end', () => {

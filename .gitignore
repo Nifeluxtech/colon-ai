@@ -20,3 +20,6 @@ stderr.log
 Thumbs.db
 .idea/
 .vscode/
+
+# Phase 3: uploaded chat files (services/api/storage)
+/services/api/storage

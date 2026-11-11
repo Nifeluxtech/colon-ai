@@ -1,0 +1,96 @@
+// Streams one assistant reply to the app as server-sent events (the format chat-data.js parses):
+//   start {message} → delta {text}… → done {message}     or     error {code, message}
+// Used by send, regenerate and edit (saved to MySQL) and by guest chat (nothing saved).
+// Stop: the app closes the request (we abort the provider call and keep the partial reply as 'stopped');
+// POST …/stop does the same from another request, even when a different worker holds the stream.
+const ai = require('../ai');
+const limits = require('../ai/limits');
+const sseLib = require('../ai/sse');
+const { SECURITY_HEADERS } = require('../http/headers');
+const log = require('../lib/logger');
+
+const active = new Map(); // message id -> AbortController (this worker only)
+
+function openStream(res) {
+  res.writeHead(200, {
+    ...SECURITY_HEADERS,
+    'Content-Type': 'text/event-stream; charset=utf-8',
+    'Cache-Control': 'no-cache, no-store, no-transform',
+    'X-Accel-Buffering': 'no',     // Passenger/nginx: don't buffer the stream
+    Connection: 'keep-alive',
+  });
+  if (res.socket) res.socket.setNoDelay(true);
+  // ~2 KB of padding so proxies that buffer small responses start flushing straight away.
+  res.write(`: ${' '.repeat(2048)}\n\n`);
+  return sseLib.writer(res);
+}
+
+/**
+ * respond({ req, res, mode, model, language, name, history, counters, store, onOpen(sse)? })
+ *   counters: daily-limit counters to charge ([{ subject, limit }], see ai/limits.js countersFor)
+ *   store.start()                 -> message object sent in "start" (status 'streaming')
+ *   store.finish(result)          -> final message sent in "done" ({ content, status, error, providerId, providerModel })
+ *   store.isStopped()             -> optional: true when another request asked to stop this reply
+ */
+async function respond(o) {
+  const { req, res, store } = o;
+  const sse = openStream(res);
+  const ctl = new AbortController();
+  let finished = false;
+  res.on('close', () => { if (!finished) ctl.abort(); });
+  const ping = setInterval(() => sse.comment(), 15000);
+  let poll = null;
+  let message = null;
+  let text = '';
+  try {
+    if (o.onOpen) await o.onOpen(sse);
+    message = await store.start();
+    active.set(message.id, ctl);
+    sse.send('start', { message });
+    if (store.isStopped) {
+      poll = setInterval(() => { store.isStopped().then(s => { if (s) ctl.abort(); }).catch(() => {}); }, 2000);
+    }
+    if (!ai.isConfigured(o.routing)) throw Object.assign(new Error('Colon Saga isn’t connected to an AI provider yet.'), { code: 'no_provider' });
+    await limits.consumeAll(o.counters, o.db);
+    let result;
+    try {
+      result = await ai.generate({
+        mode: o.mode, language: o.language, model: o.model, name: o.name, messages: o.history, signal: ctl.signal, routing: o.routing, fetch: o.fetch,
+        onDelta: (piece) => { text += piece; sse.send('delta', { text: piece }); },
+      });
+    } catch (e) {
+      if (e.code === 'no_provider' || e.code === 'no_vision' || (e.code === 'provider_down' && !e.partial)) await limits.refundAll(o.counters, o.db);
+      throw e;
+    }
+    finished = true;
+    const final = await store.finish({ content: result.text, status: 'complete', providerId: result.providerId, providerModel: result.model });
+    sse.send('done', { message: final });
+  } catch (e) {
+    finished = true;
+    if (e.name === 'AbortError') {
+      const final = message ? await store.finish({ content: e.partialText != null ? e.partialText : text, status: 'stopped', providerId: e.providerId, providerModel: e.model }).catch(() => null) : null;
+      if (final) sse.send('done', { message: final });
+    } else {
+      const known = ['no_provider', 'quota', 'provider_down', 'no_vision'];
+      const code = known.includes(e.code) ? e.code : 'provider_down';
+      const msg = known.includes(e.code) ? e.message : 'Something went wrong while answering. Please try again.';
+      if (!known.includes(e.code)) log.error('chat_reply_failed', { err: e.message, code: e.code });
+      if (message) await store.finish({ content: e.partialText != null ? e.partialText : text, status: 'error', error: { code, message: msg }, providerId: e.providerId, providerModel: e.model }).catch((err) => log.error('chat_finish_failed', { err: err.message }));
+      sse.send('error', { code, message: msg });
+    }
+  } finally {
+    clearInterval(ping); clearInterval(poll);
+    if (message) active.delete(message.id);
+    sse.end();
+  }
+}
+
+// Stops a reply streaming in this worker. Returns false when another worker holds it.
+function stopLocal(messageId) {
+  const ctl = active.get(messageId);
+  if (!ctl) return false;
+  ctl.abort();
+  return true;
+}
+
+module.exports = { respond, openStream, stopLocal, _active: active };

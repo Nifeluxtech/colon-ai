@@ -1,0 +1,141 @@
+// Provider-agnostic OpenAI-compatible chat-completions client with streaming (Node's built-in fetch).
+// Works with Groq, OpenRouter, Google AI Studio (OpenAI endpoint), vLLM/TGI hosts (N-ATLaS) and anything
+// else that speaks POST {base}/chat/completions with "stream": true.
+const { createParser, thinkFilter } = require('./sse');
+
+class ProviderError extends Error {
+  constructor(message, { status = 0, code = 'provider_error', partial = false } = {}) {
+    super(message);
+    this.name = 'ProviderError';
+    this.status = status;
+    this.code = code;
+    this.partial = partial;   // true when some text already reached the user (no fallback then)
+  }
+}
+
+function codeForStatus(status) {
+  if (status === 429) return 'rate_limited';
+  if (status === 401 || status === 403) return 'auth';
+  if (status === 404) return 'model_not_found';
+  if (status === 402) return 'payment_required';
+  if (status === 408 || status === 504) return 'timeout';
+  if (status >= 500) return 'upstream_error';
+  return `http_${status}`;
+}
+
+function errorMessage(text) {
+  try {
+    const j = JSON.parse(text);
+    const e = Array.isArray(j) ? j[0] && j[0].error : j.error;
+    return String((e && (e.message || e)) || j.message || text).slice(0, 300);
+  } catch { return String(text || '').slice(0, 300); }
+}
+
+/**
+ * streamChat({ provider:{baseUrl,apiKey,headers}, model, messages, onDelta(text), signal, ... }) -> { text, finishReason, usage }
+ * Throws ProviderError (fallback-able) or an AbortError when `signal` aborts (the user pressed Stop).
+ */
+async function streamChat(o) {
+  const fetchImpl = o.fetch || globalThis.fetch;
+  const firstTokenMs = o.firstTokenTimeoutMs || 25000;
+  const idleMs = o.idleTimeoutMs || 30000;
+  const maxMs = o.maxMs || 180000;
+  const ctl = new AbortController();
+  let timeoutReason = null;
+  const onOuterAbort = () => ctl.abort();
+  if (o.signal) { if (o.signal.aborted) ctl.abort(); else o.signal.addEventListener('abort', onOuterAbort, { once: true }); }
+
+  let idleTimer = null;
+  const arm = (ms, reason) => { clearTimeout(idleTimer); idleTimer = setTimeout(() => { timeoutReason = reason; ctl.abort(); }, ms); };
+  const maxTimer = setTimeout(() => { timeoutReason = 'max'; ctl.abort(); }, maxMs);
+  arm(firstTokenMs, 'first_token');
+
+  let text = '', finishReason = null, usage = null, live = false;
+  const filter = thinkFilter();
+  const emit = (piece) => {
+    if (!piece) return;
+    text += piece;
+    if (!live && !piece.trim()) return; // leading whitespace isn't a "first token"
+    live = true;
+    if (o.onDelta) o.onDelta(piece);
+  };
+
+  try {
+    const body = {
+      model: o.model, messages: o.messages, stream: true,
+      ...(o.maxTokens ? { max_tokens: o.maxTokens } : {}),
+      ...(o.temperature !== undefined ? { temperature: o.temperature } : {}),
+      ...(o.provider.body || {}),
+    };
+    const res = await fetchImpl(`${String(o.provider.baseUrl).replace(/\/+$/, '')}/chat/completions`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${o.provider.apiKey}`, 'Content-Type': 'application/json', Accept: 'text/event-stream',
+        ...(o.provider.headers || {}),
+      },
+      body: JSON.stringify(body),
+      signal: ctl.signal,
+    });
+    if (!res.ok) {
+      const t = await res.text().catch(() => '');
+      throw new ProviderError(errorMessage(t) || `HTTP ${res.status}`, { status: res.status, code: codeForStatus(res.status) });
+    }
+    const type = String(res.headers.get('content-type') || '');
+    if (type.includes('application/json')) {      // host ignored "stream": answer arrives in one piece
+      const j = JSON.parse(await res.text());
+      if (j.error) throw new ProviderError(errorMessage(JSON.stringify(j)), { code: 'upstream_error' });
+      const c = j.choices && j.choices[0];
+      emit(filter.push((c && c.message && c.message.content) || '') + filter.flush());
+      return { text, finishReason: c && c.finish_reason, usage: j.usage || null };
+    }
+    let done = false;
+    const parser = createParser(({ data }) => {
+      if (done) return;
+      if (data === '[DONE]') { done = true; return; }
+      let j;
+      try { j = JSON.parse(data); } catch { return; }
+      if (j.error) throw new ProviderError(errorMessage(JSON.stringify(j)), { code: j.error.code === 429 ? 'rate_limited' : 'upstream_error', partial: live });
+      if (j.usage) usage = j.usage;
+      const c = j.choices && j.choices[0];
+      if (!c) return;
+      const d = c.delta || c.message || {};
+      if (d.content || d.reasoning || d.reasoning_content) arm(idleMs, 'idle');  // reasoning counts as alive
+      if (typeof d.content === 'string') emit(filter.push(d.content));
+      if (c.finish_reason) finishReason = c.finish_reason;
+    });
+    const dec = new TextDecoder();
+    const reader = res.body.getReader();
+    // Cancel the read when we abort (Stop or a timeout), whatever fetch implementation is in use.
+    const cancel = () => { reader.cancel().catch(() => {}); };
+    ctl.signal.addEventListener('abort', cancel, { once: true });
+    try {
+      while (!done) {
+        const { done: end, value } = await reader.read();
+        if (end) break;
+        parser.push(dec.decode(value, { stream: true }));
+      }
+    } finally {
+      ctl.signal.removeEventListener('abort', cancel);
+      if (done) reader.cancel().catch(() => {});
+    }
+    if (ctl.signal.aborted) throw new Error('aborted');
+    parser.end();
+    emit(filter.flush());
+    if (!live && finishReason !== 'length') throw new ProviderError('The model returned an empty reply.', { code: 'empty' });
+    return { text, finishReason, usage };
+  } catch (e) {
+    if (e instanceof ProviderError) { e.partial = e.partial || live; throw e; }
+    if (ctl.signal.aborted && !timeoutReason) {
+      const a = new Error('aborted'); a.name = 'AbortError'; a.code = 'aborted'; throw a;
+    }
+    if (timeoutReason) {
+      throw new ProviderError(timeoutReason === 'first_token' ? 'The model took too long to start answering.' : 'The model stopped responding.', { code: 'timeout', partial: live });
+    }
+    throw new ProviderError(`Network error: ${e.message}`, { code: 'network', partial: live });
+  } finally {
+    clearTimeout(idleTimer); clearTimeout(maxTimer);
+    if (o.signal) o.signal.removeEventListener('abort', onOuterAbort);
+  }
+}
+
+module.exports = { streamChat, ProviderError, codeForStatus };

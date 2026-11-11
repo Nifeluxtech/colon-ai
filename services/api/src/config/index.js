@@ -35,4 +35,16 @@ module.exports = {
   urls: {
     chat: env('APP_URL_CHAT', 'https://chat.apparatus.name.ng'),
   },
+  // Phase 3: Colon AI chat. AI provider keys are read by src/ai/routing.js (enabled only when a key is set).
+  chat: {
+    dailyLimit: Number(env('CHAT_DAILY_LIMIT', 100)),        // replies per signed-in user per UTC day
+    guestDailyLimit: Number(env('CHAT_GUEST_DAILY_LIMIT', 15)), // replies per guest browser per UTC day
+    guestIpDailyLimit: Number(env('CHAT_GUEST_IP_DAILY_LIMIT', 300)), // all guests on one IP (carrier NAT) per UTC day
+    uploadDir: env('UPLOAD_DIR', require('path').resolve(__dirname, '../../storage/uploads')),
+    uploadQuotaMb: Number(env('UPLOAD_QUOTA_MB', 200)),       // per user, across all their files
+    firstTokenTimeoutMs: Number(env('AI_FIRST_TOKEN_TIMEOUT_MS', 25000)),
+    idleTimeoutMs: Number(env('AI_IDLE_TIMEOUT_MS', 30000)),
+    maxReplyMs: Number(env('AI_MAX_REPLY_MS', 180000)),
+    maxTokens: Number(env('AI_MAX_TOKENS', 4096)),
+  },
 };

@@ -12,8 +12,14 @@ src/
   db/       MySQL pool and health check
   http/     HTTP server and routes
   ws/       WebSocket gateway
-  lib/      shared utilities (logger)
+  lib/      shared utilities (logger, crypto, mail, audit)
+  ai/       model router v1: routing.js (THE routing table), client.js (OpenAI-compatible streaming),
+            index.js (fallback), prompts.js (modes + African layer), limits.js (daily limits), sse.js
+  chat/     chat storage, context building, streamed replies, uploads and text extraction
+test/       node --test unit tests (mocked fetch, no database) + e2e-smoke.js and a mock provider
 ```
+
+Tests: `npm test` (here) or `npm test` at the repo root.
 
 ## Endpoints (Phase 2)
 | Method | Path | Who |
@@ -27,5 +33,20 @@ src/
 | GET | `/admin/stats`, `/admin/users` | moderator+ with 2FA |
 | PATCH/POST | `/admin/users/:id/role`, `/admin/users/:id/signout`, `/admin/audit` | admin+ with 2FA |
 | POST | `/admin/users/:id/unlock` | moderator+ with 2FA |
+
+## Endpoints (Phase 3: Colon AI chat)
+| Method | Path | Who |
+|---|---|---|
+| GET | `/models`, `/chat/usage`, `/shared/:token` | anyone |
+| POST | `/chat/guest` (SSE, saves nothing), `/chat/guest/extract` | anyone (rate limited, daily guest limit, allowed `Origin` required in production) |
+| GET/POST/DELETE | `/conversations`, `/conversations/export` | signed in |
+| GET/PATCH/DELETE | `/conversations/:id` | signed in (owner) |
+| POST | `/conversations/:id/messages`, `…/messages/:mid/regenerate`, `…/messages/:mid/edit` (SSE), `…/messages/:mid/stop`, `/conversations/:id/notes` | signed in (owner) |
+| POST/DELETE | `/conversations/:id/share` | signed in (owner) |
+| POST | `/messages/:id/feedback` | signed in (owner) |
+| POST/GET/DELETE | `/uploads`, `/uploads/:id/file`, `/uploads/:id` | signed in (owner) |
+| GET/PATCH | `/chat/settings`, GET `/chat/stats` | signed in |
+
+Full request/response shapes and the SSE event format: `docs/frontend-data-adapters.md`.
 
 State-changing requests need the `X-Colon-Client` header and an allowed `Origin`.

@@ -1,0 +1,210 @@
+// Unit tests for model router v1 (services/api/src/ai): routing table, language routing, automatic
+// fallback, SSE parsing and the provider client. fetch is mocked: no network, no keys, no database.
+const test = require('node:test');
+const assert = require('node:assert/strict');
+
+const KEYS = ['GROQ_API_KEY', 'OPENROUTER_API_KEY', 'GEMINI_API_KEY', 'NATLAS_API_KEY', 'NATLAS_BASE_URL', 'GROQ_MODEL', 'OPENROUTER_DEEPSEEK_MODEL', 'OPENROUTER_GEMMA_MODEL', 'GEMINI_MODEL', 'NATLAS_MODEL'];
+function setEnv(vals) {
+  for (const k of KEYS) delete process.env[k];
+  Object.assign(process.env, vals);
+}
+const ALL = {
+  GROQ_API_KEY: 'g', OPENROUTER_API_KEY: 'o', GEMINI_API_KEY: 'm', NATLAS_API_KEY: 'n', NATLAS_BASE_URL: 'https://natlas.example/v1',
+  GROQ_MODEL: 'qwen', OPENROUTER_DEEPSEEK_MODEL: 'deepseek', OPENROUTER_GEMMA_MODEL: 'gemma-or', GEMINI_MODEL: 'gemma-g', NATLAS_MODEL: 'natlas',
+};
+
+const ai = require('../src/ai');
+const { streamChat } = require('../src/ai/client');
+const { createParser, thinkFilter } = require('../src/ai/sse');
+
+// A fetch Response streaming the given SSE chunks. opts.hang: never finish; opts.breakAfter: error after N chunks.
+function sseResponse(chunks, opts = {}) {
+  const enc = new TextEncoder();
+  let i = 0;
+  const stream = new ReadableStream({
+    pull(ctl) {
+      if (opts.breakAfter !== undefined && i >= opts.breakAfter) { ctl.error(new Error('socket hang up')); return; }
+      if (i < chunks.length) { ctl.enqueue(enc.encode(chunks[i++])); return; }
+      if (opts.hang) return new Promise(() => {});
+      ctl.close();
+    },
+  });
+  return new Response(stream, { status: 200, headers: { 'content-type': 'text/event-stream' } });
+}
+const delta = (t) => `data: ${JSON.stringify({ choices: [{ delta: { content: t } }] })}\n\n`;
+const okStream = (text) => sseResponse([...text.split(/(?<= )/).map(delta), 'data: [DONE]\n\n']);
+const errResponse = (status) => new Response(JSON.stringify({ error: { message: `status ${status}` } }), { status, headers: { 'content-type': 'application/json' } });
+
+// fetch mock: behaviour per model id; records the order of models called.
+function mockFetch(behaviour) {
+  const calls = [];
+  const fn = async (url, init) => {
+    const body = JSON.parse(init.body);
+    calls.push({ url, model: body.model, auth: init.headers.Authorization, body });
+    const b = behaviour[body.model] || 'ok';
+    if (typeof b === 'number') return errResponse(b);
+    if (b === 'hang') return new Promise((_, rej) => init.signal.addEventListener('abort', () => rej(Object.assign(new Error('aborted'), { name: 'AbortError' }))));
+    if (b === 'hang-stream') return sseResponse([], { hang: true });
+    if (b === 'drop') return sseResponse([delta('Partial '), delta('answer ')], { breakAfter: 2 });
+    if (b === 'network') throw new TypeError('fetch failed');
+    return okStream(`Answer from ${body.model}`);
+  };
+  fn.calls = calls;
+  return fn;
+}
+const order = (chain) => chain.map(c => `${c.providerId}:${c.model}`);
+const fast = { firstTokenTimeoutMs: 80, idleTimeoutMs: 200, maxReplyMs: 2000 };
+
+test.beforeEach(() => { ai._resting.clear(); setEnv(ALL); });
+
+test('language routing: Pidgin, Yorùbá, Hausa and Igbo go DeepSeek → N-ATLaS → Gemma 4 → Qwen', () => {
+  for (const lang of ['pcm', 'yo', 'ha', 'ig']) {
+    for (const mode of ['general', 'developer', 'study', 'research']) {
+      assert.deepEqual(order(ai.chainFor({ mode, language: lang })),
+        ['openrouter:deepseek', 'natlas:natlas', 'gemini:gemma-g', 'openrouter:gemma-or', 'groq:qwen'], `${lang}/${mode}`);
+    }
+  }
+});
+
+test('mode routing for English: General/Study/Research → Qwen first; Developer → DeepSeek first', () => {
+  for (const mode of ['general', 'study', 'research']) {
+    assert.deepEqual(order(ai.chainFor({ mode, language: 'en' })), ['groq:qwen', 'openrouter:deepseek', 'gemini:gemma-g', 'openrouter:gemma-or']);
+  }
+  assert.deepEqual(order(ai.chainFor({ mode: 'developer', language: 'en' })), ['openrouter:deepseek', 'groq:qwen', 'gemini:gemma-g', 'openrouter:gemma-or']);
+  assert.deepEqual(order(ai.chainFor({ mode: 'nonsense' })), order(ai.chainFor({ mode: 'general' })));
+});
+
+test('providers are enabled only when their key is set (N-ATLaS also needs a base URL)', () => {
+  setEnv({ GROQ_API_KEY: 'g', GROQ_MODEL: 'qwen', NATLAS_API_KEY: 'n' }); // no NATLAS_BASE_URL
+  assert.deepEqual(Object.keys(ai.enabledProviders()), ['groq']);
+  assert.deepEqual(order(ai.chainFor({ mode: 'developer', language: 'yo' })), ['groq:qwen']);
+  setEnv({});
+  assert.equal(ai.isConfigured(), false);
+  assert.ok(ai.listModels().every(m => !m.available));
+  assert.equal(ai.listModels().find(m => m.default).status, 'unavailable');
+});
+
+test('model ids are env-overridable and images only go to vision-capable targets', () => {
+  setEnv({ ...ALL, GEMINI_MODEL: 'gemma-4-26b-a4b-it' });
+  const chain = ai.chainFor({ mode: 'general', needsVision: true });
+  assert.deepEqual(order(chain), ['gemini:gemma-4-26b-a4b-it', 'openrouter:gemma-or']);
+  assert.ok(ai.listModels().find(m => m.id === 'colon-saga').capabilities.includes('vision'));
+});
+
+test('Saga Fast has its own chain, but African languages still win', () => {
+  assert.equal(ai.chainFor({ mode: 'developer', model: 'colon-saga-fast' })[0].model, 'qwen');
+  assert.equal(ai.chainFor({ mode: 'developer', language: 'ha', model: 'colon-saga-fast' })[0].model, 'deepseek');
+});
+
+test('fallback on 429 before the first token, in routing order', async () => {
+  const f = mockFetch({ qwen: 429 });
+  let streamed = '';
+  const r = await ai.generate({ mode: 'general', language: 'en', messages: [{ role: 'user', content: 'hi' }], fetch: f, timeouts: fast, onDelta: (t) => { streamed += t; } });
+  assert.deepEqual(f.calls.map(c => c.model), ['qwen', 'deepseek']);
+  assert.equal(r.providerId, 'openrouter');
+  assert.equal(r.model, 'deepseek');
+  assert.equal(r.text, 'Answer from deepseek');
+  assert.equal(streamed, r.text);
+  assert.equal(r.attempts[0].code, 'rate_limited');
+  assert.equal(f.calls[0].auth, 'Bearer g');
+  assert.equal(f.calls[0].body.messages[0].role, 'system');
+  assert.equal(f.calls[0].body.stream, true);
+});
+
+test('fallback on 5xx, 404 (missing free model), network error and first-token timeout', async () => {
+  const f = mockFetch({ deepseek: 404, natlas: 500, 'gemma-g': 'network', 'gemma-or': 'hang' });
+  const r = await ai.generate({ mode: 'general', language: 'pcm', messages: [{ role: 'user', content: 'how far' }], fetch: f, timeouts: fast });
+  assert.deepEqual(f.calls.map(c => c.model), ['deepseek', 'natlas', 'gemma-g', 'gemma-or', 'qwen']);
+  assert.equal(r.model, 'qwen');
+  assert.deepEqual(r.attempts.map(a => a.code), ['model_not_found', 'upstream_error', 'network', 'timeout', undefined]);
+});
+
+test('a provider whose stream never starts (headers but no tokens) times out and falls back', async () => {
+  const f = mockFetch({ qwen: 'hang-stream' });
+  const r = await ai.generate({ mode: 'study', messages: [{ role: 'user', content: 'x' }], fetch: f, timeouts: fast });
+  assert.equal(r.model, 'deepseek');
+});
+
+test('killing the primary: a failed target rests and is tried last next time', async () => {
+  const f = mockFetch({ qwen: 429 });
+  await ai.generate({ mode: 'general', messages: [{ role: 'user', content: 'x' }], fetch: f, timeouts: fast });
+  assert.deepEqual(order(ai.chainFor({ mode: 'general' })), ['openrouter:deepseek', 'gemini:gemma-g', 'openrouter:gemma-or', 'groq:qwen']);
+});
+
+test('no silent model switch after the first token: the error keeps the partial text', async () => {
+  const f = mockFetch({ qwen: 'drop' });
+  await assert.rejects(
+    ai.generate({ mode: 'general', messages: [{ role: 'user', content: 'x' }], fetch: f, timeouts: fast }),
+    (e) => e.code === 'provider_down' && e.partial === true && e.partialText === 'Partial answer ',
+  );
+  assert.deepEqual(f.calls.map(c => c.model), ['qwen']);
+});
+
+test('every provider failing gives provider_down; no keys gives no_provider; images without vision give no_vision', async () => {
+  const f = mockFetch({ qwen: 500, deepseek: 429, 'gemma-g': 503, 'gemma-or': 500 });
+  await assert.rejects(ai.generate({ mode: 'general', messages: [{ role: 'user', content: 'x' }], fetch: f, timeouts: fast }), (e) => e.code === 'provider_down' && !e.partial);
+  setEnv({});
+  await assert.rejects(ai.generate({ mode: 'general', messages: [{ role: 'user', content: 'x' }], fetch: f }), (e) => e.code === 'no_provider');
+  setEnv({ GROQ_API_KEY: 'g', GROQ_MODEL: 'qwen' });
+  const img = [{ role: 'user', content: [{ type: 'text', text: 'what is this' }, { type: 'image_url', image_url: { url: 'data:image/png;base64,AA==' } }] }];
+  await assert.rejects(ai.generate({ mode: 'general', messages: img, fetch: f }), (e) => e.code === 'no_vision');
+});
+
+test('Stop (abort) ends the call without fallback and reports the partial text', async () => {
+  const ctl = new AbortController();
+  const f = async (url, init) => sseResponse([delta('Hello '), delta('there ')], { hang: true });
+  const p = ai.generate({ mode: 'general', messages: [{ role: 'user', content: 'x' }], fetch: f, signal: ctl.signal, timeouts: { ...fast, idleTimeoutMs: 5000 }, onDelta: () => setTimeout(() => ctl.abort(), 5) });
+  await assert.rejects(p, (e) => e.name === 'AbortError' && e.partialText.startsWith('Hello'));
+});
+
+test('streamChat: hides <think> reasoning, ignores keep-alives, handles JSON (non-stream) replies', async () => {
+  const chunks = [': keep-alive\n\n', delta('<thi'), delta('nk>secret plan</th'), delta('ink>\n\nThe '), 'data: {"choices":[{"delta":{"content":"answer"},"finish_reason":"stop"}]}\n\n', 'data: [DONE]\n\n'];
+  const seen = [];
+  const r = await streamChat({ provider: { baseUrl: 'https://x/v1/', apiKey: 'k' }, model: 'm', messages: [], fetch: async (url) => { assert.equal(url, 'https://x/v1/chat/completions'); return sseResponse(chunks); }, onDelta: (t) => seen.push(t) });
+  assert.equal(seen.join(''), 'The answer');
+  assert.equal(r.finishReason, 'stop');
+  const j = await streamChat({ provider: { baseUrl: 'https://x', apiKey: 'k' }, model: 'm', messages: [], fetch: async () => new Response(JSON.stringify({ choices: [{ message: { content: 'whole reply' }, finish_reason: 'stop' }] }), { headers: { 'content-type': 'application/json' } }) });
+  assert.equal(j.text, 'whole reply');
+});
+
+test('streamChat: an error object inside the stream is a provider error', async () => {
+  await assert.rejects(
+    streamChat({ provider: { baseUrl: 'https://x', apiKey: 'k' }, model: 'm', messages: [], fetch: async () => sseResponse(['data: {"error":{"message":"quota exceeded","code":429}}\n\n']) }),
+    (e) => e.name === 'ProviderError' && e.code === 'rate_limited' && /quota/.test(e.message),
+  );
+});
+
+test('SSE parser: split chunks, CRLF, comments, multi-line data, events', () => {
+  const got = [];
+  const p = createParser((e) => got.push(e));
+  p.push('data: {"a"'); p.push(':1}\r\n\r'); p.push('\n: comment\n\nevent: delta\ndata: line1\ndata: line2\n\n');
+  p.push('data: [DONE]');
+  p.end();
+  assert.deepEqual(got, [
+    { event: 'message', data: '{"a":1}' },
+    { event: 'delta', data: 'line1\nline2' },
+    { event: 'message', data: '[DONE]' },
+  ]);
+});
+
+test('think filter: tags split across chunks, text before and after kept', () => {
+  const f = thinkFilter();
+  const out = ['Hi <', 'think', '>x</', 'think> there <', 'b>'].map(s => f.push(s)).join('') + f.flush();
+  assert.equal(out, 'Hi there <b>');
+});
+
+test('the app SSE format round-trips through the same parser the browser uses', () => {
+  // chat-data.js splits on blank lines and reads "event:" and "data:" lines; mirror that here.
+  const { writer } = require('../src/ai/sse');
+  let out = '';
+  const res = { writableEnded: false, on() {}, write: (s) => { out += s; }, end() { this.writableEnded = true; } };
+  const w = writer(res);
+  w.send('start', { message: { id: 'm1' } }); w.send('delta', { text: 'Ẹ káàrọ̀\n"hi"' }); w.send('done', { message: { id: 'm1', status: 'complete' } }); w.end();
+  const events = out.split(/\n\n/).filter(Boolean).map((block) => {
+    let ev = 'message', data = '';
+    block.split('\n').forEach((l) => { if (l.indexOf('event:') === 0) ev = l.slice(6).trim(); else if (l.indexOf('data:') === 0) data += l.slice(5).trim(); });
+    return { ev, d: JSON.parse(data) };
+  });
+  assert.deepEqual(events.map(e => e.ev), ['start', 'delta', 'done']);
+  assert.equal(events[1].d.text, 'Ẹ káàrọ̀\n"hi"');
+});
