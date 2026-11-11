@@ -16,7 +16,9 @@
   function isMobile() { return innerWidth < 900; }
 
   function mount(view, ctx) {
-    C.keyboard();
+    // Optional kit helpers are feature-checked: an older cached kit must never crash the app.
+    if (typeof C.keyboard === 'function') C.keyboard();
+    document.documentElement.classList.add('app-lock');
     S.data = window.ColonBrowserData.get();
     view.innerHTML = '<div class="bw">' +
       '<aside class="bw-side" aria-label="Browser navigation"><a href="#/" class="bw-logo" aria-label="Colon Browser home">' + C.logo('COLON', 'BROWSER') + '</a>' +
@@ -43,7 +45,7 @@
     S.el.addEventListener('click', onClick);
     C.theme.on(themeIcon); themeIcon();
     S.inst.ready.then(function () { route(ctx); syncChrome(); });
-    return function () { S.inst.destroy(); };
+    return function () { S.inst.destroy(); document.documentElement.classList.remove('app-lock'); };
   }
 
   function route(a, b) {
@@ -302,7 +304,7 @@
           '<div class="section-title">Clear browsing data</div><div class="list"><form class="bw-clear" novalidate>' +
           [['history', 'Browsing history'], ['downloads', 'Downloads and uploads list'], ['session', 'Open tabs and session'], ['bookmarks', 'Bookmarks and folders'], ['settings', 'Browser settings']].map(function (c, i) { return '<label class="check"><input type="checkbox" name="' + c[0] + '"' + (i < 2 ? ' checked' : '') + '> <span>' + c[1] + '</span></label>'; }).join('') +
           '<button class="btn danger" type="submit">' + icon('trash') + 'Clear selected data</button></form></div>' +
-          '<p class="tiny muted" style="text-align:center;margin:20px 0">Colon Browser v0.3.0 · Web reader preview · by Nifelux</p>';
+          '<p class="tiny muted" style="text-align:center;margin:20px 0">Colon Browser v0.3.1 · Web reader preview · by Nifelux</p>';
         box.querySelectorAll('[data-s]').forEach(function (el) {
           el.addEventListener('change', function () {
             var k = el.getAttribute('data-s'), v = el.type === 'checkbox' ? el.checked : el.value, patch = {};
