@@ -2,13 +2,14 @@
 
 By Nifelux. Colon AI (formerly NIRA AI) is an African-focused AI platform. It has three apps on one shared backend: **Colon AI** (chat, with Colon Saga), **Colon Browser**, and the **Admin Dashboard**.
 
-Each phase ships only when it meets its release standard: tested, secured, deployed and documented. After Phase 12, the product is complete and ready to launch.
+Each phase ships only when it meets its release standard: tested, secured, deployed and documented. After Phase 11, the product is complete and ready to launch. Phase 12 holds paid upgrades for when usage justifies them.
 
 ## Hosting facts (cPanel inspection, 11 Nov 2026)
 - AfeesHost cPanel 138 on CloudLinux. Node.js up to 24.22.2 and Python App are available.
 - Limits: 1 GB RAM, 20 entry processes, 100 processes, 5 GB disk, 5 MySQL databases, 5 subdomains.
 - Tools available: SSH, Git Version Control, cron and JetBackup. There is no browser Terminal.
-- What that means: cPanel runs the backend, the three web apps and MySQL. It can't run Chromium or AI models, so those run on separate free services.
+- What that means: cPanel runs the backend, the three web apps and MySQL. AI models are used through free hosted APIs (no GPU at this stage).
+- **Browser engine (free, owned by us):** Colon Browser runs on the Android System WebView, which is Chromium, on the user's own phone. That's no server cost and no GPU. The web version gets a lighter proxy/reader mode. Server-side Chromium is an upgrade for later.
 
 ## Domains (proposed)
 - colon.<domain> or the root domain: Colon AI chat
@@ -24,7 +25,7 @@ Each phase ships only when it meets its release standard: tested, secured, deplo
 - Deployment: GitHub, then cPanel Git Version Control (`.cpanel.yml`), so it can be done from a phone with no PC.
 - Environment config and secrets live on the server, never in the repo.
 - Health endpoint, structured logs, error pages, and nightly DB backup through cron and JetBackup.
-- Live checks: WebSockets through the proxy, persistent process behaviour, and outbound HTTPS to AI APIs.
+- Live checks: WebSockets through the proxy, persistent process behaviour, outbound HTTPS to AI APIs, and a test of whether headless Chromium can run on cPanel at all (expected to fail on 1 GB RAM and the 100-process cap, but tested, not assumed).
 - Brand kit: colours, type and logo. The animated logo intro is a water drop that lands, the ripple becomes a flame, and the flame writes COLON.
 **Release standard:** a push to `main` deploys to staging and production, the health check is green, and the WebSocket and AI API tests pass.
 
@@ -83,54 +84,57 @@ Each phase ships only when it meets its release standard: tested, secured, deplo
 - Hands-free voice conversation mode.
 **Release standard:** accuracy is tested on Nigerian English, Pidgin, Yorùbá, Hausa and Igbo samples, and it works on low-end Android phones.
 
-## Phase 7 — Colon Browser (standalone)
-- Browser UI: address and search bar, back, forward, refresh, home, tabs, history, bookmarks, downloads, full-screen, and file upload.
-- Browser engine service: real Chromium (Playwright) on a separate free server (for example Oracle Cloud Always Free), not on cPanel. Pages stream to the UI, and taps and typing go back to it.
-- Isolated, encrypted profile per user (cookies and storage). No session is ever shared between users.
-- Session manager in the backend: active sessions, tabs, URLs, history and control owner.
-- A lightweight reader/proxy mode as fallback when the engine is busy.
-**Release standard:** major sites (Google, YouTube, banks' public pages, news, social) load and work, and sessions survive reloads.
+## Phase 7 — Android app (the home of the browser engine)
+- Android app built in the cloud with GitHub Actions, so no Android Studio or PC is needed. It loads Colon AI and gives access to native features.
+- A native browser module built on Android System WebView (Chromium): one WebView per tab, managed by the app.
+- A secure bridge from the app to the backend over WebSocket. The phone reports page state, and the backend and Saga send commands.
+- Native extras: microphone and file permissions, downloads through Android DownloadManager, share-to-Colon, push notifications, and the splash with the logo animation.
+- Signed APK for direct install and testing, with an in-app update prompt.
+**Release standard:** installs and runs on low, mid and high-end Android phones, the bridge stays connected on mobile data, and the crash-free rate is above 99%.
 
-## Phase 8 — Saga browser automation
-- Controlled tool set: openUrl, getPageContent, getLinks, click, fill, scroll, screenshot, back, forward, refresh, tabs.
+## Phase 8 — Colon Browser (standalone)
+- **Android (full engine):** address and search bar, back, forward, refresh, home, tabs, history, bookmarks, downloads, file upload, full-screen, incognito tab, and clear data.
+- Each user's cookies and logins stay on their own phone, never on our server.
+- Google and some banks block sign-in inside WebViews. Those sign-ins open in a Chrome Custom Tab and then return.
+- **Web version (light mode):** a server-side reader/proxy mode for reading and research pages on cPanel, with a clear "open in the app for full browsing" prompt.
+- Session manager in the backend: active tabs, URLs, history and control owner per user and device.
+**Release standard:** the major sites (Google, YouTube, news, social, banks' public pages) work in the app, and tabs and history survive app restarts.
+
+## Phase 9 — Saga browser automation
+- Saga controls the phone's WebView through the bridge, using a controlled tool set: openUrl, getPageContent, getLinks, click, fill, scroll, screenshot, back, forward, refresh, tabs. Actions run as injected JavaScript and native calls.
 - Action, then observation, then decision loop with step limits and timeouts.
 - Saga explains each step and cites the pages it used.
 - Web pages are treated as untrusted content and can't instruct Saga.
-- Required approval before payments, purchases, form submissions, sending messages or sharing personal data.
+- Required approval, tapped on the phone, before payments, purchases, form submissions, sending messages or sharing personal data.
 - Every action is logged and replayable for the user and admins.
 **Release standard:** a test suite of multi-step tasks passes, injection attacks fail, and approvals can't be bypassed.
 
-## Phase 9 — Browser inside chat & control modes
+## Phase 10 — Browser inside chat & control modes
 - The browser appears automatically in the conversation when Saga browses.
-- Embedded layout (expandable) and split-screen layout: stacked with a resizable divider on mobile, side by side on desktop.
+- Embedded layout (expandable) and split-screen layout (stacked with a resizable divider on phones).
 - Switching layouts never restarts or loses the session.
 - Control modes: **AI, Manual, Shared**, with Take control and Return to AI buttons, plus a live AI activity indicator. Pending AI actions pause the instant the user takes over.
 - Open a page in Colon Browser, then ask Saga about it in Colon AI. Both use the same session.
-**Release standard:** mode and layout switching are tested on Android and desktop with no lost state.
-
-## Phase 10 — Android app
-- Android app wrapping the web apps (WebView), built in the cloud with GitHub Actions, with no Android Studio or PC needed.
-- Native extras: microphone and file permissions, share-to-Colon, push notifications, and the splash with the logo animation.
-- Signed APK/AAB, Play Store listing, and in-app update prompt.
-**Release standard:** tested on low, mid and high-end Android devices, passes Play policy review, and has a crash-free rate above 99%.
+**Release standard:** mode and layout switching are tested across devices with no lost state.
 
 ## Phase 11 — Launch readiness
 - Plans and billing: free tier plus paid plans through a Nigerian gateway (Paystack or AfrStar), with limits enforced per plan.
+- Play Store listing, policy review and release (AAB).
 - Public landing page, SEO, help centre and FAQ, and contact and support inbox.
 - Monitoring and alerts (uptime, errors, provider quota), status page, and performance tuning for slow networks.
 - Security review, load test to the hosting limits, backup restore drill, and NDPR-compliant privacy.
 **Release standard:** the launch checklist is all green, and restore from backup has been proven.
 
-## Phase 12 — Growth & own intelligence (ongoing)
+## Phase 12 — Upgrades & own intelligence (when usage justifies it)
+- Server-side Chromium (Playwright) on our own server for full browsing on the web and desktop, starting on a free-forever VM if one is available.
 - Collect consented feedback data, then clean it into African datasets.
-- LoRA/QLoRA fine-tune Saga on rented GPU only when the data and usage justify it, re-benchmarked against the current default.
-- Move inference to dedicated GPU when free providers can't carry the load.
+- LoRA/QLoRA fine-tuning and GPU inference only when the data, users and budget justify it, each re-benchmarked against the current default.
 - Regular model refresh: any better free model is evaluated, never adopted on hype.
 
 ---
 
 ## Standing rules
-- Free technology first. Paid services only when genuinely necessary, with alternatives explained.
+- Free technology first, with no GPU and no paid servers at the start. Paid services only when genuinely necessary, with alternatives explained.
 - Everything can be done from an Android phone, through GitHub and cPanel.
 - The browser is one reusable module shared by Colon AI and Colon Browser, never duplicated.
 - No phase is "done" because it looks done. It is done when it meets its release standard.
