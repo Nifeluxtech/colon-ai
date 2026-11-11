@@ -7,10 +7,12 @@
 <meta name="color-scheme" content="dark">
 <meta name="referrer" content="strict-origin-when-cross-origin">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22%3E%3Crect width=%2224%22 height=%2224%22 rx=%226%22 fill=%22%23ff6a1a%22/%3E%3Cpath fill=%22%23fff%22 d=%22M12 4c2 2.6 3.7 4.5 3.7 7.3a3.7 3.7 0 0 1-7.4 0c0-1.3.5-2.4 1.3-3.4.2 1.1.7 1.8 1.5 2.2C11 8.1 11.3 6 12 4z%22/%3E%3C/svg%3E">
-<link rel="stylesheet" href="/brand/colon-intro.css?v=0.4.4">
-<link rel="stylesheet" href="/ui/colon-ui.css?v=0.4.4">
-<script src="/brand/colon-intro.js?v=0.4.4" defer></script>
-<script src="/ui/colon-app.js?v=0.4.4" defer></script>
+<link rel="stylesheet" href="/brand/colon-intro.css?v=0.5.0">
+<link rel="stylesheet" href="/ui/colon-ui.css?v=0.5.0">
+<script src="/brand/colon-intro.js?v=0.5.0" defer></script>
+<script src="/ui/colon-app.js?v=0.5.0" defer></script>
+<link rel="stylesheet" href="css/admin.css?v=0.5.0">
+<script src="js/admin-app.js?v=0.5.0" defer></script>
 <title>Colon Admin</title>
 <meta name="robots" content="noindex,nofollow">
 </head>
@@ -33,125 +35,8 @@ window.colonKitReady = function (need, extra) {
 </script>
 <script>
 document.addEventListener('DOMContentLoaded', function () {
-  if (!window.colonKitReady(['icon', 'esc', '$', '$$', 'api', 'toast', 'row', 'hasRole', 'roleName'])) return;
-  var C = window.Colon, icon = C.icon, esc = C.esc, $ = C.$, $$ = C.$$;
-  var ROLES = ['user', 'moderator', 'admin', 'super_admin'];
-
-  // Staff gate: role check, then 2FA requirement (enforced by the API too).
-  function gate(view, fn) {
-    if (!C.hasRole('moderator')) {
-      view.innerHTML = '<div class="card empty">' + icon('lock') + '<div class="h3" style="color:var(--text)">No admin access</div><p class="small">This account is a Colon member. Ask a Super Admin for a staff role.</p><a class="btn" href="#/account">Go to account</a></div>';
-      return;
-    }
-    if (!C.user.totp_enabled) {
-      view.innerHTML = '<div class="card"><div class="h2">Turn on two-factor first</div><p class="small muted">Admin tools need a code from an authenticator app every time you sign in. It takes a minute.</p><a class="btn primary block" href="#/account/security">' + icon('shield') + ' Set up two-factor</a></div>';
-      return;
-    }
-    fn();
-  }
-  function fail(view, e) { view.innerHTML = '<div class="card empty">' + icon('alert') + '<p>' + esc(e.message) + '</p></div>'; }
-
-  function overview(view) {
-    gate(view, function () {
-      var u = C.user;
-      view.innerHTML = '<h1 class="h1">Hello, ' + esc((u.name || '').split(' ')[0] || 'admin') + '</h1><p class="lead">' + C.roleName(u.role) + ' · Colon control centre</p>' +
-        '<div class="grid cols-4" id="stats">' + [1, 2, 3, 4].map(function () { return '<div class="stat"><div class="skel" style="height:30px;width:60%"></div><div class="skel" style="height:12px;margin-top:8px"></div></div>'; }).join('') + '</div>' +
-        '<div class="section-title">Manage</div><div class="list">' + C.row('#/users', 'users', 'Users and roles', 'Search, promote, unlock, sign out') +
-        (C.hasRole('admin') ? C.row('#/audit', 'list', 'Audit log', 'Every security and admin action') : '') + '</div>' +
-        '<div class="section-title">Coming next</div><div class="list">' +
-        '<div class="row"><span class="ico">' + icon('sparkle') + '</span><span class="body"><div class="title">Models and routing</div><div class="sub">Providers, fallbacks, per-mode routing</div></span><span class="badge">Phase 4</span></div>' +
-        '<div class="row"><span class="ico">' + icon('grid') + '</span><span class="body"><div class="title">Usage and limits</div><div class="sub">Daily quotas and costs</div></span><span class="badge">Phase 4</span></div></div>';
-      C.api('/admin/stats').then(function (s) {
-        $('#stats', view).innerHTML = [[s.users, 'Users'], [s.active_7d, 'Active 7 days'], [s.new_24h, 'New today'], [s.with_2fa, 'With 2FA']].map(function (x) {
-          return '<div class="stat"><b>' + Number(x[0]).toLocaleString() + '</b><span>' + x[1] + '</span></div>'; }).join('');
-      }).catch(function (e) { fail($('#stats', view), e); });
-    });
-  }
-
-  function users(view) {
-    gate(view, function () {
-      view.innerHTML = '<h1 class="h1">Users</h1><p class="lead">Roles, locks and sessions.</p>' +
-        '<form id="sf" class="card" style="padding:6px 6px 6px 14px;display:flex;align-items:center;gap:8px;border-radius:999px">' + icon('search') +
-        '<input class="input" style="border:0;background:transparent;min-height:44px" name="q" type="search" placeholder="Search name or email" aria-label="Search users"></form>' +
-        '<div class="list ulist" id="ul" style="margin-top:12px"></div>';
-      var t;
-      function load(q) {
-        $('#ul', view).innerHTML = '<div style="padding:16px"><div class="skel" style="height:40px"></div><div class="skel" style="height:40px;margin-top:12px"></div></div>';
-        C.api('/admin/users?q=' + encodeURIComponent(q || '')).then(function (d) {
-          if (!d.users.length) { $('#ul', view).innerHTML = '<div class="empty">No users found.</div>'; return; }
-          $('#ul', view).innerHTML = d.users.map(function (u) {
-            return '<button class="u row" data-id="' + u.id + '" style="border-top:1px solid var(--line)"><span class="avatar">' + esc(C.initials(u.name, u.email)) + '</span><span class="body"><div class="title">' + esc(u.name || u.email) + '</div><div class="sub">' + esc(u.email) + '</div>' +
-              '<div style="display:flex;gap:6px;margin-top:6px;flex-wrap:wrap"><span class="badge ' + (u.role !== 'user' ? 'flame' : '') + '">' + C.roleName(u.role) + '</span>' + (u.totp_enabled ? '<span class="badge ok">2FA</span>' : '') + (u.verified ? '' : '<span class="badge warn">Unverified</span>') + (u.locked ? '<span class="badge warn">Locked</span>' : '') + '</div></span><span class="chev">' + icon('chev') + '</span></button>';
-          }).join('');
-          $$('[data-id]', view).forEach(function (b) { b.addEventListener('click', function () { manage(d.users.filter(function (x) { return String(x.id) === b.dataset.id; })[0], function () { load(q); }); }); });
-        }).catch(function (e) { fail($('#ul', view), e); });
-      }
-      $('#sf', view).addEventListener('submit', function (e) { e.preventDefault(); });
-      $('input', $('#sf', view)).addEventListener('input', function (e) { clearTimeout(t); var v = e.target.value; t = setTimeout(function () { load(v); }, 300); });
-      load('');
-    });
-  }
-
-  function manage(u, reload) {
-    var me = C.user, self = u.id === me.id, canRole = C.hasRole('admin') && !self;
-    var options = ROLES.filter(function (r) { return me.role === 'super_admin' || ['user', 'moderator'].indexOf(r) > -1; });
-    C.sheet('<div style="display:flex;gap:12px;align-items:center"><span class="avatar" style="width:48px;height:48px">' + esc(C.initials(u.name, u.email)) + '</span><div style="min-width:0"><div class="h2">' + esc(u.name || 'No name') + '</div><div class="small muted" style="word-break:break-all">' + esc(u.email) + '</div></div></div>' +
-      '<p class="tiny muted">Joined ' + C.ago(u.created_at) + ' · Language ' + esc(C.LANGS[u.language] || u.language) + '</p>' +
-      (canRole && (me.role === 'super_admin' || ['user', 'moderator'].indexOf(u.role) > -1) ? '<form class="form" novalidate>' + C.field({ name: 'role', label: 'Role', type: 'select', value: u.role, options: options.map(function (r) { return [r, C.roleName(r)]; }) }) + '<button class="btn primary block" type="submit">Save role</button></form>' : '<p class="small muted">' + (self ? 'You can’t change your own role.' : 'Only a Super Admin can change this role.') + '</p>') +
-      '<div class="list" style="margin-top:14px">' +
-      (u.locked ? '<button class="row" data-unlock><span class="ico">' + icon('key') + '</span><span class="body"><div class="title">Unlock account</div><div class="sub">Clear failed sign-in attempts</div></span></button>' : '') +
-      (C.hasRole('admin') && !self ? '<button class="row" data-signout><span class="ico">' + icon('out') + '</span><span class="body"><div class="title">Sign out everywhere</div><div class="sub">End all of this user’s sessions</div></span></button>' : '') +
-      '</div><button class="btn ghost block" style="margin-top:8px" data-close>Close</button>', function (el, close) {
-      var f = $('form', el);
-      if (f) C.bindForm(f, function (d) { return C.api('/admin/users/' + u.id + '/role', { method: 'PATCH', body: d }).then(function () { C.toast('Role updated.', 'ok'); close(); reload(); }); });
-      var un = $('[data-unlock]', el); if (un) un.addEventListener('click', function () { C.api('/admin/users/' + u.id + '/unlock', { method: 'POST' }).then(function () { C.toast('Account unlocked.', 'ok'); close(); reload(); }).catch(function (e) { C.toast(e.message, 'bad'); }); });
-      var so = $('[data-signout]', el); if (so) so.addEventListener('click', function () { C.api('/admin/users/' + u.id + '/signout', { method: 'POST' }).then(function () { C.toast('User signed out everywhere.', 'ok'); close(); }).catch(function (e) { C.toast(e.message, 'bad'); }); });
-    });
-  }
-
-  var LABELS = { 'auth.login': 'Signed in', 'auth.login_google': 'Signed in with Google', 'auth.login_failed': 'Failed sign-in', 'auth.totp_failed': 'Wrong 2FA code', 'auth.logout': 'Signed out',
-    'user.register': 'Created account', 'user.register_google': 'Created account (Google)', 'user.email_verified': 'Confirmed email', 'auth.reset_requested': 'Asked for password reset', 'auth.password_reset': 'Reset password',
-    'account.profile_updated': 'Updated profile', 'account.password_changed': 'Changed password', 'account.session_revoked': 'Signed out a device', 'account.sessions_revoked_all': 'Signed out other devices',
-    'account.2fa_enabled': 'Turned on 2FA', 'account.2fa_disabled': 'Turned off 2FA', 'account.deleted': 'Deleted account', 'admin.users_viewed': 'Viewed users', 'admin.role_changed': 'Changed a role',
-    'admin.user_unlocked': 'Unlocked a user', 'admin.user_signed_out': 'Signed a user out' };
-
-  function audit(view) {
-    gate(view, function () {
-      view.innerHTML = '<h1 class="h1">Audit log</h1><p class="lead">Every security and admin action, newest first.</p><div class="list" id="al"></div><button class="btn block" style="margin-top:12px;display:none" id="more">Load more</button>';
-      var last = 0;
-      function load() {
-        C.api('/admin/audit' + (last ? '?before=' + last : '')).then(function (d) {
-          var html = d.entries.map(function (a) {
-            var meta = typeof a.meta === 'string' ? JSON.parse(a.meta || 'null') : a.meta;
-            var extra = meta && meta.to ? ' (' + C.roleName(meta.from) + ' → ' + C.roleName(meta.to) + ')' : '';
-            var bad = /failed/.test(a.action);
-            return '<div class="row"><span class="ico" style="' + (bad ? 'color:var(--warn)' : '') + '">' + icon(bad ? 'alert' : /admin\./.test(a.action) ? 'shield' : 'user') + '</span><span class="body"><div class="title">' + esc(LABELS[a.action] || a.action) + esc(extra) + '</div>' +
-              '<div class="sub">' + esc(a.actor_email || 'Unknown') + (a.target_type ? ' · ' + esc(a.target_type) + ' #' + esc(a.target_id) : '') + ' · ' + esc(a.ip) + '</div></span><span class="tiny muted" style="flex:none">' + C.ago(a.created_at) + '</span></div>';
-          }).join('');
-          $('#al', view).insertAdjacentHTML('beforeend', html || (last ? '' : '<div class="empty">Nothing logged yet.</div>'));
-          if (d.entries.length) last = d.entries[d.entries.length - 1].id;
-          $('#more', view).style.display = d.entries.length === 50 ? '' : 'none';
-        }).catch(function (e) { fail($('#al', view), e); });
-      }
-      $('#more', view).addEventListener('click', load);
-      load();
-    });
-  }
-
-  C.start({
-    app: 'admin', title: 'Colon Admin', subtitle: 'Admin by Nifelux', allowSignup: false,
-    nav: [
-      { href: '/', label: 'Overview', icon: 'grid' },
-      { href: '/users', label: 'Users', icon: 'users', role: 'moderator' },
-      { href: '/audit', label: 'Audit', icon: 'list', role: 'admin' },
-      { href: '/account', label: 'Account', icon: 'user', match: /^\/account/ }
-    ],
-    routes: [
-      { path: '/', auth: true, wide: true, render: overview },
-      { path: '/users', auth: true, wide: true, title: 'Users', render: users },
-      { path: '/audit', auth: true, wide: true, title: 'Audit log', render: audit }
-    ]
-  });
+  if (!window.colonKitReady(['icon', 'esc', '$', '$$', 'api', 'toast', 'row', 'hasRole', 'roleName', 'sheet', 'confirm', 'prompt', 'field', 'bindForm', 'go'], ['ColonAdmin'])) return;
+  window.ColonAdmin.start();
 });
 </script>
 </body>
