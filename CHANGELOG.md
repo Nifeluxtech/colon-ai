@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.4.4] — 2026-11-11 · ~1 s first reply
+- **Gemma 4 26B A4B is the main Google model** (first token ≈0.7–1.2 s in tests); Gemma 4 31B is now the Google backup (often 500/503 or 14 s+).
+- **Rolling hedge pool:** two models always in flight; one that fails fast is replaced at once instead of waiting for the slow one.
+- **Quick 5xx retried once** on the same model (Google's free tier throws random 500s that succeed on retry).
+- NVIDIA Gemma disabled by default (`NVIDIA_GEMMA_MODEL` empty; the model id now 404s on NVIDIA). NVIDIA DeepSeek/GLM stay as backups (free tier queues 7–34 s before the first token).
+- `ai_reply_ok` log line (provider, model, ms) in stderr.log so the live winner is visible.
+
 ## [0.4.3] — 2026-11-11 · Faster replies: hedged racing
 - **Saga asks two models at once** (from different providers, e.g. DeepSeek on NVIDIA and Gemma 4 on Google) and streams whichever starts answering first; the other is cancelled. A slow or overloaded free host no longer adds 25 s of "thinking". If both fail before answering, the next pair is tried. `AI_HEDGE` (default 2; 1 = one at a time).
 - Live server log before this fix: NVIDIA DeepSeek first-token timeouts and Google Gemma 500/503 "high demand" errors, tried one after another.

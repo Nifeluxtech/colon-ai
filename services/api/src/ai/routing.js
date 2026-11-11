@@ -53,11 +53,11 @@ function targets() {
     ],
     gemma: [
       // Google AI Studio first: its free Gemma quota is far larger than OpenRouter's free tier.
-      { provider: 'gemini', model: env('GEMINI_MODEL', 'gemma-4-31b-it'), vision: env('GEMINI_VISION', '1') === '1' },
+      { provider: 'gemini', model: env('GEMINI_MODEL', 'gemma-4-26b-a4b-it'), vision: env('GEMINI_VISION', '1') === '1' },
       // Second Google model (faster MoE) so a Google hiccup on the 31B doesn't leave Saga silent.
-      { provider: 'gemini', model: env('GEMINI_FALLBACK_MODEL', 'gemma-4-26b-a4b-it') === 'off' ? '' : env('GEMINI_FALLBACK_MODEL', 'gemma-4-26b-a4b-it'), vision: env('GEMINI_VISION', '1') === '1' },
+      { provider: 'gemini', model: env('GEMINI_FALLBACK_MODEL', 'gemma-4-31b-it') === 'off' ? '' : env('GEMINI_FALLBACK_MODEL', 'gemma-4-31b-it'), vision: env('GEMINI_VISION', '1') === '1' },
       // Gemma 4 31B on NVIDIA too, so a busy Google free tier has a second host.
-      { provider: 'nvidia', model: env('NVIDIA_GEMMA_MODEL', 'google/gemma-4-31b-it'), vision: false },
+      { provider: 'nvidia', model: env('NVIDIA_GEMMA_MODEL', ''), vision: false },
       { provider: 'openrouter', model: env('OPENROUTER_GEMMA_MODEL', 'google/gemma-4-31b-it:free'), vision: env('OPENROUTER_GEMMA_VISION', '1') === '1' },
     ],
     glm: [

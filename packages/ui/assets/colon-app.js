@@ -849,7 +849,7 @@
     });
   }
 
-  window.Colon = { version: '0.4.3', start: start, api: api, icon: icon, esc: esc, $: $, $$: $$, toast: toast, sheet: sheet, field: field, bindForm: bindForm, go: go,
+  window.Colon = { version: '0.4.4', start: start, api: api, icon: icon, esc: esc, $: $, $$: $$, toast: toast, sheet: sheet, field: field, bindForm: bindForm, go: go,
     ago: ago, device: device, initials: initials, roleName: roleName, hasRole: hasRole, LANGS: LANGS, MARK: MARK, logo: logo,
     theme: theme, menu: menu, confirm: confirmDialog, prompt: promptDialog, drawer: drawer, keyboard: keyboard, resizable: resizable,
     copyText: copyText, fmtBytes: fmtBytes, uid: uid, debounce: debounce, trapFocus: trapFocus, get API() { return API; },

@@ -110,7 +110,7 @@
       '<div class="section-title">Get in touch</div><div class="list">' +
       C.row('https://github.com/Nifeluxtech/colon-ai/issues', 'alert', 'Report a problem', 'Open an issue on GitHub') +
       C.row('#/terms', 'file', 'Terms of Service', '') + C.row('#/privacy', 'lock', 'Privacy Policy', '') + '</div>' +
-      '<p class="tiny muted" style="text-align:center;margin:20px 0">Colon AI v0.4.3 · by Nifelux</p></div>';
+      '<p class="tiny muted" style="text-align:center;margin:20px 0">Colon AI v0.4.4 · by Nifelux</p></div>';
     page.querySelector('a[href^="https://github.com"]').setAttribute('target', '_blank');
   };
 })();

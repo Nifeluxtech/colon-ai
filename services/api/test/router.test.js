@@ -118,9 +118,10 @@ test('fallback on 429 before the first token, in routing order', async () => {
 test('fallback on 5xx, 404 (missing free model), network error and first-token timeout', async () => {
   const f = mockFetch({ deepseek: 404, natlas: 500, 'gemma-g': 'network', 'gemma-or': 'hang' });
   const r = await ai.generate({ mode: 'general', language: 'pcm', messages: [{ role: 'user', content: 'how far' }], fetch: f, timeouts: fast });
-  assert.deepEqual(f.calls.map(c => c.model), ['deepseek', 'natlas', 'gemma-g', 'gemma-or', 'qwen']);
+  // a quick 5xx is retried once on the same model (Google's free tier throws random 500s)
+  assert.deepEqual(f.calls.map(c => c.model), ['deepseek', 'natlas', 'natlas', 'gemma-g', 'gemma-or', 'qwen']);
   assert.equal(r.model, 'qwen');
-  assert.deepEqual(r.attempts.map(a => a.code), ['model_not_found', 'upstream_error', 'network', 'timeout', undefined]);
+  assert.deepEqual(r.attempts.map(a => a.code), ['model_not_found', 'upstream_error', 'upstream_error', 'network', 'timeout', undefined]);
 });
 
 test('a provider whose stream never starts (headers but no tokens) times out and falls back', async () => {
@@ -238,8 +239,8 @@ test('a second Google Gemma model backs up the first', async () => {
   setEnv({ GEMINI_API_KEY: 'm', GEMINI_MODEL: 'gemma-a' });
   const f = mockFetch({ 'gemma-a': 500 });
   const r = await ai.generate({ mode: 'general', messages: [{ role: 'user', content: 'x' }], fetch: f, timeouts: fast });
-  assert.deepEqual(f.calls.map(c => c.model), ['gemma-a', 'gemma-4-26b-a4b-it']);
-  assert.equal(r.model, 'gemma-4-26b-a4b-it');
+  assert.deepEqual(f.calls.map(c => c.model), ['gemma-a', 'gemma-a', 'gemma-4-31b-it']);
+  assert.equal(r.model, 'gemma-4-31b-it');
 });
 
 test('hedged racing: a slow first model does not delay the reply; only the winner reaches the user', async () => {
@@ -271,4 +272,13 @@ test('hedged racing: a whole wave failing moves on to the next wave', async () =
   const r = await ai.generate({ mode: 'general', messages: [{ role: 'user', content: 'x' }], fetch: f, timeouts: { ...fast, hedge: 2 } });
   assert.equal(r.model, 'gemma-g');
   assert.equal(r.attempts.filter(a => !a.ok).length, 2);
+});
+
+test('hedged pool: a model failing fast is replaced at once, without waiting for the slow one', async () => {
+  ai._resting.clear();
+  const f = mockFetch({ qwen: 'hang', deepseek: 404 });
+  const t0 = Date.now();
+  const r = await ai.generate({ mode: 'general', messages: [{ role: 'user', content: 'x' }], fetch: f, timeouts: { ...fast, firstTokenTimeoutMs: 5000, hedge: 2 } });
+  assert.ok(Date.now() - t0 < 1000);
+  assert.equal(r.model, 'gemma-g');
 });
