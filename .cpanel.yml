@@ -1,0 +1,18 @@
+# cPanel Git Version Control deployment (Deploy HEAD Commit).
+# Repo is cloned to /home/apparatu/repositories/colon-ai
+# The Node app (api.apparatus.name.ng) runs straight from backend/.
+---
+deployment:
+  tasks:
+    - export HOMEDIR=/home/apparatu
+    - export REPO=$HOMEDIR/repositories/colon-ai
+    # Static web apps -> their subdomain document roots
+    - /bin/cp -R $REPO/apps/chat/public/. $HOMEDIR/chat.apparatus.name.ng/
+    - /bin/cp -R $REPO/apps/browser/public/. $HOMEDIR/browser.apparatus.name.ng/
+    - /bin/cp -R $REPO/apps/admin/public/. $HOMEDIR/admin.apparatus.name.ng/
+    - /bin/cp -R $REPO/packages/shared/brand/. $HOMEDIR/chat.apparatus.name.ng/brand/
+    - /bin/cp -R $REPO/packages/shared/brand/. $HOMEDIR/browser.apparatus.name.ng/brand/
+    - /bin/cp -R $REPO/packages/shared/brand/. $HOMEDIR/admin.apparatus.name.ng/brand/
+    # Restart the Node app (Passenger)
+    - /bin/mkdir -p $REPO/backend/tmp
+    - /bin/touch $REPO/backend/tmp/restart.txt
