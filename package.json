@@ -1,12 +1,13 @@
 {
   "name": "@nifelux/colon-ai",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
   "description": "Colon AI by Nifelux: African-focused AI assistant, Colon Browser and Admin Dashboard",
   "author": "Nifelux",
   "license": "UNLICENSED",
-  "workspaces": ["services/*", "packages/*"],
-  "engines": { "node": ">=24" },
+  "engines": {
+    "node": ">=24"
+  },
   "scripts": {
     "check": "node scripts/check.js"
   }

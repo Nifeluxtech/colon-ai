@@ -15,6 +15,11 @@ deployment:
     - /bin/cp -R $REPO/packages/brand/assets/. $HOMEDIR/chat.apparatus.name.ng/brand/
     - /bin/cp -R $REPO/packages/brand/assets/. $HOMEDIR/browser.apparatus.name.ng/brand/
     - /bin/cp -R $REPO/packages/brand/assets/. $HOMEDIR/admin.apparatus.name.ng/brand/
-    # Restart the API (Passenger)
+    # Shared UI kit (design system + app core) -> /ui on every app
+    - /bin/mkdir -p $HOMEDIR/chat.apparatus.name.ng/ui $HOMEDIR/browser.apparatus.name.ng/ui $HOMEDIR/admin.apparatus.name.ng/ui
+    - /bin/cp -R $REPO/packages/ui/assets/. $HOMEDIR/chat.apparatus.name.ng/ui/
+    - /bin/cp -R $REPO/packages/ui/assets/. $HOMEDIR/browser.apparatus.name.ng/ui/
+    - /bin/cp -R $REPO/packages/ui/assets/. $HOMEDIR/admin.apparatus.name.ng/ui/
+    # Restart hint for the API (also press Restart in Setup Node.js App)
     - /bin/mkdir -p $REPO/services/api/tmp
     - /bin/touch $REPO/services/api/tmp/restart.txt
