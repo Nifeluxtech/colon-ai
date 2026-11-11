@@ -1,0 +1,16 @@
+/* Colon AI animated logo intro: drop -> ripple -> flame -> COLON wordmark. */
+.colon-intro{position:fixed;inset:0;z-index:9999;display:grid;place-items:center;background:#07080c;transition:opacity .6s ease .2s}
+.colon-intro.done{opacity:0;pointer-events:none}
+.colon-intro svg{width:min(80vw,420px);height:auto;overflow:visible}
+.ci-drop{fill:#7cc4ff;transform-box:fill-box;transform-origin:center;animation:ci-fall .7s cubic-bezier(.55,0,1,.45) forwards}
+.ci-ripple{fill:none;stroke:#7cc4ff;stroke-width:2;opacity:0;transform-box:fill-box;transform-origin:center;animation:ci-ripple .9s ease-out .7s forwards}
+.ci-ripple.r2{animation-delay:.85s}
+.ci-flame{fill:url(#ci-fire);opacity:0;transform-box:fill-box;transform-origin:50% 100%;animation:ci-flame-in .5s ease-out 1.25s forwards,ci-flicker .9s ease-in-out 1.75s infinite alternate}
+.ci-word{font:800 64px/1 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;letter-spacing:.14em;fill:none;stroke:#ff8a3d;stroke-width:1.5;stroke-dasharray:420;stroke-dashoffset:420;animation:ci-write 1.3s ease-in-out 1.6s forwards,ci-fill .6s ease 2.8s forwards}
+@keyframes ci-fall{0%{transform:translateY(-220px) scaleY(1.25);opacity:1}90%{transform:translateY(0) scaleY(1.1);opacity:1}100%{transform:translateY(0) scale(1.6,.2);opacity:0}}
+@keyframes ci-ripple{0%{opacity:.9;transform:scale(.2)}100%{opacity:0;transform:scale(3.2,1)}}
+@keyframes ci-flame-in{0%{opacity:0;transform:scale(.2)}100%{opacity:1;transform:scale(1)}}
+@keyframes ci-flicker{0%{transform:scale(1,1) skewX(0)}50%{transform:scale(.96,1.05) skewX(2deg)}100%{transform:scale(1.03,.97) skewX(-2deg)}}
+@keyframes ci-write{to{stroke-dashoffset:0}}
+@keyframes ci-fill{to{fill:#f3f4f8;stroke:transparent}}
+@media (prefers-reduced-motion:reduce){.colon-intro *{animation-duration:.01s!important;animation-delay:0s!important}}
