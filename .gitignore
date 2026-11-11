@@ -1,5 +1,6 @@
-# Dependencies
-node_modules/
+# Dependencies (cPanel makes node_modules a symlink, so no trailing slash)
+node_modules
+package-lock.json
 
 # Environment & secrets
 .env
