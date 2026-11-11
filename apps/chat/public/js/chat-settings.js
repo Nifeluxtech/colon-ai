@@ -61,7 +61,7 @@
           toggle('linksInPanel', 'Open links in the browser panel', 'Links and sources open beside your chat instead of a new tab.', s.linksInPanel) +
           select('browserLayout', 'Browser panel layout', 'On phones the panel always opens inside the chat first.', s.browserLayout, [['split', 'Split screen'], ['embedded', 'Inside the conversation']])) +
         section('privacy', 'Privacy and security', 'shield',
-          toggle('saveHistory', 'Save chat history', 'When off, new chats are temporary and disappear when you close Colon.', s.saveHistory) +
+          toggle('saveHistory', 'Save chat history', 'When off, new chats are temporary: not saved to your account, and gone when you close the tab.', s.saveHistory) +
           toggle('shareFeedback', 'Help improve Colon Saga', 'Share the replies you rate (never your account details) to improve answers.', s.shareFeedback) +
           '<div class="set-row"><span class="body"><span class="title">Where your data lives</span><span class="sub">' + esc(data.describe) + '</span></span><span class="badge ' + (data.kind === 'local' ? 'cyan' : 'ok') + '">' + (data.kind === 'local' ? 'This device' : 'Colon account') + '</span></div>' +
           C.row('#/privacy', 'lock', 'Privacy Policy', '')) +
@@ -71,7 +71,7 @@
           C.row('#/history', 'archive', 'Archived conversations', 'Find them in History → Archived') +
           '<button class="row" type="button" data-clear-files><span class="ico">' + C.icon('file') + '</span><span class="body"><span class="title">Clear uploaded files</span><span class="sub">Remove attachments stored for your chats.</span></span></button>' +
           '<button class="row" type="button" data-delete-all><span class="ico" style="color:var(--bad);background:var(--bad-bg)">' + C.icon('trash') + '</span><span class="body"><span class="title" style="color:var(--bad)">Delete all conversations</span><span class="sub">Permanently remove every chat and file.</span></span></button>') +
-        '<div class="set-out"><button class="btn block danger" type="button" data-signout>' + icon('out') + 'Sign out</button><p class="tiny muted" style="text-align:center;margin-top:14px">Colon AI v0.3.1 · ' + (data.kind === 'local' ? 'preview data mode' : 'synced') + ' · by Nifelux</p></div></div>';
+        '<div class="set-out"><button class="btn block danger" type="button" data-signout>' + icon('out') + 'Sign out</button><p class="tiny muted" style="text-align:center;margin-top:14px">Colon AI v0.4.0 · ' + (data.kind === 'local' ? 'preview data mode' : 'synced') + ' · by Nifelux</p></div></div>';
       bind(s);
       stats();
       if (ctx && ctx.query && ctx.query.get('s')) jump(ctx.query.get('s'));

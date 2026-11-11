@@ -1,27 +1,34 @@
 /* Colon AI · data adapter. EVERY chat call goes through here; screens never call fetch directly.
 
-   LocalChatData (default today): conversations, files and settings live in this browser
-   (IndexedDB), replies come from the on-device preview responder (chat-responder.js) and are
-   streamed token by token so stop, regenerate and all UI states behave exactly like the real thing.
-   RemoteChatData: the endpoints below. Switch with localStorage['colon.data'] = 'remote'
-   (or window.COLON_DATA = 'remote') once the API serves them. Nothing else changes.
+   Three implementations, one interface. ColonChatData.get() picks one when the app starts (v0.4.0):
+     RemoteChatData  signed in and the API is reachable: chats sync to the Colon account (default).
+     GuestChatData   signed out (or "Save chat history" off): replies stream from POST /chat/guest and the
+                     conversation lives only in this tab's memory. Nothing is saved anywhere.
+     LocalChatData   the API can't be reached: the on-device Preview (IndexedDB + chat-responder.js), so the
+                     app still works offline. Force a mode with localStorage['colon.data'] = 'local' | 'remote'
+                     (or window.COLON_DATA); the default is 'auto'.
 
-   Expected API endpoints (cookie session + X-Colon-Client header; not served by the API yet):
+   API endpoints (cookie session + X-Colon-Client header; full contract in docs/frontend-data-adapters.md):
      GET    /models                               -> { models:[{ id,name,description,available,status,default,capabilities[] }] }
-     GET    /conversations?q=&archived=0|1        -> { conversations:[{ id,title,mode,model,pinned,archived,preview,created_at,updated_at }] }
+     GET    /conversations?q=&archived=0|1|all    -> { conversations:[{ id,title,mode,model,pinned,archived,preview,shared,created_at,updated_at }] }
      POST   /conversations { mode, model }        -> { conversation }
-     GET    /conversations/:id                    -> { conversation, messages:[{ id,role,content,attachments,sources,feedback,status,model,mode,created_at }] }
+     GET    /conversations/:id                    -> { conversation, messages:[{ id,role,content,attachments,sources,feedback,status,model,mode,version,created_at }] }
      PATCH  /conversations/:id { title?,pinned?,archived?,mode?,model? } -> { conversation }
      DELETE /conversations/:id                    DELETE /conversations (all)   GET /conversations/export
-     POST   /conversations/:id/messages { content, mode, model, attachment_ids }      -> text/event-stream
-     POST   /conversations/:id/messages/:mid/regenerate                              -> text/event-stream
-            SSE events: start {message} · delta {text} · sources {sources} · done {message} · error {code,message}
-            Provider errors: code 'no_provider' (no AI provider configured), 'quota' (daily limit), 'provider_down'.
-     POST   /conversations/:id/notes { content, sources }   (adds an assistant note, e.g. an AI Browse summary)
+     POST   /conversations/:id/messages { content, attachment_ids }         -> text/event-stream
+     POST   /conversations/:id/messages/:mid/regenerate                     -> text/event-stream
+     POST   /conversations/:id/messages/:mid/edit { content }               -> text/event-stream
+     POST   /conversations/:id/messages/:mid/stop                           (Stop also closes the stream)
+            SSE events: user {message,conversation} · start {message} · delta {text} · sources {sources} · done {message} · error {code,message}
+            Error codes: 'no_provider' (no AI provider configured), 'quota' (daily limit), 'provider_down', 'no_vision'.
+     POST/DELETE /conversations/:id/share -> { share:{ token,url } }        GET /shared/:token (read-only, public)
+     POST   /conversations/:id/notes { content, sources, origin, title }   (adds an assistant note, e.g. an AI Browse summary)
      POST   /messages/:id/feedback { rating:'up'|'down', reason?, comment? }
      POST   /uploads (multipart: file)  -> { attachment:{ id,name,type,size,kind } }   DELETE /uploads/:id   GET /uploads/:id/file
             Limits enforced server-side too: images 10 MB, PDF/docs 20 MB, text 2 MB, 5 files per message.
-     GET    /chat/settings   PATCH /chat/settings { ... }
+     GET    /chat/settings   PATCH /chat/settings { ... }   GET /chat/stats
+     POST   /chat/guest { messages:[{role,content,attachments}], mode, model, language } -> text/event-stream (nothing saved)
+     POST   /chat/guest/extract (multipart: file) -> { attachment:{ id,name,kind,text,... } } (read once, not stored)
    Account profile (name, reply language) uses the EXISTING PATCH /account/profile. */
 (function (root) {
   'use strict';
@@ -167,6 +174,19 @@
           return putConv(c).then(function () { return stream(c, msg, { content: prevUser.content, attachmentIds: (prevUser.attachments || []).map(function (a) { return a.id; }) }, o); });
         });
       },
+      edit: function (o) {
+        return getConv(o.conversationId).then(function (c) {
+          if (!c) throw notFound();
+          var idx = c.messages.findIndex(function (m) { return m.id === o.messageId && m.role === 'user'; });
+          if (idx < 0) throw notFound();
+          var u = c.messages[idx]; u.content = o.content; c.messages.splice(idx + 1);
+          var msg = { id: C.uid('m'), role: 'assistant', content: '', sources: [], status: 'streaming', model: c.model, mode: c.mode, created_at: now(), preview: true };
+          c.messages.push(msg);
+          return putConv(c).then(function () { return stream(c, msg, { content: u.content, attachmentIds: (u.attachments || []).map(function (a) { return a.id; }) }, o); });
+        });
+      },
+      share: function () { return Promise.reject(Object.assign(new Error('Share links need the Colon service. Try again when you’re online and logged in.'), { code: 'offline' })); },
+      unshare: function () { return Promise.resolve(); },
       addNote: function (conversationId, note) {
         return getConv(conversationId).then(function (c) {
           if (!c) throw notFound();
@@ -231,52 +251,238 @@
     return self;
   }
 
-  /* ---------- Remote implementation ---------- */
-  function RemoteChatData() {
-    var api = C.api, settings = null, modelsCache = null;
-    function sse(path, body, o) {
-      var emit = o.onEvent || function () {}, last = null;
-      return api(path, { method: 'POST', body: body, raw: true, signal: o.signal }).then(function (res) {
-        if (!res.ok) return res.json().catch(function () { return {}; }).then(function (d) { throw Object.assign(new Error(d.message || 'Colon Saga couldn’t answer.'), { code: d.error, status: res.status }); });
-        var reader = res.body.getReader(), dec = new TextDecoder(), buf = '';
-        function pump() {
-          return reader.read().then(function (r) {
-            if (r.done) return last;
-            buf += dec.decode(r.value, { stream: true });
-            var parts = buf.split(/\n\n/); buf = parts.pop();
-            parts.forEach(function (block) {
-              var ev = 'message', data = '';
-              block.split('\n').forEach(function (l) { if (l.indexOf('event:') === 0) ev = l.slice(6).trim(); else if (l.indexOf('data:') === 0) data += l.slice(5).trim(); });
-              var d = {}; try { d = data ? JSON.parse(data) : {}; } catch (e) { return; }
-              if (ev === 'error') throw Object.assign(new Error(d.message || 'Colon Saga couldn’t answer.'), { code: d.code });
-              if (ev === 'done') last = d.message;
-              emit(Object.assign({ type: ev }, d));
-            });
-            return pump();
-          });
-        }
+  /* ---------- Streaming (SSE) reader shared by Remote and Guest ---------- */
+  function readSSE(res, emit) {
+    if (!res.ok) return res.json().catch(function () { return {}; }).then(function (d) { throw Object.assign(new Error(d.message || 'Colon Saga couldn’t answer.'), { code: d.error, status: res.status, field: d.field }); });
+    var reader = res.body.getReader(), dec = new TextDecoder(), buf = '', last = null;
+    function pump() {
+      return reader.read().then(function (r) {
+        if (r.done) return last;
+        buf += dec.decode(r.value, { stream: true });
+        var parts = buf.split(/\n\n/); buf = parts.pop();
+        parts.forEach(function (block) {
+          var ev = 'message', data = '';
+          block.split('\n').forEach(function (l) { if (l.indexOf('event:') === 0) ev = l.slice(6).trim(); else if (l.indexOf('data:') === 0) data += l.slice(5).trim(); });
+          if (!data) return;  // keep-alive comments
+          var d = {}; try { d = JSON.parse(data); } catch (e) { return; }
+          if (ev === 'error') throw Object.assign(new Error(d.message || 'Colon Saga couldn’t answer.'), { code: d.code });
+          if (ev === 'done') last = d.message;
+          emit(Object.assign({ type: ev }, d));
+        });
         return pump();
       });
     }
-    return {
+    return pump();
+  }
+  function offline(e) { if (e && e.name === 'AbortError') throw e; if (e instanceof TypeError) throw Object.assign(new Error('Can’t reach Colon right now. Check your connection.'), { code: 'offline' }); throw e; }
+
+  /* ---------- Guest implementation (nothing saved; this tab's memory only) ----------
+     Also used inside RemoteChatData for temporary chats when "Save chat history" is off. */
+  function GuestChatData(opts) {
+    opts = opts || {};
+    var api = C.api, convs = {}, files = {}, modelsCache = null;
+    var settings = Object.assign({}, DEFAULT_SETTINGS, { voice: Object.assign({}, DEFAULT_SETTINGS.voice) });
+    function notFound() { return Object.assign(new Error('This chat wasn’t saved, so it’s gone. Start a new one.'), { code: 'not_found', status: 404 }); }
+    function get(id) { var c = convs[id]; if (!c) throw notFound(); return c; }
+    function fileFor(a) {
+      var f = files[a.id];
+      return f ? { name: f.name, kind: f.kind, text: f.text || '', pages: f.pages, note: f.note } : { name: a.name, kind: a.kind, text: '', note: opts.signedIn ? undefined : 'This file was removed.' };
+    }
+    // Streams a reply for the latest user turn. `replaceAt` puts the reply at that index (regenerate).
+    function stream(c, o, replaceAt, version) {
+      var emit = o.onEvent || function () {}, msg = null;
+      var turns = c.messages.slice(0, replaceAt > -1 ? replaceAt : c.messages.length).filter(function (m) { return m.role === 'user' || (m.role === 'assistant' && (m.status === 'complete' || m.status === 'stopped') && m.content); });
+      var lastUser = turns.filter(function (m) { return m.role === 'user'; }).pop();
+      var body = {
+        messages: turns.slice(-40).map(function (m) { return { role: m.role, content: m.content || '', attachments: opts.signedIn ? [] : (m.attachments || []).map(fileFor) }; }),
+        mode: c.mode, model: c.model, language: (C.user && C.user.language) || 'en'
+      };
+      if (opts.signedIn && lastUser && lastUser.attachments && lastUser.attachments.length) body.attachment_ids = lastUser.attachments.map(function (a) { return a.id; });
+      return api('/chat/guest', { method: 'POST', body: body, raw: true, signal: o.signal }).then(function (res) {
+        return readSSE(res, function (ev) {
+          if (ev.type === 'start') {
+            msg = Object.assign({}, ev.message, { content: '', temporary: true, version: version || 1 });
+            if (replaceAt > -1) c.messages.splice(replaceAt, 1, msg); else c.messages.push(msg);
+            emit({ type: 'start', message: msg });
+          } else if (ev.type === 'delta' && msg) { msg.content += ev.text; emit(ev); }
+          else if (ev.type === 'done' && msg) { Object.assign(msg, ev.message, { version: msg.version }); emit({ type: 'done', message: msg }); }
+          else emit(ev);
+        });
+      }).catch(offline).then(function () {
+        c.updated_at = now(); if (msg) c.preview = root.ColonMarkdown.toText(msg.content).slice(0, 120); return msg;
+      }, function (e) {
+        if (msg) {
+          if (e.name === 'AbortError') msg.status = 'stopped';
+          else { msg.status = 'error'; msg.error = { code: e.code || 'error', message: e.message }; }
+          if (e.name === 'AbortError') return msg;
+        }
+        throw e;
+      });
+    }
+    var self = {
+      kind: 'guest', LIMITS: LIMITS, classify: classify, temporary: true,
+      describe: opts.signedIn ? 'Temporary chat: not saved to your account, and gone when you close this tab.' : 'Guest mode: this chat isn’t saved. Log in to save your chats and pick them up on any device.',
+      has: function (id) { return !!convs[id]; },
+      listModels: function () { return modelsCache ? Promise.resolve(modelsCache) : api('/models').then(function (d) { modelsCache = d.models; return d.models; }); },
+      listConversations: function (o) {
+        o = o || {}; var q = (o.q || '').toLowerCase().trim();
+        return Promise.resolve(Object.keys(convs).map(function (k) { return convs[k]; })
+          .filter(function (c) { return o.archived === 'all' || !!c.archived === !!o.archived; })
+          .filter(function (c) { return !q || (c.title + ' ' + c.messages.map(function (m) { return m.content; }).join(' ')).toLowerCase().indexOf(q) > -1; })
+          .sort(function (a, b) { return a.updated_at < b.updated_at ? 1 : -1; }).map(summary));
+      },
+      createConversation: function (o) {
+        var c = { id: C.uid('t'), title: 'New chat', mode: o.mode || 'general', model: o.model, pinned: false, archived: false, messages: [], created_at: now(), updated_at: now(), temporary: true };
+        convs[c.id] = c; return Promise.resolve(summary(c));
+      },
+      getConversation: function (id) { return Promise.resolve().then(function () { var c = get(id); return { conversation: summary(c), messages: c.messages.slice() }; }); },
+      updateConversation: function (id, patch) {
+        return Promise.resolve().then(function () {
+          var c = get(id);
+          ['title', 'pinned', 'archived', 'mode', 'model'].forEach(function (k) { if (patch[k] !== undefined) c[k] = patch[k]; });
+          if (patch.mode && c.messages.length) c.messages.push({ id: C.uid('e'), role: 'event', content: 'Switched to ' + patch.mode + ' mode', created_at: now() });
+          c.updated_at = now(); return summary(c);
+        });
+      },
+      deleteConversation: function (id) { delete convs[id]; return Promise.resolve({ ok: true }); },
+      deleteAll: function () { convs = {}; files = {}; return Promise.resolve({ ok: true }); },
+      exportAll: function () { return Promise.resolve({ app: 'Colon AI', exported_at: now(), format: 1, conversations: Object.keys(convs).map(function (k) { return convs[k]; }) }); },
+      send: function (o) {
+        return Promise.resolve().then(function () {
+          var c = get(o.conversationId);
+          var user = { id: C.uid('m'), role: 'user', content: o.content, attachments: (o.attachments || []).map(function (a) { return { id: a.id, name: a.name, type: a.type, size: a.size, kind: a.kind, width: a.width, height: a.height, duration: a.duration }; }), created_at: now(), mode: c.mode };
+          c.messages.push(user);
+          if (c.title === 'New chat') c.title = root.ColonResponder.titleFrom(o.content || (user.attachments[0] && user.attachments[0].name) || 'New chat');
+          if (o.onEvent) o.onEvent({ type: 'user', message: user, conversation: summary(c) });
+          return stream(c, o, -1);
+        });
+      },
+      regenerate: function (o) {
+        return Promise.resolve().then(function () {
+          var c = get(o.conversationId);
+          var idx = c.messages.findIndex(function (m) { return m.id === o.messageId; });
+          var before = idx > -1 ? c.messages.slice(0, idx) : c.messages;
+          if (!before.some(function (m) { return m.role === 'user'; })) throw Object.assign(new Error('There’s nothing to regenerate yet.'), { code: 'invalid' });
+          var version = idx > -1 ? (c.messages[idx].version || 1) + 1 : 1;
+          if (idx > -1) c.messages.splice(idx + 1);
+          return stream(c, o, idx, version);
+        });
+      },
+      edit: function (o) {
+        return Promise.resolve().then(function () {
+          var c = get(o.conversationId);
+          var idx = c.messages.findIndex(function (m) { return m.id === o.messageId && m.role === 'user'; });
+          if (idx < 0) throw notFound();
+          c.messages[idx].content = o.content; c.messages.splice(idx + 1);
+          return stream(c, o, -1);
+        });
+      },
+      share: function () { return Promise.reject(Object.assign(new Error(opts.signedIn ? 'Temporary chats can’t be shared. Turn on “Save chat history” in Settings first.' : 'Log in to share your chats.'), { code: 'login_required' })); },
+      unshare: function () { return Promise.resolve(); },
+      addNote: function (cid, note) {
+        return Promise.resolve().then(function () {
+          var c = get(cid);
+          var msg = { id: C.uid('m'), role: 'assistant', content: note.content, sources: note.sources || [], status: 'complete', model: c.model, mode: c.mode, created_at: now(), origin: note.origin || 'note' };
+          c.messages.push(msg); if (c.title === 'New chat' && note.title) c.title = root.ColonResponder.titleFrom(note.title);
+          c.updated_at = now(); return msg;
+        });
+      },
+      feedback: function (cid, mid, fb) {
+        return Promise.resolve().then(function () {
+          var c = get(cid), m = c.messages.filter(function (x) { return x.id === mid; })[0]; if (!m) throw notFound();
+          m.feedback = fb.rating ? { rating: fb.rating, reason: fb.reason || null, comment: fb.comment || null } : null; return m.feedback;
+        });
+      },
+      // Guests: the server reads the file's text once and forgets it; the file stays in this tab only.
+      upload: function (file, o) {
+        o = o || {};
+        var k;
+        try { k = classify(file, o).kind; } catch (e) { return Promise.reject(e); }
+        if (k === 'image') return Promise.reject(Object.assign(new Error('Log in to ask Colon about images.'), { code: 'login_required' }));
+        if (k === 'audio') return Promise.reject(Object.assign(new Error('Log in to send voice notes.'), { code: 'login_required' }));
+        return new Promise(function (resolve, reject) {
+          var x = new XMLHttpRequest(), fd = new FormData(); fd.append('file', file);
+          x.open('POST', C.API + '/chat/guest/extract'); x.withCredentials = true; x.setRequestHeader('X-Colon-Client', 'chat');
+          if (o.signal) o.signal.addEventListener('abort', function () { x.abort(); });
+          x.upload.onprogress = function (e) { if (e.lengthComputable && o.onProgress) o.onProgress(e.loaded / e.total); };
+          x.onload = function () {
+            var d = {}; try { d = JSON.parse(x.responseText); } catch (e) {}
+            if (x.status >= 300) return reject(Object.assign(new Error(d.message || 'Upload failed.'), { code: d.error || 'processing' }));
+            var a = d.attachment; files[a.id] = Object.assign({ blob: file }, a);
+            resolve({ id: a.id, name: a.name, type: a.type, size: a.size, kind: a.kind });
+          };
+          x.onerror = function () { reject(Object.assign(new Error('Upload failed. Check your connection.'), { code: 'offline' })); };
+          x.onabort = function () { reject(Object.assign(new Error('Upload cancelled.'), { name: 'AbortError' })); };
+          x.send(fd);
+        });
+      },
+      fileBlob: function (id) { return Promise.resolve(files[id] ? files[id].blob : null); },
+      removeUpload: function (id) { delete files[id]; return Promise.resolve({ ok: true }); },
+      clearFiles: function () { files = {}; return Promise.resolve({ ok: true }); },
+      getSettings: function () { return Promise.resolve(settings); },
+      saveSettings: function (p) { if (p.voice) p.voice = Object.assign({}, settings.voice, p.voice); settings = Object.assign({}, settings, p); return Promise.resolve(settings); },
+      stats: function () { return Promise.resolve({ where: 'This tab only (not saved)' }); }
+    };
+    return self;
+  }
+
+  /* ---------- Remote implementation (signed in: synced to the Colon account) ---------- */
+  function RemoteChatData() {
+    var api = C.api, settings = null, modelsCache = null;
+    var temp = GuestChatData({ signedIn: true });  // temporary chats when "Save chat history" is off
+    function sse(path, body, o, cid) {
+      var emit = o.onEvent || function () {}, startedId = null;
+      if (o.signal) o.signal.addEventListener('abort', function () {
+        // Closing the stream stops the reply; this also reaches a different server worker if needed.
+        if (startedId) api('/conversations/' + encodeURIComponent(cid) + '/messages/' + encodeURIComponent(startedId) + '/stop', { method: 'POST' }).catch(function () {});
+      });
+      return api(path, { method: 'POST', body: body, raw: true, signal: o.signal }).then(function (res) {
+        return readSSE(res, function (ev) { if (ev.type === 'start' && ev.message) startedId = ev.message.id; emit(ev); });
+      }).catch(offline);
+    }
+    function conv(id) { return '/conversations/' + encodeURIComponent(id); }
+    var self = {
       kind: 'remote', LIMITS: LIMITS, classify: classify, describe: 'Chats are synced to your Colon account.',
       listModels: function () { return modelsCache ? Promise.resolve(modelsCache) : api('/models').then(function (d) { modelsCache = d.models; return d.models; }); },
-      listConversations: function (o) { o = o || {}; return api('/conversations?q=' + encodeURIComponent(o.q || '') + '&archived=' + (o.archived === 'all' ? 'all' : o.archived ? 1 : 0)).then(function (d) { return d.conversations; }); },
-      createConversation: function (o) { return api('/conversations', { method: 'POST', body: o }).then(function (d) { return d.conversation; }); },
-      getConversation: function (id) { return api('/conversations/' + encodeURIComponent(id)); },
-      updateConversation: function (id, p) { return api('/conversations/' + encodeURIComponent(id), { method: 'PATCH', body: p }).then(function (d) { return d.conversation; }); },
-      deleteConversation: function (id) { return api('/conversations/' + encodeURIComponent(id), { method: 'DELETE' }); },
-      deleteAll: function () { return api('/conversations', { method: 'DELETE' }); },
+      listConversations: function (o) {
+        o = o || {};
+        return Promise.all([temp.listConversations(o), api('/conversations?q=' + encodeURIComponent(o.q || '') + '&archived=' + (o.archived === 'all' ? 'all' : o.archived ? 1 : 0)).then(function (d) { return d.conversations; })])
+          .then(function (r) { return r[0].concat(r[1]); });
+      },
+      createConversation: function (o) {
+        return self.getSettings().then(function (s) {
+          if (s.saveHistory === false) return temp.createConversation(o);
+          return api('/conversations', { method: 'POST', body: o }).then(function (d) { return d.conversation; });
+        });
+      },
+      getConversation: function (id) { return temp.has(id) ? temp.getConversation(id) : api(conv(id)); },
+      updateConversation: function (id, p) { return temp.has(id) ? temp.updateConversation(id, p) : api(conv(id), { method: 'PATCH', body: p }).then(function (d) { return d.conversation; }); },
+      deleteConversation: function (id) { return temp.has(id) ? temp.deleteConversation(id) : api(conv(id), { method: 'DELETE' }); },
+      deleteAll: function () { return Promise.all([temp.deleteAll(), api('/conversations', { method: 'DELETE' })]); },
       exportAll: function () { return api('/conversations/export'); },
-      send: function (o) { return sse('/conversations/' + encodeURIComponent(o.conversationId) + '/messages', { content: o.content, attachment_ids: (o.attachments || []).map(function (a) { return a.id; }) }, o); },
-      regenerate: function (o) { return sse('/conversations/' + encodeURIComponent(o.conversationId) + '/messages/' + encodeURIComponent(o.messageId) + '/regenerate', {}, o); },
-      addNote: function (cid, note) { return api('/conversations/' + encodeURIComponent(cid) + '/notes', { method: 'POST', body: note }).then(function (d) { return d.message; }); },
-      feedback: function (cid, mid, fb) { return api('/messages/' + encodeURIComponent(mid) + '/feedback', { method: 'POST', body: fb }); },
+      send: function (o) {
+        if (temp.has(o.conversationId)) return temp.send(o);
+        return sse(conv(o.conversationId) + '/messages', { content: o.content, attachment_ids: (o.attachments || []).map(function (a) { return a.id; }) }, o, o.conversationId);
+      },
+      regenerate: function (o) {
+        if (temp.has(o.conversationId)) return temp.regenerate(o);
+        return sse(conv(o.conversationId) + '/messages/' + encodeURIComponent(o.messageId) + '/regenerate', {}, o, o.conversationId);
+      },
+      edit: function (o) {
+        if (temp.has(o.conversationId)) return temp.edit(o);
+        return sse(conv(o.conversationId) + '/messages/' + encodeURIComponent(o.messageId) + '/edit', { content: o.content }, o, o.conversationId);
+      },
+      share: function (id) { return temp.has(id) ? temp.share(id) : api(conv(id) + '/share', { method: 'POST' }).then(function (d) { return d.share; }); },
+      unshare: function (id) { return temp.has(id) ? temp.unshare(id) : api(conv(id) + '/share', { method: 'DELETE' }); },
+      addNote: function (cid, note) { return temp.has(cid) ? temp.addNote(cid, note) : api(conv(cid) + '/notes', { method: 'POST', body: note }).then(function (d) { return d.message; }); },
+      feedback: function (cid, mid, fb) { return temp.has(cid) ? temp.feedback(cid, mid, fb) : api('/messages/' + encodeURIComponent(mid) + '/feedback', { method: 'POST', body: fb }); },
       upload: function (file, o) {
         o = o || {};
         try { classify(file, o); } catch (e) { return Promise.reject(e); }
         return new Promise(function (resolve, reject) {
           var x = new XMLHttpRequest(), fd = new FormData(); fd.append('file', file);
+          if (o.fromRecorder) fd.append('recorder', '1');
+          if (o.duration) fd.append('duration', String(o.duration));
           x.open('POST', C.API + '/uploads'); x.withCredentials = true; x.setRequestHeader('X-Colon-Client', 'chat');
           if (o.signal) o.signal.addEventListener('abort', function () { x.abort(); });
           x.upload.onprogress = function (e) { if (e.lengthComputable && o.onProgress) o.onProgress(e.loaded / e.total); };
@@ -286,19 +492,30 @@
           x.send(fd);
         });
       },
-      fileBlob: function (id) { return fetch(C.API + '/uploads/' + encodeURIComponent(id) + '/file', { credentials: 'include' }).then(function (r) { return r.ok ? r.blob() : null; }); },
+      fileBlob: function (id) { return fetch(C.API + '/uploads/' + encodeURIComponent(id) + '/file', { credentials: 'include' }).then(function (r) { return r.ok ? r.blob() : null; }, function () { return null; }); },
       removeUpload: function (id) { return api('/uploads/' + encodeURIComponent(id), { method: 'DELETE' }); },
       clearFiles: function () { return api('/uploads', { method: 'DELETE' }); },
       getSettings: function () { return settings ? Promise.resolve(settings) : api('/chat/settings').then(function (d) { settings = Object.assign({}, DEFAULT_SETTINGS, d.settings); return settings; }); },
       saveSettings: function (p) { return api('/chat/settings', { method: 'PATCH', body: p }).then(function (d) { settings = Object.assign({}, DEFAULT_SETTINGS, d.settings); return settings; }); },
       stats: function () { return api('/chat/stats').catch(function () { return { where: 'Your Colon account' }; }); }
     };
+    return self;
   }
 
-  function mode() { try { return root.COLON_DATA || root.localStorage.getItem('colon.data') || 'local'; } catch (e) { return 'local'; } }
+  function pref() { try { return root.COLON_DATA || root.localStorage.getItem('colon.data') || 'auto'; } catch (e) { return 'auto'; } }
+  // auto: API reachable → your account (Remote) or a guest chat (Guest); API down → on-device Preview (Local).
+  function pick() {
+    var p = pref();
+    if (p === 'local') return 'local';
+    if (p !== 'remote' && !C.online) return 'local';
+    return C.user ? 'remote' : 'guest';
+  }
   var instance = null;
   root.ColonChatData = {
-    get: function () { if (!instance) instance = mode() === 'remote' ? RemoteChatData() : LocalChatData(); return instance; },
-    LIMITS: LIMITS, classify: classify, DEFAULT_SETTINGS: DEFAULT_SETTINGS
+    get: function () {
+      if (!instance) { var k = pick(); instance = k === 'remote' ? RemoteChatData() : k === 'guest' ? GuestChatData() : LocalChatData(); }
+      return instance;
+    },
+    pick: pick, LIMITS: LIMITS, classify: classify, DEFAULT_SETTINGS: DEFAULT_SETTINGS
   };
 })(window);

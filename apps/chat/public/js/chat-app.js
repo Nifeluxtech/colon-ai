@@ -4,7 +4,7 @@
 (function () {
   'use strict';
   var C = window.Colon, icon = C.icon, esc = C.esc, MD = window.ColonMarkdown;
-  var data = window.ColonChatData.get();
+  var data = null;  // picked in mount(): your account, a guest chat, or the offline Preview (chat-data.js)
 
   var MODES = {
     general: { label: 'General', sub: 'General Assistant', icon: 'sparkle', hint: 'Ask Colon anything…' },
@@ -27,9 +27,14 @@
     stick: true, lastTop: 0, userInput: 0, seen: {}, ro: null
   };
   var CW = window.CW = window.CW || {};
-  CW.S = S; CW.data = data; CW.MODES = MODES;
+  CW.S = S; CW.MODES = MODES;
 
   function isMobile() { return innerWidth < 900; }
+  // Signed out: chat works, nothing is saved (guest adapter), and Log in / Sign up replace the account menu.
+  function signedIn() { return !!C.user; }
+  function ephemeral() { return data && data.kind === 'guest'; }
+  function login(mode) { if (typeof C.authModal === 'function') C.authModal({ mode: mode || 'login', lead: mode === 'signup' ? 'Save your chats, upload images and pick up on any device.' : 'Log in to save your chats and pick up on any device.' }); else C.go(mode === 'signup' ? '/register' : '/login'); }
+  CW.login = login;
   function $(s) { return S.el.querySelector(s); }
   function mode() { return S.current ? S.current.mode : S.draftMode; }
   function modelId() { return (S.current && S.current.model) || S.draftModel || defaultModel(); }
@@ -40,6 +45,7 @@
   function mount(view, ctx) {
     // Optional kit helpers are feature-checked: an older cached kit must never crash the app.
     if (typeof C.keyboard === 'function') C.keyboard();
+    data = CW.data = window.ColonChatData.get();
     document.documentElement.classList.add('app-lock');
     view.innerHTML =
       '<a class="skip-link" href="#cw-input">Skip to message box</a>' +
@@ -50,10 +56,13 @@
         '<button class="btn primary block cw-new" data-a="new">' + icon('plus') + 'New Chat</button>' +
         '<label class="cw-search">' + icon('search') + '<input type="search" placeholder="Search chats…" aria-label="Search conversations" id="cw-q"><span class="kbd cw-hide-touch">Ctrl K</span></label>' +
         '<nav class="nav-list cw-nav" aria-label="Main">' +
-          navLink('/', 'home', 'Home') + navLink('/explore', 'explore', 'Explore') + navLink('/saved', 'saved', 'Saved') + navLink('/history', 'history', 'History') +
-          navLink('/settings', 'settings', 'Settings') + navLink('/help', 'help', 'Help & Support') + '</nav>' +
+          navLink('/', 'home', 'Home') + navLink('/explore', 'explore', 'Explore') +
+          (ephemeral() ? '' : navLink('/saved', 'saved', 'Saved') + navLink('/history', 'history', 'History')) +
+          (signedIn() ? navLink('/settings', 'settings', 'Settings') : '') + navLink('/help', 'help', 'Help & Support') + '</nav>' +
         '<div class="cw-convs scroll-y" id="cw-convs" aria-label="Recent conversations"></div>' +
-        '<button class="cw-account" data-a="profile" aria-haspopup="menu"><span class="avatar sm" data-avatar></span><span class="cw-account-body"><b data-uname></b><small data-urole></small></span><span class="status-dot" title="Online"></span></button>' +
+        (signedIn()
+          ? '<button class="cw-account" data-a="profile" aria-haspopup="menu"><span class="avatar sm" data-avatar></span><span class="cw-account-body"><b data-uname></b><small data-urole></small></span><span class="status-dot" title="Online"></span></button>'
+          : '<div class="cw-auth-btns"><button type="button" class="btn primary sm" data-a="login">Log in</button><button type="button" class="btn sm" data-a="signup">Sign up</button></div>') +
       '</aside>' +
       '<div class="cw-main">' +
         '<header class="cw-head">' +
@@ -66,7 +75,8 @@
           '<button class="icon-btn cw-hide-xs" data-a="browser" aria-label="Open browser panel" aria-pressed="false" data-tip="Browser">' + icon('globe') + '<span class="dot" hidden></span></button>' +
           '<button class="cw-theme cw-hide-xs" data-a="theme" aria-label="Toggle light or dark theme" data-tip="Theme"><span class="cw-theme-sun">' + icon('sun') + '</span><span class="cw-theme-track"><i></i></span></button>' +
           '<button class="icon-btn cw-show-xs" data-a="more" aria-label="More options" aria-haspopup="menu">' + icon('moreV') + '</button>' +
-          '<button class="cw-avatar-btn cw-hide-xs" data-a="profile" aria-haspopup="menu" aria-label="Profile menu"><span class="avatar sm" data-avatar></span></button>' +
+          (signedIn() ? '<button class="cw-avatar-btn cw-hide-xs" data-a="profile" aria-haspopup="menu" aria-label="Profile menu"><span class="avatar sm" data-avatar></span></button>'
+            : '<span class="cw-head-auth"><button type="button" class="btn primary sm" data-a="login">Log in</button><button type="button" class="btn sm cw-hide-xs" data-a="signup">Sign up</button></span>') +
         '</header>' +
         '<div class="cw-mswitch seg block" role="tablist" aria-label="Chat or browser"><button type="button" data-a="mtab" data-t="chat" aria-pressed="true">' + icon('chat') + 'Chat</button><button type="button" data-a="mtab" data-t="browser" aria-pressed="false">' + icon('globe') + 'Browser</button></div>' +
         '<div class="cw-body">' +
@@ -120,14 +130,20 @@
         '<button type="submit" class="cw-send" data-a="send" aria-label="Send message" disabled>' + icon('send') + '</button>' +
       '</form>' +
       '<div class="cw-pills" aria-label="Quick actions"><button type="button" class="chip sm" data-a="attach">' + icon('clip') + 'Attach File</button><button type="button" class="chip sm" data-a="mic">' + icon('mic') + 'Voice Input</button><button type="button" class="chip sm" data-a="browse-web">' + icon('globe') + 'Browse the Web</button></div>' +
-      '<p class="cw-disclaimer"><span class="badge cyan" data-tip="' + esc(data.describe) + '">' + icon('info') + (data.kind === 'local' ? 'Preview' : 'Synced') + '</span><span>' + (data.kind === 'local' ? 'Replies are generated on this device until Colon Saga is connected.' : 'Colon Saga can make mistakes. Check important information.') + '</span></p>' +
+      '<p class="cw-disclaimer">' + disclaimer() + '</p>' +
       '</div></div>';
+  }
+  function disclaimer() {
+    if (data.kind === 'local') return '<span class="badge cyan" data-tip="' + esc(data.describe) + '">' + icon('info') + 'Preview</span><span>Can’t reach Colon right now, so replies are generated on this device.</span>';
+    if (data.kind === 'guest') return '<span class="badge cyan" data-tip="' + esc(data.describe) + '">' + icon('info') + 'Not saved</span><span>Colon Saga can make mistakes. <button type="button" class="link cw-inline-link" data-a="login">Log in</button> to save your chats.</span>';
+    return '<span class="badge cyan" data-tip="' + esc(data.describe) + '">' + icon('info') + 'Synced</span><span>Colon Saga can make mistakes. Check important information.</span>';
   }
   function fillUser() {
     var u = C.user || {};
     S.el.querySelectorAll('[data-avatar]').forEach(function (a) { a.textContent = C.initials(u.name, u.email); });
-    $('[data-uname]').textContent = u.name || 'Your account';
-    $('[data-urole]').textContent = C.roleName(u.role || 'user') + (u.email_verified ? '' : ' · unverified');
+    var n = $('[data-uname]'), r = $('[data-urole]');
+    if (n) n.textContent = u.name || 'Your account';
+    if (r) r.textContent = C.roleName(u.role || 'user') + (u.email_verified ? '' : ' · unverified');
   }
 
   /* ================= Routing inside the workspace ================= */
@@ -140,7 +156,10 @@
     S.el.querySelectorAll('[data-nav]').forEach(function (a) { var on = a.getAttribute('data-nav') === (p.indexOf('/c/') === 0 ? '/' : p); a.classList.toggle('active', on); if (on) a.setAttribute('aria-current', 'page'); else a.removeAttribute('aria-current'); });
     var m = /^\/c\/([^/]+)$/.exec(p);
     if (m) return openConversation(decodeURIComponent(m[1]));
+    var sh = /^\/share\/([^/]+)$/.exec(p);
+    if (sh) return showShared(decodeURIComponent(sh[1]));
     var pages = { '/history': 'history', '/saved': 'saved', '/explore': 'explore', '/settings': 'settings', '/help': 'help' };
+    if (pages[p] && ((ephemeral() && (p === '/history' || p === '/saved')) || (!signedIn() && p === '/settings'))) return showPage('login', ctx);
     if (pages[p]) return showPage(pages[p], ctx);
     newChat(true);
   }
@@ -149,7 +168,7 @@
   function setView(v) {
     S.view = v; S.el.setAttribute('data-view', v);
     S.stick = true; syncJump();
-    $('.cw-composer').hidden = v !== 'chat' && v !== 'welcome';
+    $('.cw-composer').hidden = v !== 'chat' && v !== 'welcome';  // pages and shared chats have no composer
     $('.cw-embed-host').hidden = v !== 'chat';
     if (v !== 'chat' && v !== 'welcome' && S.browser.layout === 'split' && isMobile()) setMobileTab('chat');
   }
@@ -203,7 +222,7 @@
     $('[data-mode-sub]').textContent = MODES[m].sub;
     var t = $('.cw-title'); t.hidden = !inChat || !S.current;
     $('[data-title]').textContent = S.current ? S.current.title : '';
-    var titles = { welcome: 'New chat', history: 'History', saved: 'Saved', explore: 'Explore', settings: 'Settings', help: 'Help & Support' };
+    var titles = { welcome: 'New chat', history: 'History', saved: 'Saved', explore: 'Explore', settings: 'Settings', help: 'Help & Support', login: 'Log in', shared: 'Shared chat' };
     document.title = (inChat && S.current ? S.current.title : titles[S.view] || 'Colon AI') + ' · Colon AI';
     var mb = $('.cw-mode-btn');
     mb.classList.toggle('on', m !== 'general'); mb.setAttribute('aria-label', 'Mode: ' + MODES[m].label + '. Change mode');
@@ -262,6 +281,11 @@
   CW.refreshConvs = refreshConvs;
   function renderConvs() {
     var box = $('#cw-convs'); if (!box) return;
+    if (ephemeral()) {
+      box.innerHTML = '<div class="cw-guest-card"><b>Log in to save your chats</b><span>Your conversations will be saved to your account, so you can pick them up on any device.</span>' +
+        '<div class="cw-guest-btns"><button type="button" class="btn primary sm" data-a="login">Log in</button><button type="button" class="btn sm" data-a="signup">Sign up</button></div></div>';
+      return;
+    }
     if (!S.convs) { box.innerHTML = '<div class="skel" style="height:36px;margin:6px"></div>'; return; }
     var cur = S.current && S.current.id;
     function item(c) {
@@ -276,17 +300,32 @@
     var pinned = S.convs.filter(function (c) { return c.pinned; }), recent = S.convs.filter(function (c) { return !c.pinned; }).slice(0, 30);
     box.innerHTML = (pinned.length ? '<div class="cw-convs-h">' + icon('saved') + 'Saved</div>' + pinned.map(item).join('') : '') +
       '<div class="cw-convs-h">' + icon('clock') + 'Recent</div>' + (recent.length ? recent.map(item).join('') : '<div class="cw-convs-msg">' + (S.convs.length ? 'All your chats are saved above.' : 'Your conversations will appear here.') + '</div>') +
+      (!signedIn() && data.kind === 'local' ? '<div class="cw-convs-msg">Saved on this device only. <button type="button" class="link cw-inline-link" data-a="login">Log in</button> to sync.</div>' : '') +
       (S.convs.length > 30 + pinned.length ? '<a class="cw-convs-all" href="#/history">See all history</a>' : '');
   }
   CW.convMenu = function (anchor, c, after) {
+    var canShare = data.kind === 'remote' && !c.temporary;
     C.menu(anchor, [
-      { label: 'Rename', icon: 'edit', onClick: function () { renameConv(c, after); } },
+      { label: 'Rename', icon: 'edit', onClick: function () { renameConv(c, after); } }].concat(canShare ? [
+      { label: c.shared ? 'Copy share link' : 'Share link', icon: 'link', onClick: function () { shareConv(c, after); } }] : []).concat([
       { label: c.pinned ? 'Remove from Saved' : 'Save (pin)', icon: 'pin', onClick: function () { patchConv(c, { pinned: !c.pinned }, c.pinned ? 'Removed from Saved.' : 'Saved.', after); } },
       { label: c.archived ? 'Unarchive' : 'Archive', icon: 'archive', onClick: function () { patchConv(c, { archived: !c.archived }, c.archived ? 'Moved back to Recent.' : 'Archived. Find it in History.', after); } },
       '-',
       { label: 'Delete', icon: 'trash', danger: true, onClick: function () { deleteConv(c, after); } }
-    ], { align: 'right', label: 'Conversation options' });
+    ]), { align: 'right', label: 'Conversation options' });
   };
+  // Share link: anyone with it can read the chat (not your files). Copied straight away; can be turned off.
+  function shareConv(c, after) {
+    data.share(c.id).then(function (sh) {
+      c.shared = true; if (S.current && S.current.id === c.id) S.current.shared = true;
+      var stop = { label: 'Stop sharing', fn: function () { data.unshare(c.id).then(function () { c.shared = false; C.toast('Sharing turned off. The old link no longer works.'); refreshConvs(); }).catch(function (e) { C.toast(e.message, 'bad'); }); } };
+      C.copyText(sh.url).then(function () { C.toast('Share link copied. Anyone with it can read this chat.', 'ok', stop); }, function () {
+        C.prompt({ title: 'Share link', label: 'Copy this link', value: sh.url, confirm: 'Done', max: 300 });
+      });
+      refreshConvs(); if (after) after();
+    }).catch(function (e) { C.toast(e.message, 'bad'); });
+  }
+  CW.shareConv = shareConv;
   function patchConv(c, patch, msg, after) {
     data.updateConversation(c.id, patch).then(function (n) {
       if (S.current && S.current.id === c.id) { S.current = Object.assign(S.current, n); updateHeader(); if (patch.archived) C.go('/'); }
@@ -329,15 +368,26 @@
     ], { align: 'right', label: 'Profile' });
   }
   function moreMenu(anchor) {
-    C.menu(anchor, [
+    if (!signedIn()) {
+      C.menu(anchor, [
+        { label: 'Log in', icon: 'user', onClick: function () { login('login'); } },
+        { label: 'Sign up', icon: 'sparkle', onClick: function () { login('signup'); } }, '-',
+        { label: S.browser.layout === 'none' ? 'Open browser' : 'Close browser', icon: 'globe', onClick: function () { S.browser.layout === 'none' ? openBrowser() : setLayout('none'); } },
+        { label: C.theme.current() === 'dark' ? 'Light mode' : 'Dark mode', icon: C.theme.current() === 'dark' ? 'sun' : 'moon', onClick: toggleTheme },
+        { label: 'Help & Support', icon: 'help', onClick: function () { C.go('/help'); } }
+      ], { align: 'right', label: 'More' });
+      return;
+    }
+    var shareItem = S.current && S.view === 'chat' && data.kind === 'remote' && !S.current.temporary && !S.loadingConv ? [{ label: 'Share chat', icon: 'link', onClick: function () { shareConv(S.current); } }] : [];
+    C.menu(anchor, shareItem.concat([
       { label: S.browser.layout === 'none' ? 'Open browser' : 'Close browser', icon: 'globe', onClick: function () { S.browser.layout === 'none' ? openBrowser() : setLayout('none'); } },
       { label: C.theme.current() === 'dark' ? 'Light mode' : 'Dark mode', icon: C.theme.current() === 'dark' ? 'sun' : 'moon', onClick: toggleTheme },
       { label: 'Settings', icon: 'settings', onClick: function () { C.go('/settings'); } },
       { label: 'Account & security', icon: 'shield', onClick: function () { C.go('/account'); } }, '-',
       { label: 'Sign out', icon: 'out', danger: true, onClick: signOut }
-    ], { align: 'right', label: 'More' });
+    ]), { align: 'right', label: 'More' });
   }
-  function signOut() { C.confirm({ title: 'Sign out of Colon?', body: 'You’ll need to sign in again on this device.', confirm: 'Sign out' }).then(function (ok) { if (ok) C.logout(); }); }
+  function signOut() { C.confirm({ title: 'Sign out of Colon?', body: 'Your chats stay in your account. You can keep chatting as a guest, but new chats won’t be saved.', confirm: 'Sign out' }).then(function (ok) { if (ok) C.logout(); }); }
   CW.signOut = signOut;
   function toggleTheme() { C.theme.toggle(); }
 
@@ -371,7 +421,8 @@
     if (m.role === 'event') return '<div class="cw-event"><span>' + esc(m.content) + '</span></div>';
     if (m.role === 'user') {
       return '<div class="cw-msg user' + fresh + '" data-mid="' + esc(m.id) + '"><div class="cw-bubble">' + attachmentsHtml(m.attachments) + (m.content ? '<div class="cw-user-text">' + esc(m.content) + '</div>' : '') + '</div>' +
-        '<div class="cw-actions"><button class="icon-btn sm" data-msg="copy" aria-label="Copy message" data-tip="Copy">' + icon('copy') + '</button></div></div>';
+        '<div class="cw-actions"><button class="icon-btn sm" data-msg="copy" aria-label="Copy message" data-tip="Copy">' + icon('copy') + '</button>' +
+        (S.streaming || /^tmp/.test(m.id) ? '' : '<button class="icon-btn sm" data-msg="edit" aria-label="Edit message" data-tip="Edit">' + icon('edit') + '</button>') + '</div></div>';
     }
     var streaming = m.status === 'streaming', fb = m.feedback && m.feedback.rating;
     var body = streaming && !m.content ? '<div class="cw-thinking"><span class="typing"><i></i><i></i><i></i></span><span>' + esc(modelName(m.model)) + ' is thinking…</span></div>'
@@ -394,10 +445,11 @@
       '</div>';
   }
   function errorCard(m) {
-    var e = m.error || {}, noProv = e.code === 'no_provider';
-    return '<div class="cw-err" role="alert">' + icon('alert') + '<div><b>' + (noProv ? 'Colon Saga isn’t connected to an AI provider yet' : e.code === 'quota' ? 'You’ve reached today’s limit' : 'This reply didn’t finish') + '</b><span>' +
-      esc(noProv ? 'An admin needs to add a provider in the Admin Dashboard. Your message is saved.' : e.message || 'Something went wrong.') + '</span></div>' +
-      (noProv ? '' : '<button class="btn sm" data-msg="regen">' + icon('refresh') + 'Retry</button>') + '</div>';
+    var e = m.error || {}, noProv = e.code === 'no_provider', needLogin = !signedIn() && (e.code === 'quota' || e.code === 'login_required');
+    var title = noProv ? 'Colon Saga isn’t connected to an AI provider yet' : e.code === 'quota' ? 'You’ve reached today’s limit' : e.code === 'no_vision' ? 'Images can’t be read yet' : e.code === 'offline' ? 'You’re offline' : 'This reply didn’t finish';
+    var body = noProv ? 'An admin needs to add a provider in the Admin Dashboard.' + (ephemeral() ? '' : ' Your message is saved.') : e.message || 'Something went wrong.';
+    return '<div class="cw-err" role="alert">' + icon('alert') + '<div><b>' + title + '</b><span>' + esc(body) + '</span></div>' +
+      (needLogin ? '<button class="btn sm primary" data-a="login">Log in</button>' : noProv || e.code === 'quota' ? '' : '<button class="btn sm" data-msg="regen">' + icon('refresh') + 'Retry</button>') + '</div>';
   }
   function sourcesHtml(src) {
     if (!src || !src.length) return '';
@@ -494,6 +546,55 @@
   }
   function rafThrottle(fn) { var q = false; return function () { if (q) return; q = true; requestAnimationFrame(function () { q = false; fn(); }); }; }
   function announce(t) { var a = document.getElementById('cw-live') || document.body.appendChild(Object.assign(document.createElement('div'), { id: 'cw-live', className: 'sr-only' })); a.setAttribute('aria-live', 'polite'); a.textContent = t; }
+
+  /* ================= Edit a sent message ================= */
+  // Rewrites the question in place; everything after it is replaced by a fresh answer (like ChatGPT).
+  function editMessage(m) {
+    if (S.streaming || !S.current) return;
+    var node = S.el.querySelector('.cw-msg[data-mid="' + CSS.escape(m.id) + '"]'); if (!node) return;
+    node.classList.add('editing');
+    var bubble = node.querySelector('.cw-bubble');
+    bubble.innerHTML = '<form class="cw-edit" novalidate><textarea class="textarea" maxlength="16000" aria-label="Edit your message">' + esc(m.content) + '</textarea>' +
+      '<div class="cw-edit-actions"><button type="button" class="btn sm ghost" data-edit-cancel>Cancel</button><button type="submit" class="btn sm primary">Send</button></div></form>';
+    node.querySelector('.cw-actions').hidden = true;
+    var ta = bubble.querySelector('textarea');
+    var grow = function () { ta.style.height = 'auto'; ta.style.height = Math.min(ta.scrollHeight, 320) + 'px'; };
+    ta.addEventListener('input', grow); setTimeout(function () { grow(); ta.focus(); ta.setSelectionRange(ta.value.length, ta.value.length); }, 20);
+    ta.addEventListener('keydown', function (e) { if (e.key === 'Escape') { e.preventDefault(); renderThread(); } else if (e.key === 'Enter' && !e.shiftKey && !e.isComposing && S.settings.enterToSend && !('ontouchstart' in window && isMobile())) { e.preventDefault(); bubble.querySelector('form').requestSubmit(); } });
+    bubble.querySelector('[data-edit-cancel]').addEventListener('click', function () { renderThread(); });
+    bubble.querySelector('form').addEventListener('submit', function (e) {
+      e.preventDefault();
+      var text = ta.value.trim();
+      if (!text && !(m.attachments && m.attachments.length)) { C.toast('Type a message first.', 'bad'); return; }
+      if (text === m.content) { renderThread(); return; }
+      var idx = S.messages.indexOf(m);
+      m.content = text; S.messages.splice(idx + 1);
+      renderThread(); scrollBottom(true);
+      run(function (o) { return data.edit(Object.assign({ conversationId: S.current.id, messageId: m.id, content: text }, o)); }, null, null);
+    });
+  }
+
+  /* ================= Shared chat (read-only, anyone with the link) ================= */
+  function showShared(token) {
+    if (S.streaming) stopStreaming();
+    S.current = null; S.messages = []; setView('shared');
+    var page = $('#cw-page'); page.className = 'cw-page cw-page-chat cw-page-shared';
+    updateHeader(); renderConvs();
+    page.innerHTML = '<div class="cw-thread">' + [1, 2].map(function (i) { return '<div class="cw-skel ' + (i % 2 ? 'u' : 'a') + '"><div class="skel" style="height:' + (i % 2 ? 44 : 96) + 'px"></div></div>'; }).join('') + '</div>';
+    C.api('/shared/' + encodeURIComponent(token)).then(function (d) {
+      var c = d.conversation;
+      document.title = c.title + ' · Colon AI';
+      page.innerHTML = '<div class="cw-shared-head"><span class="badge">' + icon('link') + 'Shared chat</span><h1 class="h2">' + esc(c.title) + '</h1>' +
+        '<p class="small muted">' + (c.owner ? esc(c.owner) + ' shared this conversation' : 'A shared conversation') + ' · ' + esc(C.ago(c.shared_at || c.created_at)) + '. It’s read-only.</p></div>' +
+        '<div class="cw-thread">' + d.messages.map(function (m) {
+          if (m.role === 'user') return '<div class="cw-msg user"><div class="cw-bubble">' + (m.attachments && m.attachments.length ? '<div class="cw-atts">' + m.attachments.map(function (a) { return '<span class="cw-att-file">' + icon(a.kind === 'image' ? 'image' : 'fileText') + '<span><b>' + esc(a.name) + '</b></span></span>'; }).join('') + '</div>' : '') + (m.content ? '<div class="cw-user-text">' + esc(m.content) + '</div>' : '') + '</div></div>';
+          return '<div class="cw-msg ai"><div class="cw-ai-head"><span class="cw-ai-mark">' + C.MARK + '</span><b>' + esc(modelName(m.model)) + '</b></div><div class="cw-ai-body"><div class="md">' + MD.render(m.content, { sources: m.sources }) + '</div></div>' + sourcesHtml(m.sources) + '</div>';
+        }).join('') + '</div>' +
+        '<div class="cw-shared-cta"><a class="btn primary" href="#/">' + icon('plus') + 'Start your own chat</a></div>';
+    }).catch(function (e) {
+      page.innerHTML = '<div class="empty cw-error-page">' + icon('link') + '<div class="h3">This link doesn’t work</div><p class="small">' + esc(e.message) + '</p><a class="btn primary" href="#/">' + icon('plus') + 'New chat</a></div>';
+    });
+  }
 
   /* ================= Composer ================= */
   function autoGrow() { var ta = $('#cw-input'); if (!ta.value) { ta.style.height = ''; ta.classList.remove('scrolling'); return; } ta.style.height = 'auto'; ta.style.height = Math.min(ta.scrollHeight, isMobile() ? 140 : 220) + 'px'; ta.classList.toggle('scrolling', ta.scrollHeight > (isMobile() ? 140 : 220)); }
@@ -656,7 +757,8 @@
         'embed-collapse': function () { S.browser.collapsed = !S.browser.collapsed; renderEmbed(); },
         'embed-full': function () { S.browser.full = !S.browser.full; S.browser.collapsed = false; renderEmbed(); document.body.classList.toggle('cw-noscroll', S.browser.full); },
         mtab: function () { setMobileTab(a.getAttribute('data-t')); }, jump: function () { scrollBottom(true); },
-        'retry-convs': refreshConvs
+        'retry-convs': refreshConvs,
+        login: function () { closeDrawer(); login('login'); }, signup: function () { closeDrawer(); login('signup'); }
       };
       if (acts[act]) acts[act]();
     });
@@ -671,7 +773,7 @@
 
     document.addEventListener('keydown', onKey);
     window.addEventListener('resize', C.debounce(function () { applySidebar(); if (!isMobile()) closeDrawer(); if (S.browser.layout === 'split' && !isMobile()) applySplitWidth(); }, 120));
-    window.addEventListener('offline', function () { C.toast('You’re offline. Chats stay on this device; sources need a connection.', 'bad'); });
+    window.addEventListener('offline', function () { C.toast(data.kind === 'local' ? 'You’re offline. Chats stay on this device; sources need a connection.' : 'You’re offline. Colon Saga needs a connection to answer.', 'bad'); });
     window.addEventListener('online', function () { C.toast('Back online.', 'ok'); });
     C.theme.on(function () { var s = S.el && S.el.querySelector('.cw-theme'); if (s) s.setAttribute('aria-pressed', C.theme.current() === 'light'); });
   }
@@ -686,6 +788,7 @@
   function msgAction(b) {
     var node = b.closest('.cw-msg'), mid = node && node.getAttribute('data-mid'), m = S.messages.filter(function (x) { return x.id === mid; })[0], act = b.getAttribute('data-msg');
     if (!m) return;
+    if (act === 'edit') { editMessage(m); return; }
     if (act === 'copy') C.copyText(m.content).then(function () { C.toast('Copied.'); }, function () { C.toast('Couldn’t copy.', 'bad'); });
     else if (act === 'regen') regenerate(m.id);
     else if (act === 'up') sendFeedback(m, m.feedback && m.feedback.rating === 'up' ? {} : { rating: 'up' });
