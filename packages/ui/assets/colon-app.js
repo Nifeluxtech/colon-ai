@@ -485,7 +485,9 @@
   function shell(r, loc) {
     var nav = state.nav.filter(function (n) { return !n.role || hasRole(n.role); });
     var active = function (n) { return n.match ? n.match.test(loc.path) : loc.path === n.href; };
-    var links = function (cls) { return nav.map(function (n) { return '<a href="#' + n.href + '" class="' + (active(n) ? 'active' : '') + '"' + (active(n) ? ' aria-current="page"' : '') + '>' + icon(n.icon) + '<span>' + esc(n.label) + '</span></a>'; }).join(''); };
+    // Nav items can stay out of the bottom tab bar (tab: false) or the sidebar (side: false), so a long
+    // admin menu fits on phones: the tab bar keeps the main screens plus a "More" hub.
+    var links = function (where) { return nav.filter(function (n) { return where === 'tab' ? n.tab !== false : n.side !== false; }).map(function (n) { return '<a href="#' + n.href + '" class="' + (active(n) ? 'active' : '') + '"' + (active(n) ? ' aria-current="page"' : '') + '>' + icon(n.icon) + '<span>' + esc(n.label) + '</span></a>'; }).join(''); };
     var brand = '<a class="brand" href="#/" aria-label="' + esc(state.title) + ' home">' + logo(state.brand, state.subtitle) + '</a>';
     var back = r.back ? '<a class="icon-btn" href="#' + r.back + '" aria-label="Back">' + icon('back') + '</a>' : '';
     var tabbar = state.tabbar !== false;
@@ -493,7 +495,7 @@
       '<aside class="sidebar">' + brand + '<nav>' + links() + '</nav><div class="foot small muted">Colon AI by Nifelux</div></aside>' +
       '<header class="topbar">' + (back || brand) + '<h1>' + (back ? esc(r.title || '') : '') + '</h1>' + (r.action ? r.action() : '') + '</header>' +
       '<main class="main' + (r.wide ? ' wide' : '') + (r.composer ? ' with-composer' : '') + '"><div id="view" class="view"></div></main>' +
-      (tabbar ? '<nav class="tabbar" aria-label="Main">' + links() + '</nav>' : '') + '</div>';
+      (tabbar ? '<nav class="tabbar" aria-label="Main">' + links('tab') + '</nav>' : '') + '</div>';
   }
 
   /* ---------- Shared account screens ---------- */
@@ -844,12 +846,14 @@
     var root = $('#app');
     root.innerHTML = '<div class="auth"><div class="inner" style="text-align:center"><div class="brand">' + logo(state.brand, 'by Nifelux', 'lg') + '</div><div class="skel" style="height:8px;width:120px;margin:0 auto"></div></div></div>';
     Promise.all([refreshUser().catch(function () { return null; }), api('/auth/config').then(function (c) { state.config = c; state.online = true; }).catch(function () { state.online = false; })]).then(function () {
+      // Phase 4: the brand name is a system setting in the Admin Dashboard.
+      if (state.config && state.config.brand_name && !opts.keepBrand) state.brand = String(state.config.brand_name).toUpperCase();
       window.addEventListener('hashchange', render);
       render();
     });
   }
 
-  window.Colon = { version: '0.4.4', start: start, api: api, icon: icon, esc: esc, $: $, $$: $$, toast: toast, sheet: sheet, field: field, bindForm: bindForm, go: go,
+  window.Colon = { version: '0.5.0', start: start, api: api, icon: icon, esc: esc, $: $, $$: $$, toast: toast, sheet: sheet, field: field, bindForm: bindForm, go: go,
     ago: ago, device: device, initials: initials, roleName: roleName, hasRole: hasRole, LANGS: LANGS, MARK: MARK, logo: logo,
     theme: theme, menu: menu, confirm: confirmDialog, prompt: promptDialog, drawer: drawer, keyboard: keyboard, resizable: resizable,
     copyText: copyText, fmtBytes: fmtBytes, uid: uid, debounce: debounce, trapFocus: trapFocus, get API() { return API; },
