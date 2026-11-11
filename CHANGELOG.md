@@ -1,5 +1,28 @@
 # Changelog
 
+## [0.5.0] — 2026-11-12 · Phase 4: Admin Dashboard
+Every platform setting can now be changed from admin.apparatus.name.ng, and each role sees only what it is allowed to (enforced by the API; every change is audited). Details: `docs/phase-4.md`.
+### Added
+- **Overview** from stored data: users, chat requests and failures, provider success rates and reply latency, top errors and open reports (new `ai_calls` log, one row per provider attempt, kept 30 days).
+- **Models and providers**: add, edit, enable and disable providers and models in the database. Provider API keys are **Super Admin only**, stored AES-256-GCM encrypted (key from `APP_SECRET`) and only ever shown masked (`••••1234`). Environment keys stay the fallback; the first model edit copies the built-in table into the database.
+- **Routing** per mode (General/Saga, Study, Developer, Research and the African-languages route): ordered model list with fallbacks, plus the hedge count. **Live, no redeploy:** each worker re-reads within ~30 s. If the database config is empty, broken or leaves no usable model, routing falls back to `routing.js` (chat never breaks).
+- **Usage and limits**: member, guest and guest-per-IP daily limits, optional per-mode daily caps, and a per-user override, all editable live.
+- **Users**: search and filters (staff, suspended), user page with sessions (revoke one or all), recent sign-in events, role, daily limit, and **suspend/unsuspend** (a suspended user is blocked at sign-in, including Google, and every session is revoked).
+- **Moderation queue**: "bad" feedback on replies plus reports on shared links (new **Report this chat** button on shared chats, `POST /shared/:token/report`), with resolve, resolve-and-turn-off-the-link, dismiss and reopen. Feedback context is hidden when the user turned off sharing feedback.
+- **Evaluation** (stub): log benchmark runs, and see thumbs up/down per model and the reasons for bad ratings (full benchmarks are Phase 5).
+- **African AI registry**: CRUD list of language models and datasets with languages, licence, licence link, source link, commercial-use and status.
+- **Voice**: STT/TTS engine settings (stored only, for Phase 6). **Browser**: placeholder until Phases 8–10.
+- **System settings** (Super Admin): product name, feature flags (sign-ups, guest chat, uploads, share links), **maintenance mode** (new chat activity gets `503 {error:"maintenance"}` with your message; staff exempt; history still loads) and an **announcement banner** shown in Colon AI.
+- **Security**: staff 2FA status, sign-in counts (24 h), sign-in events and the full audit trail.
+- Mobile-first admin UI (`apps/admin/public/js/admin-app.js`, `css/admin.css`): bottom tabs for Overview, Users, Moderation and More; every section in the desktop sidebar.
+- Migration `0004_admin` (runs automatically on API start): `app_settings`, `ai_providers`, `ai_models`, `ai_calls`, `user_limits`, `user_suspensions`, `moderation_reports`, `eval_runs`, `african_registry`. New tables only.
+- Tests: `services/api/test/admin.test.js` (permission matrix for every admin endpoint, live routing and fallback, settings cache, limits, call log) in `npm test`; `services/api/test/e2e-admin.js` runs the whole dashboard API against MySQL and the mock provider.
+### Changed
+- Moderators now get moderation plus **read-only** users (unlocking an account and `/admin/stats` moved to Admin).
+- `/health` reports `ai.routing` (`database` or `default`). `/auth/config` adds `brand_name`, `features`, `maintenance` and `announcement`.
+- Nav items in the UI kit can stay out of the tab bar (`tab: false`) or the sidebar (`side: false`); the shell brand follows the system brand name.
+- Version 0.5.0 across `package.json`, `services/api/package.json`, every `?v=` asset reference and `Colon.version`.
+
 ## [0.4.4] — 2026-11-11 · ~1 s first reply
 - **Gemma 4 26B A4B is the main Google model** (first token ≈0.7–1.2 s in tests); Gemma 4 31B is now the Google backup (often 500/503 or 14 s+).
 - **Rolling hedge pool:** two models always in flight; one that fails fast is replaced at once instead of waiting for the slow one.
