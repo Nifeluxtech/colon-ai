@@ -463,12 +463,19 @@
       var view = r.bare ? $('.view', root) : $('#view', root);
       document.title = (r.title ? r.title + ' · ' : '') + (state.title || 'Colon AI');
       try { var un = r.render(view, { params: found.params, query: loc.query, path: loc.path }); if (typeof un === 'function') state.unmount = un; }
-      catch (e) { view.innerHTML = '<div class="empty">' + esc(e.message) + '</div>'; }
+      catch (e) { if (window.console) console.error(e); view.innerHTML = renderError(); }
       window.scrollTo(0, scrolls[loc.path] || 0);
       var h = $('h1, .h1', view); if (h && !r.bare) h.setAttribute('tabindex', '-1');
     };
     if (!r.app && document.startViewTransition && !matchMedia('(prefers-reduced-motion: reduce)').matches) document.startViewTransition(swap);
     else swap();
+  }
+
+  // A screen failed to draw: usually a stale cached file from an older release. Never show the raw error.
+  function renderError() {
+    return '<div class="empty boot-error" role="alert">' + icon('refresh') + '<div class="h3" style="color:var(--text)">Please refresh</div>' +
+      '<p class="small">Colon was updated and this screen needs the latest version.</p>' +
+      '<button class="btn primary" type="button" onclick="location.reload()">' + icon('refresh') + 'Refresh</button></div>';
   }
 
   var RANK = { user: 0, moderator: 1, admin: 2, super_admin: 3 };
@@ -481,11 +488,12 @@
     var links = function (cls) { return nav.map(function (n) { return '<a href="#' + n.href + '" class="' + (active(n) ? 'active' : '') + '"' + (active(n) ? ' aria-current="page"' : '') + '>' + icon(n.icon) + '<span>' + esc(n.label) + '</span></a>'; }).join(''); };
     var brand = '<a class="brand" href="#/" aria-label="' + esc(state.title) + ' home">' + logo(state.brand, state.subtitle) + '</a>';
     var back = r.back ? '<a class="icon-btn" href="#' + r.back + '" aria-label="Back">' + icon('back') + '</a>' : '';
-    return '<div class="app has-nav">' +
+    var tabbar = state.tabbar !== false;
+    return '<div class="app has-nav' + (tabbar ? '' : ' no-tabbar') + '">' +
       '<aside class="sidebar">' + brand + '<nav>' + links() + '</nav><div class="foot small muted">Colon AI by Nifelux</div></aside>' +
       '<header class="topbar">' + (back || brand) + '<h1>' + (back ? esc(r.title || '') : '') + '</h1>' + (r.action ? r.action() : '') + '</header>' +
       '<main class="main' + (r.wide ? ' wide' : '') + (r.composer ? ' with-composer' : '') + '"><div id="view" class="view"></div></main>' +
-      '<nav class="tabbar" aria-label="Main">' + links() + '</nav></div>';
+      (tabbar ? '<nav class="tabbar" aria-label="Main">' + links() + '</nav>' : '') + '</div>';
   }
 
   /* ---------- Shared account screens ---------- */
@@ -732,6 +740,7 @@
     state.app = opts.app; state.title = opts.title; state.subtitle = opts.subtitle || ''; state.nav = opts.nav || [];
     state.brand = opts.brand || (opts.title || 'Colon AI').toUpperCase();
     state.allowSignup = opts.allowSignup !== false;
+    state.tabbar = opts.tabbar !== false;  // false: no bottom tab bar on shared screens (Colon AI, Colon Browser)
     var all = (opts.routes || []).concat(authRoutes);
     routes = all.map(function (r) { return Object.assign({}, r, { re: new RegExp('^' + r.path.replace(/:[a-z]+/g, '([^/]+)') + '$') }); });
     var root = $('#app');
@@ -742,7 +751,7 @@
     });
   }
 
-  window.Colon = { start: start, api: api, icon: icon, esc: esc, $: $, $$: $$, toast: toast, sheet: sheet, field: field, bindForm: bindForm, go: go,
+  window.Colon = { version: '0.3.1', start: start, api: api, icon: icon, esc: esc, $: $, $$: $$, toast: toast, sheet: sheet, field: field, bindForm: bindForm, go: go,
     ago: ago, device: device, initials: initials, roleName: roleName, hasRole: hasRole, LANGS: LANGS, MARK: MARK, logo: logo,
     theme: theme, menu: menu, confirm: confirmDialog, prompt: promptDialog, drawer: drawer, keyboard: keyboard, resizable: resizable,
     copyText: copyText, fmtBytes: fmtBytes, uid: uid, debounce: debounce, trapFocus: trapFocus, get API() { return API; },
