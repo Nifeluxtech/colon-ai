@@ -347,7 +347,7 @@ body.cw-noscroll{overflow:hidden}
 }
 @media (min-width:900px) and (max-height:700px){.cw-hero-mark .logo-mark{width:56px}.cw-prompt{min-height:110px}}
 
-/* ---------- v0.4.2: guests (Log in / Sign up), message editing, shared chats ---------- */
+/* ---------- v0.4.3: guests (Log in / Sign up), message editing, shared chats ---------- */
 .cw-auth-btns{display:flex;gap:8px;padding:4px 2px 2px}
 .cw-auth-btns .btn{flex:1;min-height:40px}
 .cw-head-auth{display:flex;gap:6px;align-items:center;margin-left:4px}

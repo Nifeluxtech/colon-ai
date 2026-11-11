@@ -94,35 +94,79 @@ async function generate(o) {
   }
   const messages = [{ role: 'system', content: systemPrompt({ mode: o.mode, language: o.language, name: o.name }) }, ...o.messages];
   const attempts = [];
-  for (const c of chain) {
+  // Hedged racing: free hosts are often slow to start, so each "wave" asks up to `hedge` models at once
+  // (different providers first) and keeps whichever starts answering first; the others are cancelled.
+  // If every model in a wave fails before its first token, the next wave starts. AI_HEDGE=1 = one at a time.
+  const hedge = Math.max(1, Number(timeouts.hedge || 1));
+  const queue = orderForHedge(chain, hedge);
+  while (queue.length) {
     if (o.signal && o.signal.aborted) break;
-    if (o.onAttempt) o.onAttempt(c);
-    const started = Date.now();
-    let text = '';
-    try {
-      await streamChat({
-        provider: c.provider, model: c.model, body: c.body, messages, signal: o.signal, fetch: o.fetch,
-        maxTokens: timeouts.maxTokens, temperature: o.temperature,
-        firstTokenTimeoutMs: timeouts.firstTokenTimeoutMs, idleTimeoutMs: timeouts.idleTimeoutMs, maxMs: timeouts.maxReplyMs,
-        onDelta: (piece) => { text += piece; if (o.onDelta) o.onDelta(piece); },
-      });
-      attempts.push({ provider: c.providerId, model: c.model, ok: true, ms: Date.now() - started });
-      resting.delete(keyOf(c));
-      return { text, providerId: c.providerId, providerName: c.providerName, model: c.model, target: c.target, attempts };
-    } catch (e) {
-      if (e.name === 'AbortError') { e.partialText = text; e.attempts = attempts; e.providerId = c.providerId; e.model = c.model; throw e; }
-      attempts.push({ provider: c.providerId, model: c.model, ok: false, code: e.code, status: e.status, ms: Date.now() - started });
-      if (REST_MS[e.code]) resting.set(keyOf(c), Date.now() + REST_MS[e.code]);
-      log.warn('ai_provider_failed', { provider: c.providerId, model: c.model, code: e.code, status: e.status, partial: Boolean(e.partial), err: String(e.message).slice(0, 200) });
-      if (e.partial) {
-        // Text already reached the user: no silent switch to another model mid-answer.
-        throw Object.assign(new ProviderError('The connection to the AI provider dropped before the reply finished.', { code: 'provider_down', partial: true }),
-          { status: 502, partialText: text, attempts, providerId: c.providerId, model: c.model });
-      }
-    }
+    const wave = queue.splice(0, hedge);
+    const won = await raceWave(wave, { o, messages, timeouts, attempts });
+    if (won) return won;
   }
   if (o.signal && o.signal.aborted) { const a = new Error('aborted'); a.name = 'AbortError'; a.partialText = ''; a.attempts = attempts; throw a; }
   throw Object.assign(new ProviderError('Colon Saga couldn’t reach an AI provider right now. Please try again in a moment.', { code: 'provider_down' }), { status: 503, attempts });
+}
+
+// Puts targets from different providers into the same wave, so one busy host doesn't sink a whole wave.
+function orderForHedge(chain, hedge) {
+  if (hedge < 2) return chain.slice();
+  const rest = chain.slice(), out = [];
+  while (rest.length) {
+    const wave = [], used = new Set();
+    for (let i = 0; i < rest.length && wave.length < hedge; i++) {
+      if (!used.has(rest[i].providerId)) { used.add(rest[i].providerId); wave.push(rest.splice(i, 1)[0]); i--; }
+    }
+    while (wave.length < hedge && rest.length) wave.push(rest.shift());
+    out.push(...wave);
+  }
+  return out;
+}
+
+// Runs one wave. Resolves with the result of the first model to answer, or null when all failed before
+// answering. Rejects when the user stopped, or when the winning model broke mid-answer.
+function raceWave(wave, { o, messages, timeouts, attempts }) {
+  return new Promise((resolve, reject) => {
+    let winner = null, settled = false, pending = wave.length;
+    const ctls = wave.map(() => new AbortController());
+    const onOuter = () => ctls.forEach(c => c.abort());
+    if (o.signal) o.signal.addEventListener('abort', onOuter, { once: true });
+    const finish = (fn, v) => { if (settled) return; settled = true; if (o.signal) o.signal.removeEventListener('abort', onOuter); fn(v); };
+    const claim = (i) => { if (winner !== null) return winner === i; winner = i; ctls.forEach((c, j) => { if (j !== i) c.abort(); }); return true; };
+    wave.forEach((c, i) => {
+      if (o.onAttempt) o.onAttempt(c);
+      const started = Date.now();
+      let text = '';
+      streamChat({
+        provider: c.provider, model: c.model, body: c.body, messages, signal: ctls[i].signal, fetch: o.fetch,
+        maxTokens: timeouts.maxTokens, temperature: o.temperature,
+        firstTokenTimeoutMs: timeouts.firstTokenTimeoutMs, idleTimeoutMs: timeouts.idleTimeoutMs, maxMs: timeouts.maxReplyMs,
+        onDelta: (piece) => { if (!claim(i)) return; text += piece; if (o.onDelta) o.onDelta(piece); },
+      }).then(() => {
+        if (!claim(i)) return;
+        attempts.push({ provider: c.providerId, model: c.model, ok: true, ms: Date.now() - started });
+        resting.delete(keyOf(c));
+        finish(resolve, { text, providerId: c.providerId, providerName: c.providerName, model: c.model, target: c.target, attempts });
+      }, (e) => {
+        pending--;
+        if (winner !== null && winner !== i) return;          // a loser we cancelled
+        if (e.name === 'AbortError') {
+          if (o.signal && o.signal.aborted) { e.partialText = text; e.attempts = attempts; e.providerId = c.providerId; e.model = c.model; return finish(reject, e); }
+          return;
+        }
+        attempts.push({ provider: c.providerId, model: c.model, ok: false, code: e.code, status: e.status, ms: Date.now() - started });
+        if (REST_MS[e.code]) resting.set(keyOf(c), Date.now() + REST_MS[e.code]);
+        log.warn('ai_provider_failed', { provider: c.providerId, model: c.model, code: e.code, status: e.status, partial: Boolean(e.partial), err: String(e.message).slice(0, 200) });
+        if (winner === i) {
+          // Text already reached the user: no silent switch to another model mid-answer.
+          return finish(reject, Object.assign(new ProviderError('The connection to the AI provider dropped before the reply finished.', { code: 'provider_down', partial: true }),
+            { status: 502, partialText: text, attempts, providerId: c.providerId, model: c.model }));
+        }
+        if (pending === 0 && winner === null) finish(resolve, null);
+      });
+    });
+  });
 }
 
 module.exports = { generate, chainFor, listModels, isConfigured, hasVision, enabledProviders, _resting: resting };

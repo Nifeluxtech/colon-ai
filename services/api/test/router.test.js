@@ -57,7 +57,7 @@ function mockFetch(behaviour) {
   return fn;
 }
 const order = (chain) => chain.map(c => `${c.providerId}:${c.model}`);
-const fast = { firstTokenTimeoutMs: 80, idleTimeoutMs: 200, maxReplyMs: 2000 };
+const fast = { firstTokenTimeoutMs: 80, idleTimeoutMs: 200, maxReplyMs: 2000, hedge: 1 };
 
 test.beforeEach(() => { ai._resting.clear(); setEnv(ALL); });
 
@@ -240,4 +240,35 @@ test('a second Google Gemma model backs up the first', async () => {
   const r = await ai.generate({ mode: 'general', messages: [{ role: 'user', content: 'x' }], fetch: f, timeouts: fast });
   assert.deepEqual(f.calls.map(c => c.model), ['gemma-a', 'gemma-4-26b-a4b-it']);
   assert.equal(r.model, 'gemma-4-26b-a4b-it');
+});
+
+test('hedged racing: a slow first model does not delay the reply; only the winner reaches the user', async () => {
+  ai._resting.clear();
+  const f = mockFetch({ qwen: 'hang' });
+  let streamed = '';
+  const t0 = Date.now();
+  const r = await ai.generate({ mode: 'general', language: 'en', messages: [{ role: 'user', content: 'hi' }], fetch: f,
+    timeouts: { ...fast, firstTokenTimeoutMs: 5000, hedge: 2 }, onDelta: (t) => { streamed += t; } });
+  assert.ok(Date.now() - t0 < 1000, 'did not wait for the hanging model');
+  assert.deepEqual(f.calls.map(c => c.model).sort(), ['deepseek', 'qwen']);   // asked at once
+  assert.equal(r.model, 'deepseek');
+  assert.equal(streamed, 'Answer from deepseek');
+});
+
+test('hedged racing: when both answer, text from the loser never mixes in', async () => {
+  ai._resting.clear();
+  const slow = (text, ms) => new Promise(res => setTimeout(() => res(okStream(text)), ms));
+  const f = async (url, init) => { const m = JSON.parse(init.body).model; return m === 'qwen' ? slow('Answer from qwen', 60) : slow('Answer from deepseek', 5); };
+  let streamed = '';
+  const r = await ai.generate({ mode: 'general', messages: [{ role: 'user', content: 'x' }], fetch: f, timeouts: { ...fast, hedge: 2 }, onDelta: (t) => { streamed += t; } });
+  assert.equal(r.model, 'deepseek');
+  assert.equal(streamed, 'Answer from deepseek');
+});
+
+test('hedged racing: a whole wave failing moves on to the next wave', async () => {
+  ai._resting.clear();
+  const f = mockFetch({ qwen: 500, deepseek: 429 });
+  const r = await ai.generate({ mode: 'general', messages: [{ role: 'user', content: 'x' }], fetch: f, timeouts: { ...fast, hedge: 2 } });
+  assert.equal(r.model, 'gemma-g');
+  assert.equal(r.attempts.filter(a => !a.ok).length, 2);
 });
