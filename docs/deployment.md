@@ -20,7 +20,7 @@ Phones cache `/ui/*.js` aggressively. Every local CSS/JS/font URL in `apps/*/pub
 ## Phase 3 (v0.4.0): AI providers, limits and uploads
 
 No new npm packages: the chat API, model router and file reading use Node built-ins (`fetch`, `crypto`, `zlib`).
-Migration `0003_chat` runs by itself when the API starts.
+Migrations `0003_chat` and `0004_admin` run by themselves when the API starts.
 
 ### 1. Get free AI keys (add at least one; more keys = more fallbacks)
 
@@ -56,7 +56,7 @@ Optional: `GROQ_MODEL`, `OPENROUTER_GEMMA_MODEL`, `GEMINI_MODEL`, `NATLAS_BASE_U
 
 1. Git Version Control > Manage > Pull or Deploy > **Update from Remote**, then **Deploy HEAD Commit**.
 2. Setup Node.js App > **Restart** (no "Run NPM Install" needed for this release, but it does no harm).
-3. Open `https://api.apparatus.name.ng/health`: `database.migrations` should include `0003_chat` and
+3. Open `https://api.apparatus.name.ng/health`: `database.migrations` should include `0004_admin` and
    `ai.configured` should be `true` with your providers listed.
 4. Open Colon AI signed out: you can chat as a guest. Sign in: your chats appear in the sidebar and survive reloads.
 
