@@ -18,7 +18,14 @@ async function check() {
     await p.query('SELECT 1');
     return { ok: true, ms: Date.now() - t };
   } catch (e) {
-    return { ok: false, reason: e.code || 'error' };
+    // MySQL's message names user@host and "using password: YES/NO", never the password itself.
+    return {
+      ok: false,
+      reason: e.code || 'error',
+      detail: String(e.sqlMessage || e.message || '').slice(0, 160),
+      host: db.host,
+      password_set: Boolean(db.password),
+    };
   }
 }
 
