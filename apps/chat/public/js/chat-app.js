@@ -23,7 +23,8 @@
   var S = {
     el: null, models: [], settings: null, convs: [], q: '', current: null, messages: [], streaming: null, loadingConv: false,
     draftMode: 'general', draftModel: null, view: 'chat', collapsed: false, drawer: false,
-    browser: { inst: null, layout: 'none', collapsed: false, full: false, mtab: 'chat', width: 0 }, media: null, speaking: null
+    browser: { inst: null, layout: 'none', collapsed: false, full: false, mtab: 'chat', width: 0 }, media: null, speaking: null,
+    stick: true, lastTop: 0, userInput: 0, seen: {}, ro: null
   };
   var CW = window.CW = window.CW || {};
   CW.S = S; CW.data = data; CW.MODES = MODES;
@@ -37,7 +38,9 @@
 
   /* ================= Mount ================= */
   function mount(view, ctx) {
-    C.keyboard();
+    // Optional kit helpers are feature-checked: an older cached kit must never crash the app.
+    if (typeof C.keyboard === 'function') C.keyboard();
+    document.documentElement.classList.add('app-lock');
     view.innerHTML =
       '<a class="skip-link" href="#cw-input">Skip to message box</a>' +
       '<div class="cw" data-layout="none" data-view="chat">' +
@@ -77,7 +80,6 @@
             '<button class="icon-btn sm" data-a="browser-close" aria-label="Close browser" data-tip="Close">' + icon('x') + '</button></div><div class="cw-split-body"></div></section>' +
         '</div>' +
       '</div>' +
-      '<nav class="cw-bottomnav tabbar" aria-label="Main">' + tab('/', 'home', 'Home') + tab('/history', 'history', 'History') + tab('/saved', 'saved', 'Saved') + tab('/settings', 'user', 'Profile') + '</nav>' +
       '<div class="cw-drawer-back" data-a="drawer-close"></div></div>';
     S.el = view.querySelector('.cw');
     fillUser();
@@ -99,23 +101,25 @@
       data.getSettings().then(function (s) { S.settings = s; S.draftMode = s.defaultMode || 'general'; applyTextSize(); }),
       data.listModels().then(function (m) { S.models = m; }).catch(function () { S.models = []; C.toast('Couldn’t load the model list. Using Colon Saga.', 'bad'); })
     ]).then(function () { refreshConvs(); route(ctx); });
-    return function unmount() { if (S.streaming) S.streaming.ctl.abort(); if (S.media) S.media.destroy(); document.removeEventListener('keydown', onKey); };
+    return function unmount() {
+      if (S.streaming) S.streaming.ctl.abort(); if (S.media) S.media.destroy(); document.removeEventListener('keydown', onKey);
+      if (S.ro) S.ro.disconnect(); document.documentElement.classList.remove('app-lock');
+    };
   }
   function navLink(href, ic, label) { return '<a href="#' + href + '" data-nav="' + href + '">' + icon(ic) + '<span>' + label + '</span></a>'; }
-  function tab(href, ic, label) { return '<a href="#' + href + '" data-nav="' + href + '">' + icon(ic) + '<span>' + label + '</span></a>'; }
   function composerHtml() {
-    return '<div class="cw-composer"><button type="button" class="cw-jump btn sm" data-a="jump" hidden>' + icon('chevDown') + 'Latest</button><div class="cw-composer-in">' +
-      '<div class="cw-welcome-modes chips" role="radiogroup" aria-label="Mode"></div>' +
+    // Floating composer: a pill that hovers above the bottom edge; the thread scrolls underneath it.
+    return '<div class="cw-composer"><button type="button" class="cw-jump btn sm" data-a="jump" hidden aria-label="Jump to latest message">' + icon('chevDown') + 'Latest</button><div class="cw-composer-in">' +
       '<div class="att-tray" hidden aria-label="Attachments"></div>' +
       '<div class="cv-voice" hidden></div>' +
       '<form class="cw-input" id="cw-form" novalidate>' +
         '<button type="button" class="icon-btn" data-a="attach" aria-label="Attach files" data-tip="Attach files">' + icon('clip') + '</button>' +
-        '<span class="cw-mode-pill" data-a="mode-clear" role="button" tabindex="0" hidden></span>' +
+        '<button type="button" class="cw-mode-btn" data-a="mode-menu" aria-haspopup="menu" aria-label="Mode: General" data-tip="Mode"></button>' +
         '<textarea id="cw-input" rows="1" maxlength="16000" enterkeyhint="send" aria-label="Message Colon" placeholder="Ask Colon anything…"></textarea>' +
         '<button type="button" class="icon-btn" data-a="mic" aria-label="Voice input" aria-pressed="false" data-tip="Voice input">' + icon('mic') + '</button>' +
         '<button type="submit" class="cw-send" data-a="send" aria-label="Send message" disabled>' + icon('send') + '</button>' +
       '</form>' +
-      '<div class="cw-pills"><button type="button" class="chip sm" data-a="attach">' + icon('clip') + 'Attach File</button><button type="button" class="chip sm" data-a="mic">' + icon('mic') + 'Voice Input</button><button type="button" class="chip sm" data-a="browse-web">' + icon('globe') + 'Browse the Web</button></div>' +
+      '<div class="cw-pills" aria-label="Quick actions"><button type="button" class="chip sm" data-a="attach">' + icon('clip') + 'Attach File</button><button type="button" class="chip sm" data-a="mic">' + icon('mic') + 'Voice Input</button><button type="button" class="chip sm" data-a="browse-web">' + icon('globe') + 'Browse the Web</button></div>' +
       '<p class="cw-disclaimer"><span class="badge cyan" data-tip="' + esc(data.describe) + '">' + icon('info') + (data.kind === 'local' ? 'Preview' : 'Synced') + '</span><span>' + (data.kind === 'local' ? 'Replies are generated on this device until Colon Saga is connected.' : 'Colon Saga can make mistakes. Check important information.') + '</span></p>' +
       '</div></div>';
   }
@@ -144,6 +148,7 @@
 
   function setView(v) {
     S.view = v; S.el.setAttribute('data-view', v);
+    S.stick = true; syncJump();
     $('.cw-composer').hidden = v !== 'chat' && v !== 'welcome';
     $('.cw-embed-host').hidden = v !== 'chat';
     if (v !== 'chat' && v !== 'welcome' && S.browser.layout === 'split' && isMobile()) setMobileTab('chat');
@@ -179,6 +184,7 @@
     data.getConversation(id).then(function (r) {
       if (!S.current || S.current.id !== id) return;
       S.current = r.conversation; S.messages = r.messages; S.loadingConv = false;
+      S.messages.forEach(function (m) { S.seen[m.id] = 1; });  // history appears without replaying entry animations
       renderThread(); updateHeader(); syncComposer(); renderConvs(); scrollBottom(true);
     }).catch(function (e) {
       S.loadingConv = false;
@@ -199,13 +205,15 @@
     $('[data-title]').textContent = S.current ? S.current.title : '';
     var titles = { welcome: 'New chat', history: 'History', saved: 'Saved', explore: 'Explore', settings: 'Settings', help: 'Help & Support' };
     document.title = (inChat && S.current ? S.current.title : titles[S.view] || 'Colon AI') + ' · Colon AI';
-    var pill = $('.cw-mode-pill');
-    pill.hidden = m === 'general'; pill.innerHTML = icon(MODES[m].icon) + MODES[m].label + '<span class="sr-only"> mode active. Press to switch to General.</span>' + icon('x');
+    var mb = $('.cw-mode-btn');
+    mb.classList.toggle('on', m !== 'general'); mb.setAttribute('aria-label', 'Mode: ' + MODES[m].label + '. Change mode');
+    mb.innerHTML = icon(MODES[m].icon) + '<span class="cw-mode-l">' + MODES[m].label + '</span>' + icon('chevDown');
     $('#cw-input').placeholder = MODES[m].hint;
     renderModeChips(); if (S.view === 'welcome' || S.view === 'chat') autoGrow();
   }
   function renderModeChips() {
     var m = mode(), box = $('.cw-welcome-modes');
+    if (!box) return;  // the chips live on the welcome screen; in a chat the mode button in the pill takes over
     box.innerHTML = ['study', 'developer', 'research'].map(function (k) {
       return '<button type="button" class="chip" role="radio" aria-checked="' + (m === k) + '" data-mode="' + k + '">' + icon(MODES[k].icon) + MODES[k].label + '</button>';
     }).join('');
@@ -223,6 +231,13 @@
     C.toast(next === 'general' ? 'General mode' : MODES[next].label + ' mode on. Your chat history stays.');
   }
 
+  function setModeTo(k) { if (mode() !== k) setMode(k); }
+  function modeMenu(anchor) {
+    var m = mode();
+    C.menu(anchor, [{ head: 'Mode' }].concat(['general', 'study', 'developer', 'research'].map(function (k) {
+      return { label: MODES[k].label, sub: MODES[k].sub, icon: MODES[k].icon, checked: m === k, onClick: function () { setModeTo(k); } };
+    })).concat(['-', { label: 'Browse the Web', sub: 'Let Saga browse for you', icon: 'globe', onClick: function () { S.el.querySelector('.cw-pills [data-a=browse-web]').click(); } }]), { label: 'Mode', sheetOnMobile: true });
+  }
   function modelMenu(anchor) {
     if (!S.models.length) { C.toast('No models are configured yet.', 'bad'); return; }
     var cur = modelId();
@@ -328,17 +343,17 @@
 
   /* ================= Welcome ================= */
   function renderWelcome() {
-    var u = C.user || {}, first = (u.name || '').split(' ')[0];
     var page = $('#cw-page'); page.className = 'cw-page cw-page-welcome';
-    page.innerHTML = C.verifyBanner() + '<section class="cw-welcome">' +
+    page.innerHTML = (typeof C.verifyBanner === 'function' ? C.verifyBanner() : '') + '<section class="cw-welcome">' +
       '<div class="cw-hero-mark" aria-hidden="true">' + C.MARK + '</div>' +
       '<h1 class="cw-hero-h">What can we explore today?</h1>' +
-      '<p class="cw-hero-p">' + (first ? esc(first) + ', y' : 'Y') + 'our ideas, questions and ambitions start here.</p>' +
+      '<p class="cw-hero-p">Your ideas, questions and ambitions start here.</p>' +
       '<div class="cw-prompts">' + PROMPTS.map(function (p, i) {
         return '<button type="button" class="cw-prompt" data-prompt="' + i + '"><span class="cw-prompt-ico i' + i + '">' + icon(p.icon) + '</span><b>' + esc(p.title) + '</b><span>' + esc(p.text) + '</span></button>';
-      }).join('') + '</div></section>';
-    C.bindBanner(page);
-    // the mode chips sit right under the prompt cards (above the input) on the welcome screen
+      }).join('') + '</div>' +
+      '<div class="cw-welcome-modes chips" role="radiogroup" aria-label="Mode"></div></section>';
+    if (typeof C.bindBanner === 'function') C.bindBanner(page);
+    renderModeChips();  // mode chips scroll with the welcome content, above the floating composer
   }
 
   /* ================= Thread ================= */
@@ -347,20 +362,22 @@
     if (!S.messages.length) { page.innerHTML = '<div class="empty">' + icon('chat') + '<div class="h3">Say hello to Colon Saga</div><p class="small">Ask anything to start this conversation.</p></div>'; return; }
     var lastA = lastAssistant();
     page.innerHTML = '<div class="cw-thread" role="log" aria-live="off">' + S.messages.map(function (m) { return msgHtml(m, m === lastA); }).join('') + '</div>';
+    S.messages.forEach(function (m) { S.seen[m.id] = 1; });
     loadAttachmentThumbs(page);
   }
   function lastAssistant() { for (var i = S.messages.length - 1; i >= 0; i--) if (S.messages[i].role === 'assistant') return S.messages[i]; return null; }
   function msgHtml(m, isLast) {
+    var fresh = S.seen[m.id] ? '' : ' fresh';  // entry animation only the first time a message appears
     if (m.role === 'event') return '<div class="cw-event"><span>' + esc(m.content) + '</span></div>';
     if (m.role === 'user') {
-      return '<div class="cw-msg user" data-mid="' + esc(m.id) + '"><div class="cw-bubble">' + attachmentsHtml(m.attachments) + (m.content ? '<div class="cw-user-text">' + esc(m.content) + '</div>' : '') + '</div>' +
+      return '<div class="cw-msg user' + fresh + '" data-mid="' + esc(m.id) + '"><div class="cw-bubble">' + attachmentsHtml(m.attachments) + (m.content ? '<div class="cw-user-text">' + esc(m.content) + '</div>' : '') + '</div>' +
         '<div class="cw-actions"><button class="icon-btn sm" data-msg="copy" aria-label="Copy message" data-tip="Copy">' + icon('copy') + '</button></div></div>';
     }
     var streaming = m.status === 'streaming', fb = m.feedback && m.feedback.rating;
     var body = streaming && !m.content ? '<div class="cw-thinking"><span class="typing"><i></i><i></i><i></i></span><span>' + esc(modelName(m.model)) + ' is thinking…</span></div>'
       : '<div class="md' + (streaming ? ' streaming' : '') + '">' + MD.render(m.content, { sources: m.sources }) + '</div>';
     var meta = (S.settings && S.settings.showMeta) ? '<span class="badge">' + icon(MODES[m.mode] ? MODES[m.mode].icon : 'sparkle') + (MODES[m.mode] ? MODES[m.mode].label : 'General') + '</span>' : '';
-    return '<div class="cw-msg ai' + (streaming ? ' is-streaming' : '') + '" data-mid="' + esc(m.id) + '">' +
+    return '<div class="cw-msg ai' + fresh + (streaming ? ' is-streaming' : '') + '" data-mid="' + esc(m.id) + '">' +
       '<div class="cw-ai-head"><span class="cw-ai-mark">' + C.MARK + '</span><b>' + esc(modelName(m.model)) + '</b>' + meta +
       (m.origin === 'browse' ? '<span class="badge cyan">' + icon('globe') + 'AI Browse</span>' : '') + (m.preview ? '<span class="badge" data-tip="Generated on this device. Colon Saga isn’t connected yet.">Preview</span>' : '') +
       (m.status === 'stopped' ? '<span class="badge warn">Stopped</span>' : '') + '</div>' +
@@ -443,7 +460,7 @@
     call({
       signal: ctl.signal,
       onEvent: function (ev) {
-        if (ev.type === 'user' && tempUser) { tempUser.id = ev.message.id; if (ev.conversation) S.current = Object.assign(S.current || {}, ev.conversation); updateHeader(); }
+        if (ev.type === 'user' && tempUser) { S.seen[ev.message.id] = 1; tempUser.id = ev.message.id; if (ev.conversation) S.current = Object.assign(S.current || {}, ev.conversation); updateHeader(); }
         else if (ev.type === 'start') {
           msg = ev.message; msg.content = msg.content || ''; S.streaming.msgId = msg.id;
           var at = replaceId ? S.messages.findIndex(function (m) { return m.id === replaceId; }) : -1;
@@ -479,7 +496,7 @@
   function announce(t) { var a = document.getElementById('cw-live') || document.body.appendChild(Object.assign(document.createElement('div'), { id: 'cw-live', className: 'sr-only' })); a.setAttribute('aria-live', 'polite'); a.textContent = t; }
 
   /* ================= Composer ================= */
-  function autoGrow() { var ta = $('#cw-input'); ta.style.height = 'auto'; ta.style.height = Math.min(ta.scrollHeight, isMobile() ? 140 : 220) + 'px'; ta.classList.toggle('scrolling', ta.scrollHeight > (isMobile() ? 140 : 220)); }
+  function autoGrow() { var ta = $('#cw-input'); if (!ta.value) { ta.style.height = ''; ta.classList.remove('scrolling'); return; } ta.style.height = 'auto'; ta.style.height = Math.min(ta.scrollHeight, isMobile() ? 140 : 220) + 'px'; ta.classList.toggle('scrolling', ta.scrollHeight > (isMobile() ? 140 : 220)); }
   function syncComposer() {
     if (!S.el || !S.media) return;
     var ta = $('#cw-input'), st = S.media.state(), btn = $('[data-a=send]');
@@ -487,11 +504,27 @@
     else { btn.classList.remove('stop'); btn.innerHTML = icon('send'); btn.setAttribute('aria-label', st.uploading ? 'Waiting for uploads' : 'Send message'); btn.type = 'submit'; btn.disabled = st.uploading || (!ta.value.trim() && !st.ready); }
     S.el.classList.toggle('has-text', !!ta.value.trim());
   }
+  // Follow the stream only while the reader is at the bottom; once they scroll up, stay put and offer "Latest".
   function scrollBottom(force) {
     var sc = $('#cw-scroll'); if (!sc) return;
-    var near = sc.scrollHeight - sc.scrollTop - sc.clientHeight < 160;
-    if (force || near) sc.scrollTop = sc.scrollHeight;
-    $('[data-a=jump]').hidden = force || near || S.view !== 'chat';
+    if (force) S.stick = true;
+    if (S.stick) { sc.scrollTop = sc.scrollHeight; S.lastTop = sc.scrollTop; }
+    syncJump();
+  }
+  function syncJump() { var j = $('[data-a=jump]'); if (j) j.hidden = S.stick || S.view !== 'chat'; }
+  function onThreadScroll() {
+    var sc = $('#cw-scroll'), dist = sc.scrollHeight - sc.scrollTop - sc.clientHeight;
+    var up = sc.scrollTop < S.lastTop - 1, byUser = Date.now() - S.userInput < 1200;
+    S.lastTop = sc.scrollTop;
+    if (up && byUser && dist > 8) S.stick = false; else if (dist < 64) S.stick = true;
+    syncJump();
+  }
+  function trackComposerHeight() {
+    // The thread scrolls under the floating composer: pad it by the composer's live height.
+    var comp = $('.cw-composer'), chat = $('.cw-chat');
+    function upd() { chat.style.setProperty('--composer-h', Math.ceil(comp.offsetHeight) + 'px'); }
+    if (window.ResizeObserver) { S.ro = new ResizeObserver(function () { var keep = S.stick; upd(); if (keep) scrollBottom(); }); S.ro.observe(comp); }
+    upd();
   }
 
   /* ================= Browser panel ================= */
@@ -585,7 +618,11 @@
     ['dragenter', 'dragover'].forEach(function (t) { chat.addEventListener(t, function (e) { if (e.dataTransfer && Array.prototype.indexOf.call(e.dataTransfer.types, 'Files') > -1) { e.preventDefault(); chat.classList.add('dropping'); } }); });
     ['dragleave', 'drop'].forEach(function (t) { chat.addEventListener(t, function (e) { if (t === 'dragleave' && chat.contains(e.relatedTarget)) return; chat.classList.remove('dropping'); }); });
     chat.addEventListener('drop', function (e) { if (e.dataTransfer && e.dataTransfer.files.length) { e.preventDefault(); S.media.addFiles(e.dataTransfer.files); } });
-    $('#cw-scroll').addEventListener('scroll', C.debounce(function () { var sc = $('#cw-scroll'); $('[data-a=jump]').hidden = S.view !== 'chat' || sc.scrollHeight - sc.scrollTop - sc.clientHeight < 160; }, 60));
+    var sc = $('#cw-scroll');
+    sc.addEventListener('scroll', onThreadScroll, { passive: true });
+    ['wheel', 'touchstart', 'touchmove', 'pointerdown'].forEach(function (t) { sc.addEventListener(t, function () { S.userInput = Date.now(); }, { passive: true }); });
+    sc.addEventListener('keydown', function (e) { if (/^(PageUp|ArrowUp|Home| )$/.test(e.key)) S.userInput = Date.now(); });
+    trackComposerHeight();
     var q = $('#cw-q');
     q.addEventListener('input', C.debounce(function () { S.q = q.value.trim(); refreshConvs(); }, 180));
     q.addEventListener('keydown', function (e) { if (e.key === 'Escape') { q.value = ''; S.q = ''; refreshConvs(); q.blur(); } });
@@ -611,7 +648,7 @@
         model: function () { modelMenu(a); }, profile: function () { profileMenu(a); }, more: function () { moreMenu(a); }, theme: toggleTheme,
         'rename-current': function () { if (S.current) renameConv(S.current); },
         attach: function () { S.media.pick(); }, mic: function () { S.media.startVoice(); },
-        'mode-clear': function () { setMode(mode()); },
+        'mode-menu': function () { modeMenu(a); },
         'browse-web': function () { var v = ta.value.trim(); var b = openBrowser(); if (v) { b.startTask(v); ta.value = ''; autoGrow(); syncComposer(); C.toast('Saga is browsing. Watch every step in the panel.'); } },
         browser: function () { S.browser.layout === 'none' ? openBrowser() : setLayout('none'); },
         'browser-close': function () { S.browser.full = false; setLayout('none'); },
@@ -623,9 +660,8 @@
       };
       if (acts[act]) acts[act]();
     });
-    $('.cw-mode-pill').addEventListener('keydown', function (e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setMode(mode()); } });
 
-    C.resizable($('.cw-resizer'), {
+    if (typeof C.resizable === 'function') C.resizable($('.cw-resizer'), {
       min: 320, invert: true,
       max: function () { return Math.max(360, $('.cw-body').clientWidth - 380); },
       get: function () { return S.browser.width || $('.cw-split').offsetWidth; },
