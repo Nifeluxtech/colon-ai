@@ -1,6 +1,6 @@
 /* Colon AI · data adapter. EVERY chat call goes through here; screens never call fetch directly.
 
-   Three implementations, one interface. ColonChatData.get() picks one when the app starts (v0.4.1):
+   Three implementations, one interface. ColonChatData.get() picks one when the app starts (v0.4.2):
      RemoteChatData  signed in and the API is reachable: chats sync to the Colon account (default).
      GuestChatData   signed out (or "Save chat history" off): replies stream from POST /chat/guest and the
                      conversation lives only in this tab's memory. Nothing is saved anywhere.

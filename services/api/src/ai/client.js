@@ -131,6 +131,7 @@ async function streamChat(o) {
       ...(o.maxTokens ? { max_tokens: o.maxTokens } : {}),
       ...(o.temperature !== undefined ? { temperature: o.temperature } : {}),
       ...(o.provider.body || {}),
+      ...(o.body || {}),
     };
     const url = native
       ? `${base}/models/${encodeURIComponent(o.model)}:streamGenerateContent?alt=sse`

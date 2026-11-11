@@ -27,6 +27,10 @@ function providers() {
       // Gemma 4 takes thinkingLevel "minimal" (fast, no hidden reasoning) or "high". Set GEMINI_THINKING=off to omit.
       thinkingLevel: env('GEMINI_THINKING', 'minimal') === 'off' ? '' : env('GEMINI_THINKING', 'minimal'),
     },
+    nvidia: {
+      // NVIDIA build.nvidia.com (free developer endpoints, OpenAI-compatible): DeepSeek, Gemma 4, GLM and more.
+      name: 'NVIDIA', baseUrl: env('NVIDIA_BASE_URL', 'https://integrate.api.nvidia.com/v1'), apiKey: env('NVIDIA_API_KEY', ''),
+    },
     natlas: {
       // N-ATLaS (Nigerian Atlas for Languages & AI) on any OpenAI-compatible host (vLLM, HF endpoint, ...).
       name: 'N-ATLaS', baseUrl: env('NATLAS_BASE_URL', ''), apiKey: env('NATLAS_API_KEY', ''), needsBaseUrl: true,
@@ -40,6 +44,9 @@ function targets() {
       { provider: 'groq', model: env('GROQ_MODEL', 'qwen/qwen3.8-27b'), vision: env('GROQ_VISION', '0') === '1' },
     ],
     deepseek: [
+      // NVIDIA first: free DeepSeek V4.1 Flash. thinking:false = answer straight away (no hidden reasoning, ~2 s).
+      { provider: 'nvidia', model: env('NVIDIA_DEEPSEEK_MODEL', 'deepseek-ai/deepseek-v4.1-flash'), vision: false,
+        body: env('NVIDIA_DEEPSEEK_THINKING', 'off') === 'on' ? null : { chat_template_kwargs: { thinking: false } } },
       // No DeepSeek ":free" id was listed on OpenRouter on 11 Nov 2026. Set OPENROUTER_DEEPSEEK_MODEL to a live
       // id; a missing model answers 404 and the router skips to the next target (and rests it for 10 minutes).
       { provider: 'openrouter', model: env('OPENROUTER_DEEPSEEK_MODEL', 'deepseek/deepseek-v4-flash:free'), vision: env('OPENROUTER_DEEPSEEK_VISION', '0') === '1' },
@@ -49,7 +56,12 @@ function targets() {
       { provider: 'gemini', model: env('GEMINI_MODEL', 'gemma-4-31b-it'), vision: env('GEMINI_VISION', '1') === '1' },
       // Second Google model (faster MoE) so a Google hiccup on the 31B doesn't leave Saga silent.
       { provider: 'gemini', model: env('GEMINI_FALLBACK_MODEL', 'gemma-4-26b-a4b-it') === 'off' ? '' : env('GEMINI_FALLBACK_MODEL', 'gemma-4-26b-a4b-it'), vision: env('GEMINI_VISION', '1') === '1' },
+      // Gemma 4 31B on NVIDIA too, so a busy Google free tier has a second host.
+      { provider: 'nvidia', model: env('NVIDIA_GEMMA_MODEL', 'google/gemma-4-31b-it'), vision: false },
       { provider: 'openrouter', model: env('OPENROUTER_GEMMA_MODEL', 'google/gemma-4-31b-it:free'), vision: env('OPENROUTER_GEMMA_VISION', '1') === '1' },
+    ],
+    glm: [
+      { provider: 'nvidia', model: env('NVIDIA_GLM_MODEL', 'z-ai/glm-5.3-flash'), vision: false },
     ],
     natlas: [
       { provider: 'natlas', model: env('NATLAS_MODEL', 'n-atlas'), vision: false },
@@ -58,11 +70,11 @@ function targets() {
 }
 
 const routes = {
-  african: ['deepseek', 'natlas', 'gemma', 'qwen'],
-  general: ['qwen', 'deepseek', 'gemma'],
-  study: ['qwen', 'deepseek', 'gemma'],
-  research: ['qwen', 'deepseek', 'gemma'],
-  developer: ['deepseek', 'qwen', 'gemma'],
+  african: ['deepseek', 'natlas', 'gemma', 'qwen', 'glm'],
+  general: ['qwen', 'deepseek', 'gemma', 'glm'],
+  study: ['qwen', 'deepseek', 'gemma', 'glm'],
+  research: ['qwen', 'deepseek', 'gemma', 'glm'],
+  developer: ['deepseek', 'qwen', 'gemma', 'glm'],
 };
 
 // Reply languages that use the "african" route (codes match users.language).
@@ -70,7 +82,7 @@ const africanLanguages = ['pcm', 'yo', 'ha', 'ig'];
 
 const models = [
   { id: 'colon-saga', name: 'Colon Saga', description: 'Colon’s default assistant, tuned for Nigerian and African context.', default: true, capabilities: ['text', 'reasoning', 'code'] },
-  { id: 'colon-saga-fast', name: 'Saga Fast', description: 'Quicker answers for everyday questions and low data use.', route: ['qwen', 'gemma', 'deepseek'], capabilities: ['text', 'code'] },
+  { id: 'colon-saga-fast', name: 'Saga Fast', description: 'Quicker answers for everyday questions and low data use.', route: ['qwen', 'deepseek', 'gemma', 'glm'], capabilities: ['text', 'code'] },
   { id: 'colon-saga-deep', name: 'Saga Deep Research', description: 'Multi-step research with cited sources.', comingSoon: true, capabilities: ['reasoning', 'web', 'citations'] },
   { id: 'colon-saga-voice', name: 'Saga Voice', description: 'Talk with Colon in English, Naijá, Yorùbá, Hausa and Igbo.', comingSoon: true, capabilities: ['voice'] },
 ];

@@ -35,7 +35,7 @@ function chainFor({ mode = 'general', language = 'en', model = null, needsVision
       const p = providers[t.provider];
       if (!p || !t.model) continue;
       if (needsVision && !t.vision) continue;
-      const c = { target: name, providerId: t.provider, providerName: p.name, provider: p, model: t.model, vision: Boolean(t.vision) };
+      const c = { target: name, providerId: t.provider, providerName: p.name, provider: p, model: t.model, vision: Boolean(t.vision), body: t.body || null };
       if (seen.has(keyOf(c))) continue;
       seen.add(keyOf(c));
       chain.push(c);
@@ -101,7 +101,7 @@ async function generate(o) {
     let text = '';
     try {
       await streamChat({
-        provider: c.provider, model: c.model, messages, signal: o.signal, fetch: o.fetch,
+        provider: c.provider, model: c.model, body: c.body, messages, signal: o.signal, fetch: o.fetch,
         maxTokens: timeouts.maxTokens, temperature: o.temperature,
         firstTokenTimeoutMs: timeouts.firstTokenTimeoutMs, idleTimeoutMs: timeouts.idleTimeoutMs, maxMs: timeouts.maxReplyMs,
         onDelta: (piece) => { text += piece; if (o.onDelta) o.onDelta(piece); },

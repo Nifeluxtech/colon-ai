@@ -1,5 +1,10 @@
 # Changelog
 
+## [0.4.2] — 2026-11-11 · NVIDIA provider (free DeepSeek)
+- **New provider: NVIDIA build.nvidia.com** (`NVIDIA_API_KEY`). DeepSeek V4.1 Flash is now the first DeepSeek target (thinking off, answers in about 2–7 s), Gemma 4 31B on NVIDIA is a second Gemma host after Google, and GLM-5.3 Flash is the last fallback on every route.
+- Routing targets can now carry per-model request options (`body`).
+- Tested live: a Pidgin General question and a Developer question both answered through NVIDIA DeepSeek.
+
 ## [0.4.1] — 2026-11-11 · Saga reliability fixes
 ### Fixed
 - **Google AI Studio (Gemma 4)**: Google doesn't serve Gemma models on its OpenAI-compatible endpoint, so every Gemma call failed and Saga answered "couldn't reach an AI provider". The client now talks to the native Gemini API (`/v1beta/models/{model}:streamGenerateContent?alt=sse`, `x-goog-api-key`), sending the system prompt as `systemInstruction`, assistant turns as `model`, images as `inlineData`, and hiding thought parts. New `GEMINI_THINKING` (default `minimal`, or `high`, or `off`).
