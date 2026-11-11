@@ -17,3 +17,5 @@ jobs:
         run: npm install --prefix services/api --no-audit --no-fund
       - name: Syntax check
         run: node scripts/check.js
+      - name: Unit tests (UI modules)
+        run: node --test "packages/ui/test/*.test.js"
