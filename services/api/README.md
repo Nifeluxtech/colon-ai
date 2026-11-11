@@ -13,8 +13,9 @@ src/
   http/     HTTP server and routes
   ws/       WebSocket gateway
   lib/      shared utilities (logger, crypto, mail, audit)
-  ai/       model router v1: routing.js (THE routing table), client.js (OpenAI-compatible streaming),
-            index.js (fallback), prompts.js (modes + African layer), limits.js (daily limits), sse.js
+  ai/       model router v1: routing.js (built-in routing table), dynamic.js (live routing from the database,
+            falls back to routing.js), client.js (OpenAI-compatible streaming), index.js (fallback), prompts.js
+            (modes + African layer), limits.js (daily limits, live), calls.js (AI call log), sse.js
   chat/     chat storage, context building, streamed replies, uploads and text extraction
 test/       node --test unit tests (mocked fetch, no database) + e2e-smoke.js and a mock provider
 ```
@@ -30,9 +31,8 @@ Tests: `npm test` (here) or `npm test` at the repo root.
 | PATCH | `/account/profile` | signed in |
 | POST | `/account/password`, `/account/2fa/setup`, `/account/2fa/enable`, `/account/2fa/disable`, `/account/delete`, `/account/sessions/revoke-others` | signed in |
 | GET/DELETE | `/account/sessions`, `/account/sessions/:id` | signed in |
-| GET | `/admin/stats`, `/admin/users` | moderator+ with 2FA |
-| PATCH/POST | `/admin/users/:id/role`, `/admin/users/:id/signout`, `/admin/audit` | admin+ with 2FA |
-| POST | `/admin/users/:id/unlock` | moderator+ with 2FA |
+| GET | `/admin/users` | moderator+ with 2FA |
+| GET/PATCH/POST | `/admin/stats`, `/admin/users/:id/role`, `/admin/users/:id/signout`, `/admin/users/:id/unlock`, `/admin/audit` | admin+ with 2FA |
 
 ## Endpoints (Phase 3: Colon AI chat)
 | Method | Path | Who |
@@ -48,5 +48,8 @@ Tests: `npm test` (here) or `npm test` at the repo root.
 | GET/PATCH | `/chat/settings`, GET `/chat/stats` | signed in |
 
 Full request/response shapes and the SSE event format: `docs/frontend-data-adapters.md`.
+
+## Endpoints (Phase 4: Admin Dashboard)
+Overview, users (suspend, sessions, limits), moderation, providers and models (encrypted keys), live routing, usage limits, evaluation, African AI registry, voice, system settings and security, plus `POST /shared/:token/report`. Full table, permissions and the live-config rules: `docs/phase-4.md`.
 
 State-changing requests need the `X-Colon-Client` header and an allowed `Origin`.
