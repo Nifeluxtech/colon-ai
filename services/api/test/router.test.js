@@ -3,14 +3,14 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 
-const KEYS = ['GROQ_API_KEY', 'OPENROUTER_API_KEY', 'GEMINI_API_KEY', 'NATLAS_API_KEY', 'NATLAS_BASE_URL', 'GROQ_MODEL', 'OPENROUTER_DEEPSEEK_MODEL', 'OPENROUTER_GEMMA_MODEL', 'GEMINI_MODEL', 'NATLAS_MODEL'];
+const KEYS = ['GROQ_API_KEY', 'OPENROUTER_API_KEY', 'GEMINI_API_KEY', 'NATLAS_API_KEY', 'NATLAS_BASE_URL', 'GROQ_MODEL', 'OPENROUTER_DEEPSEEK_MODEL', 'OPENROUTER_GEMMA_MODEL', 'GEMINI_MODEL', 'NATLAS_MODEL', 'GEMINI_FALLBACK_MODEL'];
 function setEnv(vals) {
   for (const k of KEYS) delete process.env[k];
   Object.assign(process.env, vals);
 }
 const ALL = {
   GROQ_API_KEY: 'g', OPENROUTER_API_KEY: 'o', GEMINI_API_KEY: 'm', NATLAS_API_KEY: 'n', NATLAS_BASE_URL: 'https://natlas.example/v1',
-  GROQ_MODEL: 'qwen', OPENROUTER_DEEPSEEK_MODEL: 'deepseek', OPENROUTER_GEMMA_MODEL: 'gemma-or', GEMINI_MODEL: 'gemma-g', NATLAS_MODEL: 'natlas',
+  GROQ_MODEL: 'qwen', OPENROUTER_DEEPSEEK_MODEL: 'deepseek', OPENROUTER_GEMMA_MODEL: 'gemma-or', GEMINI_MODEL: 'gemma-g', NATLAS_MODEL: 'natlas', GEMINI_FALLBACK_MODEL: 'off',
 };
 
 const ai = require('../src/ai');
@@ -232,4 +232,12 @@ test('Google AI Studio uses the native Gemini API: system instruction, model rol
   const res = await streamChat({ fetch: async () => thought, provider: { baseUrl: 'https://x/v1beta', apiKey: 'k', native: 'gemini' }, model: 'gemma-4-31b-it', messages: [{ role: 'user', content: 'x' }], onDelta: (t) => { out += t; } });
   assert.equal(out, 'How far!');
   assert.equal(res.finishReason, 'stop');
+});
+
+test('a second Google Gemma model backs up the first', async () => {
+  setEnv({ GEMINI_API_KEY: 'm', GEMINI_MODEL: 'gemma-a' });
+  const f = mockFetch({ 'gemma-a': 500 });
+  const r = await ai.generate({ mode: 'general', messages: [{ role: 'user', content: 'x' }], fetch: f, timeouts: fast });
+  assert.deepEqual(f.calls.map(c => c.model), ['gemma-a', 'gemma-4-26b-a4b-it']);
+  assert.equal(r.model, 'gemma-4-26b-a4b-it');
 });

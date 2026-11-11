@@ -3,6 +3,8 @@
 ## [Unreleased] — API fix
 ### Fixed
 - **Google AI Studio (Gemma 4)**: Google doesn't serve Gemma models on its OpenAI-compatible endpoint, so every Gemma call failed and Saga answered "couldn't reach an AI provider". The client now talks to the native Gemini API (`/v1beta/models/{model}:streamGenerateContent?alt=sse`, `x-goog-api-key`), sending the system prompt as `systemInstruction`, assistant turns as `model`, images as `inlineData`, and hiding thought parts. New `GEMINI_THINKING` (default `minimal`, or `high`, or `off`).
+- A second Google model, Gemma 4 26B A4B (`GEMINI_FALLBACK_MODEL`, `off` to disable), now backs up Gemma 4 31B, so a Google error on one doesn't leave Saga silent.
+- warn/error logs go to stderr, so cPanel's `stderr.log` shows provider failures.
 
 ## [0.4.0] — 2026-11-11 · Phase 3: Colon AI chat backend, model router v1, guest chat
 ### Added
