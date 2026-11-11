@@ -1,6 +1,7 @@
 const db = require('../db');
 const { auth, isProd } = require('../config');
 const { randomToken, sha256 } = require('../lib/crypto');
+const { isSuspended } = require('./suspension');
 
 function cookie(value, maxAgeSec) {
   const parts = [`${auth.cookieName}=${value}`, 'Path=/', 'HttpOnly', 'SameSite=Lax', `Max-Age=${maxAgeSec}`];
@@ -34,6 +35,8 @@ async function load(req) {
     [sha256(token)]
   );
   if (!row) return null;
+  // Phase 4: a suspended account loses every session (suspending also deletes them; this is the backstop).
+  if (await isSuspended(row.id)) { await db.query('DELETE FROM sessions WHERE user_id = ?', [row.id]).catch(() => {}); return null; }
   if (Date.now() - new Date(row.last_seen_at).getTime() > 10 * 60 * 1000) {
     await db.query(
       'UPDATE sessions SET last_seen_at = UTC_TIMESTAMP(), expires_at = UTC_TIMESTAMP() + INTERVAL ? DAY, ip = ? WHERE id = ?',
