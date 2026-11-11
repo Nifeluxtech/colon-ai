@@ -1,5 +1,18 @@
+# Dependencies
 node_modules/
+
+# Environment & secrets
 .env
-*.log
+.env.*
+!.env.example
+
+# Runtime
 tmp/
+*.log
+stderr.log
+
+# OS / editors
 .DS_Store
+Thumbs.db
+.idea/
+.vscode/
