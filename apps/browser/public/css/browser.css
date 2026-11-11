@@ -1,10 +1,10 @@
 /* Colon Browser standalone app shell. Mobile-first; sidebar from 900 px. */
 .app-view{animation:none}
 .bw{position:fixed;left:0;right:0;top:var(--vvt,0px);height:var(--vvh,100dvh);display:flex;flex-direction:column;overflow:hidden;padding:var(--safe-t) var(--safe-r) 0 var(--safe-l)}
-.bw-main{flex:1;min-width:0;display:flex;flex-direction:column}
+.bw-main{flex:1;min-width:0;min-height:0;display:flex;flex-direction:column}
 .bw-browser{flex:1;min-height:0;display:flex}
 .bw-browser > .cb{flex:1}
-.bw-page{flex:1;min-height:0;overflow-y:auto}
+.bw-page{flex:1;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain}
 .bw-page-in{max-width:900px;margin:0 auto;padding:16px 16px 28px}
 .toasts{bottom:calc(var(--tabbar-h) + var(--safe-b) + 12px)}
 
