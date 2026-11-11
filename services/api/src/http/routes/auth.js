@@ -9,6 +9,8 @@ const { hashPassword, verifyPassword, randomToken, sha256, decrypt } = require('
 const sessions = require('../../auth/sessions');
 const { requireUser, publicUser } = require('../../auth/guards');
 const { limit, hit } = require('../ratelimit');
+const settings = require('../../lib/settings');
+const { isSuspended, SUSPENDED_MESSAGE } = require('../../auth/suspension');
 
 const r = new Router();
 const LOCK_AFTER = 5;        // failed passwords
@@ -42,16 +44,30 @@ async function sendVerification(user) {
   return mailer.verifyEmail(user.email, `${config.urls.chat}/#/verify?token=${token}`);
 }
 
-// Public settings the apps need before sign-in.
-r.get('/auth/config', async () => [200, {
-  google_client_id: config.auth.googleClientId || null,
-  email_enabled: Boolean(config.mail.brevoKey),
-  languages: v.LANGS,
-}]);
+// Public settings the apps need before sign-in (Phase 4 adds branding, flags, maintenance and the banner).
+r.get('/auth/config', async () => {
+  const sys = await settings.system();
+  return [200, {
+    google_client_id: config.auth.googleClientId || null,
+    email_enabled: Boolean(config.mail.brevoKey),
+    languages: v.LANGS,
+    brand_name: sys.brandName,
+    features: sys.features,
+    maintenance: { on: Boolean(sys.maintenance.on), message: sys.maintenance.on ? sys.maintenance.message : '' },
+    announcement: sys.announcement.on && sys.announcement.text ? { text: sys.announcement.text, tone: sys.announcement.tone } : null,
+  }];
+});
+
+async function blockSuspended(req, userId) {
+  if (await isSuspended(userId)) {
+    await audit(req, 'auth.login_blocked_suspended', { targetType: 'user', targetId: userId });
+    throw Object.assign(new Error(SUSPENDED_MESSAGE), { status: 403, code: 'suspended' });
+  }
+}
 
 r.get('/auth/me', async (req) => [200, { user: req.user ? publicUser(req.user) : null }]);
 
-r.post('/auth/register', limit('register', 10, 3600), async (req) => {
+r.post('/auth/register', settings.feature('registration'), limit('register', 10, 3600), async (req) => {
   const email = v.email(req.body.email);
   const password = v.password(req.body.password);
   const name = v.name(req.body.name);
@@ -89,6 +105,7 @@ r.post('/auth/login', limit('login', 30, 900), async (req) => {
     await audit(req, 'auth.login_failed', { targetType: 'user', targetId: u.id });
     generic();
   }
+  await blockSuspended(req, u.id);
   if (u.totp_enabled) {
     if (!req.body.code) return [200, { need_totp: true }];
     if (!totp.verify(decrypt(u.totp_secret), req.body.code)) {
@@ -110,6 +127,7 @@ r.post('/auth/google', limit('google', 30, 900), async (req) => {
   const email = v.email(g.email);
   let u = await db.one('SELECT id, totp_enabled, totp_secret FROM users WHERE google_sub = ? OR email = ? ORDER BY google_sub = ? DESC LIMIT 1', [g.sub, email, g.sub]);
   if (!u) {
+    if ((await settings.system()).features.registration === false) v.fail('google', 'New sign-ups are paused right now. Please try again later.');
     const result = await db.query(
       'INSERT INTO users (email, email_verified_at, name, google_sub, role) VALUES (?, UTC_TIMESTAMP(), ?, ?, ?)',
       [email, String(g.name || email.split('@')[0]).slice(0, 80), g.sub, roleFor(email)]
@@ -119,6 +137,7 @@ r.post('/auth/google', limit('google', 30, 900), async (req) => {
   } else {
     await db.query('UPDATE users SET google_sub = ?, email_verified_at = COALESCE(email_verified_at, UTC_TIMESTAMP()) WHERE id = ?', [g.sub, u.id]);
   }
+  await blockSuspended(req, u.id);
   if (u.totp_enabled) {
     if (!req.body.code) return [200, { need_totp: true }];
     if (!totp.verify(decrypt(u.totp_secret), req.body.code)) v.fail('code', "That code didn't work.");

@@ -2,6 +2,7 @@
 // checked server-side, text is extracted once at upload time, and files are stored outside web roots.
 const fs = require('fs');
 const Router = require('../router');
+const settings = require('../../lib/settings');
 const db = require('../../db');
 const config = require('../../config');
 const store = require('../../chat/store');
@@ -15,7 +16,7 @@ const { limit, hit } = require('../ratelimit');
 const r = new Router();
 const MAX_UPLOAD = 20 * 1048576;
 
-r.post('/uploads', { body: 'raw' }, requireUser, async (req) => { await hit(`upload:u${req.user.id}`, 60, 3600); }, async (req) => {
+r.post('/uploads', { body: 'raw' }, requireUser, settings.feature('uploads'), async (req) => { await hit(`upload:u${req.user.id}`, 60, 3600); }, async (req) => {
   const { file, fields } = await readMultipartFile(req, { max: MAX_UPLOAD });
   const s = extract.validate(file.data, file.name, { fromRecorder: fields.recorder === '1' || /^audio\//.test(file.type) });
   const used = await db.one('SELECT COALESCE(SUM(size),0) AS bytes FROM chat_attachments WHERE user_id = ?', [req.user.id]);
@@ -63,7 +64,7 @@ r.delete('/uploads', requireUser, async (req) => {
 });
 
 // Guests: read a file's text for one question without storing anything (images need an account).
-r.post('/chat/guest/extract', { body: 'raw' }, limit('guest-extract', 40, 3600), async (req) => {
+r.post('/chat/guest/extract', { body: 'raw' }, settings.feature('uploads'), settings.feature('guestChat', { guestsOnly: true }), limit('guest-extract', 40, 3600), async (req) => {
   const { file } = await readMultipartFile(req, { max: MAX_UPLOAD });
   const s = extract.validate(file.data, file.name, { fromRecorder: false });
   if (s.kind === 'image') throw Object.assign(new Error('Log in to ask Colon about images.'), { status: 422, code: 'login_required' });

@@ -8,6 +8,8 @@ const v = require('../../lib/validate');
 const audit = require('../../lib/audit');
 const ai = require('../../ai');
 const limits = require('../../ai/limits');
+const dynamic = require('../../ai/dynamic');
+const settings = require('../../lib/settings');
 const { replyLanguage } = require('../../ai/prompts');
 const store = require('../../chat/store');
 const files = require('../../chat/files');
@@ -21,11 +23,11 @@ const MAX_CONTENT = 16000;
 const perUser = (name, max, windowSec) => async (req) => { await hit(`${name}:u${req.user.id}`, max, windowSec); };
 
 /* ---------- Models ---------- */
-r.get('/models', async () => [200, { models: ai.listModels() }]);
+r.get('/models', async () => [200, { models: ai.listModels(await dynamic.load()) }]);
 
 r.get('/chat/usage', async (req) => {
-  const subject = limits.subjectFor(req), max = limits.limitFor(req);
-  return [200, { ...(await limits.usage(subject, max)), guest: !req.user, provider_configured: ai.isConfigured() }];
+  const [main] = await limits.resolveCounters(req, 'general');
+  return [200, { ...(await limits.usage(main.subject, main.limit)), guest: !req.user, provider_configured: ai.isConfigured(await dynamic.load()) }];
 });
 
 /* ---------- Conversations ---------- */
@@ -95,7 +97,7 @@ r.delete('/conversations/:id', requireUser, async (req) => {
 
 /* ---------- Share links (read-only, anyone with the link) ---------- */
 const shareUrl = (token) => `${config.urls.chat}/#/share/${token}`;
-r.post('/conversations/:id/share', requireUser, perUser('chat-share', 30, 3600), async (req) => {
+r.post('/conversations/:id/share', requireUser, settings.feature('sharing'), perUser('chat-share', 30, 3600), async (req) => {
   const conv = await store.getConv(req.user.id, req.params.id);
   let token = conv.share_token;
   if (!token) {
@@ -125,6 +127,27 @@ r.get('/shared/:token', limit('shared-view', 120, 600), async (req) => {
     conversation: { title: conv.title, mode: conv.mode, model: conv.model, created_at: conv.created_at, shared_at: conv.shared_at, owner: conv.owner_name ? String(conv.owner_name).split(' ')[0] : null },
     messages: msgs,
   }];
+});
+
+// Anyone viewing a shared chat can report it; reports land in the Admin Dashboard moderation queue.
+const REPORT_REASONS = ['Harmful or dangerous', 'Hate or harassment', 'Sexual content', 'Spam or scam', 'Private information', 'Other'];
+r.post('/shared/:token/report', limit('shared-report', 10, 3600), async (req) => {
+  const token = String(req.params.token || '');
+  if (!/^[a-f0-9]{32}$/.test(token)) throw store.notFound('This shared link isn’t valid.');
+  const conv = await db.one('SELECT id FROM chat_conversations WHERE share_token = ?', [token]);
+  if (!conv) throw store.notFound('This shared link was turned off or never existed.');
+  const reason = REPORT_REASONS.includes(req.body.reason) ? req.body.reason : 'Other';
+  const comment = req.body.comment ? String(req.body.comment).slice(0, 1000) : null;
+  // One report per link and reporter (or per hashed guest IP), so repeats don't flood the queue.
+  const who = req.user ? `u${req.user.id}` : crypto.createHash('sha256').update(`${config.auth.appSecret}|report|${req.ip}`).digest('hex').slice(0, 16);
+  await db.query(
+    `INSERT INTO moderation_reports (kind, source_id, conversation_id, reporter_id, reason, comment, created_at)
+     VALUES ('share', ?, ?, ?, ?, ?, UTC_TIMESTAMP(3))
+     ON DUPLICATE KEY UPDATE reason = VALUES(reason), comment = VALUES(comment), status = 'open'`,
+    [`${token}:${who}`.slice(0, 64), conv.id, req.user ? req.user.id : null, reason, comment]
+  );
+  await audit(req, 'chat.share_reported', { actorId: req.user ? req.user.id : null, targetType: 'conversation', targetId: conv.id, meta: { reason } });
+  return [200, { ok: true }];
 });
 
 /* ---------- Replies ---------- */
@@ -166,10 +189,11 @@ async function seqOf(id) {
   return row ? row.seq : null;
 }
 
-function streamFor(req, res, conv, userMsg, { version = 1, onOpen } = {}) {
+async function streamFor(req, res, conv, userMsg, { version = 1, onOpen } = {}) {
+  const counters = await limits.resolveCounters(req, conv.mode);
   return historyFor(req, conv, userMsg.id).then(history => respond({
     req, res, mode: conv.mode, model: conv.model, language: replyLanguage(req.user.language, userMsg.content), name: req.user.name,
-    history: buildMessages(history), counters: limits.countersFor(req), store: persistedStore(conv, { version }), onOpen,
+    history: buildMessages(history), counters, store: persistedStore(conv, { version }), onOpen,
   }));
 }
 
@@ -354,7 +378,7 @@ function cleanGuestHistory(list) {
   return msgs;
 }
 
-r.post('/chat/guest', { bodyLimit: 1024 * 1024 }, guestOrigin, limit('guest-chat', 20, 60), async (req, res) => {
+r.post('/chat/guest', { bodyLimit: 1024 * 1024 }, guestOrigin, settings.feature('guestChat', { guestsOnly: true }), limit('guest-chat', 20, 60), async (req, res) => {
   const history = cleanGuestHistory(req.body.messages);
   const last = history[history.length - 1];
   if (req.user && Array.isArray(req.body.attachment_ids) && req.body.attachment_ids.length) {
@@ -375,7 +399,7 @@ r.post('/chat/guest', { bodyLimit: 1024 * 1024 }, guestOrigin, limit('guest-chat
   let msg = null;
   await respond({
     req, res, mode, model, language: replyLanguage(chosen, last.content), name: req.user ? req.user.name : '',
-    history: buildMessages(history), counters: limits.countersFor(req),
+    history: buildMessages(history), counters: await limits.resolveCounters(req, mode),
     store: {
       async start() {
         msg = { id: store.newId(), role: 'assistant', content: '', sources: [], status: 'streaming', mode, model, created_at: new Date().toISOString(), temporary: true };
