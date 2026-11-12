@@ -5,8 +5,8 @@ never call `fetch` directly:
 
 | Adapter | File | Used by |
 |---|---|---|
-| `ColonChatData` | `apps/chat/public/js/chat-data.js` | Colon AI |
-| `ColonBrowserData` | `packages/ui/assets/colon-browser-data.js` | Colon Browser **and** the browser panel in Colon AI (one session infrastructure) |
+| `ColonChatData` | `apps/chat/src/core/data.js` | Colon AI |
+| `ColonBrowserData` | `packages/ui/js/browser/data.js` | Colon Browser **and** the browser panel in Colon AI (one session infrastructure) |
 
 ## Colon AI: which implementation runs (v0.4.0)
 
@@ -37,7 +37,7 @@ pressed (Log in or Sign up) and offers a link to switch.
 
 | Method | Path | Body / query | Response |
 |---|---|---|---|
-| GET | `/models` | | `{ models: [{ id, name, description, available, status, default, capabilities[] }] }` (from `src/ai/routing.js`; `available` is false until a provider key is set) |
+| GET | `/models` | | `{ models: [{ id, name, description, available, status, default, capabilities[] }] }` (from `src/modules/ai/routing.js`; `available` is false until a provider key is set) |
 | GET | `/conversations` | `?q=&archived=0\|1\|all` | `{ conversations: [{ id, title, mode, model, pinned, archived, preview, shared, created_at, updated_at }] }` (search covers titles and messages) |
 | POST | `/conversations` | `{ mode, model }` | `{ conversation }` |
 | GET | `/conversations/:id` | | `{ conversation, messages: [{ id, role, content, attachments, sources, feedback, status, model, mode, version, error?, created_at }] }` |
@@ -112,10 +112,10 @@ node scripts/check.js       # syntax check + asset versions (CI)
 npm test                    # UI modules + API model router and chat helpers (no database, no network)
 ```
 
-End-to-end against a real database with a fake AI provider (see `services/api/test/e2e-smoke.js` for the env):
+End-to-end against a real database with a fake AI provider (see `services/api/tests/e2e/smoke.js` for the env):
 
 ```
-node services/api/test/helpers/mock-provider.js 4010 &
+node services/api/tests/helpers/mock-provider.js 4010 &
 GROQ_API_KEY=x GROQ_BASE_URL=http://127.0.0.1:4010 … node services/api/app.js &
-API=http://localhost:3000 node services/api/test/e2e-smoke.js
+API=http://localhost:3000 node services/api/tests/e2e/smoke.js
 ```

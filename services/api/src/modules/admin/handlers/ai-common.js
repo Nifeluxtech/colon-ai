@@ -11,7 +11,8 @@ const ID_RE = /^[a-z0-9][a-z0-9_-]{0,31}$/;
 
 const changed = () => { dynamic.clear(); };
 
-// Phase 5 release standard: a model goes into routing only after a fresh Colon benchmark of it (src/bench/gate.js).
+// Phase 5 release standard: a model goes into routing only after a fresh Colon benchmark of it
+// (src/modules/bench/gate.js).
 // A Super Admin may skip it once with a written reason ("skip_benchmark"), which is audited.
 async function gateModel(req, provider, model) {
   const skipReason = String(req.body.skip_benchmark || '').trim().slice(0, 300);

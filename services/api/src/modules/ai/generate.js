@@ -73,7 +73,7 @@ const needsVisionFor = (messages) => messages.some(m => Array.isArray(m.content)
 /**
  * generate({ mode, language, model, name, messages, signal, onDelta, onAttempt, web, context })
  *   messages: OpenAI-style history WITHOUT the system prompt (added here).
- *   web/context: Research mode web search — numbered sources appended to the system prompt (src/search).
+ *   web/context: Research mode web search — numbered sources appended to the system prompt (src/modules/search).
  *   -> { text, providerId, providerName, model, target, attempts }
  * Errors carry .code: 'no_provider' | 'no_vision' | 'provider_down' (after fallback) | AbortError (Stop).
  */

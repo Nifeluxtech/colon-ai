@@ -1,6 +1,6 @@
 /* Colon UI · Nifelux design system (v0.3.0)
    Royal-blue premium AI workspace. Mobile-first, light + dark themes, touch-friendly.
-   Theme: <html data-theme="dark|light">; set by Colon.theme (colon-app.js). Dark is the default. */
+   Theme: <html data-theme="dark|light">; set by Colon.theme (packages/ui/js/colon.js). Dark is the default. */
 
 /* ---------- Fonts (self-hosted, SIL OFL 1.1: see fonts/README.md) ---------- */
 @font-face{font-family:"Inter";font-style:normal;font-weight:400 800;font-display:swap;

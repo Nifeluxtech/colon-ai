@@ -35,7 +35,7 @@ function openStream(res) {
  * respond({ req, res, mode, model, language, name, history, counters, store, onOpen(sse)? })
  *   counters: daily-limit counters to charge ([{ subject, limit }], see ai/limits.js countersFor)
  *   store.start()                 -> message object sent in "start" (status 'streaming')
- *   webSearch, searchText, searchPrevious   Research mode: search the web for searchText first (see src/search)
+ *   webSearch, searchText, searchPrevious   Research mode: search the web for searchText first (see src/modules/search)
  * store.finish(result) -> final message sent in "done" ({ content, status, error, providerId, providerModel, sources,
  * web })
  *   store.isStopped()             -> optional: true when another request asked to stop this reply

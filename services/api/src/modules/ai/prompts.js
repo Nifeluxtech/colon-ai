@@ -44,7 +44,8 @@ const MODES = {
       + 'be out of date.'),
   ].join('\n'),
 };
-// Research mode with web search (Phase 5) gets numbered sources appended (src/search/prompt.js); without it, no links.
+// Research mode with web search (Phase 5) gets numbered sources appended (src/modules/search/prompt.js);
+// without it, no links.
 const RESEARCH_WEB = (
   'Web search results for this question are given below with numbers. Answer from them and cite them as instructed '
   + 'there.');

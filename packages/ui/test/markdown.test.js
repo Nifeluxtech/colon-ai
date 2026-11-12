@@ -1,4 +1,4 @@
-// Unit tests for packages/ui/assets/colon-markdown.js (run: node --test packages/ui/test)
+// Unit tests for packages/ui/js/markdown/ (run: node --test packages/ui/test)
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const { ColonMarkdown: MD } = require('../js/markdown/index.js');

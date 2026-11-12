@@ -1,5 +1,5 @@
 // Colon benchmark runner core: loads the sets, asks one candidate model every item through the app's own
-// provider client (src/ai/client.js, with Saga's real system prompt per mode and language), grades the reply
+// provider client (src/modules/ai/client.js, with Saga's real system prompt per mode and language), grades the reply
 // and records timing. The CLI is scripts/bench.js; tests drive this module with a fake fetch.
 const fs = require('fs');
 const path = require('path');

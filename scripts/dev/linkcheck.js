@@ -22,7 +22,10 @@ function walk(dir, out = []) {
 const broken = [];
 const exists = (p) => fs.existsSync(p);
 // Repo-rooted paths named in prose or comments. Placeholders (<run>, *, {a,b}) are skipped.
-const MENTION = /(?:^|[\s`'"(])((?:docs|config|scripts)\/[A-Za-z0-9_./-]*[A-Za-z0-9_])/g;
+const MENTION = new RegExp("(?:^|[\\s`'\"(])((?:docs|config|scripts|services|apps|packages|database)/"
+  + '[A-Za-z0-9_./-]*[A-Za-z0-9_])', 'g');
+// Files that exist only on the server at runtime.
+const RUNTIME = /(^|\/)(stderr\.log|tmp\/restart\.txt)$/;
 
 for (const f of walk(ROOT).filter((x) => TEXT.test(x))) {
   const r = rel(f);
@@ -36,9 +39,10 @@ for (const f of walk(ROOT).filter((x) => TEXT.test(x))) {
       if (!exists(abs)) broken.push(`${r}: link ${m[1]}`);
     }
   }
-  for (const m of text.matchAll(MENTION)) {
+  // CHANGELOG entries describe the tree as it was at each release: only its Markdown links are checked.
+  for (const m of r === 'CHANGELOG.md' ? [] : text.matchAll(MENTION)) {
     const p = m[1].replace(/[.]+$/, '');
-    if (/[<>*{}]/.test(p)) continue;
+    if (/[<>*{}]/.test(p) || RUNTIME.test(p)) continue;
     // docs/decisions/0002 is the short form for docs/decisions/0002-*.md
     if (/^docs\/decisions\/\d{4}$/.test(p)) {
       const dir = path.join(ROOT, 'docs', 'decisions');

@@ -2,9 +2,10 @@
 
 **Release standard:** every platform setting can be changed from the dashboard, and each role sees only what it is allowed to.
 
-Admin app: `apps/admin/public` (`index.html`, `js/admin-app.js`, `css/admin.css`) at https://admin.apparatus.name.ng.
-API: `services/api/src/http/routes/admin.js` (overview, users, moderation, security), `admin-ai.js` (providers, models,
-routing, limits, evaluation) and `admin-platform.js` (African AI registry, voice, system settings).
+Admin app: `apps/admin` (`public/index.html`, `public/assets/css/admin.css`, screens in `src/pages/`) at
+https://admin.apparatus.name.ng.
+API: routes in `services/api/src/http/routes/admin/` (overview, users, moderation, audit, ai, routing, limits,
+evaluation, platform, web-search), handlers in `services/api/src/modules/admin/handlers/`.
 
 ## Who sees what
 
@@ -23,19 +24,19 @@ Every staff endpoint needs a signed-in account with **2FA on** (`requireRole`). 
 | System settings (brand, flags, maintenance, banner) | – | – | ✓ |
 | Security (staff 2FA, sign-ins, audit trail) | – | ✓ | ✓ |
 
-Every change writes an `admin.*` row to `audit_log` (who, what, target, IP). `services/api/test/admin.test.js` checks the minimum role and the 2FA requirement of every admin route.
+Every change writes an `admin.*` row to `audit_log` (who, what, target, IP). `services/api/tests/security/admin-permissions.test.js` checks the minimum role and the 2FA requirement of every admin route.
 
 ## Live settings without a redeploy
 
 LiteSpeed/Passenger runs several API workers, so nothing is kept only in memory:
 
 - Settings live in MySQL (`app_settings`: `routing`, `limits`, `system`, `voice`; `ai_providers`; `ai_models`; `user_limits`).
-- Each worker caches them for **30 seconds** (`src/lib/settings.js`, `src/ai/dynamic.js`). A change reaches every worker within half a minute. The worker that saved it sees it at once.
+- Each worker caches them for **30 seconds** (`src/shared/settings.js`, `src/modules/ai/dynamic.js`). A change reaches every worker within half a minute. The worker that saved it sees it at once.
 - If the database can't be read, a worker keeps its last good value; with none, it uses the built-in defaults.
 
 ### Routing and fallback (chat never breaks)
 
-`src/ai/dynamic.js` builds the routing config on top of `src/ai/routing.js`:
+`src/modules/ai/dynamic.js` builds the routing config on top of `src/modules/ai/routing.js`:
 
 1. **Providers:** built-in providers come from `routing.js` (keys from the environment). A database row overrides name, base URL, API type and on/off. A stored key (decrypted with `APP_SECRET`) wins over the environment key; with no stored key, the environment key is used. A key that can't be decrypted (for example after changing `APP_SECRET`) falls back to the environment key.
 2. **Models:** while `ai_models` is empty, the built-in table is used. The first model change copies it to the database (`POST /admin/models/seed`), after which the database is the source. Rows are grouped by slot (`qwen`, `deepseek`, …) and tried by `priority`.
@@ -97,5 +98,5 @@ No new environment variables. `APP_SECRET` (already required for 2FA) also encry
 
 ## Tests
 
-- `npm test`: adds `services/api/test/admin.test.js` (no database).
-- `services/api/test/e2e-admin.js`: the whole dashboard API against MySQL and the mock provider (roles, keys, live routing and fallback, limits, suspension, moderation, overview, registry, voice, maintenance, flags, audit). Run like `e2e-smoke.js`, plus `DB_*` so it can create staff accounts.
+- `npm test`: adds `services/api/tests/security/admin-permissions.test.js` (no database).
+- `services/api/tests/e2e/admin.js`: the whole dashboard API against MySQL and the mock provider (roles, keys, live routing and fallback, limits, suspension, moderation, overview, registry, voice, maintenance, flags, audit). Run like `tests/e2e/smoke.js`, plus `DB_*` so it can create staff accounts.

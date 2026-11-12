@@ -1,5 +1,5 @@
 {
-  "_comment": "Offline stand-in for GET /models, used only by the on-device Preview when the API can't be reached. Online, the list comes from services/api/src/ai/routing.js.",
+  "_comment": "Offline stand-in for GET /models, used only by the on-device Preview when the API can't be reached. Online, the list comes from services/api/src/modules/ai/routing.js.",
   "models": [
     {
       "id": "colon-saga",

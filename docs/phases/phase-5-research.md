@@ -5,9 +5,9 @@ Research mode looks the question up on the web, reads the best pages, and answer
 1 GB cPanel host (no browser engine, no new dependencies), and never breaks chat: if search fails, the answer still
 streams with a one-line notice.
 
-Code: `services/api/src/search/` (`providers.js`, `net.js`, `text.js`, `reader.js`, `prompt.js`, `config.js`,
-`index.js`), wired in `services/api/src/chat/reply.js` and `src/http/routes/chat.js`. Tests:
-`services/api/test/search.test.js`. Live check: `node services/api/scripts/research-check.js "question" [language]`.
+Code: `services/api/src/modules/search/` (`providers/`, `search.js`, `net.js`, `text.js`, `reader.js`, `prompt.js`, `config.js`,
+`index.js`), wired in `services/api/src/modules/chat/reply.js` and `src/http/routes/chat/`. Tests:
+`services/api/tests/{unit/search-*,integration/research-flow,security/ssrf}.test.js`. Live check: `node services/api/scripts/research-check.js "question" [language]`.
 
 ## When it searches
 

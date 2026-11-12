@@ -1,4 +1,4 @@
-// Unit tests for packages/ui/assets/colon-url.js: address-bar parsing and the client-side SSRF guard.
+// Unit tests for packages/ui/js/url.js: address-bar parsing and the client-side SSRF guard.
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const { ColonURL: U } = require('../js/url.js');

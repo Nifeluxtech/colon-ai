@@ -2,9 +2,9 @@
 
 **Release standard:** Saga's default is chosen by benchmark score, not popularity, and every model change is re-benchmarked first.
 
-Code: `services/api/src/bench/` (graders, code sandbox, aggregation, report, gate, runner), CLI `services/api/scripts/bench.js`
+Code: `services/api/src/modules/bench/` (graders, code sandbox, aggregation, report, gate, runner), CLI `services/api/scripts/bench.js`
 (`npm run bench` in `services/api`), sets in `services/api/bench/sets/*.json`, results in `services/api/bench/results/`.
-Tests: `services/api/test/bench.test.js` (in the root `npm test`).
+Tests: `services/api/tests/unit/bench-*.test.js` (in the root `npm test`).
 
 ## The sets (suite `colon-bench-1`, 135 items)
 
@@ -25,10 +25,10 @@ Tests: `services/api/test/bench.test.js` (in the root `npm test`).
 All questions are original (WAEC/JAMB *style*, no past-paper text). Each item has an `id`, a `prompt` and a `grade` spec
 (`mc`, `number`, `keywords`, `regex`, `json`, `code`, `lang`, or `all` of several). The answer-format line ("Reply with the
 letter…", "end with `Answer: <number>`", "only the code in one javascript block") is added from the grader type, so prompts stay
-clean. Every item is sent with **Saga's real system prompt** for its mode and reply language (`src/ai/prompts.js`) through the
-**app's own provider client** (`src/ai/client.js`), so the numbers are what users get.
+clean. Every item is sent with **Saga's real system prompt** for its mode and reply language (`src/modules/ai/prompts.js`) through the
+**app's own provider client** (`src/modules/ai/client.js`), so the numbers are what users get.
 
-Graders (`src/bench/graders.js`):
+Graders (`src/modules/bench/graders.js`):
 
 - **mc**: the chosen letter (`B`, `**C**`, `Answer: (B)`, `C. Mitochondrion`).
 - **number**: the `Answer:` line, else the last number; `₦`, commas and `a/b` fractions are understood; tolerance per item.
@@ -86,7 +86,7 @@ Migration `0005_bench` adds to `eval_runs`: `kind` (`bench` for benchmark runs, 
 `items`, `error_rate`, `first_token_ms`, `details` (per-set JSON) and an index. A run reaches the Evaluation page either with
 `--save` (direct database access) or by posting `bench/results/<run>.eval.json` to `POST /admin/evaluation/bench` (admin).
 
-The gate (`src/bench/gate.js`) refuses a model change with `409 needs_benchmark` unless a finished (`done`, not unreliable)
+The gate (`src/modules/bench/gate.js`) refuses a model change with `409 needs_benchmark` unless a finished (`done`, not unreliable)
 benchmark run of **exactly that provider + model** is newer than `BENCH_MAX_AGE_DAYS` (default 30):
 
 - `POST /admin/models` (unless added switched off), `PATCH /admin/models/:id` when the model id or provider changes or a model is

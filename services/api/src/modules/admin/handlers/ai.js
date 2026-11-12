@@ -1,6 +1,6 @@
 // Admin: AI providers and models (handlers for src/http/routes/admin/ai.js).
 // Admin Dashboard (Phase 4): providers, models, routing, usage limits and evaluation.
-// Changes are stored in MySQL and reach every worker within ~30 s (src/ai/dynamic.js, src/lib/settings.js).
+// Changes are stored in MySQL and reach every worker within ~30 s (src/modules/ai/dynamic.js, src/shared/settings.js).
 // Provider API keys are super_admin only, stored AES-256-GCM encrypted, and never sent back (masked only).
 const db = require('../../../db');
 const audit = require('../../../shared/audit');
