@@ -19,8 +19,8 @@ const calls = require('../src/modules/ai/calls');
 const { encrypt, decrypt } = require('../src/shared/crypto');
 
 /* ---------- Permissions ---------- */
-const routers = ['admin', 'admin-ai', 'admin-platform'].map(n => require(`../src/http/routes/${n}`));
-const routes = routers.flatMap(r => r.routes);
+const adminRouter = require('../src/http/routes/admin');   // every /admin/* route, in order
+const routes = adminRouter.routes;
 // Minimum role per endpoint (method + path). The release standard: each role sees only what it is allowed to.
 function expected(method, p) {
   if (p === '/admin/system' || p === '/admin/providers/:id/key' || p.startsWith('/admin/search')) return 'super_admin';
@@ -50,7 +50,7 @@ test('every admin endpoint is guarded: the right minimum role, 2FA required, mem
 });
 
 test('admins cannot act on admin accounts or themselves; only super admins grant admin roles', async () => {
-  const admin = routers[0];
+  const admin = adminRouter;
   const find = (m, p) => admin.routes.find(r => r.method === m && pathOf(r.re) === p);
   const suspend = find('POST', '/admin/users/:id/suspend');
   fakeDb.one = async () => ({ id: 9, email: 'boss@example.com', role: 'admin' });
@@ -219,7 +219,7 @@ test('ai_calls: one row per attempt; a request with no attempt still records its
 });
 
 test('web search settings (Super Admin): keys stored encrypted and only ever shown masked; bad values refused', async () => {
-  const platform = routers[2];
+  const platform = adminRouter;
   const find = (m, p) => platform.routes.find(r => r.method === m && pathOf(r.re) === p);
   const req = (body) => ({ user: { id: 1, role: 'super_admin', totp_enabled: 1 }, params: {}, query: new URLSearchParams(), body, ip: '' });
   fakeDb.calls.length = 0;
@@ -236,7 +236,7 @@ test('web search settings (Super Admin): keys stored encrypted and only ever sho
   await assert.rejects(find('POST', '/admin/search/key').handlers[1](req({ provider: 'google', api_key: 'x'.repeat(20) })), (e) => e.status === 422 || e.code === 'invalid');
   await assert.rejects(find('PATCH', '/admin/search').handlers[1](req({ results: 50 })), (e) => e.status === 422 || e.code === 'invalid');
   await assert.rejects(find('PATCH', '/admin/search').handlers[1](req({ disabled: ['brave', 'tavily', 'searxng', 'duckduckgo', 'wikipedia'] })), (e) => e.status === 422 || e.code === 'invalid');
-  const out = platform.searchOut({ enabled: true, order: ['brave', 'duckduckgo'], disabled: [], results: 5, pages: 3, searxngUrl: '',
+  const out = require('../src/modules/admin').handlers.webSearch.searchOut({ enabled: true, order: ['brave', 'duckduckgo'], disabled: [], results: 5, pages: 3, searxngUrl: '',
     providers: [{ id: 'brave', name: 'Brave Search', needs: 'key', ready: true, key: 'BSA-secret-key-9876', keySource: 'database', last4: '9876' }, { id: 'duckduckgo', name: 'DuckDuckGo', ready: true, key: '', keySource: 'none' }] });
   assert.equal(out.providers[0].key.masked, '••••9876');
   assert.ok(!JSON.stringify(out).includes('BSA-secret'));

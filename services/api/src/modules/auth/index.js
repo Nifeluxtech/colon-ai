@@ -4,4 +4,12 @@ module.exports = {
   sessions: require('./sessions'),
   suspension: require('./suspension'),
   totp: require('./totp'),
+  handlers: {
+    session: require('./handlers/session'),
+    signup: require('./handlers/signup'),
+    login: require('./handlers/login'),
+    google: require('./handlers/google'),
+    logout: require('./handlers/logout'),
+    recovery: require('./handlers/recovery'),
+  },
 };

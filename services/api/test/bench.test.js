@@ -317,9 +317,9 @@ test('admin: adding, changing or re-enabling a model, or a new first choice in r
   };
   const saved = require.cache[dbPath];
   require.cache[dbPath] = { id: dbPath, filename: dbPath, loaded: true, exports: fakeDb, paths: [path.dirname(dbPath)] };
-  for (const k of Object.keys(require.cache)) if (/src[\\/](http|lib[\\/](audit|settings))/.test(k)) delete require.cache[k];
+  for (const k of Object.keys(require.cache)) if (/src[\\/](http|modules[\\/]admin|shared[\\/](audit|settings))/.test(k)) delete require.cache[k];
   try {
-    const r = require('../src/http/routes/admin-ai');
+    const r = require('../src/http/routes/admin');
     const find = (m, p) => r.routes.find(x => x.method === m && x.re.test(p)).handlers[1];
     const req = (body, role = 'admin', params = {}) => ({ user: { id: 1, role, totp_enabled: 1 }, params, body, ip: '', headers: {} });
     const fresh = { provider: 'nvidia', model: 'minimaxai/minimax-m3.1-flash', kind: 'bench', status: 'done', created_at: new Date() };

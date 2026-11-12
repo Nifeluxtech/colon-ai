@@ -4,18 +4,9 @@ const db = require('../db');
 const log = require('../shared/logger');
 const ws = require('../ws');
 const sessions = require('../modules/auth').sessions;
-const Router = require('./router');
 const { clientIp, parseCookies, readJson } = require('./middleware/request');
 
-const router = new Router()
-  .use(require('./routes/health'))
-  .use(require('./routes/auth'))
-  .use(require('./routes/account'))
-  .use(require('./routes/admin'))
-  .use(require('./routes/admin-ai'))
-  .use(require('./routes/admin-platform'))
-  .use(require('./routes/chat'))
-  .use(require('./routes/uploads'));
+const router = require('./routes');
 
 const { SECURITY_HEADERS } = require('./middleware/headers');
 const settings = require('../shared/settings');
