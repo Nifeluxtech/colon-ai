@@ -10,7 +10,10 @@ import '../../../packages/ui/js/browser/index.js';
 import './lib/responder.js';
 import './core/data.js';
 import './lib/media.js';
-import './pages/pages.js';
+import './pages/history.js';
+import './pages/explore.js';
+import './pages/guest.js';
+import './pages/help.js';
 import './pages/settings.js';
 import './pages/chat.js';
 
