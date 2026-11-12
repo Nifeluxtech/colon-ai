@@ -4,6 +4,10 @@
 //   status {stage:'searching'} → status {stage:'reading', count} → sources {sources} → status {stage:'writing'}
 //   or, when search fails: status {stage:'unavailable'} and a one-line notice as the first delta (chat never breaks).
 // Used by send, regenerate and edit (saved to MySQL) and by guest chat (nothing saved).
+// Safety layer (modules/safety, ADR 0003), same SSE format:
+//   refused input:   start → delta {refusal in the user's language} → done   (no provider call, no search, no quota)
+//   self-harm:       the first delta is a supportive message with Nigerian helplines; the model gets care guidance
+//   output stopped:  the offending delta is never sent; the provider is cancelled and done carries a safe ending
 // Stop: the app closes the request (we abort the provider call and keep the partial reply as 'stopped');
 // POST …/stop does the same from another request, even when a different worker holds the stream.
 const ai = require('../ai');
@@ -12,6 +16,7 @@ const calls = require('../ai').calls;
 const limits = require('../ai').limits;
 const sseLib = require('../ai').sse;
 const webSearch = require('../search');
+const safety = require('../safety');
 const { SECURITY_HEADERS } = require('../../shared/security-headers');
 const log = require('../../shared/logger');
 
@@ -42,6 +47,10 @@ function openStream(res) {
  */
 async function respond(o) {
   const { req, res, store } = o;
+  const guard = o.guard || safety.collector();   // injection flags from files (context.js) and web pages
+  const lang = o.language || 'en';
+  const meta = { route: o.route || 'chat', mode: o.mode, language: lang, req, db: o.db };
+  let stop = null;     // set when the output check fires
   const sse = openStream(res);
   const ctl = new AbortController();
   let finished = false;
@@ -61,6 +70,18 @@ async function respond(o) {
     if (store.isStopped) {
       poll = setInterval(() => { store.isStopped().then(s => { if (s) ctl.abort(); }).catch(() => {}); }, 2000);
     }
+    // Safety: moderate the user's message before any provider, search or quota is touched.
+    const verdict = await safety.checkInput({ ...meta, text: o.userText != null ? o.userText : o.searchText,
+      signal: ctl.signal, settings: o.safetySettings, env: o.safetyEnv, moderationFetch: o.moderationFetch });
+    if (verdict.action === 'refuse') {
+      finished = true;
+      sse.send('delta', { text: verdict.refusal });
+      const final = await store.finish({ content: verdict.refusal, status: 'complete' });
+      sse.send('done', { message: final });
+      return;
+    }
+    if (verdict.support) { prefix = verdict.support; text = prefix; sse.send('delta', { text: prefix }); }
+    const out = safety.streamGuard({ enabled: verdict.enabled });
     // Live routing from the Admin Dashboard (cached ~30 s); routing.js defaults when the database has none.
     const cfg = o.routing || await dynamic.load(o.db);
     const route = cfg.africanLanguages.includes(o.language) ? 'african' : (o.mode || 'general');
@@ -72,19 +93,28 @@ async function respond(o) {
     // Research mode: search and read pages first. Never fatal: on failure the answer streams with a notice.
     if (o.webSearch) {
       web = await searchFirst(o, sse, ctl.signal, cfg);
-      if (web && !web.ok) { prefix = UNAVAILABLE; text = prefix; sse.send('delta', { text: prefix }); }
+      // (searchFirst never sends page text to the app; the model gets it fenced and neutralised below.)
+      if (web && !web.ok) { prefix += UNAVAILABLE; text = prefix; sse.send('delta', { text: UNAVAILABLE }); }
     }
     let result;
     try {
+      const webContext = web
+        ? webSearch.contextBlock({ sources: web.sources, failed: !web.ok, now: o.now, guard }) : '';
       result = await ai.generate({
-        mode: o.mode, language: o.language, model: o.model, name: o.name, messages: o.history, signal: ctl.signal,
-          routing: cfg, fetch: o.fetch,
-        web: Boolean(web && web.ok), context: web ? webSearch.contextBlock({ sources: web.sources, failed: !web.ok,
-          now: o.now }) : '',
+        mode: o.mode, language: o.language, model: o.model, name: o.name, signal: ctl.signal, routing: cfg,
+        messages: safety.redactMessages(o.history).messages, fetch: o.fetch,
+        web: Boolean(web && web.ok), context: [verdict.guidance, webContext].filter(Boolean).join('\n\n'),
         timeouts: cfg.hedge ? { ...(o.timeouts || {}), hedge: cfg.hedge } : o.timeouts,
-        onDelta: (piece) => { text += piece; sse.send('delta', { text: piece }); },
+        onDelta: (piece) => {
+          if (stop) return;
+          if ((stop = out.push(piece))) { ctl.abort(); return; }   // never send the piece that tripped the check
+          text += piece; sse.send('delta', { text: piece });
+        },
       });
       logCalls(result.attempts);
+      if (!stop) stop = out.final(result.text);
+      if (stop) throw Object.assign(new Error('safety stop'), { name: 'AbortError', providerId: result.providerId,
+        model: result.model });
     } catch (e) {
       if (e.name !== 'AbortError') logCalls(e.attempts, e.code || 'error');
       if (e.code === 'no_provider' || e.code === 'no_vision' || (e.code === 'provider_down'
@@ -97,7 +127,14 @@ async function respond(o) {
     sse.send('done', { message: final });
   } catch (e) {
     finished = true;
-    if (e.name === 'AbortError') {
+    if (stop && message) {
+      // Output check fired: replace the reply with a safe ending, same done event the app always gets.
+      const content = (prefix + safety.messages.stopped(lang)).trim();
+      const final = await store.finish({ content, status: 'complete', providerId: e.providerId,
+        providerModel: e.model, ...saved() }).catch(() => null);
+      if (final) sse.send('done', { message: final });
+      await safety.record({ stage: 'output', category: stop.category, action: 'stopped', rule: stop.rule, ...meta });
+    } else if (e.name === 'AbortError') {
       const final = message ? await store.finish({ content: e.partialText != null ? prefix + e.partialText : text,
         status: 'stopped', providerId: e.providerId, providerModel: e.model, ...saved() }).catch(() => null) : null;
       if (final) sse.send('done', { message: final });
@@ -112,6 +149,7 @@ async function respond(o) {
       sse.send('error', { code, message: msg });
     }
   } finally {
+    if (guard.flags.length) await safety.recordInjection(guard.flags, meta).catch(() => {});
     clearInterval(ping); clearInterval(poll);
     if (message) active.delete(message.id);
     sse.end();
