@@ -29,7 +29,7 @@ function safety(view) {
       '<div class="card" id="sc"></div><div class="list" id="se"></div>' +
       '<div class="card form" id="ss">' + skel(3) + '</div></div>';
     function filters(d) {
-      $('#sf', view).innerHTML = '<div class="h3">' + icon('search') + ' Filter</div>' +
+      $('#sf', view).innerHTML = '<div class="h3">Filter</div>' +
         sel('category', 'Category', f.category, [['', 'All categories']].concat(d.categories.map(function (c) {
           return [c, label(c)]; }))) +
         sel('action', 'Action', f.action, [['', 'All actions']].concat(d.actions.map(function (a) {
@@ -38,8 +38,8 @@ function safety(view) {
         f[s.name] = s.value; load(); }); });
     }
     function counts(d) {
-      if (!d.counts.length) { $('#sc', view).innerHTML = '<p class="small muted">' + icon('check')
-        + ' Nothing flagged in this period.</p>'; return; }
+      if (!d.counts.length) { $('#sc', view).innerHTML = '<p class="small muted">Nothing flagged in this period.</p>';
+        return; }
       var by = {};
       d.counts.forEach(function (c) { by[c.category] = (by[c.category] || 0) + c.n; });
       $('#sc', view).innerHTML = '<div class="h3">In this period</div><div class="adm-badges">' + Object.keys(by)
@@ -86,7 +86,7 @@ function safety(view) {
 function settingsCard(el) {
   C.api('/admin/safety/settings').then(function (d) {
     var S = d.safety, P = S.provider;
-    el.innerHTML = '<form novalidate><div class="h3">' + icon('settings') + ' Settings</div>' +
+    el.innerHTML = '<form novalidate><div class="h3">Settings</div>' +
       '<p class="small muted">Live within 30 s. “Signed in” is every account (Colon has no age check); “Guests” are '
         + 'signed-out visitors. Child-safety rules can’t be switched off.' + (S.rules ? '' : ' The server has '
         + 'SAFETY=off: only child-safety rules run.') + '</p>' +
