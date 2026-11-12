@@ -67,6 +67,13 @@ async function sendAndWait(p, text, n) {
   await shot(p, '03-chat-settings-guest');
   await p.goto(`http://localhost:${cp}/#/`); await p.waitForTimeout(1200);
   await sendAndWait(p, 'Hello from a guest', '04-chat-guest-reply');
+  await p.click('[data-a="more"]'); await p.waitForTimeout(400);
+  await p.getByRole('menuitem', { name: 'Open browser' }).click()
+    .catch((e) => report.errors.push('chat open browser: ' + e.message.split('\n')[0]));
+  await p.waitForTimeout(1500); await shot(p, '04b-chat-browser-panel');
+  ok('chat browser panel opens', await p.isVisible('.cb'));
+  await p.goto(`http://localhost:${cp}/#/`); await p.reload(); await p.waitForSelector('#cw-input');
+  await p.waitForTimeout(800);
   // ---- Chat (signed in)
   const st = await register(p, EMAIL, 'Ada Test'); ok('chat register', st === 201, st);
   await p.goto(`http://localhost:${cp}/#/`); await p.reload(); await p.waitForSelector('#cw-input');
@@ -99,6 +106,18 @@ async function sendAndWait(p, text, n) {
   await p.goto(`http://localhost:${bp}/#/`); await p.reload(); await p.waitForTimeout(2500);
   ok('browser app home renders', await p.isVisible('[data-host]') || await p.isVisible('.cb'), await p.title());
   await shot(p, '11-browser-home');
+  // The shared browser module: side panel, more menu, address suggestions, tabs.
+  const step = async (name, fn) => {
+    await fn().catch((e) => report.errors.push(`browser ${name}: ${e.message.split('\n')[0]}`));
+    await p.waitForTimeout(700); await shot(p, `11-browser-${name}`);
+  };
+  await step('x1-side', () => p.click('.cb [data-a="side"]'));
+  await step('x2-side-closed', () => p.click('.cb [data-a="side"]'));
+  await step('x3-more', () => p.click('.cb [data-a="more"]'));
+  await p.keyboard.press('Escape');
+  await step('x4-suggest', () => p.fill('.cb-address input', 'lagos'));
+  await p.keyboard.press('Escape');
+  await step('x5-tabs', () => p.click('.cb [data-a="tabs"]'));
   j = 0;
   for (const r of ['/tabs', '/bookmarks', '/history', '/downloads', '/ai', '/settings', '/help']) {
     await p.goto(`http://localhost:${bp}/#${r}`); await p.waitForTimeout(1200); await shot(p, `11${'abcdefg'[
