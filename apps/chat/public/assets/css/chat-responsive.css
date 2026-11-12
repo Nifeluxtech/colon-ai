@@ -1,0 +1,107 @@
+/* Colon AI workspace: mobile and desktop layouts, guests, editing, shared chats, notices.
+   Load order: chat-layout.css, chat-composer.css, chat-responsive.css. */
+
+/* ================= Mobile (< 900 px) ================= */
+@media (max-width:899px){
+  .cw{flex-direction:column}
+  .cw-side{position:fixed;top:0;bottom:0;left:0;z-index:151;width:min(86vw,320px);overscroll-behavior:contain;
+    transform:translateX(-104%);transition:transform .3s var(--ease);background:var(--surface-solid);
+    padding:calc(14px + var(--safe-t)) 12px calc(12px + var(--safe-b)) calc(12px + var(--safe-l));
+      box-shadow:var(--sh-lg)}
+  .cw.drawer-open .cw-side{transform:none}
+  .cw-side-close{display:grid}
+  .cw-head{height:56px;padding:0 4px 0 8px;gap:2px}
+  .cw-head [data-a="sidebar"]{order:10}
+  .cw-head [data-a="sidebar"] svg{display:none}
+  .cw-head [data-a="sidebar"]::before{content:"";width:20px;height:2px;background:currentColor;border-radius:2px;
+    box-shadow:0 -6px 0 currentColor,0 6px 0 currentColor}
+  .cw-model{max-width:150px;padding:3px 8px 3px 3px;min-height:40px;border-color:transparent;background:none}
+  .cw-model-mark{display:none}
+  .cw-title{display:none!important}
+  .cw-hide-xs{display:none!important}
+  .cw-show-xs{display:grid}
+  .cw-page{padding:14px 14px 8px}
+  [data-view="chat"] .cw-head-logo b{display:none}
+  .cw-composer{padding:0 10px calc(10px + var(--safe-b))}
+  .kb-open .cw-composer{padding-bottom:6px}
+  .cw-hide-touch{display:none}
+  .cw-head .icon-btn{width:40px}
+  .cw-head-logo b{font-size:15px;white-space:nowrap}
+  .cw-model-t small{display:none}
+  [data-view="welcome"] .cw-head [data-a="new"]{display:none}
+  .cw-screen-head{flex-wrap:wrap}
+  .cw-embed-host{padding:0 10px}
+  [data-layout="split"] .cw-mswitch.seg{display:flex}
+  [data-layout="split"] .cw-body{flex-direction:column}
+  [data-layout="split"][data-mtab="chat"] .cw-split{display:none}
+  [data-layout="split"][data-mtab="browser"] .cw-chat{display:none}
+  [data-layout="split"][data-mtab="browser"] .cw-split{flex:1;width:auto!important;border-left:0}
+  [data-layout="split"] .cw-split-head{display:none}
+  [data-view="welcome"] .cw-hero-p{margin-bottom:16px}
+}
+@media (max-width:480px){
+  .cw-mode-btn.on .cw-mode-l,.cw-mode-btn svg:last-child{display:none}
+  .cw-mode-btn{padding:0;width:36px;justify-content:center}
+  .cw-input .icon-btn{width:40px;height:40px;min-width:40px}
+  .cw-send{width:42px;height:42px}
+  .cw-input textarea{padding-left:4px;padding-right:4px}
+}
+@media (max-width:380px){.cw-head-logo b{display:none}}
+@media (max-width:360px){
+  .cw-prompt{padding:10px;min-height:58px}.cw-prompt b{font-size:13px}.cw-prompt-ico{width:32px;height:32px}
+  .cw-input .icon-btn,.cw-send{width:40px;height:40px}.cw-input textarea{padding:9px 4px;min-height:40px;height:40px}
+}
+/* ================= Desktop (>= 900 px) ================= */
+@media (min-width:900px){
+  .cw{padding:0}
+  .cw.side-collapsed .cw-side{display:none}
+  .cw-head{height:var(--header-h);margin:12px 12px 0;border:1px solid var(--line);border-radius:var(--r-lg);
+    padding:0 10px;box-shadow:var(--sh)}
+  .cw-head-logo{display:none}
+  .cw.side-collapsed .cw-head-logo{display:flex;margin-right:6px}
+  .cw-body{padding:12px;gap:0}
+  .cw-chat{border-radius:var(--r-xl);border:1px solid var(--line);background:radial-gradient(700px 380px at 50% 30%,
+    rgba(65,105,225,.20),transparent 70%),var(--glass);overflow:hidden}
+  [data-theme="light"] .cw-chat{background:radial-gradient(700px 380px at 50% 30%,rgba(65,105,225,.07),transparent 70%),
+    #fff}
+  [data-layout="split"] .cw-resizer{display:grid}
+  [data-layout="split"] .cw-split{border:1px solid var(--line);border-radius:var(--r-xl);overflow:hidden;flex:none;
+    min-width:320px}
+  .cw-page{padding:28px 24px 12px}
+  .cw{--cw-fade:#0D1838}
+  [data-theme="light"] .cw{--cw-fade:#fff}
+  .cw-composer{padding:0 20px 18px}
+  [data-view="welcome"] .cw-pills{display:flex}
+  .cw-mode-btn .cw-mode-l{display:inline}
+  .cw-drawer-back{display:none}
+}
+@media (min-width:900px) and (max-height:700px){.cw-hero-mark .logo-mark{width:56px}.cw-prompt{min-height:110px}}
+
+/* ---------- v0.4.4: guests (Log in / Sign up), message editing, shared chats ---------- */
+.cw-auth-btns{display:flex;gap:8px;padding:4px 2px 2px}
+.cw-auth-btns .btn{flex:1;min-height:40px}
+.cw-head-auth{display:flex;gap:6px;align-items:center;margin-left:4px}
+.cw-head-auth .btn{min-height:36px;padding:0 14px;font-size:14px}
+.cw-guest-card{display:flex;flex-direction:column;gap:6px;margin:10px 4px;padding:14px;border:1px solid var(--line-2);
+  border-radius:14px;background:var(--glass-2)}
+.cw-guest-card b{font-size:14px;color:var(--text)}
+.cw-guest-card span{font-size:13px;color:var(--muted);line-height:1.45}
+.cw-guest-btns{display:flex;gap:8px;margin-top:6px;flex-wrap:wrap}
+.cw-guest-btns .btn{min-height:38px;padding:0 16px}
+.cw-inline-link{background:none;border:0;padding:0;font:inherit;font-weight:650;cursor:pointer}
+.cw-login-page{max-width:460px;margin:40px auto 0}
+.cw-msg.user.editing{width:min(100%,640px);max-width:100%}
+.cw-msg.user.editing .cw-bubble{width:100%;background:var(--surface-solid);border-color:var(--line-2);padding:8px}
+.cw-edit .textarea{width:100%;min-height:72px;resize:none;border:0;background:transparent;padding:6px;color:var(--text);
+  font:inherit}
+.cw-edit .textarea:focus{outline:none}
+.cw-edit-actions{display:flex;justify-content:flex-end;gap:8px}
+.cw-edit-actions .btn{min-height:36px}
+.cw-shared-head{max-width:760px;margin:0 auto 18px;padding:6px 2px 14px;border-bottom:1px solid var(--line)}
+.cw-shared-head .h2{margin:10px 0 4px}
+.cw-shared-cta{display:flex;justify-content:center;padding:26px 0 40px}
+@media (max-width:899px){.cw-head-auth .btn{min-height:34px;padding:0 12px}}
+/* Phase 4: admin announcement / maintenance notice, report on shared chats */
+.cw-notice{margin:12px 16px 0;max-width:760px;align-self:center;width:calc(100% - 32px)}
+.cw-notice .icon-btn{margin-left:auto;flex:none}
+.cw-shared-cta{flex-direction:column;align-items:center;gap:10px}

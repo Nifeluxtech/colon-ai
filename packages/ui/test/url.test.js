@@ -1,7 +1,7 @@
 // Unit tests for packages/ui/assets/colon-url.js: address-bar parsing and the client-side SSRF guard.
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const U = require('../assets/colon-url.js');
+const { ColonURL: U } = require('../js/url.js');
 
 test('address bar: URLs vs search queries', () => {
   assert.equal(U.parseInput('https://punchng.com/news').type, 'url');

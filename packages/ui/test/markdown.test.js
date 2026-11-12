@@ -1,7 +1,7 @@
 // Unit tests for packages/ui/assets/colon-markdown.js (run: node --test packages/ui/test)
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const MD = require('../assets/colon-markdown.js');
+const { ColonMarkdown: MD } = require('../js/markdown/index.js');
 
 test('escapes raw HTML so replies cannot inject markup', () => {
   const out = MD.render('<script>alert(1)</script> <img src=x onerror=alert(1)>');

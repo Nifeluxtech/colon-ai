@@ -1,7 +1,7 @@
 // Unit tests for the on-device preview responder (apps/chat/public/js/chat-responder.js).
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const R = require('../../../apps/chat/public/js/chat-responder.js');
+const { ColonResponder: R } = require('../../../apps/chat/src/lib/responder.js');
 
 test('exact arithmetic, and nothing else is evaluated', () => {
   assert.equal(R.evalArithmetic('2+3*4'), 14);
