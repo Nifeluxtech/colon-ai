@@ -135,3 +135,18 @@ committed: this repository is public.
 | `TAVILY_API_KEY` | secret | no | (empty) | Tavily key (optional) |
 | `SEARXNG_URL` | url | no | (empty) | SearXNG base URL (optional) |
 | `SEARXNG_API_KEY` | secret | no | (empty) | SearXNG bearer token (optional) |
+
+### Safety layer
+
+| Variable | Type | Required | Default | Purpose |
+|---|---|---|---|---|
+| `SAFETY` | on/off | no | `on` | "off" switches the rule filters off (child-safety rules always stay on) |
+| `SAFETY_LOG_TEXT` | off/hash/excerpt | no | `off` | what a safety event keeps of the message: nothing, a keyed hash (HMAC-SHA-256 with `APP_SECRET`), or the first 80 characters |
+| `SAFETY_PROVIDER_MODERATION` | on/off | no | `off` | "on" also asks a moderation endpoint (needs `SAFETY_MODERATION_API_KEY`); Admin › Safety can override it live |
+| `SAFETY_MODERATION_URL` | url | no | `https://api.openai.com/v1/moderations` | OpenAI-compatible moderation endpoint |
+| `SAFETY_MODERATION_API_KEY` | secret | no | (empty) | key for the moderation endpoint (optional) |
+| `SAFETY_MODERATION_MODEL` | string | no | `omni-moderation-latest` | moderation model id |
+| `SAFETY_MODERATION_TIMEOUT_MS` | number | no | `3000` | give up on the moderation endpoint after this long; the message then goes through on the rules alone (fail open, logged) |
+
+The rule filters (`services/api/src/modules/safety`) need no key, no model and no network. The child-safety rules
+run whatever `SAFETY` or the admin settings say, and whether or not the moderation endpoint answers (fail closed).

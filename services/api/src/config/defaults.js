@@ -10,6 +10,7 @@ const str = (key, def, doc, extra = {}) => ({ key, type: 'string', default: def,
 const num = (key, def, doc) => ({ key, type: 'number', default: def, doc });
 const url = (key, def, doc) => ({ key, type: 'url', default: def, doc });
 const secret = (key, doc) => ({ key, type: 'string', default: '', doc, secret: true });
+const oneOf = (key, values, def, doc) => ({ key, type: 'enum', values, default: def, doc });
 
 const SCHEMA = [
   // Runtime
@@ -75,6 +76,15 @@ const SCHEMA = [
   str('WEB_SEARCH', 'on', '"off" switches web search off until an admin turns it on'),
   secret('BRAVE_SEARCH_API_KEY', 'Brave Search API key (optional)'), secret('TAVILY_API_KEY', 'Tavily key (optional)'),
   url('SEARXNG_URL', '', 'SearXNG base URL (optional)'), secret('SEARXNG_API_KEY', 'SearXNG bearer token (optional)'),
+  // Safety layer (modules/safety; ADR 0003)
+  oneOf('SAFETY', ['on', 'off'], 'on', '"off" switches the rule filters off (child-safety rules always stay on)'),
+  oneOf('SAFETY_LOG_TEXT', ['off', 'hash', 'excerpt'], 'off',
+    'what a safety event keeps of the message: nothing, a keyed hash, or the first 80 characters'),
+  oneOf('SAFETY_PROVIDER_MODERATION', ['on', 'off'], 'off', '"on" also asks a moderation endpoint (needs a key)'),
+  url('SAFETY_MODERATION_URL', 'https://api.openai.com/v1/moderations', 'OpenAI-compatible moderation endpoint'),
+  secret('SAFETY_MODERATION_API_KEY', 'key for the moderation endpoint (optional)'),
+  str('SAFETY_MODERATION_MODEL', 'omni-moderation-latest', 'moderation model id'),
+  num('SAFETY_MODERATION_TIMEOUT_MS', 3000, 'give up on the moderation endpoint after this long (fail open)'),
 ];
 
 module.exports = { SCHEMA, ORIGINS };
