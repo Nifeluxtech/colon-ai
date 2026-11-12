@@ -159,11 +159,17 @@ function persistedStore(conv, { version = 1 } = {}) {
       id = m.id;
       return m;
     },
-    async finish({ content, status, error, providerId, providerModel }) {
+    async finish({ content, status, error, providerId, providerModel, sources, web }) {
       await db.query(
         'UPDATE chat_messages SET content = ?, status = ?, error = ?, provider = ?, provider_model = ?, completed_at = UTC_TIMESTAMP(3) WHERE id = ?',
         [content || '', status, error ? JSON.stringify(error) : null, providerId || null, providerModel || null, id]
       );
+      // Research mode: the cited sources and how the search went (migration 0006). Separate, so a database
+      // that hasn't run 0006 yet still saves the answer itself.
+      if (web) {
+        await db.query('UPDATE chat_messages SET sources = ?, web_search = ? WHERE id = ?', [JSON.stringify(sources || []), JSON.stringify(web), id])
+          .catch(() => db.query('UPDATE chat_messages SET sources = ? WHERE id = ?', [JSON.stringify(sources || []), id]).catch(() => {}));
+      }
       if (content) await store.touch(conv, { preview: content });
       return store.getMessage(conv.id, id);
     },
@@ -189,11 +195,19 @@ async function seqOf(id) {
   return row ? row.seq : null;
 }
 
+// Research mode searches the web first (Phase 5, docs/phase-5-research.md). Other modes never do.
+const wantsWeb = (mode) => mode === 'research';
+const previousUserText = (history) => {
+  const users = history.filter(m => m.role === 'user');
+  return users.length > 1 ? String(users[users.length - 2].content || '') : '';
+};
+
 async function streamFor(req, res, conv, userMsg, { version = 1, onOpen } = {}) {
   const counters = await limits.resolveCounters(req, conv.mode);
   return historyFor(req, conv, userMsg.id).then(history => respond({
     req, res, mode: conv.mode, model: conv.model, language: replyLanguage(req.user.language, userMsg.content), name: req.user.name,
     history: buildMessages(history), counters, store: persistedStore(conv, { version }), onOpen,
+    webSearch: wantsWeb(conv.mode), searchText: userMsg.content, searchPrevious: previousUserText(history),
   }));
 }
 
@@ -400,14 +414,16 @@ r.post('/chat/guest', { bodyLimit: 1024 * 1024 }, guestOrigin, settings.feature(
   await respond({
     req, res, mode, model, language: replyLanguage(chosen, last.content), name: req.user ? req.user.name : '',
     history: buildMessages(history), counters: await limits.resolveCounters(req, mode),
+    webSearch: wantsWeb(mode), searchText: last.content, searchPrevious: previousUserText(history),
     store: {
       async start() {
         msg = { id: store.newId(), role: 'assistant', content: '', sources: [], status: 'streaming', mode, model, created_at: new Date().toISOString(), temporary: true };
         return msg;
       },
-      async finish({ content, status, error }) {
+      async finish({ content, status, error, sources, web }) {
         Object.assign(msg, { content: content || '', status, completed_at: new Date().toISOString() });
         if (error) msg.error = error;
+        if (web) { msg.sources = sources || []; msg.web = { ok: Boolean(web.ok), provider: web.provider || null }; }
         return msg;
       },
     },

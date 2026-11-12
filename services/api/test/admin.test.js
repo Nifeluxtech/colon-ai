@@ -23,7 +23,7 @@ const routers = ['admin', 'admin-ai', 'admin-platform'].map(n => require(`../src
 const routes = routers.flatMap(r => r.routes);
 // Minimum role per endpoint (method + path). The release standard: each role sees only what it is allowed to.
 function expected(method, p) {
-  if (p === '/admin/system' || p === '/admin/providers/:id/key') return 'super_admin';
+  if (p === '/admin/system' || p === '/admin/providers/:id/key' || p.startsWith('/admin/search')) return 'super_admin';
   if (p.startsWith('/admin/moderation')) return 'moderator';
   if (method === 'GET' && (p === '/admin/users' || p === '/admin/users/:id')) return 'moderator';
   return 'admin';
@@ -216,4 +216,30 @@ test('ai_calls: one row per attempt; a request with no attempt still records its
   const none = calls.rowsFor({ mode: 'general', code: 'no_provider' });
   assert.equal(none.length, 1);
   assert.equal(none[0][6], 'no_provider');
+});
+
+test('web search settings (Super Admin): keys stored encrypted and only ever shown masked; bad values refused', async () => {
+  const platform = routers[2];
+  const find = (m, p) => platform.routes.find(r => r.method === m && pathOf(r.re) === p);
+  const req = (body) => ({ user: { id: 1, role: 'super_admin', totp_enabled: 1 }, params: {}, query: new URLSearchParams(), body, ip: '' });
+  fakeDb.calls.length = 0;
+  const saved = [];
+  const oldQuery = fakeDb.query;
+  fakeDb.query = async function (sql, p) { this.calls.push(sql); if (/INSERT INTO app_settings/.test(sql)) saved.push(p); return []; };
+  settings.clear();
+  await find('POST', '/admin/search/key').handlers[1](req({ provider: 'brave', api_key: 'BSA-secret-key-9876' }));
+  const stored = saved.find(p => p[0] === 'search_keys');
+  assert.ok(stored && !stored[1].includes('BSA-secret-key-9876'), 'key is encrypted at rest');
+  assert.equal(decrypt(JSON.parse(stored[1]).brave.enc), 'BSA-secret-key-9876');
+  const audits = fakeDb.calls.filter(sql => /audit/i.test(sql));
+  assert.ok(audits.length >= 1);
+  await assert.rejects(find('POST', '/admin/search/key').handlers[1](req({ provider: 'google', api_key: 'x'.repeat(20) })), (e) => e.status === 422 || e.code === 'invalid');
+  await assert.rejects(find('PATCH', '/admin/search').handlers[1](req({ results: 50 })), (e) => e.status === 422 || e.code === 'invalid');
+  await assert.rejects(find('PATCH', '/admin/search').handlers[1](req({ disabled: ['brave', 'tavily', 'searxng', 'duckduckgo', 'wikipedia'] })), (e) => e.status === 422 || e.code === 'invalid');
+  const out = platform.searchOut({ enabled: true, order: ['brave', 'duckduckgo'], disabled: [], results: 5, pages: 3, searxngUrl: '',
+    providers: [{ id: 'brave', name: 'Brave Search', needs: 'key', ready: true, key: 'BSA-secret-key-9876', keySource: 'database', last4: '9876' }, { id: 'duckduckgo', name: 'DuckDuckGo', ready: true, key: '', keySource: 'none' }] });
+  assert.equal(out.providers[0].key.masked, '••••9876');
+  assert.ok(!JSON.stringify(out).includes('BSA-secret'));
+  fakeDb.query = oldQuery;
+  settings.clear();
 });

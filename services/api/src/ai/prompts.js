@@ -26,9 +26,12 @@ const MODES = {
   ].join('\n'),
   research: [
     'Mode: Research. Give a structured, balanced answer: a short summary first, then key points with headings, then open questions or caveats.',
-    'Separate facts from opinion, give dates and numbers where you know them, and say clearly when information may be out of date. You cannot browse the web in this mode yet, so never invent links or citations; suggest where the user could verify (official sites, reports).',
+    'Separate facts from opinion, give dates and numbers where you know them, and say clearly when information may be out of date.',
   ].join('\n'),
 };
+// Research mode with web search (Phase 5) gets numbered sources appended (src/search/prompt.js); without it, no links.
+const RESEARCH_WEB = 'Web search results for this question are given below with numbers. Answer from them and cite them as instructed there.';
+const RESEARCH_NO_WEB = 'You cannot browse the web for this answer, so never invent links or citations; suggest where the user could verify (official sites, reports).';
 
 function languageRule(lang) {
   const name = LANGUAGE_NAMES[lang] || LANGUAGE_NAMES.en;
@@ -41,8 +44,10 @@ function languageRule(lang) {
   return 'Reply language: English (use clear Nigerian/British spelling). If the user writes in Naijá, Yorùbá, Hausa or Igbo, reply in that language.';
 }
 
-function systemPrompt({ mode = 'general', language = 'en', name = '' } = {}) {
-  return [BASE, MODES[mode] || MODES.general, languageRule(language), name ? `The user's name is ${String(name).slice(0, 80)}.` : '']
+// web: true when numbered web sources follow (Research mode with search); context: extra system text appended last.
+function systemPrompt({ mode = 'general', language = 'en', name = '', web = false, context = '' } = {}) {
+  const modeText = mode === 'research' ? `${MODES.research}\n${web ? RESEARCH_WEB : RESEARCH_NO_WEB}` : (MODES[mode] || MODES.general);
+  return [BASE, modeText, languageRule(language), name ? `The user's name is ${String(name).slice(0, 80)}.` : '', context]
     .filter(Boolean).join('\n\n');
 }
 

@@ -74,8 +74,9 @@ function listModels(cfg = routingDefault) {
 const needsVisionFor = (messages) => messages.some(m => Array.isArray(m.content) && m.content.some(p => p && p.type === 'image_url'));
 
 /**
- * generate({ mode, language, model, name, messages, signal, onDelta, onAttempt })
+ * generate({ mode, language, model, name, messages, signal, onDelta, onAttempt, web, context })
  *   messages: OpenAI-style history WITHOUT the system prompt (added here).
+ *   web/context: Research mode web search — numbered sources appended to the system prompt (src/search).
  *   -> { text, providerId, providerName, model, target, attempts }
  * Errors carry .code: 'no_provider' | 'no_vision' | 'provider_down' (after fallback) | AbortError (Stop).
  */
@@ -92,7 +93,7 @@ async function generate(o) {
       ? 'Image reading isn’t switched on yet: no vision-capable model is configured. Describe the image in words, or attach a PDF or text file instead.'
       : 'Colon Saga isn’t connected to an AI provider yet.'), { status: 503, code: needsVision ? 'no_vision' : 'no_provider' });
   }
-  const messages = [{ role: 'system', content: systemPrompt({ mode: o.mode, language: o.language, name: o.name }) }, ...o.messages];
+  const messages = [{ role: 'system', content: systemPrompt({ mode: o.mode, language: o.language, name: o.name, web: Boolean(o.web), context: o.context }) }, ...o.messages];
   const attempts = [];
   // Hedged racing: free hosts are often slow to start, so each "wave" asks up to `hedge` models at once
   // (different providers first) and keeps whichever starts answering first; the others are cancelled.

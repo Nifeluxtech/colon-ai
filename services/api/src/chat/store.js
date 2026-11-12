@@ -40,6 +40,8 @@ function msgOut(m) {
     status, model: m.model, mode: m.mode, version: m.version, created_at: m.created_at,
   };
   if (m.origin) out.origin = m.origin;
+  const web = json(m.web_search);
+  if (web) out.web = { ok: Boolean(web.ok), provider: web.provider || null };
   if (error) out.error = error;
   if (m.completed_at) out.completed_at = m.completed_at;
   return out;
