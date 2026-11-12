@@ -72,7 +72,7 @@ Each phase ships only when it meets its release standard: tested, secured, deplo
 - Test the free candidates (Qwen, Gemma 4, GLM, DeepSeek and newer ones) on accuracy, speed, language quality and cost. The winner becomes Saga's default.
 - Specialist routing, where a model clearly beats Saga on a task, such as code or a particular language.
 - Integrate Nigerian language models (for example N-ATLaS) where their licences allow.
-- Web search with cited sources for Research mode.
+- Web search with cited sources for Research mode. **Done in v0.5.3** (`docs/phase-5-research.md`).
 - Study mode: step-by-step explanations, quizzes, flashcards and past-question practice.
 - Developer mode: code explain, fix, generate, and a project-files context.
 - Safety layer: harmful-content filtering and prompt-injection guards.

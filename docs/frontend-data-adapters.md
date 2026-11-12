@@ -61,7 +61,11 @@ pressed (Log in or Sign up) and offers a link to switch.
 
 **Streaming (SSE).** Events, each `event: <name>\ndata: <json>\n\n`:
 `user {message, conversation}` (send and edit only) → `start {message}` → `delta {text}` (repeated) → optional
-`sources {sources:[{n,title,url,snippet}]}` → `done {message}`. On failure the server sends `error {code, message}` and
+`sources {sources:[{n,title,url,snippet}]}` → `done {message}`. **Research mode (v0.5.3)** searches the web first and
+sends, before the first delta: `status {stage:'searching'}` → `status {stage:'reading', count}` →
+`sources {sources:[{n,title,url,site,snippet}]}` → `status {stage:'writing'}`; when search fails:
+`status {stage:'unavailable'}` and a one-line notice as the first `delta`. The saved message carries `sources` and
+`web {ok, provider}` (also in shared chats). See `docs/phase-5-research.md`. On failure the server sends `error {code, message}` and
 saves the reply with `status: 'error'`. Codes the UI explains: `no_provider` (no AI provider key set: "An admin needs to
 add a provider"), `quota` (daily limit; guests get a Log in button), `provider_down` (every provider failed, or the
 connection dropped mid-answer), `no_vision` (an image was attached but no vision model is configured). Closing the
