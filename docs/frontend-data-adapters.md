@@ -108,14 +108,15 @@ the in-flight step at a safe point and re-queues it before handing over; *Stop* 
 ## Testing
 
 ```
-node scripts/check.js       # syntax check + asset versions (CI)
+node scripts/check.js       # syntax, size, API layers, app imports, versions, config (CI)
 npm test                    # UI modules + API model router and chat helpers (no database, no network)
 ```
 
-End-to-end against a real database with a fake AI provider (see `services/api/tests/e2e/smoke.js` for the env):
+End-to-end against a real database with the mock AI provider in every model slot (env: `config/e2e.env.example`;
+run from `services/api`):
 
 ```
-node services/api/tests/helpers/mock-provider.js 4010 &
-GROQ_API_KEY=x GROQ_BASE_URL=http://127.0.0.1:4010 … node services/api/app.js &
-API=http://localhost:3000 node services/api/tests/e2e/smoke.js
+node tests/helpers/mock-provider.js 4010 &
+set -a; . ../../config/e2e.env.example; set +a; PORT=3100 node app.js &
+API=http://localhost:3100 ORIGIN=http://localhost:8080 node tests/e2e/smoke.js
 ```
