@@ -1,15 +1,18 @@
-// All settings come from environment variables set in cPanel > Setup Node.js App.
-// Never put secrets in this repository (it is public).
-const env = (k, d) => (process.env[k] !== undefined && process.env[k] !== '' ? process.env[k] : d);
-const list = (v) => v.split(',').map(s => s.trim()).filter(Boolean);
+// All settings come from environment variables set in cPanel > Setup Node.js App. The schema (every key,
+// its type and default) is config/defaults.js; assertValid() runs at boot and refuses to start on a
+// missing required key or a malformed value. Never put secrets in this repository (it is public).
+const { read, list, validate, ConfigError } = require('./env');
+const { SCHEMA } = require('./defaults');
+
+const DEFAULTS = Object.fromEntries(SCHEMA.map(i => [i.key, i.default]));
+const env = (k, d = DEFAULTS[k]) => read(process.env, k, d);
 
 module.exports = {
   port: Number(env('PORT', 3000)),
   nodeEnv: env('NODE_ENV', 'development'),
   isProd: env('NODE_ENV', 'development') === 'production',
   appName: 'Colon AI',
-  allowedOrigins: list(env('ALLOWED_ORIGINS',
-    'https://chat.apparatus.name.ng,https://browser.apparatus.name.ng,https://admin.apparatus.name.ng')),
+  allowedOrigins: list(env('ALLOWED_ORIGINS')),
   db: {
     host: env('DB_HOST', 'localhost'),
     port: Number(env('DB_PORT', 3306)),
@@ -40,12 +43,17 @@ module.exports = {
     dailyLimit: Number(env('CHAT_DAILY_LIMIT', 100)),        // replies per signed-in user per UTC day
     guestDailyLimit: Number(env('CHAT_GUEST_DAILY_LIMIT', 15)), // replies per guest browser per UTC day
     guestIpDailyLimit: Number(env('CHAT_GUEST_IP_DAILY_LIMIT', 300)), // all guests on one IP (carrier NAT) per UTC day
-    uploadDir: env('UPLOAD_DIR', require('path').resolve(__dirname, '../../storage/uploads')),
+    uploadDir: env('UPLOAD_DIR'),
     uploadQuotaMb: Number(env('UPLOAD_QUOTA_MB', 200)),       // per user, across all their files
     firstTokenTimeoutMs: Number(env('AI_FIRST_TOKEN_TIMEOUT_MS', 25000)),
     hedge: Number(env('AI_HEDGE', 2)),   // models asked at once per wave (1 = one after another)
     idleTimeoutMs: Number(env('AI_IDLE_TIMEOUT_MS', 30000)),
     maxReplyMs: Number(env('AI_MAX_REPLY_MS', 180000)),
     maxTokens: Number(env('AI_MAX_TOKENS', 4096)),
+  },
+  // Throws a ConfigError listing every problem; http/server.js calls it before anything else starts.
+  assertValid(envVars = process.env) {
+    const problems = validate(SCHEMA, envVars);
+    if (problems.length) throw new ConfigError(problems);
   },
 };

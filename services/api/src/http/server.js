@@ -1,5 +1,9 @@
 const http = require('http');
 const config = require('../config');
+const requestContext = require('../shared/request-context');
+
+// Refuse to start on a missing required setting or a malformed value, with a clear message in stderr.log.
+try { config.assertValid(); } catch (e) { console.error(e.message); process.exit(1); }
 const db = require('../db');
 const log = require('../shared/logger');
 const ws = require('../ws');
@@ -47,7 +51,13 @@ function send(res, code, body, headers = {}) {
   res.end(JSON.stringify(body));
 }
 
-const server = http.createServer(async (req, res) => {
+const server = http.createServer((req, res) => {
+  const requestId = requestContext.requestIdFor(req.headers['x-request-id']);
+  res.setHeader('X-Request-Id', requestId);
+  requestContext.run({ requestId }, () => handle(req, res));
+});
+
+async function handle(req, res) {
   cors(req, res);
   if (req.method === 'OPTIONS') { res.writeHead(204, SECURITY_HEADERS); return res.end(); }
   const url = new URL(req.url, 'http://local');
@@ -80,7 +90,7 @@ const server = http.createServer(async (req, res) => {
       field: e.field,
     });
   }
-});
+}
 
 ws.attach(server);
 
