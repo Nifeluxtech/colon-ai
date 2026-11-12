@@ -9,6 +9,7 @@ const MINOR = [
     + String.raw`shota|jailbait)\b`,
   String.raw`\b(?:little|young|small) (?:girl|boy|girls|boys|child|one)\b`,
   String.raw`\bunder (?:1[0-8]|[1-9])\b`,
+  String.raw`\bmy (?:little |young )?(?:daughter|son|niece|nephew|stepdaughter|stepson|ward)\b`,
   String.raw`\b(?:[1-9]|1[0-7])[- ]?(?:years?|yrs?|yo|y\/o)(?:[- ]old)?\b`,
   String.raw`\b(?:primary school|jss ?[1-3]|basic [1-9]|primary [1-6])\b`,
   // Pidgin, Yorùbá, Hausa, Igbo

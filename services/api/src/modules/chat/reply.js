@@ -133,7 +133,8 @@ async function respond(o) {
       const final = await store.finish({ content, status: 'complete', providerId: e.providerId,
         providerModel: e.model, ...saved() }).catch(() => null);
       if (final) sse.send('done', { message: final });
-      await safety.record({ stage: 'output', category: stop.category, action: 'stopped', rule: stop.rule, ...meta });
+      await safety.record({ ...meta, stage: 'output', category: stop.category, action: 'stopped', rule: stop.rule },
+        { db: o.db });
     } else if (e.name === 'AbortError') {
       const final = message ? await store.finish({ content: e.partialText != null ? prefix + e.partialText : text,
         status: 'stopped', providerId: e.providerId, providerModel: e.model, ...saved() }).catch(() => null) : null;

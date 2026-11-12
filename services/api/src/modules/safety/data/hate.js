@@ -32,7 +32,7 @@ const COMPOSE = [
     + String.raw`racist|tribalist\w*|sexist|homophobic|death threat)(?: \w+){0,2} (?:message|messages|text|letter|`
     + String.raw`post|tweet|comment|note|song|poem|email|dm|caption|chant|speech)\b`,
   String.raw`\b(?:help me|how (?:do|can) i|how to|ways? to)(?: \w+){0,1} (?:harass|bully|cyberbully|stalk|`
-    + String.raw`intimidate|threaten|blackmail|humiliate|doxx?|terrori[sz]e)(?: \w+){0,1} `
+    + String.raw`intimidate|threaten|blackmail|humiliate|terrori[sz]e)(?: \w+){0,1} `
     + String.raw`(?:my |him|her|them|someone|somebody|a |this |that |the )`,
 ];
 
