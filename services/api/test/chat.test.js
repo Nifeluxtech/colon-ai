@@ -7,7 +7,7 @@ const zlib = require('zlib');
 const limits = require('../src/modules/ai/limits');
 const prompts = require('../src/modules/ai/prompts');
 const { buildMessages } = require('../src/modules/chat/context');
-const extract = require('../src/modules/extract/extract');
+const extract = require('../src/modules/extract');
 
 // In-memory stand-in for the two chat_usage queries limits.js runs.
 function fakeDb() {

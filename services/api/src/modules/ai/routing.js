@@ -8,33 +8,22 @@
 // models     what GET /models shows. "route" pins a model to its own chain (except for African languages).
 //
 // Model ids are env-overridable because free models come and go (check the provider's model list).
+const groq = require('./providers/groq');
+const openrouter = require('./providers/openrouter');
+const google = require('./providers/google');
+const nvidia = require('./providers/nvidia');
+const natlas = require('./providers/natlas');
+
 const env = (k, d) => (process.env[k] !== undefined && process.env[k] !== '' ? process.env[k] : d);
 
+// Order matters: it is the order /health lists enabled providers in.
 function providers() {
   return {
-    groq: {
-      name: 'Groq', baseUrl: env('GROQ_BASE_URL', 'https://api.groq.com/openai/v1'), apiKey: env('GROQ_API_KEY', ''),
-    },
-    openrouter: {
-      name: 'OpenRouter', baseUrl: env('OPENROUTER_BASE_URL', 'https://openrouter.ai/api/v1'), apiKey: env('OPENROUTER_API_KEY', ''),
-      // Optional attribution headers OpenRouter shows on its dashboard.
-      headers: { 'HTTP-Referer': env('APP_URL_CHAT', 'https://chat.apparatus.name.ng'), 'X-Title': 'Colon AI' },
-    },
-    gemini: {
-      // Native Gemini API: Google serves Gemma models only there, not on its OpenAI-compatible endpoint.
-      name: 'Google AI Studio', baseUrl: env('GEMINI_BASE_URL', 'https://generativelanguage.googleapis.com/v1beta'), apiKey: env('GEMINI_API_KEY', ''),
-      native: 'gemini',
-      // Gemma 4 takes thinkingLevel "minimal" (fast, no hidden reasoning) or "high". Set GEMINI_THINKING=off to omit.
-      thinkingLevel: env('GEMINI_THINKING', 'minimal') === 'off' ? '' : env('GEMINI_THINKING', 'minimal'),
-    },
-    nvidia: {
-      // NVIDIA build.nvidia.com (free developer endpoints, OpenAI-compatible): DeepSeek, Gemma 4, GLM and more.
-      name: 'NVIDIA', baseUrl: env('NVIDIA_BASE_URL', 'https://integrate.api.nvidia.com/v1'), apiKey: env('NVIDIA_API_KEY', ''),
-    },
-    natlas: {
-      // N-ATLaS (Nigerian Atlas for Languages & AI) on any OpenAI-compatible host (vLLM, HF endpoint, ...).
-      name: 'N-ATLaS', baseUrl: env('NATLAS_BASE_URL', ''), apiKey: env('NATLAS_API_KEY', ''), needsBaseUrl: true,
-    },
+    groq: groq(),
+    openrouter: openrouter(),
+    gemini: google.config(),
+    nvidia: nvidia(),
+    natlas: natlas(),
   };
 }
 
