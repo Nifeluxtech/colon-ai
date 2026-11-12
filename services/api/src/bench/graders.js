@@ -65,7 +65,10 @@ function extractNumber(text) {
       if (n) return toNumber(n[0]);
     }
   }
-  const all = s.match(NUM_RE);
+  // No "Answer:" line: Study mode often ends with a practice question, so ignore everything from such a section on.
+  const cut = s.search(/^.*(check[- ]yourself|quick check|practice question|try (this|these|it)|quiz|exercise|your turn)/im);
+  const body = cut > 0 ? s.slice(0, cut) : s;
+  const all = body.match(NUM_RE);
   return all ? toNumber(all[all.length - 1]) : null;
 }
 function number(text, spec) {
@@ -182,14 +185,19 @@ const LEXSET = Object.fromEntries(Object.entries(LEX).map(([k, v]) => [k, new Se
 const ORTHO = { yo: [/[ẹọṣẸỌṢ]/g, /[\u0300\u0301]/g], ig: [/[ịọụṅỊỌỤṄ]/g, null], ha: [/[ɗƙɓƴƊƘƁƳ]/g, null] };
 const ORTHO_WORD = { yo: /[ẹọṣẸỌṢ]/, ig: /[ịọụṅỊỌỤṄ]/, ha: /[ɗƙɓƴƊƘƁƳ]/ };
 const THRESH = { pcm: 0.3, yo: 0.5, ha: 0.5, ig: 0.5 };
+// Naijá shares most of its words with English, so its grammar gives it away: "you go pay", "if you no count",
+// "e still remain", "Nigeria get 36 states". These count as Pidgin markers; "for/if/no/so" are neutral for Pidgin.
+const PCM_PATTERNS = [/\b(i|you|we|e|dem|una|im|e no) go [a-z]+/g, /\b(you|i|we|dem|una|e|im) no [a-z]+/g, /\be (still|go|dey|don|be|no|fit|wan|get)\b/g, /\b[a-z]+ get \d+/g, /\bfor (market|house|road|lokoja|lagos|abuja|school|work)\b/g];
+const PCM_NEUTRAL = new Set(['for', 'if', 'no', 'so']);
 
 // -> { score 0..1 (target words vs English function words), ortho 0..1 (special letters/tone marks used), pass }
 function langScore(text, lang) {
-  const toks = words(stripMd(String(text || '').replace(/```[\s\S]*?```/g, ''))).filter(w => w.length > 1 || lang === 'ig');
+  const toks = words(stripMd(String(text || '').replace(/```[\s\S]*?```/g, ''))).filter(w => w.length > 1);
   const lex = LEXSET[lang];
   if (!lex) return { score: 0, ortho: 0, pass: false };
   let t = 0, en = 0;
-  for (const w of toks) { if (lex.has(w)) t++; else if (EN.has(w)) en++; }
+  for (const w of toks) { if (lex.has(w)) t++; else if (EN.has(w) && !(lang === 'pcm' && PCM_NEUTRAL.has(w))) en++; }
+  if (lang === 'pcm') { const f = toks.join(' '); for (const re of PCM_PATTERNS) t += (f.match(re) || []).length; }
   // Words written with the language's own letters (ẹ ọ ṣ, ị ọ ụ ṅ, ɗ ƙ ɓ) count as target words too.
   if (ORTHO[lang]) {
     const raw = String(text || '').normalize('NFC').replace(/```[\s\S]*?```/g, '').split(/[^\p{L}\p{M}']+/u).filter(Boolean);
@@ -197,7 +205,8 @@ function langScore(text, lang) {
   }
   const ratio = t / (t + en || 1);
   const thr = THRESH[lang];
-  const score = t < 2 ? 0 : Math.min(1, ratio / thr);
+  const minHits = toks.length < 25 ? 1 : 2;     // a one-line answer can only show one or two markers
+  const score = t < minHits ? 0 : Math.min(1, ratio / thr);
   let ortho = 1;
   if (ORTHO[lang]) {
     const [letters, tones] = ORTHO[lang];

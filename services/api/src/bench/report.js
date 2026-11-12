@@ -16,6 +16,14 @@ function buildReport({ run, suite, started, finished, settings = {}, models }) {
       failures: m.rows.filter(r => !r.pass).map(r => ({ id: r.id, set: r.set, detail: r.error || r.detail })) };
   });
   const ranked = rank(out.filter(m => m.status === 'done')).concat(out.filter(m => m.status !== 'done'));
+  // An incomplete or stopped model is compared with every finished model on exactly the items it answered.
+  const byKey = Object.fromEntries(models.map(m => [`${m.provider}:${m.model}`, Object.fromEntries(m.rows.map(r => [r.id, r]))]));
+  for (const m of out.filter(x => x.status !== 'done')) {
+    const ids = Object.keys(byKey[m.key]);
+    const acc = (key) => ids.reduce((a, id) => a + ((byKey[key][id] && !byKey[key][id].error && byKey[key][id].score) || 0), 0) / (ids.length || 1);
+    m.same_items = { items: ids.length, accuracy: { [m.key]: Math.round(acc(m.key) * 1000) / 1000 } };
+    for (const d of out.filter(x => x.status === 'done')) m.same_items.accuracy[d.key] = Math.round(acc(d.key) * 1000) / 1000;
+  }
   return { run, suite, started, finished, settings, ranking: ranked.map(m => m.key), models: ranked };
 }
 
@@ -35,7 +43,13 @@ function markdown(rep) {
     lines.push(`| ${m.status === 'done' ? i + 1 : '–'} | ${m.key}${m.status !== 'done' ? ` (${m.status})` : ''}${m.note ? ` ¹` : ''} | ${m.score} | ${pct(m.components.accuracy)} | ${pct(m.components.language)} | ${sets.map(s => pct(m.sets[s] && m.sets[s].accuracy)).join(' | ')} | ${sec(m.overall.first_token_ms.median)} | ${sec(m.overall.first_token_ms.p90)} | ${pct(m.overall.error_rate)}% |`);
   });
   if (rep.models.some(m => m.note)) lines.push('', ...rep.models.filter(m => m.note).map(m => `¹ ${m.key}: ${m.note}`));
-  lines.push('', 'Per-set columns are accuracy in % (errors count as 0). Lang = language quality on the Pidgin/Yorùbá/Hausa/Igbo sets.', '', '## Failures', '');
+  lines.push('', 'Per-set columns are accuracy in % (errors count as 0). Lang = language quality on the Pidgin/Yorùbá/Hausa/Igbo sets.');
+  const partial = rep.models.filter(m => m.same_items);
+  if (partial.length) {
+    lines.push('', '## Incomplete or stopped models on the same items', '', 'Accuracy of each model on exactly the items the incomplete model answered (errors count as 0).', '');
+    for (const m of partial) lines.push(`- **${m.key}** (${m.status}, ${m.same_items.items} items): ${Object.entries(m.same_items.accuracy).map(([k, a]) => `${k === m.key ? '**' : ''}${k} ${pct(a)}%${k === m.key ? '**' : ''}`).join(' · ')}`);
+  }
+  lines.push('', '## Failures', '');
   for (const m of rep.models) {
     lines.push(`### ${m.key} — ${m.failures.length} of ${m.items} not fully correct`, '');
     for (const f of m.failures) lines.push(`- \`${f.id}\`: ${String(f.detail).replace(/\s+/g, ' ').slice(0, 160)}`);

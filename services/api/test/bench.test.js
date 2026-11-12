@@ -28,6 +28,7 @@ test('number: prefers the "Answer:" line, handles ₦, commas, fractions and tol
   assert.equal(extractNumber('Step 1: 2x = 12\nAnswer: x = 6'), 6);
   assert.equal(extractNumber('Answer: 1/2'), 0.5);
   assert.equal(extractNumber('so the total is 26,250'), 26250);
+  assert.equal(extractNumber('2^7 ÷ 2^5 = 2^2 = 4\n\n**Check-yourself question:** simplify 3^5 ÷ (3^2 × 3^1)'), 4, 'a closing practice question is ignored');
   assert.equal(grade('Answer: 2.4 Ω', { type: 'number', answer: 2.4, tol: 0.01 }).pass, true);
   assert.equal(grade('Answer: -2', { type: 'number', answer: 2, abs: true }).pass, true);
   assert.equal(grade('Answer: 41', { type: 'number', answer: 42 }).pass, false);
@@ -84,9 +85,13 @@ test('lang: tells the target language from English, and rewards proper orthograp
   assert.equal(langScore('Clean water is important because it keeps the body healthy and free from disease.', 'yo').pass, false);
   assert.equal(langScore('Yara su je makaranta domin ilimi yana da muhimmanci sosai. Za su sami aiki mai kyau.', 'ha').pass, true);
   assert.equal(langScore('Mmiri dị ọcha dị mkpa maka ahụike anyị. Ọ na-egbochi ọrịa.', 'ig').pass, true);
+  assert.equal(langScore('Water is a liquid.', 'ig').pass, false, 'an English line is not Igbo');
   assert.equal(langScore("Mkpịsị aka iri nọ n'aka abụọ.", 'ig').pass, true, 'words in Igbo letters count');
   assert.equal(langScore('Abeg, di capital of Nigeria na Abuja. Na dia government dey sit.', 'pcm').pass, true);
   assert.equal(langScore('The capital of Nigeria is Abuja, which is where the government sits.', 'pcm').pass, false);
+  assert.equal(langScore('Na River Benue join River Niger for Lokoja.', 'pcm').pass, true, 'short Naijá answer');
+  assert.equal(langScore('Nigeria get 36 states plus one FCT (Abuja). So if you no count the FCT, e still remain 36 states.', 'pcm').pass, true);
+  assert.equal(langScore('If you buy two plates of rice for 1,500 naira each, you will pay 3,000 naira.', 'pcm').pass, false, 'plain English stays English');
   const both = grade('Olú ìlú Nàìjíríà ni Abuja. Ìlú náà wà ní àárín gbùngbùn orílẹ̀-èdè wa.', { type: 'all', of: [{ type: 'lang', lang: 'yo' }, { type: 'keywords', all: ['Abuja'] }] });
   assert.equal(both.pass, true);
   assert.ok(both.lang > 0.5);

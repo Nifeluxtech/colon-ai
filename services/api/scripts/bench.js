@@ -9,7 +9,7 @@
 //   npm run bench -- --run 2026-11-12 --judge gemini:gemma-4-26b-a4b-it   LLM-judge the language sets
 //   npm run bench -- --run 2026-11-12 --save        store the run in eval_runs (Admin › Evaluation); needs DB_* env
 //   npm run bench -- --gate nvidia:z-ai/glm-5.3-flash   exit 1 unless a fresh benchmark of that model exists
-// Options: --concurrency 1 (per model, max 4; --concurrency-nvidia 1 sets it per provider), --retry-errors, --gap-ms 1500, --limit N (items per set), --max-tokens 2048,
+// Options: --concurrency 1 (per model, max 4; --concurrency-nvidia 1 sets it per provider), --retry-errors [code], --order interleave, --gap-ms 1500, --limit N (items per set), --max-tokens 2048,
 //          --first-token-ms 60000. BENCH_SANDBOX=1 drops the client's own key headers (sandbox key injection only).
 const fs = require('fs');
 const path = require('path');
@@ -45,7 +45,11 @@ async function main() {
 
   const sets = runner.loadSets(runner.SETS_DIR, o.sets && o.sets !== true ? String(o.sets).split(',') : null);
   const limit = Number(o.limit) || 0;
-  const items = sets.flatMap(s => (limit ? s.items.slice(0, limit) : s.items));
+  const bySet = sets.map(s => (limit ? s.items.slice(0, limit) : s.items));
+  // --order interleave: one item from each set in turn, so a run cut short still covers every set evenly.
+  const items = o.order === 'interleave'
+    ? Array.from({ length: Math.max(0, ...bySet.map(l => l.length)) }, (_, i) => bySet.map(l => l[i]).filter(Boolean)).flat()
+    : bySet.flat();
   const candidates = o.models && o.models !== true ? String(o.models).split(',').map(runner.parseCandidate)
     : meta.models.length && (o.report || o.judge || o.save) ? meta.models.map(runner.parseCandidate) : runner.CANDIDATES;
   for (const c of candidates) if (!meta.models.includes(runner.keyOf(c))) meta.models.push(runner.keyOf(c));
@@ -66,7 +70,9 @@ async function main() {
       const statusFile = file.replace(/\.jsonl$/, '.status.json');
       // Latest row per item; with --retry-errors, items whose latest row is an error are asked again.
       const latestRows = Object.values(Object.fromEntries(readJsonl(file).map(r => [r.id, r])));
-      const prior = o['retry-errors'] ? latestRows.filter(r => !r.error) : latestRows;
+      // "--retry-errors rate_limited" retries only errors with that code (e.g. 429s caused by our own load).
+      const retryCode = typeof o['retry-errors'] === 'string' ? o['retry-errors'] : null;
+      const prior = o['retry-errors'] ? latestRows.filter(r => !r.error || (retryCode && !r.error.startsWith(retryCode))) : latestRows;
       const done = new Set(prior.map(r => r.id));
       if (fs.existsSync(statusFile) && JSON.parse(fs.readFileSync(statusFile, 'utf8')).unreliable) { console.log(`${runner.keyOf(c)}: marked unreliable, skipped`); return; }
       console.log(`${runner.keyOf(c)}: ${items.length - items.filter(i => done.has(i.id)).length} items to run`);
