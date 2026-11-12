@@ -1,5 +1,10 @@
 # Changelog
 
+## [0.5.1] — 2026-11-12 · Fix: Delete account tap
+### Fixed
+- The decorative COLON intro wordmark could sit over Settings › Account › **Delete account** and swallow taps on the middle of the row. The intro artwork now has `pointer-events:none`, the faded intro drops behind the page (`visibility:hidden`, `z-index:-1`) and is removed after a tap-to-skip, and the decorative brand marks (`.logo-mark`, `.auth-mark`, `.cw-hero-mark`) never take a tap.
+- Version 0.5.1 across `package.json`, `services/api/package.json`, every `?v=` asset reference and `Colon.version`, so phones load the fixed CSS instead of a cached copy.
+
 ## [0.5.0] — 2026-11-12 · Phase 4: Admin Dashboard
 Every platform setting can now be changed from admin.apparatus.name.ng, and each role sees only what it is allowed to (enforced by the API; every change is audited). Details: `docs/phase-4.md`.
 ### Added
