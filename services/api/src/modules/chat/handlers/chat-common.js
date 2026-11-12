@@ -4,7 +4,7 @@ const store = require('../store');
 
 const MAX_CONTENT = 16000;
 
-// Research mode searches the web first (Phase 5, docs/phase-5-research.md). Other modes never do.
+// Research mode searches the web first (Phase 5, docs/phases/phase-5-research.md). Other modes never do.
 const wantsWeb = (mode) => mode === 'research';
 
 const previousUserText = (history) => {

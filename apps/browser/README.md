@@ -1,5 +1,5 @@
 # Colon Browser
-The Colon Browser web app. Deployed to browser.apparatus.name.ng. The full browser engine runs in the Android app (WebView); see docs/adr/0002.
+The Colon Browser web app. Deployed to browser.apparatus.name.ng. The full browser engine runs in the Android app (WebView); see docs/decisions/0002.
 
 On the web it runs the **reader preview**: pages are fetched as data, sanitised and shown as text and images
 (no scripts, logins or forms). The UI says so wherever it matters.

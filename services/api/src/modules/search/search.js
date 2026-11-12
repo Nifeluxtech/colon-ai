@@ -1,6 +1,6 @@
 // Web search for Research mode (Phase 5): pluggable providers, a fallback chain, a page reader and the
 // orchestration chat/reply.js runs before the model answers. How it works, limits and privacy:
-// docs/phase-5-research.md.
+// docs/phases/phase-5-research.md.
 //
 //   search(query, { limit, lang, signal })  -> [{ title, url, snippet }]   (the configured chain, first that answers)
 // research({ text, previous, language, signal, onStatus, routing, db }) -> { ok, sources, provider, queries, ms, read }

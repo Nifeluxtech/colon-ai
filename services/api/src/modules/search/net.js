@@ -4,7 +4,7 @@
 // public addresses only: loopback, private (RFC 1918), link-local (cloud metadata 169.254.169.254), CGNAT,
 // multicast, reserved and the IPv6 equivalents are refused after DNS resolution. The check runs right before
 // each request; the tiny window between our lookup and the socket's own lookup is accepted on shared hosting
-// (no raw-socket pinning there) and documented in docs/phase-5-research.md.
+// (no raw-socket pinning there) and documented in docs/phases/phase-5-research.md.
 const dns = require('dns');
 const net = require('net');
 

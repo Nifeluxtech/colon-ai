@@ -43,8 +43,8 @@ function markdown(rep) {
     `# Colon benchmark — ${rep.run}`, '',
     `Suite \`${rep.suite}\`, ${rep.models[0] ? rep.models[0].expected :
       0} items per model. Started ${rep.started}, finished ${rep.finished}.`,
-    (`Score = 100 × (0.60 accuracy + 0.15 language quality + 0.10 speed + 0.15 reliability); see ` + (
-      (`docs/phase-5-bench`) + `mark.md. Cost: $0 on every free tier.`)), '',
+    `Score = 100 × (0.60 accuracy + 0.15 language quality + 0.10 speed + 0.15 reliability); ` +
+      'see docs/phases/phase-5-benchmark.md. Cost: $0 on every free tier.', '',
     `| # | Model | Score | Acc | Lang | ${sets.map(s => SET_LABEL[s] || s).join(
       ' | ')} | 1st token median s | p90 s | Errors |`,
     `|---|---|---|---|---|${sets.map(() => '---').join('|')}|---|---|---|`,

@@ -65,7 +65,7 @@ pressed (Log in or Sign up) and offers a link to switch.
 sends, before the first delta: `status {stage:'searching'}` → `status {stage:'reading', count}` →
 `sources {sources:[{n,title,url,site,snippet}]}` → `status {stage:'writing'}`; when search fails:
 `status {stage:'unavailable'}` and a one-line notice as the first `delta`. The saved message carries `sources` and
-`web {ok, provider}` (also in shared chats). See `docs/phase-5-research.md`. On failure the server sends `error {code, message}` and
+`web {ok, provider}` (also in shared chats). See `docs/phases/phase-5-research.md`. On failure the server sends `error {code, message}` and
 saves the reply with `status: 'error'`. Codes the UI explains: `no_provider` (no AI provider key set: "An admin needs to
 add a provider"), `quota` (daily limit; guests get a Log in button), `provider_down` (every provider failed, or the
 connection dropped mid-answer), `no_vision` (an image was attached but no vision model is configured). Closing the
@@ -95,7 +95,7 @@ request (Stop) cancels the provider call and saves the partial reply with `statu
 | POST | `/browser/plan` | `{ goal }` → `{ steps: [{ kind: 'search'\|'open'\|'summarize', label, query?, url? }] }` (Colon Saga planner) |
 | POST | `/browser/data/clear` | `{ history?, downloads?, bookmarks?, session?, settings? }` |
 
-**`/browser/fetch` must be SSRF-safe** (docs/adr/0002 reader mode): http/https only; resolve DNS and refuse
+**`/browser/fetch` must be SSRF-safe** (docs/decisions/0002 reader mode): http/https only; resolve DNS and refuse
 loopback, private (10/8, 172.16/12, 192.168/16, 100.64/10), link-local (169.254/16, incl. cloud metadata),
 IPv6 ULA/link-local and mapped addresses; re-check after every redirect (max 5); ports 80/443/8080/8443
 only; no credentials in URLs; 2 MB and 10 s caps; strip scripts, styles, iframes, forms and event handlers.

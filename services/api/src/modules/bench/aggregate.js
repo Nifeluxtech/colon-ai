@@ -1,4 +1,4 @@
-// Colon benchmark: per-set and overall statistics, and the weighted overall score (docs/phase-5-benchmark.md).
+// Colon benchmark: per-set and overall statistics, and the weighted overall score (docs/phases/phase-5-benchmark.md).
 //
 //   overall = 100 × (0.60 × accuracy + 0.15 × language + 0.10 × speed + 0.15 × reliability)
 //

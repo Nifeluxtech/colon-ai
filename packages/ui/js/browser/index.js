@@ -2,7 +2,7 @@
    Mounted full-size by Colon Browser and as the embedded/split panel inside Colon AI. Both use
    ColonBrowserData, so tabs, history, bookmarks and the control mode are one session.
 
-   Engine honesty (docs/adr/0002): the full engine is the Android System WebView in the Colon app.
+   Engine honesty (docs/decisions/0002): the full engine is the Android System WebView in the Colon app.
    On the web this module is a READER PREVIEW: pages are fetched as data, sanitised, and rendered as
    text and images. No scripts, logins or forms run. The UI says so wherever it matters.
 

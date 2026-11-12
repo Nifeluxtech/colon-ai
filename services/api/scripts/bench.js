@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // The Colon benchmark (Phase 5). Runs every item of bench/sets/*.json against each candidate model through the
-// app's own provider client and writes bench/results/<run>.json and .md. Docs: docs/phase-5-benchmark.md.
+// app's own provider client and writes bench/results/<run>.json and .md. Docs: docs/phases/phase-5-benchmark.md.
 //
 //   npm run bench                                   all candidates, all sets (new run id)
 //   npm run bench -- --models nvidia:z-ai/glm-5.3-flash,gemini:gemma-4-26b-a4b-it --sets waec,jamb
