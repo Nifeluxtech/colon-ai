@@ -5,8 +5,8 @@ never call `fetch` directly:
 
 | Adapter | File | Used by |
 |---|---|---|
-| `ColonChatData` | `apps/chat/public/js/chat-data.js` | Colon AI |
-| `ColonBrowserData` | `packages/ui/assets/colon-browser-data.js` | Colon Browser **and** the browser panel in Colon AI (one session infrastructure) |
+| `ColonChatData` | `apps/chat/src/core/data.js` | Colon AI |
+| `ColonBrowserData` | `packages/ui/js/browser/data.js` | Colon Browser **and** the browser panel in Colon AI (one session infrastructure) |
 
 ## Colon AI: which implementation runs (v0.4.0)
 
@@ -37,7 +37,7 @@ pressed (Log in or Sign up) and offers a link to switch.
 
 | Method | Path | Body / query | Response |
 |---|---|---|---|
-| GET | `/models` | | `{ models: [{ id, name, description, available, status, default, capabilities[] }] }` (from `src/ai/routing.js`; `available` is false until a provider key is set) |
+| GET | `/models` | | `{ models: [{ id, name, description, available, status, default, capabilities[] }] }` (from `src/modules/ai/routing.js`; `available` is false until a provider key is set) |
 | GET | `/conversations` | `?q=&archived=0\|1\|all` | `{ conversations: [{ id, title, mode, model, pinned, archived, preview, shared, created_at, updated_at }] }` (search covers titles and messages) |
 | POST | `/conversations` | `{ mode, model }` | `{ conversation }` |
 | GET | `/conversations/:id` | | `{ conversation, messages: [{ id, role, content, attachments, sources, feedback, status, model, mode, version, error?, created_at }] }` |
@@ -65,7 +65,7 @@ pressed (Log in or Sign up) and offers a link to switch.
 sends, before the first delta: `status {stage:'searching'}` → `status {stage:'reading', count}` →
 `sources {sources:[{n,title,url,site,snippet}]}` → `status {stage:'writing'}`; when search fails:
 `status {stage:'unavailable'}` and a one-line notice as the first `delta`. The saved message carries `sources` and
-`web {ok, provider}` (also in shared chats). See `docs/phase-5-research.md`. On failure the server sends `error {code, message}` and
+`web {ok, provider}` (also in shared chats). See `docs/phases/phase-5-research.md`. On failure the server sends `error {code, message}` and
 saves the reply with `status: 'error'`. Codes the UI explains: `no_provider` (no AI provider key set: "An admin needs to
 add a provider"), `quota` (daily limit; guests get a Log in button), `provider_down` (every provider failed, or the
 connection dropped mid-answer), `no_vision` (an image was attached but no vision model is configured). Closing the
@@ -95,7 +95,7 @@ request (Stop) cancels the provider call and saves the partial reply with `statu
 | POST | `/browser/plan` | `{ goal }` → `{ steps: [{ kind: 'search'\|'open'\|'summarize', label, query?, url? }] }` (Colon Saga planner) |
 | POST | `/browser/data/clear` | `{ history?, downloads?, bookmarks?, session?, settings? }` |
 
-**`/browser/fetch` must be SSRF-safe** (docs/adr/0002 reader mode): http/https only; resolve DNS and refuse
+**`/browser/fetch` must be SSRF-safe** (docs/decisions/0002 reader mode): http/https only; resolve DNS and refuse
 loopback, private (10/8, 172.16/12, 192.168/16, 100.64/10), link-local (169.254/16, incl. cloud metadata),
 IPv6 ULA/link-local and mapped addresses; re-check after every redirect (max 5); ports 80/443/8080/8443
 only; no credentials in URLs; 2 MB and 10 s caps; strip scripts, styles, iframes, forms and event handlers.
@@ -108,14 +108,15 @@ the in-flight step at a safe point and re-queues it before handing over; *Stop* 
 ## Testing
 
 ```
-node scripts/check.js       # syntax check + asset versions (CI)
+node scripts/check.js       # syntax, size, API layers, app imports, versions, config (CI)
 npm test                    # UI modules + API model router and chat helpers (no database, no network)
 ```
 
-End-to-end against a real database with a fake AI provider (see `services/api/test/e2e-smoke.js` for the env):
+End-to-end against a real database with the mock AI provider in every model slot (env: `config/e2e.env.example`;
+run from `services/api`):
 
 ```
-node services/api/test/helpers/mock-provider.js 4010 &
-GROQ_API_KEY=x GROQ_BASE_URL=http://127.0.0.1:4010 … node services/api/app.js &
-API=http://localhost:3000 node services/api/test/e2e-smoke.js
+node tests/helpers/mock-provider.js 4010 &
+set -a; . ../../config/e2e.env.example; set +a; PORT=3100 node app.js &
+API=http://localhost:3100 ORIGIN=http://localhost:8080 node tests/e2e/smoke.js
 ```

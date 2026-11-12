@@ -1,0 +1,38 @@
+{
+  "_comment": "Offline stand-in for GET /models, used only by the on-device Preview when the API can't be reached. Online, the list comes from services/api/src/modules/ai/routing.js.",
+  "models": [
+    {
+      "id": "colon-saga",
+      "name": "Colon Saga",
+      "description": "Colon's default assistant, tuned for Nigerian and African context.",
+      "available": true,
+      "status": "available",
+      "default": true,
+      "capabilities": ["text", "reasoning", "code", "vision", "web"]
+    },
+    {
+      "id": "colon-saga-fast",
+      "name": "Saga Fast",
+      "description": "Lighter, quicker answers for everyday questions and low data use.",
+      "available": true,
+      "status": "available",
+      "capabilities": ["text", "code"]
+    },
+    {
+      "id": "colon-saga-deep",
+      "name": "Saga Deep Research",
+      "description": "Multi-step research with cited sources.",
+      "available": false,
+      "status": "coming_soon",
+      "capabilities": ["reasoning", "web", "citations"]
+    },
+    {
+      "id": "colon-saga-voice",
+      "name": "Saga Voice",
+      "description": "Talk with Colon in English, Naijá, Yorùbá, Hausa and Igbo.",
+      "available": false,
+      "status": "coming_soon",
+      "capabilities": ["voice"]
+    }
+  ]
+}

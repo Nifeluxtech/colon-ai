@@ -1,7 +1,7 @@
-// Unit tests for packages/ui/assets/colon-url.js: address-bar parsing and the client-side SSRF guard.
+// Unit tests for packages/ui/js/url.js: address-bar parsing and the client-side SSRF guard.
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const U = require('../assets/colon-url.js');
+const { ColonURL: U } = require('../js/url.js');
 
 test('address bar: URLs vs search queries', () => {
   assert.equal(U.parseInput('https://punchng.com/news').type, 'url');
@@ -16,9 +16,12 @@ test('address bar: URLs vs search queries', () => {
 });
 
 test('guard blocks private, loopback, link-local and metadata hosts', () => {
-  for (const u of ['http://localhost/', 'http://127.0.0.1/', 'http://10.0.0.5/', 'http://172.16.3.4/', 'http://192.168.1.1/admin',
-    'http://169.254.169.254/latest/meta-data/', 'http://[::1]/', 'http://[fd00::1]/', 'http://[::ffff:127.0.0.1]/', 'http://0.0.0.0/',
-    'http://2130706433/', 'http://0x7f000001/', 'http://router.local/', 'http://intranet/', 'http://metadata.google.internal/', 'http://100.64.0.1/']) {
+  for (const u of ['http://localhost/', 'http://127.0.0.1/', 'http://10.0.0.5/', 'http://172.16.3.4/',
+    'http://192.168.1.1/admin',
+    'http://169.254.169.254/latest/meta-data/', 'http://[::1]/', 'http://[fd00::1]/', 'http://[::ffff:127.0.0.1]/',
+      'http://0.0.0.0/',
+    'http://2130706433/', 'http://0x7f000001/', 'http://router.local/', 'http://intranet/',
+      'http://metadata.google.internal/', 'http://100.64.0.1/']) {
     const r = U.guard(u);
     assert.equal(r.ok, false, u);
   }
@@ -33,7 +36,8 @@ test('guard blocks bad schemes, credentials and odd ports', () => {
 });
 
 test('guard allows public sites', () => {
-  for (const u of ['https://en.wikipedia.org/wiki/Lagos', 'https://punchng.com/', 'http://example.com:8080/x', 'https://8.8.8.8/', 'https://[2001:4860:4860::8888]/']) {
+  for (const u of ['https://en.wikipedia.org/wiki/Lagos', 'https://punchng.com/', 'http://example.com:8080/x',
+    'https://8.8.8.8/', 'https://[2001:4860:4860::8888]/']) {
     assert.equal(U.guard(u).ok, true, u);
   }
 });
@@ -43,5 +47,6 @@ test('display helpers', () => {
   assert.equal(U.displayUrl('https://www.jumia.com.ng/'), 'jumia.com.ng');
   assert.equal(U.queryFrom('https://www.google.com/search?q=naira%20rate'), 'naira rate');
   assert.equal(U.isSecure('http://x.com'), false);
-  assert.equal(U.resolve('/wiki/Nigeria', 'https://en.wikipedia.org/wiki/Lagos'), 'https://en.wikipedia.org/wiki/Nigeria');
+  assert.equal(U.resolve('/wiki/Nigeria', 'https://en.wikipedia.org/wiki/Lagos'),
+    'https://en.wikipedia.org/wiki/Nigeria');
 });

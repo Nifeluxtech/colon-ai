@@ -1,20 +1,26 @@
 # packages/ui · Colon design system
 
-Shared by every Colon web app and deployed to `/ui/` on each subdomain by `.cpanel.yml`. No build step,
-no frameworks: plain CSS and classic scripts loaded with `defer`.
+Shared by every Colon web app. No build step, no frameworks: plain CSS and ES modules loaded directly by the
+browser. Deployed with each app under `/v<version>/packages/ui/` by `scripts/deploy/build-docroot.sh` (fonts are also
+mirrored at `/ui/fonts/` for older URLs).
 
-## Files (`assets/`)
-| File | What it is |
+## Files
+| Path | What it is |
 |---|---|
-| `colon-ui.css` | Tokens, light and dark themes, and every shared component |
-| `colon-app.js` | App core `window.Colon`: API client, hash router, account screens, theme, menus, dialogs, tooltips, drawer, keyboard and resize helpers, icon set |
-| `colon-store.js` | `ColonStore`: IndexedDB records + settings, with localStorage/memory fallback |
-| `colon-markdown.js` | `ColonMarkdown`: safe Markdown, code highlighting, tables, TeX maths, citations |
-| `colon-url.js` | `ColonURL`: address-bar parsing and the client-side SSRF guard |
-| `colon-browser-data.js` | `ColonBrowserData`: the one browser-session adapter (local + remote) and HTML sanitiser |
-| `colon-saga-browse.js` | `ColonSagaBrowse`: observable AI browsing (plan, act, approve, pause, stop) |
-| `colon-browser.js` + `colon-browser.css` | `ColonBrowser`: the reusable browser module (full and panel variants) |
+| `css/tokens.css`, `base.css`, `components.css`, `content.css` | Tokens and themes, app shell and surfaces, components, rendered content |
+| `css/browser.css` | The browser module's styles |
+| `js/colon.js` | Public face of the app core, `window.Colon` (same keys as before the module split): built from `js/colon/` (`state`, `icons`, `dom`, `api`, `overlays`, `forms`, `router`, `auth`, `account`, `account-security`) |
+| `js/store.js` | `ColonStore`: IndexedDB records + settings, with localStorage/memory fallback |
+| `js/markdown/index.js` | `ColonMarkdown`: safe Markdown, code highlighting, tables, TeX maths, citations (`escape`, `parse`, `code-blocks`, `math`) |
+| `js/url.js` | `ColonURL`: address-bar parsing and the client-side SSRF guard |
+| `js/browser/data.js` | `ColonBrowserData`: the one browser-session adapter (local + remote) and HTML sanitiser |
+| `js/browser/saga-browse.js` | `ColonSagaBrowse`: observable AI browsing (plan, act, approve, pause, stop) |
+| `js/browser/index.js` | `ColonBrowser`: the reusable browser module (full and panel variants), split over a shared context |
 | `fonts/` | Self-hosted Inter and JetBrains Mono (OFL) |
+| `test/` | `node --test` unit tests |
+
+Apps import only the entry files above (`colon.js`, `store.js`, `url.js`, `markdown/index.js`, `browser/index.js`,
+`browser/data.js`, `browser/saga-browse.js`); `scripts/check.js` enforces it.
 
 ## Tokens (spec §19)
 Primary `#4169E1` · hover `#3457C7` · deep navy `#101B3D` · dark background `#080F24` · light background `#FFFFFF`

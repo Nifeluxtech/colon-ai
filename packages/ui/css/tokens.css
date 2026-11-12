@@ -1,0 +1,84 @@
+/* Colon UI · Nifelux design system (v0.3.0)
+   Royal-blue premium AI workspace. Mobile-first, light + dark themes, touch-friendly.
+   Theme: <html data-theme="dark|light">; set by Colon.theme (packages/ui/js/colon.js). Dark is the default. */
+
+/* ---------- Fonts (self-hosted, SIL OFL 1.1: see fonts/README.md) ---------- */
+@font-face{font-family:"Inter";font-style:normal;font-weight:400 800;font-display:swap;
+  src:url(../fonts/inter-latin.woff2) format("woff2");
+  unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,
+    U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD}
+@font-face{font-family:"Inter";font-style:normal;font-weight:400 800;font-display:swap;
+  src:url(../fonts/inter-latin-ext.woff2) format("woff2");
+  unicode-range:U+0100-02BA,U+02BD-02C5,U+02C7-02CC,U+02CE-02D7,U+02DD-02FF,U+0300-0303,U+0304,U+0308,U+0323,U+0329,
+    U+1D00-1DBF,U+1E00-1E9F,U+1EF2-1EFF,U+2020,U+20A0-20AB,U+20AD-20C4,U+2113,U+2C60-2C7F,U+A720-A7FF}
+@font-face{font-family:"JetBrains Mono";font-style:normal;font-weight:400 700;font-display:swap;
+  src:url(../fonts/jetbrains-mono-latin.woff2) format("woff2")}
+
+/* ---------- Tokens ---------- */
+:root{
+  /* Brand tokens (spec §19) */
+  --c-primary:#4169E1; --c-primary-hover:#3457C7; --c-navy:#101B3D; --c-dark:#080F24; --c-white:#FFFFFF;
+  --c-blue-surface:#EAF0FF; --c-cyan:#38BDF8; --c-ink:#0F172A; --c-slate:#64748B; --c-border:#E2E8F0;
+  --c-success:#16A34A; --c-error:#DC2626; --c-warn:#D97706; --c-flame:#FF8A3D;
+
+  --primary:var(--c-primary); --primary-hover:var(--c-primary-hover); --cyan:var(--c-cyan);
+  --accent:var(--primary); --accent-grad:linear-gradient(180deg,#5179EE 0%,#4169E1 55%,#3457C7 100%);
+  --brand-grad:linear-gradient(135deg,#4169E1,#38BDF8);
+  --r-xs:8px; --r-sm:10px; --r:14px; --r-lg:18px; --r-xl:24px; --r-pill:999px;
+  --font:"Inter","Geist",system-ui,-apple-system,"Segoe UI",Roboto,"Noto Sans","Helvetica Neue",Arial,sans-serif;
+  --mono:"JetBrains Mono","Geist Mono",ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  --safe-t:env(safe-area-inset-top,0px); --safe-b:env(safe-area-inset-bottom,0px);
+  --safe-l:env(safe-area-inset-left,0px); --safe-r:env(safe-area-inset-right,0px);
+  --tabbar-h:64px; --topbar-h:56px; --header-h:64px; --sidebar-w:252px; --touch:44px;
+  --ease:cubic-bezier(.2,.8,.2,1); --dur:.24s;
+  --kb:0px; /* on-screen keyboard height, set by Colon.keyboard() from visualViewport */
+}
+/* Dark theme (default) */
+:root,[data-theme="dark"]{
+  color-scheme:dark;
+  --bg:#080F24; --bg-2:#0B1430; --surface:#101B3D; --surface-2:#16245290; --surface-3:#1B2B5E;
+  --surface-solid:#111D42; --glass:rgba(16,27,61,.62); --glass-2:rgba(22,36,82,.55);
+  --line:rgba(110,140,235,.16); --line-2:rgba(110,140,235,.28);
+  --text:#F1F5FF; --text-2:#BCC7E6; --muted:#8190B8; --placeholder:#6574A0;
+  --ok:#34D17A; --ok-bg:rgba(22,163,74,.14); --bad:#F87171; --bad-bg:rgba(220,38,38,.14); --warn:#FBBF24;
+    --warn-bg:rgba(217,119,6,.14);
+  --info-bg:rgba(56,189,248,.12); --primary-soft:rgba(65,105,225,.18); --primary-line:rgba(91,130,240,.55);
+  --code-bg:#0A1230; --overlay:rgba(3,7,20,.62);
+  --sh:0 10px 30px rgba(2,6,23,.45); --sh-lg:0 24px 70px rgba(2,6,23,.6); --sh-glow:0 8px 28px rgba(65,105,225,.38);
+  --page-bg:radial-gradient(1100px 620px at 12% -12%,rgba(65,105,225,.30),transparent 62%),
+    radial-gradient(900px 520px at 105% 108%,rgba(56,189,248,.12),transparent 60%),#080F24;
+}
+[data-theme="light"]{
+  color-scheme:light;
+  --bg:#FFFFFF; --bg-2:#F5F8FF; --surface:#FFFFFF; --surface-2:#EAF0FF; --surface-3:#DCE6FF;
+  --surface-solid:#FFFFFF; --glass:rgba(255,255,255,.78); --glass-2:rgba(234,240,255,.8);
+  --line:#E2E8F0; --line-2:#CBD5E1;
+  --text:#0F172A; --text-2:#334155; --muted:#64748B; --placeholder:#94A3B8;
+  --ok:#16A34A; --ok-bg:rgba(22,163,74,.10); --bad:#DC2626; --bad-bg:rgba(220,38,38,.08); --warn:#B45309;
+    --warn-bg:rgba(217,119,6,.10);
+  --info-bg:rgba(56,189,248,.12); --primary-soft:#EAF0FF; --primary-line:rgba(65,105,225,.45);
+  --code-bg:#0F172A; --overlay:rgba(15,23,42,.45);
+  --sh:0 8px 24px rgba(15,23,42,.08); --sh-lg:0 24px 60px rgba(15,23,42,.16); --sh-glow:0 8px 24px rgba(65,105,225,.28);
+  --page-bg:radial-gradient(1000px 560px at 10% -14%,rgba(65,105,225,.10),transparent 60%),#FFFFFF;
+}
+
+*,*::before,*::after{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%;text-size-adjust:100%;height:100%}
+body{margin:0;min-height:100%;min-height:100dvh;background:var(--page-bg);background-attachment:fixed;color:var(--text);
+  font:400 16px/1.55 var(--font);
+  -webkit-font-smoothing:antialiased;-webkit-tap-highlight-color:transparent;overscroll-behavior-y:none;
+    font-feature-settings:"cv11","ss01"}
+a{color:inherit;text-decoration:none}
+button,input,select,textarea{font:inherit;color:inherit}
+button{cursor:pointer}
+img,svg{display:block}
+svg{flex:none}
+:focus-visible{outline:2px solid var(--cyan);outline-offset:2px;border-radius:8px}
+::selection{background:rgba(65,105,225,.35)}
+.sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+.hidden,[hidden]{display:none!important}
+.scroll-y{overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain}
+.no-scrollbar{scrollbar-width:none}.no-scrollbar::-webkit-scrollbar{display:none}
+.skip-link{position:fixed;left:12px;top:-60px;z-index:200;padding:10px 14px;border-radius:10px;
+  background:var(--primary);color:#fff;font-weight:600;transition:top .2s}
+.skip-link:focus{top:calc(10px + var(--safe-t))}

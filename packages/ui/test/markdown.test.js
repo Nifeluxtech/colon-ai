@@ -1,7 +1,7 @@
-// Unit tests for packages/ui/assets/colon-markdown.js (run: node --test packages/ui/test)
+// Unit tests for packages/ui/js/markdown/ (run: node --test packages/ui/test)
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const MD = require('../assets/colon-markdown.js');
+const { ColonMarkdown: MD } = require('../js/markdown/index.js');
 
 test('escapes raw HTML so replies cannot inject markup', () => {
   const out = MD.render('<script>alert(1)</script> <img src=x onerror=alert(1)>');
@@ -11,7 +11,8 @@ test('escapes raw HTML so replies cannot inject markup', () => {
 });
 
 test('only safe link protocols become anchors', () => {
-  assert.match(MD.render('[ok](https://example.com)'), /<a href="https:\/\/example.com"[^>]*rel="noopener noreferrer nofollow"/);
+  assert.match(MD.render('[ok](https://example.com)'),
+    /<a href="https:\/\/example.com"[^>]*rel="noopener noreferrer nofollow"/);
   assert.ok(!MD.render('[bad](javascript:alert(1))').includes('<a '));
   assert.ok(!MD.render('[bad](data:text/html,hi)').includes('<a '));
   assert.equal(MD.safeUrl('vbscript:x'), null);
@@ -29,7 +30,8 @@ test('headings, emphasis, inline code, strike', () => {
 
 test('lists: nested, ordered start, tasks, type switch', () => {
   const out = MD.render('- a\n- b\n  - c\n- [x] done\n\n3. three\n4. four');
-  assert.match(out, /<ul><li>a<\/li><li>b<ul><li>c<\/li><\/ul><\/li><li class="task"><input type="checkbox" disabled checked> done<\/li><\/ul>/);
+  assert.match(out, new RegExp(String.raw`<ul><li>a<\/li><li>b<ul><li>c<\/li><\/ul><\/li>`
+    + String.raw`<li class="task"><input type="checkbox" disabled checked> done<\/li><\/ul>`));
   assert.match(out, /<ol start="3"><li>three<\/li><li>four<\/li><\/ol>/);
 });
 
@@ -80,7 +82,8 @@ test('money is not mistaken for maths', () => {
 });
 
 test('citations link to message sources', () => {
-  const out = MD.render('Fact [1] and [2].', { sources: [{ title: 'Wiki', url: 'https://en.wikipedia.org/wiki/Lagos' }] });
+  const out = MD.render('Fact [1] and [2].', { sources: [{ title: 'Wiki',
+    url: 'https://en.wikipedia.org/wiki/Lagos' }] });
   assert.match(out, /<sup class="cite"><a href="https:\/\/en.wikipedia.org\/wiki\/Lagos" data-cite="1" title="Wiki"/);
   assert.match(out, /data-cite="2"/);
 });

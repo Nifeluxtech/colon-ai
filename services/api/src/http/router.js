@@ -6,7 +6,8 @@ class Router {
   constructor() { this.routes = []; }
   add(method, pattern, ...handlers) {
     const keys = [];
-    const re = new RegExp('^' + pattern.replace(/\/:([a-zA-Z_]+)/g, (_, k) => { keys.push(k); return '/([^/]+)'; }) + '$');
+    const re = new RegExp('^' + pattern.replace(/\/:([a-zA-Z_]+)/g, (_, k) => { keys.push(k); return '/([^/]+)';
+      }) + '$');
     const opts = Object.assign({}, ...handlers.filter(h => typeof h !== 'function'));
     this.routes.push({ method, re, keys, handlers: handlers.filter(h => typeof h === 'function'), opts });
     return this;

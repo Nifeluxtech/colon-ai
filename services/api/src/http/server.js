@@ -1,24 +1,19 @@
 const http = require('http');
 const config = require('../config');
+const requestContext = require('../shared/request-context');
+
+// Refuse to start on a missing required setting or a malformed value, with a clear message in stderr.log.
+try { config.assertValid(); } catch (e) { console.error(e.message); process.exit(1); }
 const db = require('../db');
-const log = require('../lib/logger');
+const log = require('../shared/logger');
 const ws = require('../ws');
-const sessions = require('../auth/sessions');
-const Router = require('./router');
-const { clientIp, parseCookies, readJson } = require('./request');
+const sessions = require('../modules/auth').sessions;
+const { clientIp, parseCookies, readJson } = require('./middleware/request');
 
-const router = new Router()
-  .use(require('./routes/health'))
-  .use(require('./routes/auth'))
-  .use(require('./routes/account'))
-  .use(require('./routes/admin'))
-  .use(require('./routes/admin-ai'))
-  .use(require('./routes/admin-platform'))
-  .use(require('./routes/chat'))
-  .use(require('./routes/uploads'));
+const router = require('./routes');
 
-const { SECURITY_HEADERS } = require('./headers');
-const settings = require('../lib/settings');
+const { SECURITY_HEADERS } = require('./middleware/headers');
+const settings = require('../shared/settings');
 
 // Maintenance mode (Phase 4): new chat activity gets 503 with the admin's message. Reading history,
 // settings and sign-in keep working, and staff are exempt so they can test the fix.
@@ -27,7 +22,8 @@ async function maintenance(req, path) {
   if (['GET', 'HEAD', 'OPTIONS'].includes(req.method) || !CHAT_WRITE.test(path)) return null;
   if (req.user && settings.STAFF.has(req.user.role)) return null;
   const sys = await settings.system();
-  return sys.maintenance.on ? { error: 'maintenance', message: sys.maintenance.message || settings.SYSTEM_DEFAULT.maintenance.message } : null;
+  return sys.maintenance.on ? { error: 'maintenance', message: sys.maintenance.message
+    || settings.SYSTEM_DEFAULT.maintenance.message } : null;
 }
 
 function cors(req, res) {
@@ -56,7 +52,13 @@ function send(res, code, body, headers = {}) {
   res.end(JSON.stringify(body));
 }
 
-const server = http.createServer(async (req, res) => {
+const server = http.createServer((req, res) => {
+  const requestId = requestContext.requestIdFor(req.headers['x-request-id']);
+  res.setHeader('X-Request-Id', requestId);
+  requestContext.run({ requestId }, () => handle(req, res));
+});
+
+async function handle(req, res) {
   cors(req, res);
   if (req.method === 'OPTIONS') { res.writeHead(204, SECURITY_HEADERS); return res.end(); }
   const url = new URL(req.url, 'http://local');
@@ -89,7 +91,7 @@ const server = http.createServer(async (req, res) => {
       field: e.field,
     });
   }
-});
+}
 
 ws.attach(server);
 

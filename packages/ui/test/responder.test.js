@@ -1,7 +1,7 @@
-// Unit tests for the on-device preview responder (apps/chat/public/js/chat-responder.js).
+// Unit tests for the on-device preview responder (apps/chat/src/lib/responder.js).
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const R = require('../../../apps/chat/public/js/chat-responder.js');
+const { ColonResponder: R } = require('../../../apps/chat/src/lib/responder.js');
 
 test('exact arithmetic, and nothing else is evaluated', () => {
   assert.equal(R.evalArithmetic('2+3*4'), 14);
@@ -27,7 +27,8 @@ test('intent detection follows the mode', () => {
 });
 
 test('titles and topics', () => {
-  assert.equal(R.titleFrom('help me build a website for my bakery in Ibadan please now'), 'Help me build a website for my');
+  assert.equal(R.titleFrom('help me build a website for my bakery in Ibadan please now'),
+    'Help me build a website for my');
   assert.equal(R.titleFrom('   '), 'New chat');
   assert.equal(R.topicOf('Help me understand photosynthesis'), 'photosynthesis');
   assert.equal(R.topicOf('Research the history of Lagos'), 'Lagos');
@@ -43,6 +44,7 @@ test('respond: arithmetic and code replies need no network', async () => {
   assert.match(a.text, /\*\*42\*\*/);
   const c = await R.respond({ content: 'write a SQL query for sales', mode: 'developer' });
   assert.match(c.text, /```sql/);
-  const f = await R.respond({ content: '', mode: 'general', attachments: [{ name: 'notes.txt', kind: 'text', excerpt: 'Hello there', words: 2, lines: 1 }] });
+  const f = await R.respond({ content: '', mode: 'general', attachments: [{ name: 'notes.txt', kind: 'text',
+    excerpt: 'Hello there', words: 2, lines: 1 }] });
   assert.match(f.text, /notes\.txt/);
 });

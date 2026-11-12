@@ -2,7 +2,7 @@ const fs = require('fs');
 const path = require('path');
 const mysql = require('mysql2/promise');
 const { db } = require('../config');
-const log = require('../lib/logger');
+const log = require('../shared/logger');
 
 let pool = null;
 function getPool() {
