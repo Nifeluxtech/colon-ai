@@ -114,6 +114,16 @@ async function sendAndWait(p, text, n) {
   if (process.env.ADMIN_PAGES !== '0') {
     const owner = process.env.OWNER_EMAIL || 'owner@example.com';
     ok('admin owner register', (await register(p, owner, 'Owner Test')) === 201);
+    // Admin tools need two-factor: set it up through the real API with a code from the API's own TOTP helper.
+    const totp = require('../../services/api/src/modules/auth/totp');
+    const secret = await p.evaluate(async (api) => (await (await fetch(api + '/account/2fa/setup', { method: 'POST',
+      credentials: 'include', headers: { 'X-Colon-Client': 'admin' } })).json()).secret, API);
+    const code = totp.code(secret, Math.floor(Date.now() / 30000));
+    ok('admin owner 2fa', (await p.evaluate(async ([api, code]) => {
+      const r = await fetch(api + '/account/2fa/enable', { method: 'POST', credentials: 'include',
+        headers: { 'Content-Type': 'application/json', 'X-Colon-Client': 'admin' }, body: JSON.stringify({ code }) });
+      await r.text(); return r.status;
+    }, [API, code])) === 200);
     let i = 20;
     for (const r of ['/', '/users', '/moderation', '/models', '/routing', '/limits', '/evaluation', '/registry',
       '/voice', '/browser', '/system', '/security', '/security?tab=audit', '/more']) {
@@ -121,6 +131,16 @@ async function sendAndWait(p, text, n) {
       await p.waitForTimeout(1500);
       await shot(p, `${i++}-admin${r.replace(/[/?=]/g, '-')}`);
     }
+    // A few dialogs and detail screens: a user's page, a provider's sheet, the add-run dialog.
+    const tap = async (url, sel, name) => {
+      await p.keyboard.press('Escape'); await p.waitForTimeout(500);
+      await p.goto(`http://localhost:${ap}/#${url}`); await p.waitForTimeout(1500);
+      await p.locator(sel).first().click().catch(() => report.errors.push(`admin: could not open ${name}`));
+      await p.waitForTimeout(900); await shot(p, `${i++}-admin-${name}`);
+    };
+    await tap('/users', 'text=Ben Test', 'user-page');
+    await tap('/models', 'text=Groq', 'provider-sheet');
+    await tap('/evaluation', '[data-add]', 'add-run');
     ok('admin pages render', !(await p.evaluate(() => document.body.innerText)).includes('Please refresh'));
   }
   await ctx.close();
