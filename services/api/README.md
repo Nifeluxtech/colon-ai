@@ -7,18 +7,27 @@ The shared Node.js backend for Colon AI, Colon Browser and the Admin Dashboard: 
 - Config: environment variables only, validated at boot against `src/config/defaults.js`; documented in `config/README.md` and `config/api.env.example`
 
 ```
+app.js          Passenger startup file
 src/
-  config/   environment config
-  db/       MySQL pool and health check
-  http/     HTTP server and routes
-  ws/       WebSocket gateway
-  lib/      shared utilities (logger, crypto, mail, audit)
-  ai/       model router v1: routing.js (built-in routing table), dynamic.js (live routing from the database,
-            falls back to routing.js), client.js (OpenAI-compatible streaming), index.js (fallback), prompts.js
-            (modes + African layer), limits.js (daily limits, live), calls.js (AI call log), sse.js
-  chat/     chat storage, context building, streamed replies, uploads and text extraction
-test/       node --test unit tests (mocked fetch, no database) + e2e-smoke.js and a mock provider
+  config/       defaults.js (THE schema of environment variables), env.js (read + validate), index.js
+  http/         server.js (request id, CORS, CSRF, session, maintenance, errors), router.js, middleware/,
+                routes/{health,auth,account,admin,chat}/ (wiring only: path -> guards, rate limits, handler)
+  ws/           WebSocket gateway
+  modules/      account, admin, ai, auth, bench, chat, extract, health, search; each with an index.js facade
+                (the only file other layers import) and handlers/ where it serves routes
+    ai/         routing.js (built-in table), dynamic.js (live routing from the database), hedge.js (racing),
+                client.js (streaming), providers/ (one file per provider), prompts.js, limits.js, calls.js, sse.js
+    search/     search.js, providers/ (one file per search provider), reader.js, net.js (SSRF guard), prompt.js
+    extract/    text extraction by file type: sniff, image, docx, pdf, text
+  shared/       logger, request-context, crypto, audit, settings, mailer, validate, ratelimit, security-headers,
+                multipart
+  db/           MariaDB pool, health check and migration runner
+tests/          unit/, integration/, security/ (npm test); e2e/ (needs MariaDB; env: config/e2e.env.example);
+                helpers/ (mock provider, HTTP client); fixtures/
+scripts/        bench.js, research-check.js, dump-routes.js (route table, to diff two checkouts)
 ```
+
+Layer rules (enforced by `node scripts/check.js`): `docs/architecture.md`.
 
 Tests: `npm test` (here) or `npm test` at the repo root.
 

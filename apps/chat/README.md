@@ -1,14 +1,20 @@
 # Colon AI — Chat
 The Colon AI chat web app (Colon Saga). Deployed to chat.apparatus.name.ng.
 
-| File | Purpose |
+ES modules loaded directly by the browser (no build step). The deploy copies `public/` to the document root and
+`src/` (with the UI kit) to `/v<version>/` (`scripts/deploy/build-docroot.sh`).
+
+| Path | Purpose |
 |---|---|
-| `public/index.html` | Boot: loads `/ui/*` and the files below, registers the workspace routes |
-| `public/js/chat-app.js` | Workspace: sidebar, header, welcome, thread, streaming, edit, share, composer, modes, model selector, browser panel, guest Log in / Sign up |
-| `public/js/chat-pages.js` | History, Saved, Explore, Help & Support, and the log-in screen guests see for History/Saved/Settings |
-| `public/js/chat-settings.js` | Settings: account, appearance, language, voice, chat, privacy, data, sign out |
-| `public/js/chat-media.js` | Attachments (validation, previews, progress, errors) and voice input |
-| `public/js/chat-data.js` | **The data adapter**: Remote (signed in, default), Guest (signed out, nothing saved) and Local (on-device Preview when the API is down). Endpoints are documented at the top and in `docs/frontend-data-adapters.md` |
-| `public/js/chat-responder.js` | On-device preview replies used only by the local adapter |
-| `public/config/models.json` | Offline stand-in for `GET /models` (Preview only) |
-| `public/css/chat.css` | Workspace layout (mobile-first, desktop from 900 px) |
+| `public/index.html` | The page: theme before first paint, versioned CSS and `src/main.js` from `/v<version>/` |
+| `public/assets/css/` | `chat-layout.css`, `chat-composer.css`, `chat-responsive.css` (workspace, mobile-first) |
+| `public/assets/config/models.json` | Offline stand-in for `GET /models` (Preview only) |
+| `src/main.js` | Boot only: loads the UI kit and the workspace, registers routes |
+| `src/core/` | `state.js` (shared state), `cw.js` (`window.CW` namespace), `data.js` (**the data adapter**: Remote, Guest and Local Preview; endpoints in `docs/frontend-data-adapters.md`), `api-client.js`, `guest-client.js`, `storage.js` (on-device Preview), `sse.js`, `common.js` |
+| `src/pages/` | `chat.js` + `chat-events.js` (the workspace), `history.js` (History, Saved), `explore.js`, `help.js`, `settings.js`, `guest.js` (log-in prompt for guests), `shared.js` (read-only shared chats) |
+| `src/components/` | `sidebar.js`, `composer.js`, `model-picker.js`, `message.js`, `sources.js` (Research citations), `uploads.js`, `browser-panel.js` |
+| `src/actions/` | `send-message.js` (send, stream, regenerate, stop, edit), `rename.js` (rename, pin, archive, share), `delete.js` |
+| `src/lib/` | `media.js` (attachments, voice input), `responder.js` (on-device Preview replies) |
+
+Modules in `pages/`, `components/` and `actions/` import each other; that is safe only while no module uses an
+import at top level (see `docs/architecture.md`, "Import-cycle caveat").
