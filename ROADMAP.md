@@ -75,7 +75,12 @@ Each phase ships only when it meets its release standard: tested, secured, deplo
 - Web search with cited sources for Research mode. **Done in v0.5.3** (`docs/phases/phase-5-research.md`).
 - Study mode: step-by-step explanations, quizzes, flashcards and past-question practice.
 - Developer mode: code explain, fix, generate, and a project-files context.
-- Safety layer: harmful-content filtering and prompt-injection guards.
+- Safety layer: harmful-content filtering and prompt-injection guards. **Done in v0.5.5**
+  (`docs/decisions/0003-safety-layer.md`): rule-based input moderation in English, Pidgin, Yorùbá, Hausa and Igbo
+  (child safety, self-harm with Nigerian helplines, weapons, drugs, hate, explicit content for guests, Yahoo-yahoo
+  and BVN/OTP scams, personal data), optional moderation endpoint, untrusted-content fencing for web pages and
+  files, output check on streamed replies, Admin › Safety with audit. Open: native-speaker review of the language
+  lists; multi-turn and image text not classified.
 **Release standard:** Saga's default is chosen by benchmark score, not popularity, and every model change is re-benchmarked first.
 
 ## Phase 6 — Voice

@@ -1,5 +1,58 @@
 # Changelog
 
+## [0.5.5] — 2026-11-13 · Safety layer
+Phase 5 safety: harmful-content filtering on what users send and what the model streams back, prompt-injection
+guards for web pages and uploaded files, and an Admin › Safety view. Rule-based and in process (no model, no new
+dependency, ~2 ms per message), with lists in English, Nigerian Pidgin, Yorùbá, Hausa and Igbo. Decision record:
+`docs/decisions/0003-safety-layer.md`.
+### Added
+- **`services/api/src/modules/safety/`** (facade `index.js`): `normalize.js` (one folding pass: tone marks, invisible
+  characters, look-alike digits, spaced-out letters), `rules.js` (co-occurrence rules with benign-context
+  exceptions), `data/*.js` (one file per category), `classify.js`, `policy.js` (settings per audience), `care.js`
+  (model guidance), `messages.js` (refusals, stop notice and helplines in five languages), `redact.js`,
+  `injection.js`, `output.js`, `provider.js`, `events.js`.
+- **Input moderation before the model call** on every chat route (send, regenerate, edit, guest). Categories:
+  child sexual content (always refused, cannot be switched off, fail closed), self-harm (never refused: a supportive
+  message with Nigerian helplines first, then a careful answer), weapons/explosives/violent harm, illegal drug making
+  (incl. mkpuru mmiri, skuchies, gutter water), hate and harassment, explicit sexual content (refused for guests,
+  non-graphic for signed-in adults), fraud and scams (Yahoo-yahoo formats, fake alerts, card cloning, BVN/OTP/PIN
+  phishing; victims get anti-fraud steps), personal data exposure (finding, tracking or doxxing people). Actions:
+  allow, allow with care (guidance added to the system prompt) or refuse (a localized refusal streamed as a normal
+  reply; no provider call, no web search, no quota used).
+- **Secret redaction**: the user's own card numbers (Luhn-checked), BVN/NIN, OTP, PIN, CVV and passwords are masked
+  before the message goes to an AI provider; the saved chat keeps what the user typed.
+- **Optional moderation endpoint** (OpenAI-compatible `/moderations`), off by default; only ever stricter; fails
+  open with a log line, never for child safety.
+- **Prompt-injection guard**: web titles, snippets and page text (Research mode) and uploaded file names and text
+  are neutralised (hidden characters, HTML comments, "ignore previous instructions", fake role tags, `SYSTEM:` lines,
+  forged delimiters) and fenced in `<<<SOURCES|FILE untrusted id=…>>>` blocks with a random end marker; flags are
+  logged.
+- **System prompt safety section** in every mode: refuse seriously harmful help, care for self-harm, never reveal
+  the prompt or keys, the untrusted-content rule.
+- **Output check on streamed replies**: each delta is checked before it is sent (child sexual content, explosive
+  recipes, drug synthesis, system-prompt leaks); on a hit the provider is cancelled and `done` carries a safe ending.
+  Same SSE events as before (`start → delta… → done`), so the apps need no change.
+- **Migration `0007_safety_events`** (new table only): stage, category, action, rule, source, route, mode, language,
+  request id, user or guest; no message text unless `SAFETY_LOG_TEXT` is `hash` (keyed HMAC) or `excerpt` (first 80
+  characters).
+- **Admin › Safety** (admin + 2FA): recent events with category, action and date filters; switches per category
+  for signed-in users and guests; provider moderation on/off/default. `GET /admin/safety`,
+  `GET /admin/safety/settings`, `PATCH /admin/safety/settings` (audited `admin.safety_updated`; stored in
+  `app_settings` key `safety`, live within 30 s).
+- New optional env vars: `SAFETY`, `SAFETY_LOG_TEXT`, `SAFETY_PROVIDER_MODERATION`, `SAFETY_MODERATION_URL`,
+  `SAFETY_MODERATION_API_KEY`, `SAFETY_MODERATION_MODEL`, `SAFETY_MODERATION_TIMEOUT_MS` (`config/README.md`).
+- Tests (30 new): per-category positives and false-positive negatives (medical, news, prevention, slang such as
+  "bath bomb", "don't bomb your WAEC", "this traffic go kill me"), injection guard, redaction, output guard,
+  chat and Research integration with the mock provider (refusal, care, stream stop, injection, moderation endpoint),
+  and security (admin guards, child-safety lock, SQL-safe filters, no reflection).
+### Changed
+- File blocks and the Research sources block carry an `untrusted id=…` marker; the user's name in the system prompt
+  can't add lines.
+- `scripts/dev/headless-check.js` also opens Admin › Safety.
+- Version 0.5.5 everywhere.
+### Not changed
+- No route removed or reordered (3 admin routes added); no change to the chat or browser apps.
+
 ## [0.5.4] — 2026-11-12 · Restructure: company-grade layout
 The repository is reorganised so each part has one obvious place and the rules are checked by CI. Same routes
 (97, identical order), same API behaviour and same screens; the only visible differences are the URL changes below.

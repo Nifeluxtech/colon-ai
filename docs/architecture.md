@@ -45,8 +45,8 @@ colon-ai/
 │       │   ├── http/            server.js (middleware), router.js, middleware/, routes/{health,auth,account,
 │       │   │                    admin,chat}/ (wiring only)
 │       │   ├── ws/              WebSocket gateway (/ws)
-│       │   ├── modules/         account, admin, ai, auth, bench, chat, extract, health, search; each has an
-│       │   │                    index.js facade and its handlers/ where it serves routes
+│       │   ├── modules/         account, admin, ai, auth, bench, chat, extract, health, safety, search; each
+│       │   │                    has an index.js facade and its handlers/ where it serves routes
 │       │   ├── shared/          logger, request-context, crypto, audit, settings, mailer, validate,
 │       │   │                    ratelimit, security-headers, multipart
 │       │   └── db/              MariaDB pool and migration runner
@@ -112,6 +112,7 @@ So a request goes: middleware → **thin route** (`http/routes/<area>/*.js`, wir
 
 `POST /conversations/:id/messages` (and regenerate, edit, and `/chat/guest` for signed-out visitors, which saves
 nothing) streams server-sent events from `modules/chat/reply.js`: `start` → `delta`… → `done`, or `error`.
+The safety layer (below) runs first and keeps this format for refusals and stopped replies.
 
 - **Routing** (`modules/ai/routing.js`, overridable from Admin › Routing through `modules/ai/dynamic.js`): every
   mode tries **Gemma 4 26B on Google AI Studio first**, then MiniMax M3.1 Flash (NVIDIA) → Gemma 4 31B → Qwen →
@@ -126,6 +127,28 @@ nothing) streams server-sent events from `modules/chat/reply.js`: `start` → `d
   speaks the OpenAI-compatible and native Gemini streaming formats. Every attempt is logged to `ai_calls`.
 - **Stop**: closing the request aborts the provider call and saves the partial reply as `stopped`;
   `POST …/stop` does the same from another request.
+
+### Safety layer (v0.5.5, `modules/safety`, ADR 0003)
+
+Inside `chat/reply.js`, after `start` and before routing, quota, web search or any provider call:
+
+1. **Input moderation** (`safety.checkInput`): the latest user message is folded and run through the rule
+   categories (`data/*.js`: csam, self_harm, violence, drugs, hate, sexual, fraud, privacy) enabled for the audience
+   (signed in or guest; Admin › Safety, `app_settings.safety`), then optionally the moderation endpoint (off by
+   default, fail open, stricter only). Child-safety rules always run.
+   - `refuse`: the localized refusal goes out as `delta` → `done` (status `complete`); no provider, search or quota.
+   - `allow_with_care`: category guidance is appended to the system prompt; for self-harm a supportive message with
+     Nigerian helplines is the first `delta` and stays at the top of the saved reply.
+2. **Redaction**: the user's own card numbers, BVN, OTP, PIN, CVV and passwords are masked in the messages sent to
+   the provider (the saved chat keeps what the user typed).
+3. **Untrusted content**: file blocks (`chat/context.js`) and web sources (`search/prompt.js`) are neutralised and
+   fenced with random-id markers; flags are logged at the end of the reply.
+4. **Output check**: every provider delta passes `streamGuard().push()` before it is sent; a hit (child sexual
+   content, explosive recipe, drug synthesis, system-prompt leak) cancels the provider and ends with `done` carrying
+   a safe message. `final()` re-checks the whole text.
+5. **Events**: `safety_events` (no text by default), shown in Admin › Safety.
+
+Every system prompt carries the safety section (`ai/prompts.js` ← `safety.SYSTEM`).
 
 ### Research mode: search → reader → cited answer
 
