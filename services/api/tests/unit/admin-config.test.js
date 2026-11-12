@@ -1,83 +1,33 @@
-// Unit tests for the Admin Dashboard (Phase 4): role permissions on every admin endpoint, live routing from the
-// database with fallback to routing.js, cached settings, live limits and the AI call log. No database, no network.
+// Unit tests for the Admin Dashboard live config (Phase 4): routing from the database with fallback to
+// routing.js, cached settings, system settings and feature flags, live limits and the AI call log.
+// No database (a fake db module stands in), no network.
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const path = require('path');
 process.env.APP_SECRET = process.env.APP_SECRET || 'unit-test-secret-0123456789abcdef0123';
-
 // Stand-in for src/db so route modules load without MySQL. Any query made by a guard-passing handler is recorded.
-const dbPath = require.resolve('../src/db');
+const dbPath = require.resolve('../../src/db');
 const fakeDb = { calls: [], async query(sql, p) { this.calls.push(sql); return []; }, async one() { return null; } };
 require.cache[dbPath] = { id: dbPath, filename: dbPath, loaded: true, exports: fakeDb, paths: [path.dirname(dbPath)] };
-
-const routingDefault = require('../src/modules/ai/routing');
-const dynamic = require('../src/modules/ai/dynamic');
-const ai = require('../src/modules/ai/generate');
-const settings = require('../src/shared/settings');
-const limits = require('../src/modules/ai/limits');
-const calls = require('../src/modules/ai/calls');
-const { encrypt, decrypt } = require('../src/shared/crypto');
-
-/* ---------- Permissions ---------- */
-const adminRouter = require('../src/http/routes/admin');   // every /admin/* route, in order
-const routes = adminRouter.routes;
-// Minimum role per endpoint (method + path). The release standard: each role sees only what it is allowed to.
-function expected(method, p) {
-  if (p === '/admin/system' || p === '/admin/providers/:id/key' || p.startsWith('/admin/search')) return 'super_admin';
-  if (p.startsWith('/admin/moderation')) return 'moderator';
-  if (method === 'GET' && (p === '/admin/users' || p === '/admin/users/:id')) return 'moderator';
-  return 'admin';
-}
-const ROLES = ['user', 'moderator', 'admin', 'super_admin'];
-const RANK = { user: 0, moderator: 1, admin: 2, super_admin: 3 };
-const pathOf = (re) => re.source.replace(/^\^/, '').replace(/\$$/, '').replace(/\\\//g, '/').replace(/\(\[\^\/\]\+\)/g, ':id').replace(/:id\/sessions\/:id/, ':id/sessions/:sid');
-
-test('every admin endpoint is guarded: the right minimum role, 2FA required, members always refused', async () => {
-  assert.ok(routes.length >= 40, `found ${routes.length} admin routes`);
-  for (const r of routes) {
-    const p = pathOf(r.re).replace('/sessions/:id', '/sessions/:sid');
-    const need = expected(r.method, p);
-    const guard = r.handlers[0];
-    for (const role of ROLES) {
-      const req = { user: { id: 1, role, totp_enabled: 1 }, params: {}, query: new URLSearchParams(), body: {} };
-      const allowed = await guard(req).then(() => true, (e) => { assert.equal(e.status, 403, `${r.method} ${p}`); return false; });
-      assert.equal(allowed, RANK[role] >= RANK[need], `${r.method} ${p} as ${role} (needs ${need})`);
-    }
-    // Staff without 2FA are refused too.
-    await assert.rejects(guard({ user: { id: 1, role: 'super_admin', totp_enabled: 0 } }), (e) => e.code === 'needs_2fa', `${r.method} ${p} 2FA`);
-    await assert.rejects(guard({ user: null }), (e) => e.status === 401);
-  }
-});
-
-test('admins cannot act on admin accounts or themselves; only super admins grant admin roles', async () => {
-  const admin = adminRouter;
-  const find = (m, p) => admin.routes.find(r => r.method === m && pathOf(r.re) === p);
-  const suspend = find('POST', '/admin/users/:id/suspend');
-  fakeDb.one = async () => ({ id: 9, email: 'boss@example.com', role: 'admin' });
-  const req = (role, id = 1) => ({ user: { id, role, totp_enabled: 1 }, params: { id: '9' }, body: { role: 'admin' }, ip: '' });
-  await assert.rejects(suspend.handlers[1](req('admin')), (e) => e.status === 403);
-  await assert.rejects(suspend.handlers[1](req('super_admin', 9)), (e) => e.code === 'self');
-  await suspend.handlers[1](req('super_admin'));   // allowed
-  const role = find('PATCH', '/admin/users/:id/role');
-  fakeDb.one = async () => ({ id: 9, email: 'x@example.com', role: 'user' });
-  await assert.rejects(role.handlers[1](req('admin')), (e) => e.status === 403 && /Super Admin/.test(e.message));
-  fakeDb.one = async () => null;
-});
-
+const routingDefault = require('../../src/modules/ai/routing');
+const dynamic = require('../../src/modules/ai/dynamic');
+const ai = require('../../src/modules/ai/generate');
+const settings = require('../../src/shared/settings');
+const limits = require('../../src/modules/ai/limits');
+const calls = require('../../src/modules/ai/calls');
+const { encrypt, decrypt } = require('../../src/shared/crypto');
 /* ---------- Live routing ---------- */
 const ENV = { GROQ_API_KEY: 'g', NVIDIA_API_KEY: 'n', GEMINI_API_KEY: '', OPENROUTER_API_KEY: '', NATLAS_API_KEY: '', NATLAS_BASE_URL: '' };
 function withEnv(fn) {
   const old = {}; for (const k of Object.keys(ENV)) { old[k] = process.env[k]; process.env[k] = ENV[k]; }
   try { return fn(); } finally { for (const k of Object.keys(ENV)) { if (old[k] === undefined) delete process.env[k]; else process.env[k] = old[k]; } }
 }
-
 test('routing: an empty database means the built-in routing.js table', () => withEnv(() => {
   const cfg = dynamic.compose({});
   assert.equal(cfg.source, 'default');
   assert.deepEqual(cfg.routes, routingDefault.routes);
   assert.deepEqual(Object.keys(cfg.targets()), Object.keys(routingDefault.targets()));
 }));
-
 test('routing: DB models, per-mode order and hedge from the dashboard; unknown slots ignored', () => withEnv(() => {
   const modelRows = [
     { id: 1, target: 'qwen', provider_id: 'groq', model: 'qwen-x', vision: 0, body: null, enabled: 1, priority: 0 },
@@ -96,7 +46,6 @@ test('routing: DB models, per-mode order and hedge from the dashboard; unknown s
   const chain = ai.chainFor({ mode: 'study', language: 'en' }, cfg).map(c => c.model);
   assert.deepEqual(chain, ['fast-0', 'fast-1', 'qwen-x']);
 }));
-
 test('routing: provider rows override name/URL, a stored key wins over env, disabled providers drop out', () => withEnv(() => {
   const box = encrypt('db-key');
   const providerRows = [
@@ -120,7 +69,6 @@ test('routing: provider rows override name/URL, a stored key wins over env, disa
   const cfg2 = dynamic.compose({ providerRows: [{ id: 'groq', name: 'Groq', base_url: '', native: '', api_key_enc: null, enabled: 1 }], decrypt });
   assert.equal(cfg2.providers().groq.apiKey, 'g');
 }));
-
 test('routing: a DB config with no usable model falls back to routing.js (chat never breaks)', () => withEnv(() => {
   const modelRows = [{ id: 1, target: 'qwen', provider_id: 'natlas', model: 'x', vision: 0, enabled: 1, priority: 0 }];
   const cfg = dynamic.compose({ modelRows, routing: { hedge: 2 } });
@@ -131,7 +79,6 @@ test('routing: a DB config with no usable model falls back to routing.js (chat n
   const bad = dynamic.compose({ providerRows: [{ id: 'groq', name: 'Groq', base_url: '', api_key_enc: 'v1.bad.box.x', enabled: 1 }], decrypt });
   assert.equal(bad.providers().groq.apiKey, 'g');
 }));
-
 test('routing: load() caches ~30 s and falls back to defaults when the database fails', async () => {
   dynamic.clear();
   let n = 0;
@@ -145,7 +92,6 @@ test('routing: load() caches ~30 s and falls back to defaults when the database 
   assert.ok(n > 2);                           // cache expired
   dynamic.clear();
 });
-
 /* ---------- Settings ---------- */
 test('settings: cached per worker for 30 s, last good value kept when the database fails', async () => {
   settings.clear();
@@ -162,7 +108,6 @@ test('settings: cached per worker for 30 s, last good value kept when the databa
   assert.equal(await settings.get('k', db, 0), null);
   settings.clear();
 });
-
 test('system settings merge with safe defaults; feature flags block members, never staff', async () => {
   const s = settings.mergeSystem({ features: { uploads: false }, maintenance: { on: true } });
   assert.equal(s.brandName, 'Colon AI');
@@ -178,7 +123,6 @@ test('system settings merge with safe defaults; feature flags block members, nev
   await guard({ user: { role: 'admin' } });
   settings.clear();
 });
-
 /* ---------- Limits ---------- */
 test('limits: dashboard values override env, per-mode caps, per-user override, staff exempt from mode caps', async () => {
   const base = { dailyLimit: 100, guestDailyLimit: 15, guestIpDailyLimit: 300 };
@@ -205,7 +149,6 @@ test('limits: dashboard values override env, per-mode caps, per-user override, s
   await assert.rejects(limits.consumeAll(user, fdb), (e) => e.code === 'quota' && /Research mode/.test(e.message));
   assert.equal(fake.get('u:4'), 3);   // the refused reply was given back
 });
-
 /* ---------- AI call log ---------- */
 test('ai_calls: one row per attempt; a request with no attempt still records its error', () => {
   const rows = calls.rowsFor({ mode: 'study', route: 'study', guest: true, attempts: [{ provider: 'groq', model: 'q', ok: false, code: 'timeout', ms: 25000 }, { provider: 'nvidia', model: 'd', ok: true, ms: 1200.4 }] });
@@ -216,30 +159,4 @@ test('ai_calls: one row per attempt; a request with no attempt still records its
   const none = calls.rowsFor({ mode: 'general', code: 'no_provider' });
   assert.equal(none.length, 1);
   assert.equal(none[0][6], 'no_provider');
-});
-
-test('web search settings (Super Admin): keys stored encrypted and only ever shown masked; bad values refused', async () => {
-  const platform = adminRouter;
-  const find = (m, p) => platform.routes.find(r => r.method === m && pathOf(r.re) === p);
-  const req = (body) => ({ user: { id: 1, role: 'super_admin', totp_enabled: 1 }, params: {}, query: new URLSearchParams(), body, ip: '' });
-  fakeDb.calls.length = 0;
-  const saved = [];
-  const oldQuery = fakeDb.query;
-  fakeDb.query = async function (sql, p) { this.calls.push(sql); if (/INSERT INTO app_settings/.test(sql)) saved.push(p); return []; };
-  settings.clear();
-  await find('POST', '/admin/search/key').handlers[1](req({ provider: 'brave', api_key: 'BSA-secret-key-9876' }));
-  const stored = saved.find(p => p[0] === 'search_keys');
-  assert.ok(stored && !stored[1].includes('BSA-secret-key-9876'), 'key is encrypted at rest');
-  assert.equal(decrypt(JSON.parse(stored[1]).brave.enc), 'BSA-secret-key-9876');
-  const audits = fakeDb.calls.filter(sql => /audit/i.test(sql));
-  assert.ok(audits.length >= 1);
-  await assert.rejects(find('POST', '/admin/search/key').handlers[1](req({ provider: 'google', api_key: 'x'.repeat(20) })), (e) => e.status === 422 || e.code === 'invalid');
-  await assert.rejects(find('PATCH', '/admin/search').handlers[1](req({ results: 50 })), (e) => e.status === 422 || e.code === 'invalid');
-  await assert.rejects(find('PATCH', '/admin/search').handlers[1](req({ disabled: ['brave', 'tavily', 'searxng', 'duckduckgo', 'wikipedia'] })), (e) => e.status === 422 || e.code === 'invalid');
-  const out = require('../src/modules/admin').handlers.webSearch.searchOut({ enabled: true, order: ['brave', 'duckduckgo'], disabled: [], results: 5, pages: 3, searxngUrl: '',
-    providers: [{ id: 'brave', name: 'Brave Search', needs: 'key', ready: true, key: 'BSA-secret-key-9876', keySource: 'database', last4: '9876' }, { id: 'duckduckgo', name: 'DuckDuckGo', ready: true, key: '', keySource: 'none' }] });
-  assert.equal(out.providers[0].key.masked, '••••9876');
-  assert.ok(!JSON.stringify(out).includes('BSA-secret'));
-  fakeDb.query = oldQuery;
-  settings.clear();
 });

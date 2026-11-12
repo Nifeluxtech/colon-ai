@@ -1,10 +1,12 @@
 // End-to-end test of the Admin Dashboard API (Phase 4) against a running API, MySQL and the mock provider.
 // Not part of `npm test` (needs a database). Same setup as e2e-smoke.js, plus DB_* so it can make staff
-// accounts directly (roles can't be self-granted through the API, by design):
-//   API=http://localhost:3100 ORIGIN=http://localhost:8080 DB_HOST=127.0.0.1 DB_PORT=3307 DB_USER=… DB_PASSWORD=… DB_NAME=… node test/e2e-admin.js
+// accounts directly (roles can't be self-granted through the API, by design). The API runs with
+// config/e2e.env.example, which also sets BENCH_GATE=off (this test adds a model that has no benchmark run):
+//   set -a; . ../../config/e2e.env.example; set +a
+//   API=http://localhost:3100 ORIGIN=http://localhost:8080 node tests/e2e/admin.js
 const assert = require('node:assert/strict');
 const mysql = require('mysql2/promise');
-const totp = require('../src/modules/auth/totp');
+const totp = require('../../src/modules/auth/totp');
 const API = process.env.API || 'http://localhost:3100';
 const ORIGIN = process.env.ORIGIN || 'http://localhost:8080';
 const run = Date.now();
@@ -103,7 +105,7 @@ async function guestReply(c, content, mode = 'general') {
   // The mock accepts any key, so chat still works with the stored key.
   const guest = client();
   let g = await guestReply(guest, 'Explain photosynthesis', 'study');
-  assert.match(g.text, /qwen-test/);
+  assert.match(g.text, /gemma-test/);   // study → Gemma 4 first (v0.5.2 routing)
   step('chat answers with the stored (decrypted) key');
 
   // Models: first edit copies the built-in table to the DB; then add a model and route to it live.
@@ -120,7 +122,7 @@ async function guestReply(c, content, mode = 'general') {
   g = await guestReply(guest, 'Explain photosynthesis', 'study');
   assert.match(g.text, /kimi-test/);
   g = await guestReply(guest, 'Write hello world in JS', 'developer');
-  assert.match(g.text, /deepseek-test/);
+  assert.match(g.text, /gemma-test/);   // developer is unchanged: Gemma 4 first
   step('routing change takes effect live (study → new model), other modes unchanged');
   r = await admin.c.call('/admin/routing', { method: 'PATCH', body: { routes: { study: ['nope'] } } });
   assert.equal(r.status, 422);
@@ -133,7 +135,7 @@ async function guestReply(c, content, mode = 'general') {
   await db.query('UPDATE ai_models SET enabled = 0');
   await admin.c.call(`/admin/models/${kimiId}`, { method: 'PATCH', body: { enabled: false } });  // clears the cache
   g = await guestReply(guest, 'Explain photosynthesis', 'study');
-  assert.match(g.text, /qwen-test/);
+  assert.match(g.text, /gemma-test/);   // routing.js defaults: study → Gemma 4 first
   r = await client().call('/health');
   assert.match(r.data.ai.routing, /^default/);
   await db.query('UPDATE ai_models SET enabled = 1 WHERE id <> ?', [kimiId]);

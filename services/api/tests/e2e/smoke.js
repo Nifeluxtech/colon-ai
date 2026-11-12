@@ -1,8 +1,11 @@
 // End-to-end smoke test against a running API with MySQL/MariaDB and a mock provider.
-// Not part of `npm test` (needs a database). Usage:
-//   node test/helpers/mock-provider.js 4010 &
-//   GROQ_API_KEY=x GROQ_BASE_URL=http://127.0.0.1:4010 ... node app.js &
-//   API=http://localhost:3100 ORIGIN=http://localhost:8080 node test/e2e-smoke.js
+// Not part of `npm test` (needs a database). The API env is config/e2e.env.example: every model slot is
+// served by the mock (tests/helpers/mock-provider.js), Gemma through NVIDIA as "gemma-test", AI_HEDGE=1 so
+// the first choice always answers. Usage (from services/api):
+//   node tests/helpers/mock-provider.js 4010 &
+//   set -a; . ../../config/e2e.env.example; set +a; PORT=3100 node app.js &
+//   API=http://localhost:3100 ORIGIN=http://localhost:8080 node tests/e2e/smoke.js
+// Routing since v0.5.2 (CHANGELOG): every mode and every African language goes Gemma 4 first.
 const assert = require('node:assert/strict');
 const API = process.env.API || 'http://localhost:3100';
 const ORIGIN = process.env.ORIGIN || 'http://localhost:8080';
@@ -40,11 +43,11 @@ async function sse(path, body) {
   assert.equal(g.status, 200, JSON.stringify(g.error));
   assert.match(g.type, /text\/event-stream/);
   assert.deepEqual(g.events.map(e => e.ev).filter(e => e !== 'delta'), ['start', 'done']);
-  assert.match(g.text, /Mock reply \(deepseek-test\)/, 'Pidgin routes to DeepSeek first');
-  step('guest chat streams (Pidgin → DeepSeek first)');
+  assert.match(g.text, /Mock reply \(gemma-test\)/, 'Pidgin routes to Gemma 4 first');
+  step('guest chat streams (Pidgin → Gemma 4 first)');
   g = await sse('/chat/guest', { messages: [{ role: 'user', content: 'Explain photosynthesis' }], mode: 'study' });
-  assert.match(g.text, /qwen-test/);
-  step('guest study mode → Qwen first');
+  assert.match(g.text, /gemma-test/);
+  step('guest study mode → Gemma 4 first');
   const noAuth = await call('/conversations');
   assert.equal(noAuth.status, 401);
   step('history needs sign-in');
@@ -64,7 +67,7 @@ async function sse(path, body) {
   let s = await sse(`/conversations/${conv.id}/messages`, { content: 'Fix my Node.js bug please', attachment_ids: [] });
   assert.equal(s.status, 200, JSON.stringify(s.error));
   assert.deepEqual(s.events.map(e => e.ev).filter(e => e !== 'delta'), ['user', 'start', 'done']);
-  assert.match(s.text, /deepseek-test/, 'developer → DeepSeek first');
+  assert.match(s.text, /gemma-test/, 'developer → Gemma 4 first');
   const done = s.events.find(e => e.ev === 'done').data.message;
   assert.equal(done.status, 'complete');
   assert.equal(s.events[0].data.conversation.title, 'Fix my Node.js bug please');
