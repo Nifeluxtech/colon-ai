@@ -4,10 +4,10 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const zlib = require('zlib');
 
-const limits = require('../src/ai/limits');
-const prompts = require('../src/ai/prompts');
-const { buildMessages } = require('../src/chat/context');
-const extract = require('../src/chat/extract');
+const limits = require('../src/modules/ai/limits');
+const prompts = require('../src/modules/ai/prompts');
+const { buildMessages } = require('../src/modules/chat/context');
+const extract = require('../src/modules/extract/extract');
 
 // In-memory stand-in for the two chat_usage queries limits.js runs.
 function fakeDb() {

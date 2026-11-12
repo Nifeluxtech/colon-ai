@@ -2,12 +2,12 @@
 // Phase 5: Web search for Research mode (System › Web search, Super Admin; keys stored encrypted, shown masked).
 const Router = require('../router');
 const db = require('../../db');
-const audit = require('../../lib/audit');
-const v = require('../../lib/validate');
-const settings = require('../../lib/settings');
-const { requireRole, deny } = require('../../auth/guards');
-const searchConfig = require('../../search/config');
-const { encrypt } = require('../../lib/crypto');
+const audit = require('../../shared/audit');
+const v = require('../../shared/validate');
+const settings = require('../../shared/settings');
+const { requireRole, deny } = require('../../modules/auth/guards');
+const searchConfig = require('../../modules/search/config');
+const { encrypt } = require('../../shared/crypto');
 
 const r = new Router();
 

@@ -5,7 +5,7 @@ const SUSPENDED_MESSAGE = 'This account is suspended. Contact Colon AI support i
 
 async function isSuspended(userId, db) {
   try {
-    const row = await (db || require('../db')).one('SELECT 1 AS x FROM user_suspensions WHERE user_id = ?', [userId]);
+    const row = await (db || require('../../db')).one('SELECT 1 AS x FROM user_suspensions WHERE user_id = ?', [userId]);
     return Boolean(row);
   } catch {
     return false;

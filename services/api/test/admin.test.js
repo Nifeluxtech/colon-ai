@@ -10,13 +10,13 @@ const dbPath = require.resolve('../src/db');
 const fakeDb = { calls: [], async query(sql, p) { this.calls.push(sql); return []; }, async one() { return null; } };
 require.cache[dbPath] = { id: dbPath, filename: dbPath, loaded: true, exports: fakeDb, paths: [path.dirname(dbPath)] };
 
-const routingDefault = require('../src/ai/routing');
-const dynamic = require('../src/ai/dynamic');
-const ai = require('../src/ai');
-const settings = require('../src/lib/settings');
-const limits = require('../src/ai/limits');
-const calls = require('../src/ai/calls');
-const { encrypt, decrypt } = require('../src/lib/crypto');
+const routingDefault = require('../src/modules/ai/routing');
+const dynamic = require('../src/modules/ai/dynamic');
+const ai = require('../src/modules/ai/generate');
+const settings = require('../src/shared/settings');
+const limits = require('../src/modules/ai/limits');
+const calls = require('../src/modules/ai/calls');
+const { encrypt, decrypt } = require('../src/shared/crypto');
 
 /* ---------- Permissions ---------- */
 const routers = ['admin', 'admin-ai', 'admin-platform'].map(n => require(`../src/http/routes/${n}`));

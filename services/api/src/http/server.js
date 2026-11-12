@@ -1,11 +1,11 @@
 const http = require('http');
 const config = require('../config');
 const db = require('../db');
-const log = require('../lib/logger');
+const log = require('../shared/logger');
 const ws = require('../ws');
-const sessions = require('../auth/sessions');
+const sessions = require('../modules/auth/sessions');
 const Router = require('./router');
-const { clientIp, parseCookies, readJson } = require('./request');
+const { clientIp, parseCookies, readJson } = require('./middleware/request');
 
 const router = new Router()
   .use(require('./routes/health'))
@@ -17,8 +17,8 @@ const router = new Router()
   .use(require('./routes/chat'))
   .use(require('./routes/uploads'));
 
-const { SECURITY_HEADERS } = require('./headers');
-const settings = require('../lib/settings');
+const { SECURITY_HEADERS } = require('./middleware/headers');
+const settings = require('../shared/settings');
 
 // Maintenance mode (Phase 4): new chat activity gets 503 with the admin's message. Reading history,
 // settings and sign-in keep working, and staff are exempt so they can test the fix.

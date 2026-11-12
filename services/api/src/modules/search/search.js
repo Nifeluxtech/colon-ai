@@ -8,7 +8,7 @@ const { PROVIDERS } = require('./providers');
 const { readMany } = require('./reader');
 const { buildQueries, contextBlock, siteOf, todayLagos } = require('./prompt');
 const searchConfig = require('./config');
-const log = require('../lib/logger');
+const log = require('../../shared/logger');
 
 // Per-worker rest: a provider that showed a captcha is skipped for 10 minutes, one that errored for 1 minute.
 const resting = new Map();
@@ -82,7 +82,7 @@ async function search(query, o = {}) {
 // English search queries. Budget ~4 s; any problem means the heuristic queries are used instead.
 async function modelQueries(text, { routing, signal, fetch, now = new Date(), timeoutMs = 4000 } = {}) {
   if (!routing) return null;
-  const ai = require('../ai');
+  const ai = require('../ai/generate');
   const { streamChat } = require('../ai/client');
   const chain = ai.chainFor({ mode: 'general', language: 'en' }, routing).slice(0, 1);
   if (!chain.length) return null;

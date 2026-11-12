@@ -6,11 +6,11 @@
 // Every staff endpoint needs 2FA (requireRole), and every change is written to the audit log.
 const Router = require('../router');
 const db = require('../../db');
-const audit = require('../../lib/audit');
-const v = require('../../lib/validate');
-const dynamic = require('../../ai/dynamic');
-const ai = require('../../ai');
-const { requireRole, RANK, deny } = require('../../auth/guards');
+const audit = require('../../shared/audit');
+const v = require('../../shared/validate');
+const dynamic = require('../../modules/ai/dynamic');
+const ai = require('../../modules/ai/generate');
+const { requireRole, RANK, deny } = require('../../modules/auth/guards');
 
 const r = new Router();
 const n = (x) => Number(x || 0);

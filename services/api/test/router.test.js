@@ -13,9 +13,9 @@ const ALL = {
   GROQ_MODEL: 'qwen', OPENROUTER_DEEPSEEK_MODEL: 'deepseek', OPENROUTER_GEMMA_MODEL: 'gemma-or', GEMINI_MODEL: 'gemma-g', NATLAS_MODEL: 'natlas', GEMINI_FALLBACK_MODEL: 'off',
 };
 
-const ai = require('../src/ai');
-const { streamChat } = require('../src/ai/client');
-const { createParser, thinkFilter } = require('../src/ai/sse');
+const ai = require('../src/modules/ai/generate');
+const { streamChat } = require('../src/modules/ai/client');
+const { createParser, thinkFilter } = require('../src/modules/ai/sse');
 
 // A fetch Response streaming the given SSE chunks. opts.hang: never finish; opts.breakAfter: error after N chunks.
 function sseResponse(chunks, opts = {}) {
@@ -208,7 +208,7 @@ test('think filter: tags split across chunks, text before and after kept', () =>
 
 test('the app SSE format round-trips through the same parser the browser uses', () => {
   // chat-data.js splits on blank lines and reads "event:" and "data:" lines; mirror that here.
-  const { writer } = require('../src/ai/sse');
+  const { writer } = require('../src/modules/ai/sse');
   let out = '';
   const res = { writableEnded: false, on() {}, write: (s) => { out += s; }, end() { this.writableEnded = true; } };
   const w = writer(res);

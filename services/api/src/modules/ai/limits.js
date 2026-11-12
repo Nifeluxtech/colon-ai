@@ -2,7 +2,7 @@
 // db is injectable for tests; the MySQL pool is loaded only when first needed.
 // Subject: "u:<user id>" for accounts, "g:<hash>" per guest browser, "gi:<hash of IP>" per guest IP. Days are UTC.
 const crypto = require('crypto');
-const config = require('../config');
+const config = require('../../config');
 
 const hash = (secret, kind, value) => crypto.createHash('sha256').update(`${secret || 'colon'}|${kind}|${value || ''}`).digest('hex').slice(0, 32);
 
@@ -41,7 +41,7 @@ function mergeLimits(base, s) {
   for (const m of Object.keys(MODE_NAMES)) { const n = s.modes && posInt(s.modes[m], null); if (n !== null && n !== undefined) modes[m] = n; }
   return { ...base, dailyLimit: posInt(s.user, base.dailyLimit), guestDailyLimit: posInt(s.guest, base.guestDailyLimit), guestIpDailyLimit: posInt(s.guestIp, base.guestIpDailyLimit), modes };
 }
-async function effective(db, settings = require('../lib/settings')) { return mergeLimits(config.chat, await settings.get('limits', db)); }
+async function effective(db, settings = require('../../shared/settings')) { return mergeLimits(config.chat, await settings.get('limits', db)); }
 
 // Every counter for this request, with live limits, the user's override and the mode's cap. Never throws on
 // a settings/database read error (the env defaults apply).
@@ -51,7 +51,7 @@ async function resolveCounters(req, mode, db, settings) {
   const staff = req.user && req.user.role && req.user.role !== 'user';
   if (req.user) {
     let row = null;
-    try { row = await (db || require('../db')).one('SELECT daily_limit FROM user_limits WHERE user_id = ?', [req.user.id]); } catch { row = null; }
+    try { row = await (db || require('../../db')).one('SELECT daily_limit FROM user_limits WHERE user_id = ?', [req.user.id]); } catch { row = null; }
     if (row && row.daily_limit != null) list[0].limit = Number(row.daily_limit);
   }
   const cap = cfg.modes[mode];
@@ -67,7 +67,7 @@ function quotaError(guest, limit) {
 }
 
 // Counts one reply and throws a 'quota' error when the subject is over its limit (the reply is not counted then).
-async function consume(subject, limit, db = require('../db')) {
+async function consume(subject, limit, db = require('../../db')) {
   if (!(limit > 0)) throw quotaError(subject.startsWith('g:'), 0);
   await db.query(
     `INSERT INTO chat_usage (subject, day, requests) VALUES (?, UTC_DATE(), 1)
@@ -84,12 +84,12 @@ async function consume(subject, limit, db = require('../db')) {
 }
 
 // Gives a reply back (for example when no provider could answer at all).
-async function refund(subject, db = require('../db')) {
+async function refund(subject, db = require('../../db')) {
   await db.query('UPDATE chat_usage SET requests = requests - 1 WHERE subject = ? AND day = UTC_DATE() AND requests > 0', [subject]).catch(() => {});
 }
 
 // Consumes several counters; if one is over its limit, the ones already taken are given back.
-async function consumeAll(counters, db = require('../db')) {
+async function consumeAll(counters, db = require('../../db')) {
   const done = [];
   for (const c of counters) {
     try { await consume(c.subject, c.limit, db); done.push(c); }
@@ -105,9 +105,9 @@ async function consumeAll(counters, db = require('../db')) {
     }
   }
 }
-async function refundAll(counters, db = require('../db')) { for (const c of counters) await refund(c.subject, db); }
+async function refundAll(counters, db = require('../../db')) { for (const c of counters) await refund(c.subject, db); }
 
-async function usage(subject, limit, db = require('../db')) {
+async function usage(subject, limit, db = require('../../db')) {
   const row = await db.one('SELECT requests FROM chat_usage WHERE subject = ? AND day = UTC_DATE()', [subject]);
   const used = row ? Number(row.requests) : 0;
   return { used, limit, remaining: Math.max(0, limit - used) };

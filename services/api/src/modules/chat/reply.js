@@ -6,14 +6,14 @@
 // Used by send, regenerate and edit (saved to MySQL) and by guest chat (nothing saved).
 // Stop: the app closes the request (we abort the provider call and keep the partial reply as 'stopped');
 // POST …/stop does the same from another request, even when a different worker holds the stream.
-const ai = require('../ai');
+const ai = require('../ai/generate');
 const dynamic = require('../ai/dynamic');
 const calls = require('../ai/calls');
 const limits = require('../ai/limits');
 const sseLib = require('../ai/sse');
-const webSearch = require('../search');
-const { SECURITY_HEADERS } = require('../http/headers');
-const log = require('../lib/logger');
+const webSearch = require('../search/search');
+const { SECURITY_HEADERS } = require('../../http/middleware/headers');
+const log = require('../../shared/logger');
 
 const active = new Map(); // message id -> AbortController (this worker only)
 

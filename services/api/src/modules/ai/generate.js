@@ -4,8 +4,8 @@
 const routingDefault = require('./routing');
 const { streamChat, ProviderError } = require('./client');
 const { systemPrompt } = require('./prompts');
-const log = require('../lib/logger');
-const config = require('../config');
+const log = require('../../shared/logger');
+const config = require('../../config');
 
 // In-memory "rest" per worker: a target that just failed is tried last for a while, so one dead free
 // model doesn't add seconds to every reply. It is still tried as a last resort.

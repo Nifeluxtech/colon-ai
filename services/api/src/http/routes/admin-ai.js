@@ -3,17 +3,17 @@
 // Provider API keys are super_admin only, stored AES-256-GCM encrypted, and never sent back (masked only).
 const Router = require('../router');
 const db = require('../../db');
-const audit = require('../../lib/audit');
-const v = require('../../lib/validate');
-const settings = require('../../lib/settings');
+const audit = require('../../shared/audit');
+const v = require('../../shared/validate');
+const settings = require('../../shared/settings');
 const config = require('../../config');
-const routingDefault = require('../../ai/routing');
-const dynamic = require('../../ai/dynamic');
-const ai = require('../../ai');
-const limits = require('../../ai/limits');
-const { encrypt } = require('../../lib/crypto');
-const benchGate = require('../../bench/gate');
-const { requireRole, RANK, deny } = require('../../auth/guards');
+const routingDefault = require('../../modules/ai/routing');
+const dynamic = require('../../modules/ai/dynamic');
+const ai = require('../../modules/ai/generate');
+const limits = require('../../modules/ai/limits');
+const { encrypt } = require('../../shared/crypto');
+const benchGate = require('../../modules/bench/gate');
+const { requireRole, RANK, deny } = require('../../modules/auth/guards');
 
 const r = new Router();
 const isSuper = (req) => RANK[req.user.role] >= RANK.super_admin;

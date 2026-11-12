@@ -1,7 +1,7 @@
 // AI call log (Phase 4): one row per provider attempt, so the Admin Dashboard can show requests, errors,
 // provider success rates and latency from stored data. Logging never delays or breaks a reply.
 const crypto = require('crypto');
-const log = require('../lib/logger');
+const log = require('../../shared/logger');
 
 function rowsFor({ mode = '', route = '', guest = false, attempts = [], code = null }) {
   const rid = crypto.randomBytes(8).toString('hex');
@@ -16,7 +16,7 @@ async function record(info, db) {
   try {
     const rows = rowsFor(info);
     if (!rows.length) return;
-    await (db || require('../db')).query(
+    await (db || require('../../db')).query(
       `INSERT INTO ai_calls (request_id, mode, route, provider, model, ok, code, http_status, ms, guest, created_at) VALUES ${rows.map(() => '(?,?,?,?,?,?,?,?,?,?, UTC_TIMESTAMP(3))').join(',')}`,
       rows.flat()
     );

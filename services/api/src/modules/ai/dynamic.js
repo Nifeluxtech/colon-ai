@@ -5,7 +5,7 @@
 // Never breaks chat: an empty or broken database, an unreadable key, or a config that leaves no usable
 // provider all fall back to routing.js (environment keys) for that part, or entirely.
 const routingDefault = require('./routing');
-const log = require('../lib/logger');
+const log = require('../../shared/logger');
 
 const TTL_MS = 30 * 1000;
 const MODES = Object.keys(routingDefault.routes);   // african, general, study, research, developer
@@ -78,8 +78,8 @@ function compose({ providerRows = [], modelRows = [], routing = null, decrypt = 
 }
 
 async function build(db) {
-  const settings = require('../lib/settings');
-  const { decrypt } = require('../lib/crypto');
+  const settings = require('../../shared/settings');
+  const { decrypt } = require('../../shared/crypto');
   const [providerRows, modelRows, routing] = await Promise.all([
     db.query('SELECT id, name, base_url, native, api_key_enc, enabled FROM ai_providers'),
     db.query('SELECT id, target, provider_id, model, vision, body, enabled, priority FROM ai_models'),
@@ -92,7 +92,7 @@ async function build(db) {
 async function load(db, now = Date.now()) {
   if (cache && now - at < TTL_MS) return cache;
   try {
-    cache = await build(db || require('../db'));
+    cache = await build(db || require('../../db'));
   } catch (e) {
     if (!cache || cache.source !== 'default') log.warn('routing_db_fallback', { err: String(e.message).slice(0, 160) });
     cache = { ...routingDefault, source: 'default' };

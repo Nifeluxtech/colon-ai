@@ -6,16 +6,16 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const { EventEmitter } = require('events');
 
-const search = require('../src/search');
-const { parseDdgHtml, parseDdgLite, unwrapDdg, isDdgBlocked, parseWikiSearch, parseOpenSearch, wikiQuery, PROVIDERS } = require('../src/search/providers');
-const { checkUrl, isPrivateIp, safeFetch } = require('../src/search/net');
-const { htmlToText, pickRelevant } = require('../src/search/text');
-const reader = require('../src/search/reader');
-const { buildQueries, contextBlock, todayLagos } = require('../src/search/prompt');
-const searchConfig = require('../src/search/config');
-const { respond, UNAVAILABLE } = require('../src/chat/reply');
-const { createParser } = require('../src/ai/sse');
-const prompts = require('../src/ai/prompts');
+const search = require('../src/modules/search/search');
+const { parseDdgHtml, parseDdgLite, unwrapDdg, isDdgBlocked, parseWikiSearch, parseOpenSearch, wikiQuery, PROVIDERS } = require('../src/modules/search/providers');
+const { checkUrl, isPrivateIp, safeFetch } = require('../src/modules/search/net');
+const { htmlToText, pickRelevant } = require('../src/modules/search/text');
+const reader = require('../src/modules/search/reader');
+const { buildQueries, contextBlock, todayLagos } = require('../src/modules/search/prompt');
+const searchConfig = require('../src/modules/search/config');
+const { respond, UNAVAILABLE } = require('../src/modules/chat/reply');
+const { createParser } = require('../src/modules/ai/sse');
+const prompts = require('../src/modules/ai/prompts');
 
 /* ---------- fixtures ---------- */
 const DDG_HTML = `<!DOCTYPE html><html><body><div id="links" class="results">
@@ -145,12 +145,12 @@ test('keyed providers are used only when configured: Brave sends its key header 
   const old = { ...process.env };
   delete process.env.BRAVE_SEARCH_API_KEY; delete process.env.TAVILY_API_KEY; delete process.env.SEARXNG_URL;
   const fakeDb = { async one() { return null; }, async query() { return []; } };
-  require('../src/lib/settings').clear();
+  require('../src/shared/settings').clear();
   const cfg = await searchConfig.load(fakeDb);
   assert.deepEqual(cfg.providers.filter(p => p.ready).map(p => p.id), ['duckduckgo', 'wikipedia']);
   assert.equal(cfg.enabled, true);
   process.env.BRAVE_SEARCH_API_KEY = 'env-brave-key';
-  require('../src/lib/settings').clear();
+  require('../src/shared/settings').clear();
   const cfg2 = await searchConfig.load(fakeDb);
   assert.deepEqual(cfg2.providers.filter(p => p.ready).map(p => p.id), ['brave', 'duckduckgo', 'wikipedia']);
   assert.equal(cfg2.providers[0].keySource, 'environment');

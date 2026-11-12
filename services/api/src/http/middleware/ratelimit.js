@@ -1,5 +1,5 @@
 // Fixed-window rate limits stored in MySQL (workers are recycled, so memory can't hold counts).
-const db = require('../db');
+const db = require('../../db');
 
 async function hit(bucket, limit, windowSec) {
   await db.query(

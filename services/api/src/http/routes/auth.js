@@ -1,16 +1,16 @@
 const Router = require('../router');
 const db = require('../../db');
 const config = require('../../config');
-const v = require('../../lib/validate');
-const audit = require('../../lib/audit');
-const mailer = require('../../lib/mailer');
-const totp = require('../../lib/totp');
-const { hashPassword, verifyPassword, randomToken, sha256, decrypt } = require('../../lib/crypto');
-const sessions = require('../../auth/sessions');
-const { requireUser, publicUser } = require('../../auth/guards');
-const { limit, hit } = require('../ratelimit');
-const settings = require('../../lib/settings');
-const { isSuspended, SUSPENDED_MESSAGE } = require('../../auth/suspension');
+const v = require('../../shared/validate');
+const audit = require('../../shared/audit');
+const mailer = require('../../shared/mailer');
+const totp = require('../../modules/auth/totp');
+const { hashPassword, verifyPassword, randomToken, sha256, decrypt } = require('../../shared/crypto');
+const sessions = require('../../modules/auth/sessions');
+const { requireUser, publicUser } = require('../../modules/auth/guards');
+const { limit, hit } = require('../middleware/ratelimit');
+const settings = require('../../shared/settings');
+const { isSuspended, SUSPENDED_MESSAGE } = require('../../modules/auth/suspension');
 
 const r = new Router();
 const LOCK_AFTER = 5;        // failed passwords

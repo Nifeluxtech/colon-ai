@@ -5,12 +5,12 @@ const assert = require('node:assert/strict');
 const path = require('path');
 process.env.APP_SECRET = process.env.APP_SECRET || 'unit-test-secret-0123456789abcdef0123';
 
-const { grade, extractChoice, extractNumber, extractJson, langScore, fold } = require('../src/bench/graders');
-const { runCode } = require('../src/bench/sandbox');
-const { aggregate, rank, quantile, speedScore } = require('../src/bench/aggregate');
-const runner = require('../src/bench/runner');
-const report = require('../src/bench/report');
-const gate = require('../src/bench/gate');
+const { grade, extractChoice, extractNumber, extractJson, langScore, fold } = require('../src/modules/bench/graders');
+const { runCode } = require('../src/modules/bench/sandbox');
+const { aggregate, rank, quantile, speedScore } = require('../src/modules/bench/aggregate');
+const runner = require('../src/modules/bench/runner');
+const report = require('../src/modules/bench/report');
+const gate = require('../src/modules/bench/gate');
 
 /* ---------- graders ---------- */
 test('mc: finds the chosen letter in the usual answer shapes', () => {
@@ -104,7 +104,7 @@ test('every benchmark set loads: unique ids, valid graders, about 120–150 item
   const items = sets.flatMap(s => s.items);
   assert.ok(items.length >= 120 && items.length <= 150, `${items.length} items`);
   for (const s of sets) assert.ok(s.items.length >= 10 && s.items.length <= 15, `${s.set} has ${s.items.length}`);
-  const types = new Set(Object.keys(require('../src/bench/graders').GRADERS));
+  const types = new Set(Object.keys(require('../src/modules/bench/graders').GRADERS));
   const walk = (g) => { assert.ok(types.has(g.type), `grader ${g.type}`); (g.of || []).forEach(walk); };
   for (const it of items) walk(it.grade);
   assert.ok(items.find(i => i.id === 'waec-08').prompt.endsWith(runner.FORMAT.mc));
@@ -181,7 +181,7 @@ function sseFetch(answer, { status = 200, failTimes = 0 } = {}) {
   return { fetch, calls };
 }
 const mockProvider = { mock: { baseUrl: 'http://mock.local/v1', apiKey: 'k' } };
-const routing = require('../src/ai/routing');
+const routing = require('../src/modules/ai/routing');
 const realProviders = routing.providers;
 
 test('runner: grades a reply, sends Saga\'s system prompt for the item\'s mode and language, records timing', async () => {
@@ -345,7 +345,7 @@ test('admin: adding, changing or re-enabling a model, or a new first choice in r
     assert.equal((await patch(req({ enabled: true }, 'admin', { id: '7' })))[0], 200);
 
     const routingPatch = find('PATCH', '/admin/routing');
-    require('../src/ai/dynamic').clear();
+    require('../src/modules/ai/dynamic').clear();
     state.runs = [];
     await assert.rejects(routingPatch(req({ routes: { general: ['glm', 'deepseek'] } })), (e) => e.code === 'needs_benchmark', 'new Saga default');
     assert.equal((await routingPatch(req({ routes: { general: ['gemma', 'glm'] } })))[0], 200, 'same first choice, new fallbacks');

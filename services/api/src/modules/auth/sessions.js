@@ -1,6 +1,6 @@
-const db = require('../db');
-const { auth, isProd } = require('../config');
-const { randomToken, sha256 } = require('../lib/crypto');
+const db = require('../../db');
+const { auth, isProd } = require('../../config');
+const { randomToken, sha256 } = require('../../shared/crypto');
 const { isSuspended } = require('./suspension');
 
 function cookie(value, maxAgeSec) {

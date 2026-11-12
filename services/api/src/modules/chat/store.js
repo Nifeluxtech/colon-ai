@@ -1,6 +1,6 @@
 // Chat data access: conversations, messages, attachments and settings, always scoped to the owner.
 const crypto = require('crypto');
-const db = require('../db');
+const db = require('../../db');
 
 const MODES = ['general', 'study', 'developer', 'research'];
 const newId = () => crypto.randomBytes(12).toString('base64url');   // 16 chars, not guessable

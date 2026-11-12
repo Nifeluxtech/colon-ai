@@ -3,7 +3,7 @@
 //   "search_keys"  { brave: { enc, last4 }, tavily: { enc, last4 }, searxng: { enc, last4 } }  (AES-256-GCM, APP_SECRET)
 // Environment fallbacks (a stored value wins): WEB_SEARCH=off, BRAVE_SEARCH_API_KEY, TAVILY_API_KEY,
 // SEARXNG_URL, SEARXNG_API_KEY. Nothing is required: with no keys the chain is DuckDuckGo → Wikipedia.
-const settings = require('../lib/settings');
+const settings = require('../../shared/settings');
 const { PROVIDERS } = require('./providers');
 
 const ORDER = ['brave', 'tavily', 'searxng', 'duckduckgo', 'wikipedia'];
@@ -35,7 +35,7 @@ async function load(db, { decrypt } = {}) {
   let s = null, keys = null;
   try { [s, keys] = await Promise.all([settings.get('search', db), settings.get('search_keys', db)]); } catch { /* defaults */ }
   const cfg = merge(s);
-  if (!decrypt) { try { decrypt = require('../lib/crypto').decrypt; } catch { decrypt = null; } }
+  if (!decrypt) { try { decrypt = require('../../shared/crypto').decrypt; } catch { decrypt = null; } }
   const stored = (id) => {
     const k = keys && keys[id];
     if (!k || !k.enc || !decrypt) return '';

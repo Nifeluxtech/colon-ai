@@ -2,16 +2,16 @@
 // checked server-side, text is extracted once at upload time, and files are stored outside web roots.
 const fs = require('fs');
 const Router = require('../router');
-const settings = require('../../lib/settings');
+const settings = require('../../shared/settings');
 const db = require('../../db');
 const config = require('../../config');
-const store = require('../../chat/store');
-const files = require('../../chat/files');
-const extract = require('../../chat/extract');
-const { SECURITY_HEADERS } = require('../headers');
-const { readMultipartFile } = require('../multipart');
-const { requireUser } = require('../../auth/guards');
-const { limit, hit } = require('../ratelimit');
+const store = require('../../modules/chat/store');
+const files = require('../../modules/chat/files');
+const extract = require('../../modules/extract/extract');
+const { SECURITY_HEADERS } = require('../middleware/headers');
+const { readMultipartFile } = require('../middleware/multipart');
+const { requireUser } = require('../../modules/auth/guards');
+const { limit, hit } = require('../middleware/ratelimit');
 
 const r = new Router();
 const MAX_UPLOAD = 20 * 1048576;

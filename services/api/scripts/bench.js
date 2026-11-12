@@ -13,9 +13,9 @@
 //          --first-token-ms 60000. BENCH_SANDBOX=1 drops the client's own key headers (sandbox key injection only).
 const fs = require('fs');
 const path = require('path');
-const runner = require('../src/bench/runner');
-const report = require('../src/bench/report');
-const gate = require('../src/bench/gate');
+const runner = require('../src/modules/bench/runner');
+const report = require('../src/modules/bench/report');
+const gate = require('../src/modules/bench/gate');
 
 const RESULTS = process.env.BENCH_RESULTS_DIR ? path.resolve(process.env.BENCH_RESULTS_DIR) : path.resolve(__dirname, '../bench/results');
 

@@ -8,7 +8,7 @@ const { systemPrompt } = require('../ai/prompts');
 const routing = require('../ai/routing');
 const { grade } = require('./graders');
 
-const SETS_DIR = path.resolve(__dirname, '../../bench/sets');
+const SETS_DIR = path.resolve(__dirname, '../../../bench/sets');
 const SUITE_VERSION = 'colon-bench-1';
 
 // The candidates Phase 5 compares (Nov 2026 free tiers). "body" carries per-model request options, like routing.js.

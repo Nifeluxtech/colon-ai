@@ -4,7 +4,7 @@
 //   API=http://localhost:3100 ORIGIN=http://localhost:8080 DB_HOST=127.0.0.1 DB_PORT=3307 DB_USER=… DB_PASSWORD=… DB_NAME=… node test/e2e-admin.js
 const assert = require('node:assert/strict');
 const mysql = require('mysql2/promise');
-const totp = require('../src/lib/totp');
+const totp = require('../src/modules/auth/totp');
 const API = process.env.API || 'http://localhost:3100';
 const ORIGIN = process.env.ORIGIN || 'http://localhost:8080';
 const run = Date.now();

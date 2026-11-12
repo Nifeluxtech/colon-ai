@@ -1,13 +1,13 @@
 const Router = require('../router');
 const db = require('../../db');
 const config = require('../../config');
-const v = require('../../lib/validate');
-const audit = require('../../lib/audit');
-const totp = require('../../lib/totp');
-const { hashPassword, verifyPassword, encrypt, decrypt } = require('../../lib/crypto');
-const sessions = require('../../auth/sessions');
-const { requireUser, publicUser, deny } = require('../../auth/guards');
-const { limit } = require('../ratelimit');
+const v = require('../../shared/validate');
+const audit = require('../../shared/audit');
+const totp = require('../../modules/auth/totp');
+const { hashPassword, verifyPassword, encrypt, decrypt } = require('../../shared/crypto');
+const sessions = require('../../modules/auth/sessions');
+const { requireUser, publicUser, deny } = require('../../modules/auth/guards');
+const { limit } = require('../middleware/ratelimit');
 
 const r = new Router();
 

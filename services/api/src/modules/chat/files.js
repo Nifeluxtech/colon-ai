@@ -2,8 +2,8 @@
 // The database keeps the metadata and extracted text; the bytes stay here.
 const fs = require('fs');
 const path = require('path');
-const db = require('../db');
-const config = require('../config');
+const db = require('../../db');
+const config = require('../../config');
 const store = require('./store');
 
 const IMAGE_MAX_FOR_MODEL = 8 * 1048576;
