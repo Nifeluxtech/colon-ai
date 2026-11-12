@@ -20,5 +20,5 @@
   document.documentElement.appendChild(el);
   setTimeout(function () { el.classList.add('done'); }, 3600);
   setTimeout(function () { el.remove(); }, 4500);
-  el.addEventListener('click', function () { el.classList.add('done'); });
+  el.addEventListener('click', function () { el.classList.add('done'); setTimeout(function () { el.remove(); }, 900); });
 })();

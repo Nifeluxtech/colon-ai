@@ -1,6 +1,8 @@
 /* Colon AI animated logo intro: drop -> ripple -> flame -> COLON wordmark. Royal-blue brand (v0.3.0). */
 .colon-intro{position:fixed;inset:0;z-index:9999;display:grid;place-items:center;background:radial-gradient(70% 50% at 50% 40%,#13245a 0%,#080F24 70%);transition:opacity .6s ease .2s}
-.colon-intro.done{opacity:0;pointer-events:none}
+.colon-intro.done{opacity:0;pointer-events:none;visibility:hidden;z-index:-1;transition:opacity .6s ease .2s,visibility 0s linear .8s,z-index 0s linear .8s}
+/* v0.5.1: the COLON wordmark/artwork is decorative and never takes a tap (it used to sit over Settings > Delete account) */
+.colon-intro svg,.colon-intro svg *,.colon-intro.done *{pointer-events:none!important}
 .colon-intro svg{width:min(80vw,420px);height:auto;overflow:visible}
 .ci-drop{fill:#38BDF8;transform-box:fill-box;transform-origin:center;animation:ci-fall .7s cubic-bezier(.55,0,1,.45) forwards}
 .ci-ripple{fill:none;stroke:#38BDF8;stroke-width:2;opacity:0;transform-box:fill-box;transform-origin:center;animation:ci-ripple .9s ease-out .7s forwards}
