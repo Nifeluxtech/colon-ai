@@ -1,6 +1,8 @@
 # Changelog
 
 ## [0.5.2] — 2026-11-12 · Phase 5: the Colon benchmark
+### Changed (routing, from the first benchmark run)
+- Every mode now goes Gemma 4 26B (Google) → MiniMax M3.1 Flash (NVIDIA) → Gemma 4 31B → Qwen → DeepSeek → GLM. African languages go Gemma 4 26B → Gemma 4 31B → N-ATLaS → MiniMax → Qwen → DeepSeek → GLM (MiniMax is weak in Yorùbá/Hausa/Igbo). New targets `gemma31` and `minimax` (`NVIDIA_MINIMAX_MODEL`). `.env.example`: `NVIDIA_GEMMA_MODEL` empty (NVIDIA's Gemma 4 31B is gone).
 ### Results (first run, 2026-11-12, `services/api/bench/results/2026-11-12.md`)
 - Gemma 4 26B (Google) 94.6, fastest (0.8 s first token), wrong answers 0 (all 6 misses were Google 500s). MiniMax M3.1 Flash 88.9 (weak Yorùbá/Hausa/Igbo). Gemma 4 31B 83.5 (21 s first token). Gemini 3.5 Flash Lite 96.8 (reference only). DeepSeek V4.1 Flash and GLM-5.3 Flash (NVIDIA) answered nothing. Nemotron and Mistral Large 4 incomplete.
 Saga's default is now chosen by benchmark score, and a model can only go into routing after a fresh benchmark. Details and the score formula: `docs/phase-5-benchmark.md`. First live run: `services/api/bench/results/2026-11-12.md`.

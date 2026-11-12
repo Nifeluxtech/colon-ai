@@ -3,7 +3,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 
-const KEYS = ['GROQ_API_KEY', 'OPENROUTER_API_KEY', 'GEMINI_API_KEY', 'NATLAS_API_KEY', 'NATLAS_BASE_URL', 'GROQ_MODEL', 'OPENROUTER_DEEPSEEK_MODEL', 'OPENROUTER_GEMMA_MODEL', 'GEMINI_MODEL', 'NATLAS_MODEL', 'GEMINI_FALLBACK_MODEL'];
+const KEYS = ['GROQ_API_KEY', 'OPENROUTER_API_KEY', 'GEMINI_API_KEY', 'NATLAS_API_KEY', 'NATLAS_BASE_URL', 'GROQ_MODEL', 'OPENROUTER_DEEPSEEK_MODEL', 'OPENROUTER_GEMMA_MODEL', 'GEMINI_MODEL', 'NATLAS_MODEL', 'GEMINI_FALLBACK_MODEL', 'NVIDIA_API_KEY'];
 function setEnv(vals) {
   for (const k of KEYS) delete process.env[k];
   Object.assign(process.env, vals);
@@ -61,20 +61,26 @@ const fast = { firstTokenTimeoutMs: 80, idleTimeoutMs: 200, maxReplyMs: 2000, he
 
 test.beforeEach(() => { ai._resting.clear(); setEnv(ALL); });
 
-test('language routing: Pidgin, Yorùbá, Hausa and Igbo go DeepSeek → N-ATLaS → Gemma 4 → Qwen', () => {
+test('language routing (bench 2026-11-12): Pidgin, Yorùbá, Hausa and Igbo go Gemma 4 → N-ATLaS → Qwen → DeepSeek', () => {
   for (const lang of ['pcm', 'yo', 'ha', 'ig']) {
     for (const mode of ['general', 'developer', 'study', 'research']) {
       assert.deepEqual(order(ai.chainFor({ mode, language: lang })),
-        ['openrouter:deepseek', 'natlas:natlas', 'gemini:gemma-g', 'openrouter:gemma-or', 'groq:qwen'], `${lang}/${mode}`);
+        ['gemini:gemma-g', 'openrouter:gemma-or', 'natlas:natlas', 'groq:qwen', 'openrouter:deepseek'], `${lang}/${mode}`);
     }
   }
 });
 
-test('mode routing for English: General/Study/Research → Qwen first; Developer → DeepSeek first', () => {
-  for (const mode of ['general', 'study', 'research']) {
-    assert.deepEqual(order(ai.chainFor({ mode, language: 'en' })), ['groq:qwen', 'openrouter:deepseek', 'gemini:gemma-g', 'openrouter:gemma-or']);
+test('mode routing for English (bench 2026-11-12): every mode → Gemma 4 26B first, DeepSeek last', () => {
+  for (const mode of ['general', 'study', 'research', 'developer']) {
+    assert.deepEqual(order(ai.chainFor({ mode, language: 'en' })), ['gemini:gemma-g', 'openrouter:gemma-or', 'groq:qwen', 'openrouter:deepseek']);
   }
-  assert.deepEqual(order(ai.chainFor({ mode: 'developer', language: 'en' })), ['openrouter:deepseek', 'groq:qwen', 'gemini:gemma-g', 'openrouter:gemma-or']);
+  setEnv({ ...ALL, NVIDIA_API_KEY: 'v', GEMINI_FALLBACK_MODEL: 'gemma-31' });
+  assert.deepEqual(order(ai.chainFor({ mode: 'general', language: 'en' })).filter(x => !x.startsWith('openrouter') && !x.startsWith('groq')),
+    ['gemini:gemma-g', 'nvidia:minimaxai/minimax-m3.1-flash', 'gemini:gemma-31', 'nvidia:deepseek-ai/deepseek-v4.1-flash', 'nvidia:z-ai/glm-5.3-flash']);
+  assert.deepEqual(order(ai.chainFor({ mode: 'general', language: 'yo' })).filter(x => !x.startsWith('openrouter') && !x.startsWith('groq')),
+    ['gemini:gemma-g', 'gemini:gemma-31', 'natlas:natlas', 'nvidia:minimaxai/minimax-m3.1-flash', 'nvidia:deepseek-ai/deepseek-v4.1-flash', 'nvidia:z-ai/glm-5.3-flash']);
+  delete process.env.NVIDIA_API_KEY;
+  setEnv(ALL);
   assert.deepEqual(order(ai.chainFor({ mode: 'nonsense' })), order(ai.chainFor({ mode: 'general' })));
 });
 
@@ -96,53 +102,55 @@ test('model ids are env-overridable and images only go to vision-capable targets
 });
 
 test('Saga Fast has its own chain, but African languages still win', () => {
-  assert.equal(ai.chainFor({ mode: 'developer', model: 'colon-saga-fast' })[0].model, 'qwen');
-  assert.equal(ai.chainFor({ mode: 'developer', language: 'ha', model: 'colon-saga-fast' })[0].model, 'deepseek');
+  assert.deepEqual(order(ai.chainFor({ mode: 'developer', model: 'colon-saga-fast' })), ['gemini:gemma-g', 'openrouter:gemma-or', 'groq:qwen', 'openrouter:deepseek']);
+  assert.ok(order(ai.chainFor({ mode: 'developer', language: 'ha', model: 'colon-saga-fast' })).includes('natlas:natlas'));
 });
 
 test('fallback on 429 before the first token, in routing order', async () => {
-  const f = mockFetch({ qwen: 429 });
+  const f = mockFetch({ 'gemma-g': 429, 'gemma-or': 429 });
   let streamed = '';
   const r = await ai.generate({ mode: 'general', language: 'en', messages: [{ role: 'user', content: 'hi' }], fetch: f, timeouts: fast, onDelta: (t) => { streamed += t; } });
-  assert.deepEqual(f.calls.map(c => c.model), ['qwen', 'deepseek']);
-  assert.equal(r.providerId, 'openrouter');
-  assert.equal(r.model, 'deepseek');
-  assert.equal(r.text, 'Answer from deepseek');
+  assert.deepEqual(f.calls.map(c => c.model), ['gemma-g', 'gemma-or', 'qwen']);
+  assert.equal(r.providerId, 'groq');
+  assert.equal(r.model, 'qwen');
+  assert.equal(r.text, 'Answer from qwen');
   assert.equal(streamed, r.text);
   assert.equal(r.attempts[0].code, 'rate_limited');
-  assert.equal(f.calls[0].auth, 'Bearer g');
-  assert.equal(f.calls[0].body.messages[0].role, 'system');
-  assert.equal(f.calls[0].body.stream, true);
+  assert.equal(f.calls[0].auth, 'm');
+  assert.equal(f.calls[2].auth, 'Bearer g');
+  assert.equal(f.calls[2].body.messages[0].role, 'system');
+  assert.equal(f.calls[2].body.stream, true);
 });
 
 test('fallback on 5xx, 404 (missing free model), network error and first-token timeout', async () => {
-  const f = mockFetch({ deepseek: 404, natlas: 500, 'gemma-g': 'network', 'gemma-or': 'hang' });
+  const f = mockFetch({ 'gemma-g': 404, 'gemma-or': 500, natlas: 'network', qwen: 'hang' });
   const r = await ai.generate({ mode: 'general', language: 'pcm', messages: [{ role: 'user', content: 'how far' }], fetch: f, timeouts: fast });
   // a quick 5xx is retried once on the same model (Google's free tier throws random 500s)
-  assert.deepEqual(f.calls.map(c => c.model), ['deepseek', 'natlas', 'natlas', 'gemma-g', 'gemma-or', 'qwen']);
-  assert.equal(r.model, 'qwen');
+  assert.deepEqual(f.calls.map(c => c.model), ['gemma-g', 'gemma-or', 'gemma-or', 'natlas', 'qwen', 'deepseek']);
+  assert.equal(r.model, 'deepseek');
   assert.deepEqual(r.attempts.map(a => a.code), ['model_not_found', 'upstream_error', 'upstream_error', 'network', 'timeout', undefined]);
 });
 
 test('a provider whose stream never starts (headers but no tokens) times out and falls back', async () => {
-  const f = mockFetch({ qwen: 'hang-stream' });
+  const f = mockFetch({ 'gemma-or': 'hang-stream', 'gemma-g': 404 });
   const r = await ai.generate({ mode: 'study', messages: [{ role: 'user', content: 'x' }], fetch: f, timeouts: fast });
-  assert.equal(r.model, 'deepseek');
+  assert.equal(r.model, 'qwen');
 });
 
 test('killing the primary: a failed target rests and is tried last next time', async () => {
-  const f = mockFetch({ qwen: 429 });
+  const f = mockFetch({ 'gemma-g': 429 });
   await ai.generate({ mode: 'general', messages: [{ role: 'user', content: 'x' }], fetch: f, timeouts: fast });
-  assert.deepEqual(order(ai.chainFor({ mode: 'general' })), ['openrouter:deepseek', 'gemini:gemma-g', 'openrouter:gemma-or', 'groq:qwen']);
+  assert.deepEqual(order(ai.chainFor({ mode: 'general' })), ['openrouter:gemma-or', 'groq:qwen', 'openrouter:deepseek', 'gemini:gemma-g']);
 });
 
 test('no silent model switch after the first token: the error keeps the partial text', async () => {
-  const f = mockFetch({ qwen: 'drop' });
+  setEnv({ ...ALL, GEMINI_API_KEY: '' });
+  const f = mockFetch({ 'gemma-or': 'drop' });
   await assert.rejects(
     ai.generate({ mode: 'general', messages: [{ role: 'user', content: 'x' }], fetch: f, timeouts: fast }),
     (e) => e.code === 'provider_down' && e.partial === true && e.partialText === 'Partial answer ',
   );
-  assert.deepEqual(f.calls.map(c => c.model), ['qwen']);
+  assert.deepEqual(f.calls.map(c => c.model), ['gemma-or']);
 });
 
 test('every provider failing gives provider_down; no keys gives no_provider; images without vision give no_vision', async () => {
@@ -245,40 +253,41 @@ test('a second Google Gemma model backs up the first', async () => {
 
 test('hedged racing: a slow first model does not delay the reply; only the winner reaches the user', async () => {
   ai._resting.clear();
-  const f = mockFetch({ qwen: 'hang' });
+  const f = mockFetch({ 'gemma-g': 'hang' });
   let streamed = '';
   const t0 = Date.now();
   const r = await ai.generate({ mode: 'general', language: 'en', messages: [{ role: 'user', content: 'hi' }], fetch: f,
     timeouts: { ...fast, firstTokenTimeoutMs: 5000, hedge: 2 }, onDelta: (t) => { streamed += t; } });
   assert.ok(Date.now() - t0 < 1000, 'did not wait for the hanging model');
-  assert.deepEqual(f.calls.map(c => c.model).sort(), ['deepseek', 'qwen']);   // asked at once
-  assert.equal(r.model, 'deepseek');
-  assert.equal(streamed, 'Answer from deepseek');
+  assert.deepEqual(f.calls.map(c => c.model).sort(), ['gemma-g', 'gemma-or']);   // asked at once
+  assert.equal(r.model, 'gemma-or');
+  assert.equal(streamed, 'Answer from gemma-or');
 });
 
 test('hedged racing: when both answer, text from the loser never mixes in', async () => {
   ai._resting.clear();
   const slow = (text, ms) => new Promise(res => setTimeout(() => res(okStream(text)), ms));
-  const f = async (url, init) => { const m = JSON.parse(init.body).model; return m === 'qwen' ? slow('Answer from qwen', 60) : slow('Answer from deepseek', 5); };
+  setEnv({ ...ALL, GEMINI_API_KEY: '' });   // gemma-or, qwen, deepseek: all OpenAI-compatible
+  const f = async (url, init) => { const m = JSON.parse(init.body).model; return m === 'gemma-or' ? slow('Answer from gemma-or', 60) : slow('Answer from ' + m, 5); };
   let streamed = '';
   const r = await ai.generate({ mode: 'general', messages: [{ role: 'user', content: 'x' }], fetch: f, timeouts: { ...fast, hedge: 2 }, onDelta: (t) => { streamed += t; } });
-  assert.equal(r.model, 'deepseek');
-  assert.equal(streamed, 'Answer from deepseek');
+  assert.equal(r.model, 'qwen');
+  assert.equal(streamed, 'Answer from qwen');
 });
 
 test('hedged racing: a whole wave failing moves on to the next wave', async () => {
   ai._resting.clear();
-  const f = mockFetch({ qwen: 500, deepseek: 429 });
+  const f = mockFetch({ 'gemma-g': 429, 'gemma-or': 429 });
   const r = await ai.generate({ mode: 'general', messages: [{ role: 'user', content: 'x' }], fetch: f, timeouts: { ...fast, hedge: 2 } });
-  assert.equal(r.model, 'gemma-g');
+  assert.equal(r.model, 'qwen');
   assert.equal(r.attempts.filter(a => !a.ok).length, 2);
 });
 
 test('hedged pool: a model failing fast is replaced at once, without waiting for the slow one', async () => {
   ai._resting.clear();
-  const f = mockFetch({ qwen: 'hang', deepseek: 404 });
+  const f = mockFetch({ 'gemma-g': 'hang', 'gemma-or': 404 });
   const t0 = Date.now();
   const r = await ai.generate({ mode: 'general', messages: [{ role: 'user', content: 'x' }], fetch: f, timeouts: { ...fast, firstTokenTimeoutMs: 5000, hedge: 2 } });
   assert.ok(Date.now() - t0 < 1000);
-  assert.equal(r.model, 'gemma-g');
+  assert.equal(r.model, 'qwen');
 });

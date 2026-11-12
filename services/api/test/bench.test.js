@@ -348,7 +348,7 @@ test('admin: adding, changing or re-enabling a model, or a new first choice in r
     require('../src/ai/dynamic').clear();
     state.runs = [];
     await assert.rejects(routingPatch(req({ routes: { general: ['glm', 'deepseek'] } })), (e) => e.code === 'needs_benchmark', 'new Saga default');
-    assert.equal((await routingPatch(req({ routes: { general: ['qwen', 'glm'] } })))[0], 200, 'same first choice, new fallbacks');
+    assert.equal((await routingPatch(req({ routes: { general: ['gemma', 'glm'] } })))[0], 200, 'same first choice, new fallbacks');
 
     const imp = find('POST', '/admin/evaluation/bench');
     const evalRows = report.evalRows(report.buildReport({ run: 'x', suite: 'colon-bench-1', started: '', finished: new Date().toISOString(),
