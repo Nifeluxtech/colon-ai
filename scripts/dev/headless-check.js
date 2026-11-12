@@ -11,7 +11,7 @@ const OUT = `${process.env.OUT_DIR || '/tmp/colon-headless'}/${label}`;
 fs.rmSync(OUT, { recursive: true, force: true }); fs.mkdirSync(OUT, { recursive: true });
 const report = { label, checks: [], errors: [], http: [] };
 const ok = (name, pass, info) => { report.checks.push({ name, pass: !!pass, info }); };
-const EMAIL = `ada.${label}.${Date.now()}@example.com`;
+const EMAIL = `ada.${Date.now()}@example.com`;
 
 async function ctxFor(b, app) {
   const ctx = await b.newContext({ viewport: { width: 360, height: 780 }, isMobile: true, hasTouch: true,
@@ -78,10 +78,16 @@ async function sendAndWait(p, text, n) {
   await p.waitForTimeout(1200);
   ok('chat settings opens (signed in)', /Settings/.test(await p.title()) || await p.isVisible('.set-row'),
     await p.title());
+  // Settings opens in the chat's scroll box, which keeps the thread's offset; start at the top so runs compare.
+  await p.evaluate(() => document.querySelectorAll('.cw-scroll').forEach((e) => { e.scrollTop = 0; }));
   await shot(p, '07-chat-settings');
   await p.goto(`http://localhost:${cp}/#/`); await p.waitForTimeout(1000);
   await sendAndWait(p, 'Hello from Ada', '08-chat-user-reply');
-  await p.goto(`http://localhost:${cp}/#/history`); await p.waitForTimeout(1200); await shot(p, '09-chat-history');
+  let j = 0;
+  for (const r of ['/history', '/saved', '/explore', '/help', '/account']) {
+    await p.goto(`http://localhost:${cp}/#${r}`); await p.waitForTimeout(1200); await shot(p, `09${'abcde'[
+      j++]}-chat${r.replace(/\//g, '-')}`);
+  }
   await ctx.close();
   // ---- Browser
   ({ ctx, p } = await ctxFor(b, 'browser'));
@@ -93,12 +99,30 @@ async function sendAndWait(p, text, n) {
   await p.goto(`http://localhost:${bp}/#/`); await p.reload(); await p.waitForTimeout(2500);
   ok('browser app home renders', await p.isVisible('[data-host]') || await p.isVisible('.cb'), await p.title());
   await shot(p, '11-browser-home');
+  j = 0;
+  for (const r of ['/tabs', '/bookmarks', '/history', '/downloads', '/ai', '/settings', '/help']) {
+    await p.goto(`http://localhost:${bp}/#${r}`); await p.waitForTimeout(1200); await shot(p, `11${'abcdefg'[
+      j++]}-browser${r.replace(/\//g, '-')}`);
+  }
   await ctx.close();
   // ---- Admin
   ({ ctx, p } = await ctxFor(b, 'admin'));
   await p.goto(`http://localhost:${ap}/`); await p.waitForTimeout(2500);
   ok('admin login screen renders', await p.isVisible('input[type="email"], input[name="email"]'), await p.title());
   await shot(p, '12-admin-login');
+  // Signed in as the owner (OWNER_EMAIL, default owner@example.com) on a fresh database: every admin screen.
+  if (process.env.ADMIN_PAGES !== '0') {
+    const owner = process.env.OWNER_EMAIL || 'owner@example.com';
+    ok('admin owner register', (await register(p, owner, 'Owner Test')) === 201);
+    let i = 20;
+    for (const r of ['/', '/users', '/moderation', '/models', '/routing', '/limits', '/evaluation', '/registry',
+      '/voice', '/browser', '/system', '/security', '/security?tab=audit', '/more']) {
+      await p.goto(`http://localhost:${ap}/#${r}`); if (r === '/') await p.reload();
+      await p.waitForTimeout(1500);
+      await shot(p, `${i++}-admin${r.replace(/[/?=]/g, '-')}`);
+    }
+    ok('admin pages render', !(await p.evaluate(() => document.body.innerText)).includes('Please refresh'));
+  }
   await ctx.close();
   await b.close();
   fs.writeFileSync(`${OUT}/report.json`, JSON.stringify(report, null, 1));

@@ -22,12 +22,19 @@ function create(o) {
     tray.hidden = !items.length;
     tray.innerHTML = items.map(function (it) {
       var thumb = it.thumb ? '<img src="' + it.thumb + '" alt="">' : icon(KIND_ICON[it.kind] || 'file');
-      var status = it.status === 'error' ? '<span class="att-err">' + esc(it.error) + '</span>' : it.status === 'uploading' ? '<span class="att-sub">' + Math.round(it.progress * 100) + '% · ' + C.fmtBytes(it.file.size) + '</span>' : '<span class="att-sub">' + C.fmtBytes(it.file.size) + (it.kind === 'audio' && it.duration ? ' · ' + it.duration + ' s' : '') + '</span>';
+      var status = it.status === 'error' ? '<span class="att-err">' + esc(it.error)
+        + '</span>' : it.status === 'uploading' ? '<span class="att-sub">' + Math.round(it.progress * 100) + '% · '
+        + C.fmtBytes(it.file.size) + '</span>' : '<span class="att-sub">' + C.fmtBytes(it.file.size)
+        + (it.kind === 'audio' && it.duration ? ' · ' + it.duration + ' s' : '') + '</span>';
       return '<div class="att ' + it.status + '" data-att="' + it.key + '">' +
-        '<span class="att-thumb">' + thumb + '</span><span class="att-body"><span class="att-name">' + esc(it.file.name) + '</span>' + status +
-        (it.status === 'uploading' ? '<span class="progress"><i style="width:' + Math.round(it.progress * 100) + '%"></i></span>' : '') + '</span>' +
-        (it.status === 'error' && it.retry ? '<button type="button" class="icon-btn sm" data-retry="' + it.key + '" aria-label="Retry ' + esc(it.file.name) + '">' + icon('refresh') + '</button>' : '') +
-        '<button type="button" class="icon-btn sm att-x" data-remove="' + it.key + '" aria-label="Remove ' + esc(it.file.name) + '">' + icon('x') + '</button></div>';
+        '<span class="att-thumb">' + thumb + '</span><span class="att-body"><span class="att-name">'
+          + esc(it.file.name) + '</span>' + status +
+        (it.status === 'uploading' ? '<span class="progress"><i style="width:' + Math.round(it.progress * 100)
+          + '%"></i></span>' : '') + '</span>' +
+        (it.status === 'error' && it.retry ? '<button type="button" class="icon-btn sm" data-retry="' + it.key
+          + '" aria-label="Retry ' + esc(it.file.name) + '">' + icon('refresh') + '</button>' : '') +
+        '<button type="button" class="icon-btn sm att-x" data-remove="' + it.key + '" aria-label="Remove '
+          + esc(it.file.name) + '">' + icon('x') + '</button></div>';
     }).join('');
   }
   tray.addEventListener('click', function (e) {
@@ -42,9 +49,11 @@ function create(o) {
       if (items.filter(function (i) { return i.status !== 'error'; }).length >= data.LIMITS.perMessage) {
         C.toast('You can attach up to ' + data.LIMITS.perMessage + ' files per message.', 'bad'); return;
       }
-      var it = { key: C.uid('a'), file: file, status: 'uploading', progress: 0, kind: null, duration: opts.duration || null };
+      var it = { key: C.uid('a'), file: file, status: 'uploading', progress: 0, kind: null, duration: opts.duration
+        || null };
       try { it.kind = data.classify(file, opts).kind; }
-      catch (e) { it.status = 'error'; it.error = e.message; it.kind = 'file'; items.push(it); C.toast(e.message, 'bad'); return; }
+      catch (e) { it.status = 'error'; it.error = e.message; it.kind = 'file'; items.push(it); C.toast(e.message,
+        'bad'); return; }
       if (it.kind === 'image') it.thumb = URL.createObjectURL(file);
       items.push(it); start(it, opts);
     });
@@ -52,9 +61,12 @@ function create(o) {
   }
   function start(it, opts) {
     it.status = 'uploading'; it.progress = 0; it.error = null; it.ctl = new AbortController(); changed();
-    data.upload(it.file, { onProgress: function (p) { it.progress = p; render(); }, signal: it.ctl.signal, fromRecorder: (opts && opts.fromRecorder) || it.kind === 'audio', duration: it.duration })
+    data.upload(it.file, { onProgress: function (p) { it.progress = p; render(); }, signal: it.ctl.signal,
+      fromRecorder: (opts && opts.fromRecorder) || it.kind === 'audio', duration: it.duration })
       .then(function (att) { it.status = 'ready'; it.att = att; changed(); },
-        function (e) { if (e.name === 'AbortError') return; it.status = 'error'; it.error = e.code === 'processing' || e.code === 'offline' ? e.message : (e.message || 'Upload failed.'); it.retry = e.code !== 'unsupported' && e.code !== 'too_large'; changed(); });
+        function (e) { if (e.name === 'AbortError') return; it.status = 'error'; it.error = e.code === 'processing'
+          || e.code === 'offline' ? e.message : (e.message || 'Upload failed.'); it.retry = e.code !== 'unsupported'
+          && e.code !== 'too_large'; changed(); });
   }
   function remove(key) {
     var it = find(key); if (!it) return;
@@ -67,17 +79,24 @@ function create(o) {
   /* ---------- Voice ---------- */
   var SR = window.SpeechRecognition || window.webkitSpeechRecognition;
   var voice = null; // { kind:'dictation'|'recorder', ... }
-  function voiceMethod() { var s = o.getSettings ? o.getSettings() : {}; var m = (s.voice && s.voice.method) || 'auto'; return m === 'auto' ? (SR ? 'dictation' : 'recorder') : m; }
+  function voiceMethod() { var s = o.getSettings ? o.getSettings() : {}; var m = (s.voice && s.voice.method) || 'auto';
+    return m === 'auto' ? (SR ? 'dictation' : 'recorder') : m; }
   function voiceError(kind) {
     var msg = {
-      denied: ['Microphone access is blocked', 'Allow the microphone for this site in your browser settings (tap the lock icon in the address bar), then try again.'],
+      denied: ['Microphone access is blocked',
+        ('Allow the microphone for this site in your browser settings (tap the lock icon in the address bar), then '
+        + 'try again.')],
       nomic: ['No microphone found', 'Connect a microphone or headset, then try again.'],
-      unsupported: ['Voice input isn’t available here', 'This browser can’t record audio. Try Chrome on Android, or type your message.'],
+      unsupported: ['Voice input isn’t available here',
+        'This browser can’t record audio. Try Chrome on Android, or type your message.'],
       network: ['Voice service unavailable', 'Dictation needs an internet connection. Check your data and try again.'],
       insecure: ['Voice needs a secure connection', 'Open Colon AI over https to use the microphone.']
     }[kind] || ['Voice input stopped', 'Something went wrong with the microphone. Try again.'];
     bar.hidden = false; bar.className = 'cv-voice error';
-    bar.innerHTML = '<span class="cv-voice-ico">' + icon('micOff') + '</span><span class="cv-voice-body"><b>' + esc(msg[0]) + '</b><span>' + esc(msg[1]) + '</span></span><button type="button" class="icon-btn sm" data-voice-dismiss aria-label="Dismiss">' + icon('x') + '</button>';
+    bar.innerHTML = '<span class="cv-voice-ico">' + icon('micOff') + '</span><span class="cv-voice-body"><b>' + esc(msg[
+      0]) + '</b><span>' + esc(msg[1])
+      + '</span></span><button type="button" class="icon-btn sm" data-voice-dismiss aria-label="Dismiss">' + icon('x')
+      + '</button>';
     voice = null; if (o.onVoiceState) o.onVoiceState(false);
   }
   bar.addEventListener('click', function (e) {
@@ -87,23 +106,30 @@ function create(o) {
   });
   function showRecording(label) {
     bar.hidden = false; bar.className = 'cv-voice live';
-    bar.innerHTML = '<span class="cv-rec-dot" aria-hidden="true"></span><span class="cv-voice-body"><b>' + esc(label) + '</b><span class="cv-interim" aria-live="polite"></span></span>' +
-      '<span class="cv-level" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></span><span class="cv-time mono">0:00</span>' +
-      '<button type="button" class="btn xs ghost" data-voice-cancel>Cancel</button><button type="button" class="btn xs primary" data-voice-stop>' + icon('check') + 'Done</button>';
+    bar.innerHTML = '<span class="cv-rec-dot" aria-hidden="true"></span><span class="cv-voice-body"><b>' + esc(label)
+      + '</b><span class="cv-interim" aria-live="polite"></span></span>' +
+      ('<span class="cv-level" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></span><span class="cv-time '
+        + 'mono">0:00</span>') +
+      ('<button type="button" class="btn xs ghost" data-voice-cancel>Cancel</button><button type="button" '
+        + 'class="btn xs primary" data-voice-stop>') + icon('check') + 'Done</button>';
     var t0 = Date.now();
-    voice.timer = setInterval(function () { var s = Math.floor((Date.now() - t0) / 1000), el = bar.querySelector('.cv-time'); if (el) el.textContent = Math.floor(s / 60) + ':' + ('0' + s % 60).slice(-2); if (s >= 300) stopVoice(); }, 250);
+    voice.timer = setInterval(function () { var s = Math.floor((Date.now() - t0) / 1000), el = bar.querySelector(
+      '.cv-time'); if (el) el.textContent = Math.floor(s / 60) + ':' + ('0' + s % 60).slice(-2);
+      if (s >= 300) stopVoice(); }, 250);
     if (o.onVoiceState) o.onVoiceState(true);
   }
   function levels(stream) {
     try {
       var AC = window.AudioContext || window.webkitAudioContext; if (!AC) return;
-      var ac = new AC(), src = ac.createMediaStreamSource(stream), an = ac.createAnalyser(); an.fftSize = 256; src.connect(an);
+      var ac = new AC(), src = ac.createMediaStreamSource(stream), an = ac.createAnalyser(); an.fftSize = 256;
+        src.connect(an);
       var buf = new Uint8Array(an.frequencyBinCount);
       voice.ac = ac;
       (function tick() {
         if (!voice || voice.ac !== ac) return;
         an.getByteFrequencyData(buf); var bars = bar.querySelectorAll('.cv-level i');
-        for (var i = 0; i < bars.length; i++) { var v = buf[4 + i * 6] / 255; bars[i].style.transform = 'scaleY(' + (0.2 + v * 1.2).toFixed(2) + ')'; }
+        for (var i = 0; i < bars.length; i++) { var v = buf[4 + i * 6] / 255; bars[i].style.transform = 'scaleY('
+          + (0.2 + v * 1.2).toFixed(2) + ')'; }
         requestAnimationFrame(tick);
       })();
     } catch (e) {}
@@ -113,12 +139,15 @@ function create(o) {
     if (!window.isSecureContext) return voiceError('insecure');
     var method = voiceMethod(), s = o.getSettings ? o.getSettings() : {};
     if (method === 'dictation' && SR) {
-      var rec = new SR(); rec.lang = (s.voice && s.voice.lang) || 'en-NG'; rec.interimResults = true; rec.continuous = true;
+      var rec = new SR(); rec.lang = (s.voice && s.voice.lang) || 'en-NG'; rec.interimResults = true;
+        rec.continuous = true;
       voice = { kind: 'dictation', rec: rec, finalText: '', cancelled: false };
       rec.onresult = function (e) {
         var interim = '';
-        for (var i = e.resultIndex; i < e.results.length; i++) { if (e.results[i].isFinal) voice.finalText += e.results[i][0].transcript + ' '; else interim += e.results[i][0].transcript; }
-        var el = bar.querySelector('.cv-interim'); if (el) el.textContent = (voice.finalText + interim).trim() || 'Listening…';
+        for (var i = e.resultIndex; i < e.results.length; i++) { if (e.results[i].isFinal) voice.finalText += e.results[
+          i][0].transcript + ' '; else interim += e.results[i][0].transcript; }
+        var el = bar.querySelector('.cv-interim'); if (el) el.textContent = (voice.finalText + interim).trim()
+          || 'Listening…';
         if (o.onTranscript) o.onTranscript((voice.finalText + interim).trim(), false);
       };
       rec.onerror = function (e) {
@@ -130,14 +159,18 @@ function create(o) {
         else if (e.error !== 'aborted') voiceError('other');
         void v;
       };
-      rec.onend = function () { if (!voice || voice.kind !== 'dictation') return; var v = voice; cleanup(); if (!v.cancelled && o.onTranscript) o.onTranscript(v.finalText.trim(), true); };
+      rec.onend = function () { if (!voice || voice.kind !== 'dictation') return; var v = voice; cleanup();
+        if (!v.cancelled && o.onTranscript) o.onTranscript(v.finalText.trim(), true); };
       try { rec.start(); showRecording('Listening… speak now'); } catch (e) { cleanup(); voiceError('other'); }
       return;
     }
-    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia || !window.MediaRecorder) return voiceError('unsupported');
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia || !window.MediaRecorder) return voiceError(
+      'unsupported');
     voice = { kind: 'pending' };
-    navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true } }).then(function (stream) {
-      var type = ['audio/webm;codecs=opus', 'audio/webm', 'audio/mp4', 'audio/ogg'].filter(function (t) { return MediaRecorder.isTypeSupported && MediaRecorder.isTypeSupported(t); })[0] || '';
+    navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true } }).then(function (
+      stream) {
+      var type = ['audio/webm;codecs=opus', 'audio/webm', 'audio/mp4', 'audio/ogg'].filter(function (t) {
+        return MediaRecorder.isTypeSupported && MediaRecorder.isTypeSupported(t); })[0] || '';
       var mr = new MediaRecorder(stream, type ? { mimeType: type } : undefined), chunks = [], t0 = Date.now();
       voice = { kind: 'recorder', mr: mr, stream: stream, cancelled: false };
       mr.ondataavailable = function (e) { if (e.data && e.data.size) chunks.push(e.data); };
@@ -146,7 +179,8 @@ function create(o) {
         if (!v || v.cancelled || !chunks.length) return;
         var mime = mr.mimeType || 'audio/webm', ext = /mp4/.test(mime) ? 'm4a' : /ogg/.test(mime) ? 'ogg' : 'webm';
         var dur = Math.max(1, Math.round((Date.now() - t0) / 1000));
-        var file = new File(chunks, 'Voice note ' + new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }).replace(':', '.') + '.' + ext, { type: mime.split(';')[0] });
+        var file = new File(chunks, 'Voice note ' + new Date().toLocaleTimeString([], { hour: '2-digit',
+          minute: '2-digit' }).replace(':', '.') + '.' + ext, { type: mime.split(';')[0] });
         addFiles([file], { fromRecorder: true, duration: dur });
         if (o.onVoiceDone) o.onVoiceDone(file);
       };
@@ -166,21 +200,31 @@ function create(o) {
     voice = null; bar.hidden = true; bar.innerHTML = '';
     if (o.onVoiceState) o.onVoiceState(false);
   }
-  function stopVoice() { if (!voice) return; if (voice.kind === 'dictation') voice.rec.stop(); else if (voice.kind === 'recorder') voice.mr.stop(); }
-  function cancelVoice() { if (!voice) return; voice.cancelled = true; if (voice.kind === 'dictation') { voice.rec.abort(); cleanup(); if (o.onTranscript) o.onTranscript('', 'cancel'); } else if (voice.kind === 'recorder') voice.mr.stop(); }
+  function stopVoice() { if (!voice) return; if (voice.kind === 'dictation') voice.rec.stop();
+    else if (voice.kind === 'recorder') voice.mr.stop(); }
+  function cancelVoice() { if (!voice) return; voice.cancelled = true; if (voice.kind === 'dictation') {
+    voice.rec.abort(); cleanup(); if (o.onTranscript) o.onTranscript('', 'cancel');
+    } else if (voice.kind === 'recorder') voice.mr.stop(); }
   // Permission check for Settings → Voice.
   function testMic() {
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) return Promise.resolve('unsupported');
-    return navigator.mediaDevices.getUserMedia({ audio: true }).then(function (s) { s.getTracks().forEach(function (t) { t.stop(); }); return 'granted'; },
-      function (e) { return e.name === 'NotAllowedError' ? 'denied' : e.name === 'NotFoundError' ? 'nomic' : 'error'; });
+    return navigator.mediaDevices.getUserMedia({ audio: true }).then(function (s) { s.getTracks().forEach(function (
+      t) { t.stop(); }); return 'granted'; },
+      function (e) { return e.name === 'NotAllowedError' ? 'denied' : e.name === 'NotFoundError' ? 'nomic' : 'error';
+        });
   }
 
   var api = {
     pick: function () { input.click(); }, addFiles: addFiles, remove: remove,
-    ready: function () { return items.filter(function (i) { return i.status === 'ready'; }).map(function (i) { return i.att; }); },
-    state: function () { return { count: items.length, uploading: items.some(function (i) { return i.status === 'uploading'; }), errors: items.filter(function (i) { return i.status === 'error'; }).length, ready: items.filter(function (i) { return i.status === 'ready'; }).length }; },
-    clear: function (keepFiles) { items.forEach(function (i) { if (i.thumb) URL.revokeObjectURL(i.thumb); if (!keepFiles && i.att) data.removeUpload(i.att.id).catch(function () {}); }); items = []; changed(); },
-    startVoice: startVoice, stopVoice: stopVoice, cancelVoice: cancelVoice, voiceActive: function () { return !!voice; }, testMic: testMic,
+    ready: function () { return items.filter(function (i) { return i.status === 'ready'; }).map(function (i) {
+      return i.att; }); },
+    state: function () { return { count: items.length, uploading: items.some(function (i) {
+      return i.status === 'uploading'; }), errors: items.filter(function (i) { return i.status === 'error'; }).length,
+      ready: items.filter(function (i) { return i.status === 'ready'; }).length }; },
+    clear: function (keepFiles) { items.forEach(function (i) { if (i.thumb) URL.revokeObjectURL(i.thumb);
+      if (!keepFiles && i.att) data.removeUpload(i.att.id).catch(function () {}); }); items = []; changed(); },
+    startVoice: startVoice, stopVoice: stopVoice, cancelVoice: cancelVoice, voiceActive: function () { return !!voice;
+      }, testMic: testMic,
     hasDictation: !!SR, destroy: function () { cleanup(); input.remove(); }
   };
   return api;

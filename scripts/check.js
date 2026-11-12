@@ -39,9 +39,11 @@ for (const app of ['chat', 'browser', 'admin']) {
   }
 }
 const uiCss = path.join('packages', 'ui', 'assets', 'colon-ui.css');
-if (fs.existsSync(uiCss)) for (const m of fs.readFileSync(uiCss, 'utf8').matchAll(/url\((fonts\/[^)]+)\)/g)) expectVersion(uiCss, m[1]);
+if (fs.existsSync(uiCss)) for (const m of fs.readFileSync(uiCss, 'utf8').matchAll(
+  /url\((fonts\/[^)]+)\)/g)) expectVersion(uiCss, m[1]);
 const core = path.join('packages', 'ui', 'assets', 'colon-app.js');
-if (fs.existsSync(core) && !fs.readFileSync(core, 'utf8').includes(`version: '${version}'`)) { stale++; console.error(`✗ ${core}: Colon.version should be '${version}'`); }
+if (fs.existsSync(core) && !fs.readFileSync(core, 'utf8').includes(`version: '${version}'`)) { stale++;
+  console.error(`✗ ${core}: Colon.version should be '${version}'`); }
 console.log(stale ? `${stale} asset reference(s) not on v${version}` : `Asset versions OK (v${version})`);
 failed += stale;
 process.exit(failed ? 1 : 0);

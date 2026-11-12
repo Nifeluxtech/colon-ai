@@ -23,7 +23,8 @@ document.addEventListener('DOMContentLoaded', function () {
   if (!window.colonKitReady(NEED, EXTRA) || typeof window.CW.mount !== 'function') return;
   var C = window.Colon, CW = window.CW;
   // No sign-in needed: guests chat without saving (v0.4.4). Account screens (/account/…) still need it.
-  function ws(path, title) { return { path: path, bare: true, app: 'chat', title: title, render: CW.mount, update: CW.route }; }
+  function ws(path, title) { return { path: path, bare: true, app: 'chat', title: title, render: CW.mount,
+    update: CW.route }; }
   C.start({
     app: 'chat', title: 'Colon AI', brand: 'COLON AI', subtitle: 'by Nifelux', tabbar: false, guestMode: true,
     nav: [

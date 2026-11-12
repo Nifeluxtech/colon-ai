@@ -14,7 +14,9 @@ var ENGINES = {
   wikipedia: { name: 'Wikipedia', url: 'https://en.wikipedia.org/w/index.php?search=' }
 };
 var ALLOWED_PORTS = { '': 1, '80': 1, '443': 1, '8080': 1, '8443': 1 };
-var TLD_RE = /\.(com|org|net|ng|edu|gov|io|co|ai|app|dev|info|biz|me|tv|uk|us|za|ke|gh|africa|news|blog|site|online|tech|store|xyz|wiki|int|eu|de|fr|ca|au|in)(\/|:|$|\?|#)/i;
+var TLD_RE = new RegExp(
+  String.raw`\.(com|org|net|ng|edu|gov|io|co|ai|app|dev|info|biz|me|tv|uk|us|za|ke|gh|africa|news|blog|site|online|`
+  + String.raw`tech|store|xyz|wiki|int|eu|de|fr|ca|au|in)(\/|:|$|\?|#)`, 'i');
 
 function searchUrl(q, engine) { return (ENGINES[engine] || ENGINES.google).url + encodeURIComponent(String(q).trim()); }
 
@@ -24,11 +26,14 @@ function parseInput(input, engine) {
   var s = String(input || '').trim();
   if (!s) return null;
   if (/^colon:\/\/[a-z-]+/i.test(s)) return { type: 'internal', url: s.toLowerCase() };
-  if (/^(javascript|data|vbscript|file|blob|about|chrome|intent):/i.test(s)) return { type: 'search', url: searchUrl(s, engine), query: s };
+  if (/^(javascript|data|vbscript|file|blob|about|chrome|intent):/i.test(s)) return { type: 'search', url: searchUrl(s,
+    engine), query: s };
   if (/^https?:\/\//i.test(s)) return { type: 'url', url: normalize(s) || s };
   if (!/\s/.test(s)) {
-    if (/^localhost(:\d+)?(\/|$)/i.test(s) || /^\d{1,3}(\.\d{1,3}){3}(:\d+)?(\/.*)?$/.test(s) || /^\[[0-9a-f:]+\](:\d+)?/i.test(s)) return { type: 'url', url: 'http://' + s };
-    if (/^[\w-]+(\.[\w-]+)+(:\d+)?([/?#].*)?$/.test(s) && (TLD_RE.test(s) || /^www\./i.test(s))) return { type: 'url', url: normalize('https://' + s) || 'https://' + s };
+    if (/^localhost(:\d+)?(\/|$)/i.test(s) || /^\d{1,3}(\.\d{1,3}){3}(:\d+)?(\/.*)?$/.test(s)
+      || /^\[[0-9a-f:]+\](:\d+)?/i.test(s)) return { type: 'url', url: 'http://' + s };
+    if (/^[\w-]+(\.[\w-]+)+(:\d+)?([/?#].*)?$/.test(s) && (TLD_RE.test(s) || /^www\./i.test(s))) return { type: 'url',
+      url: normalize('https://' + s) || 'https://' + s };
   }
   return { type: 'search', url: searchUrl(s, engine), query: s };
 }
@@ -41,15 +46,18 @@ function ipv4Parts(h) {
   var m = /^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/.exec(h);
   if (!m) {
     // single-number or hex forms (http://2130706433/, http://0x7f000001/) resolve to IPs in browsers
-    if (/^(0x[0-9a-f]+|\d+)$/i.test(h)) { var n = Number(h); if (n >= 0 && n <= 0xffffffff) return [n >>> 24, (n >>> 16) & 255, (n >>> 8) & 255, n & 255]; }
+    if (/^(0x[0-9a-f]+|\d+)$/i.test(h)) { var n = Number(h); if (n >= 0 && n <= 0xffffffff) return [n >>> 24,
+      (n >>> 16) & 255, (n >>> 8) & 255, n & 255]; }
     return null;
   }
   var p = m.slice(1).map(Number); return p.every(function (x) { return x <= 255; }) ? p : null;
 }
 function privateV4(p) {
   var a = p[0], b = p[1];
-  return a === 0 || a === 10 || a === 127 || (a === 100 && b >= 64 && b <= 127) || (a === 169 && b === 254) || (a === 172 && b >= 16 && b <= 31) ||
-    (a === 192 && b === 168) || (a === 192 && b === 0 && p[2] === 0) || (a === 198 && (b === 18 || b === 19)) || a >= 224;
+  return a === 0 || a === 10 || a === 127 || (a === 100 && b >= 64 && b <= 127) || (a === 169 && b === 254)
+    || (a === 172 && b >= 16 && b <= 31) ||
+    (a === 192 && b === 168) || (a === 192 && b === 0 && p[2] === 0) || (a === 198 && (b === 18 || b === 19))
+      || a >= 224;
 }
 
 // True for hosts that must never be fetched: loopback, private, link-local, metadata, internal names.
@@ -74,11 +82,15 @@ function isBlockedHost(host) {
 // -> { ok: true, url } | { ok: false, reason, message }
 function guard(u) {
   var x;
-  try { x = new URL(String(u)); } catch (e) { return { ok: false, reason: 'invalid', message: 'That doesn’t look like a web address.' }; }
-  if (x.protocol !== 'http:' && x.protocol !== 'https:') return { ok: false, reason: 'scheme', message: 'Only http and https pages can be opened.' };
-  if (x.username || x.password) return { ok: false, reason: 'credentials', message: 'Addresses with a username or password are blocked.' };
+  try { x = new URL(String(u)); } catch (e) { return { ok: false, reason: 'invalid',
+    message: 'That doesn’t look like a web address.' }; }
+  if (x.protocol !== 'http:' && x.protocol !== 'https:') return { ok: false, reason: 'scheme',
+    message: 'Only http and https pages can be opened.' };
+  if (x.username || x.password) return { ok: false, reason: 'credentials',
+    message: 'Addresses with a username or password are blocked.' };
   if (!ALLOWED_PORTS[x.port]) return { ok: false, reason: 'port', message: 'That port isn’t allowed in reader mode.' };
-  if (isBlockedHost(x.hostname)) return { ok: false, reason: 'private', message: 'Private and local network addresses are blocked for your safety.' };
+  if (isBlockedHost(x.hostname)) return { ok: false, reason: 'private',
+    message: 'Private and local network addresses are blocked for your safety.' };
   if (x.href.length > 2048) return { ok: false, reason: 'too_long', message: 'That address is too long.' };
   return { ok: true, url: x.href };
 }
@@ -87,7 +99,8 @@ function hostOf(u) { try { return new URL(u).hostname.replace(/^www\./, ''); } c
 function displayUrl(u) {
   if (!u) return '';
   if (/^colon:/.test(u)) return u;
-  try { var x = new URL(u); var p = (x.pathname === '/' ? '' : x.pathname) + x.search; return x.hostname.replace(/^www\./, '') + (p.length > 60 ? p.slice(0, 57) + '…' : p); } catch (e) { return u; }
+  try { var x = new URL(u); var p = (x.pathname === '/' ? '' : x.pathname) + x.search; return x.hostname.replace(
+    /^www\./, '') + (p.length > 60 ? p.slice(0, 57) + '…' : p); } catch (e) { return u; }
 }
 function isSecure(u) { return /^https:\/\//i.test(u || ''); }
 function resolve(href, base) { try { return new URL(href, base).href; } catch (e) { return null; } }
@@ -100,7 +113,9 @@ function queryFrom(u) { // recover the search terms from a known engine results 
   return null;
 }
 
-var api = { ENGINES: ENGINES, parseInput: parseInput, searchUrl: searchUrl, guard: guard, isBlockedHost: isBlockedHost, hostOf: hostOf, displayUrl: displayUrl, isSecure: isSecure, resolve: resolve, queryFrom: queryFrom, normalize: normalize };
+var api = { ENGINES: ENGINES, parseInput: parseInput, searchUrl: searchUrl, guard: guard, isBlockedHost: isBlockedHost,
+  hostOf: hostOf, displayUrl: displayUrl, isSecure: isSecure, resolve: resolve, queryFrom: queryFrom,
+  normalize: normalize };
 if (typeof window !== 'undefined') window.ColonURL = api;
 
 export { api as ColonURL };

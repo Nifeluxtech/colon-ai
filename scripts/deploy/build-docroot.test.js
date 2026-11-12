@@ -25,7 +25,8 @@ function checkModule(doc, file, seen, missing) {
   if (seen.has(file)) return; seen.add(file);
   if (!fs.existsSync(file)) { missing.push(path.relative(doc, file)); return; }
   const src = fs.readFileSync(file, 'utf8');
-  for (const m of src.matchAll(/^\s*(?:import|export)\b[^'"]*?from\s*['"]([^'"]+)['"]|^\s*import\s*['"]([^'"]+)['"]/gm)) {
+  for (const m of src.matchAll(
+    /^\s*(?:import|export)\b[^'"]*?from\s*['"]([^'"]+)['"]|^\s*import\s*['"]([^'"]+)['"]/gm)) {
     const spec = m[1] || m[2];
     if (spec.startsWith('.') || spec.startsWith('/')) checkModule(doc, resolve(doc, file, spec), seen, missing);
   }
