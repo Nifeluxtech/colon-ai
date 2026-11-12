@@ -1,4 +1,4 @@
-// Unit tests for the on-device preview responder (apps/chat/public/js/chat-responder.js).
+// Unit tests for the on-device preview responder (apps/chat/src/lib/responder.js).
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const { ColonResponder: R } = require('../../../apps/chat/src/lib/responder.js');

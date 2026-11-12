@@ -11,7 +11,7 @@ const OUT = `${process.env.OUT_DIR || '/tmp/colon-headless'}/${label}`;
 fs.rmSync(OUT, { recursive: true, force: true }); fs.mkdirSync(OUT, { recursive: true });
 const report = { label, checks: [], errors: [], http: [] };
 const ok = (name, pass, info) => { report.checks.push({ name, pass: !!pass, info }); };
-const EMAIL = `ada.${Date.now()}@example.com`;
+const EMAIL = `ada@example.com`; // fixed, so runs on fresh databases compare
 
 async function ctxFor(b, app) {
   const ctx = await b.newContext({ viewport: { width: 360, height: 780 }, isMobile: true, hasTouch: true,

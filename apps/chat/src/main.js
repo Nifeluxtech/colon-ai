@@ -12,7 +12,7 @@ import './core/data.js';
 import './lib/media.js';
 import './pages/pages.js';
 import './pages/settings.js';
-import './app.js';
+import './pages/chat.js';
 
 const NEED = ['icon', 'esc', 'sheet', 'menu', 'confirm', 'prompt', 'toast', 'debounce', 'copyText', 'uid', 'fmtBytes',
   'ago', 'logo', 'resizable', 'verifyBanner', 'bindBanner', 'authModal'];
