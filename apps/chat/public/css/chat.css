@@ -146,6 +146,12 @@ body.cw-noscroll{overflow:hidden}
 [data-theme="dark"] .cw-source-n{color:#A9C0FF}
 .cw-source-b{min-width:0}.cw-source-b b,.cw-source-b small{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .cw-source-b b{font-size:13.5px}.cw-source-b small{font-size:12px;color:var(--muted)}
+/* v0.5.3 Research mode web search: favicon beside the domain, and the "Searching the web…" status line */
+.cw-source-ico{display:inline-block;width:14px;height:14px;margin-right:5px;vertical-align:-2px;border-radius:3px;background:var(--bg-2)}
+.cw-thinking.cw-stage svg{width:16px;height:16px;flex:none;color:var(--primary)}
+[data-theme="dark"] .cw-thinking.cw-stage svg{color:#A9C0FF}
+@media (prefers-reduced-motion:no-preference){.cw-thinking.cw-stage svg{animation:cw-spin 2.4s linear infinite}}
+@keyframes cw-spin{to{transform:rotate(360deg)}}
 .cw-atts{display:flex;flex-wrap:wrap;gap:6px;justify-content:flex-end;margin-bottom:6px}
 .cw-msg.user .cw-bubble:has(.cw-atts):not(:has(.cw-user-text)){background:none;border:0;padding:0}
 .cw-att-img{border:0;padding:0;background:var(--glass-2);border-radius:12px;overflow:hidden;width:120px;height:120px}

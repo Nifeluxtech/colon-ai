@@ -20,6 +20,7 @@
      POST   /conversations/:id/messages/:mid/edit { content }               -> text/event-stream
      POST   /conversations/:id/messages/:mid/stop                           (Stop also closes the stream)
             SSE events: user {message,conversation} · start {message} · delta {text} · sources {sources} · done {message} · error {code,message}
+            Research mode (v0.5.3) also sends, before the first delta: status {stage:'searching'|'reading'|'writing'|'unavailable', count?} · sources {sources:[{n,title,url,site,snippet}]}
             Error codes: 'no_provider' (no AI provider configured), 'quota' (daily limit), 'provider_down', 'no_vision'.
      POST/DELETE /conversations/:id/share -> { share:{ token,url } }        GET /shared/:token (read-only, public)
      POST   /conversations/:id/notes { content, sources, origin, title }   (adds an assistant note, e.g. an AI Browse summary)

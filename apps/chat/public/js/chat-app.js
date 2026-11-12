@@ -10,7 +10,7 @@
     general: { label: 'General', sub: 'General Assistant', icon: 'sparkle', hint: 'Ask Colon anything…' },
     study: { label: 'Study', sub: 'Study Mode', icon: 'book', hint: 'Ask a study question…' },
     developer: { label: 'Developer', sub: 'Developer Mode', icon: 'code', hint: 'Describe code or paste an error…' },
-    research: { label: 'Research', sub: 'Research Mode', icon: 'search', hint: 'What should I research?' }
+    research: { label: 'Research', sub: 'Research Mode', icon: 'search', hint: 'What should I research? I’ll search the web…' }
   };
   var PROMPTS = [
     { icon: 'cap', title: 'Learn something new', text: 'Help me understand a difficult topic', prompt: 'Help me understand photosynthesis step by step', mode: 'study' },
@@ -443,12 +443,12 @@
         (S.streaming || /^tmp/.test(m.id) ? '' : '<button class="icon-btn sm" data-msg="edit" aria-label="Edit message" data-tip="Edit">' + icon('edit') + '</button>') + '</div></div>';
     }
     var streaming = m.status === 'streaming', fb = m.feedback && m.feedback.rating;
-    var body = streaming && !m.content ? '<div class="cw-thinking"><span class="typing"><i></i><i></i><i></i></span><span>' + esc(modelName(m.model)) + ' is thinking…</span></div>'
-      : '<div class="md' + (streaming ? ' streaming' : '') + '">' + MD.render(m.content, { sources: m.sources }) + '</div>';
+    var body = aiBody(m);
     var meta = (S.settings && S.settings.showMeta) ? '<span class="badge">' + icon(MODES[m.mode] ? MODES[m.mode].icon : 'sparkle') + (MODES[m.mode] ? MODES[m.mode].label : 'General') + '</span>' : '';
     return '<div class="cw-msg ai' + fresh + (streaming ? ' is-streaming' : '') + '" data-mid="' + esc(m.id) + '">' +
       '<div class="cw-ai-head"><span class="cw-ai-mark">' + C.MARK + '</span><b>' + esc(modelName(m.model)) + '</b>' + meta +
-      (m.origin === 'browse' ? '<span class="badge cyan">' + icon('globe') + 'AI Browse</span>' : '') + (m.preview ? '<span class="badge" data-tip="Generated on this device. Colon Saga isn’t connected yet.">Preview</span>' : '') +
+      (m.origin === 'browse' ? '<span class="badge cyan">' + icon('globe') + 'AI Browse</span>' : '') +
+      (m.web && !streaming ? (m.web.ok ? '<span class="badge cyan" data-tip="Answered from a web search just now">' + icon('globe') + 'Web</span>' : '<span class="badge warn" data-tip="Web search wasn’t available for this answer">No web</span>') : '') + (m.preview ? '<span class="badge" data-tip="Generated on this device. Colon Saga isn’t connected yet.">Preview</span>' : '') +
       (m.status === 'stopped' ? '<span class="badge warn">Stopped</span>' : '') + '</div>' +
       '<div class="cw-ai-body">' + body + '</div>' +
       (m.status === 'error' ? errorCard(m) : '') +
@@ -462,6 +462,21 @@
         (m.version > 1 ? '<span class="tiny muted">Version ' + m.version + '</span>' : '') + '</div>') +
       '</div>';
   }
+  // Research mode: what the server is doing before the answer starts (SSE "status" events).
+  var STAGES = {
+    searching: function () { return 'Searching the web…'; },
+    reading: function (n) { return 'Reading ' + n + ' source' + (n === 1 ? '' : 's') + '…'; },
+    writing: function (n) { return n ? 'Writing from ' + n + ' source' + (n === 1 ? '' : 's') + '…' : 'Writing…'; },
+    unavailable: function () { return 'Web search unavailable. Answering anyway…'; }
+  };
+  function aiBody(m) {
+    var streaming = m.status === 'streaming';
+    if (streaming && !m.content) {
+      var st = m.stage && STAGES[m.stage] ? STAGES[m.stage](m.stage === 'writing' ? (m.sources || []).length : m.stageCount || 0) : esc(modelName(m.model)) + ' is thinking…';
+      return '<div class="cw-thinking' + (m.stage ? ' cw-stage' : '') + '" role="status">' + (m.stage === 'searching' || m.stage === 'reading' ? icon('globe') : '') + '<span class="typing"><i></i><i></i><i></i></span><span>' + (m.stage ? esc(st) : st) + '</span></div>';
+    }
+    return '<div class="md' + (streaming ? ' streaming' : '') + '">' + MD.render(m.content, { sources: m.sources }) + '</div>';
+  }
   function errorCard(m) {
     var e = m.error || {}, noProv = e.code === 'no_provider', needLogin = !signedIn() && (e.code === 'quota' || e.code === 'login_required');
     var title = noProv ? 'Colon Saga isn’t connected to an AI provider yet' : e.code === 'quota' ? 'You’ve reached today’s limit' : e.code === 'no_vision' ? 'Images can’t be read yet' : e.code === 'offline' ? 'You’re offline' : 'This reply didn’t finish';
@@ -472,9 +487,13 @@
   function sourcesHtml(src) {
     if (!src || !src.length) return '';
     return '<div class="cw-sources"><div class="cw-sources-h">' + icon('link') + 'Sources</div><div class="cw-sources-list no-scrollbar">' + src.map(function (s, i) {
-      return '<a class="cw-source" href="' + esc(s.url) + '" target="_blank" rel="noopener noreferrer" data-source="' + esc(s.url) + '"><span class="cw-source-n">' + (s.n || i + 1) + '</span><span class="cw-source-b"><b>' + esc(s.title) + '</b><small>' + esc(window.ColonURL.hostOf(s.url)) + '</small></span></a>';
+      var host = s.site || window.ColonURL.hostOf(s.url);
+      // Web search sources (they carry .site) open in a new tab; the favicon comes from the site itself, if it has one.
+      var ico = s.site && /^https:\/\//i.test(s.url) ? '<img class="cw-source-ico" src="https://' + esc(rawHost(s.url)) + '/favicon.ico" alt="" width="14" height="14" loading="lazy" decoding="async" referrerpolicy="no-referrer">' : '';
+      return '<a class="cw-source" href="' + esc(s.url) + '" target="_blank" rel="noopener noreferrer"' + (s.site ? ' data-web' : '') + ' data-source="' + esc(s.url) + '"><span class="cw-source-n">' + (s.n || i + 1) + '</span><span class="cw-source-b"><b>' + esc(s.title) + '</b><small>' + ico + esc(host) + '</small></span></a>';
     }).join('') + '</div></div>';
   }
+  function rawHost(u) { try { return new URL(u).hostname; } catch (e) { return ''; } }
   function attachmentsHtml(list) {
     if (!list || !list.length) return '';
     return '<div class="cw-atts">' + list.map(function (a) {
@@ -537,7 +556,8 @@
           if (at > -1) S.messages.splice(at, 1, msg); else S.messages.push(msg);
           renderThread(); scrollBottom();
         }
-        else if (ev.type === 'sources' && msg) { msg.sources = ev.sources; }
+        else if (ev.type === 'sources' && msg) { msg.sources = ev.sources; renderThread(); scrollBottom(); }
+        else if (ev.type === 'status' && msg) { msg.stage = ev.stage; msg.stageCount = ev.count || 0; paint(); }
         else if (ev.type === 'delta' && msg) { if (data.kind === 'remote') msg.content += ev.text; paint(); }
         else if (ev.type === 'done' && msg) { Object.assign(msg, ev.message || {}); }
       }
@@ -554,7 +574,7 @@
   function paintMessage(msg) {
     var node = S.el.querySelector('.cw-msg[data-mid="' + CSS.escape(msg.id) + '"] .cw-ai-body');
     if (!node) { renderThread(); return; }
-    node.innerHTML = '<div class="md streaming">' + MD.render(msg.content, { sources: msg.sources }) + '</div>';
+    node.innerHTML = aiBody(msg);
     scrollBottom();
   }
   function stopStreaming() { if (S.streaming) S.streaming.ctl.abort(); }
@@ -761,6 +781,8 @@
     q.addEventListener('input', C.debounce(function () { S.q = q.value.trim(); refreshConvs(); }, 180));
     q.addEventListener('keydown', function (e) { if (e.key === 'Escape') { q.value = ''; S.q = ''; refreshConvs(); q.blur(); } });
 
+    // A site without a favicon: drop the broken image quietly (error events don't bubble, so capture).
+    S.el.addEventListener('error', function (e) { var t = e.target; if (t && t.classList && t.classList.contains('cw-source-ico')) t.remove(); }, true);
     S.el.addEventListener('click', function (e) {
       var t = e.target;
       var pr = t.closest('[data-prompt]');
@@ -772,6 +794,8 @@
       if (copyCode) { var code = copyCode.closest('.md-code').querySelector('code').textContent; C.copyText(code).then(function () { copyCode.textContent = 'Copied'; copyCode.classList.add('done'); setTimeout(function () { copyCode.textContent = 'Copy'; copyCode.classList.remove('done'); }, 1600); }, function () { C.toast('Couldn’t copy.', 'bad'); }); return; }
       var att = t.closest('[data-att-open]'); if (att) { openAttachment(att.getAttribute('data-att-open'), att.getAttribute('data-kind'), att.getAttribute('data-name') || ''); return; }
       var link = t.closest('.cw-msg a[href^="http"], .cw-source');
+      // Citation chips and web-search sources open in a new tab (target=_blank, rel=noopener), not the panel.
+      if (link && (link.closest('.cite') || link.hasAttribute('data-web'))) return;
       if (link && S.settings && S.settings.linksInPanel && !e.ctrlKey && !e.metaKey) { e.preventDefault(); openBrowser(link.getAttribute('href')); return; }
       var mb = t.closest('[data-msg]'); if (mb) { msgAction(mb); return; }
       if (t.closest('.cw-conv a') && isMobile()) closeDrawer();
