@@ -1,7 +1,7 @@
 # Deployment: GitHub to cPanel (no shell needed)
 
 1. cPanel > Git Version Control > Create: Clone URL `https://github.com/Nifeluxtech/colon-ai.git`, path `/home/apparatu/repositories/colon-ai`.
-2. cPanel > Setup Node.js App > Create: Node 24.x, Production, root `repositories/colon-ai/services/api`, URL `api.apparatus.name.ng`, startup file `app.js`. Add env vars: DB_HOST=localhost, DB_NAME, DB_USER, DB_PASSWORD, ALLOWED_ORIGINS (plus the Phase 2 and Phase 3 vars below and in `.env.example`). Then "Run NPM Install" and Start.
+2. cPanel > Setup Node.js App > Create: Node 24.x, Production, root `repositories/colon-ai/services/api`, URL `api.apparatus.name.ng`, startup file `app.js`. Add env vars: DB_HOST=localhost, DB_NAME, DB_USER, DB_PASSWORD, ALLOWED_ORIGINS (plus the Phase 2 and Phase 3 vars below and in `config/api.env.example`; every key is explained in `config/README.md`). Then "Run NPM Install" and Start.
 3. Every update: push to `main` on GitHub, then cPanel > Git Version Control > Manage > Pull or Deploy > "Update from Remote", then "Deploy HEAD Commit". `.cpanel.yml` copies the static apps to their subdomains and restarts the API.
 
 Secrets never go in this repo. It is public.
@@ -49,7 +49,7 @@ UPLOAD_DIR=/home/apparatu/colon-uploads                  UPLOAD_QUOTA_MB=200
 
 Optional: `GROQ_MODEL`, `OPENROUTER_GEMMA_MODEL`, `GEMINI_MODEL`, `NATLAS_BASE_URL`, `NATLAS_API_KEY`, `NATLAS_MODEL`,
 `GEMINI_VISION` / `OPENROUTER_GEMMA_VISION` / `GROQ_VISION` (1 = that model reads images), `AI_FIRST_TOKEN_TIMEOUT_MS`,
-`AI_IDLE_TIMEOUT_MS`, `AI_MAX_REPLY_MS`, `AI_MAX_TOKENS`. The full list with comments is in `.env.example`.
+`AI_IDLE_TIMEOUT_MS`, `AI_MAX_REPLY_MS`, `AI_MAX_TOKENS`. The full list with comments is in `config/api.env.example` and `config/README.md`.
 `UPLOAD_DIR` is created on first upload; keep it outside `public_html`, the subdomain folders and the repository.
 
 ### 3. Deploy

@@ -4,7 +4,7 @@ The shared Node.js backend for Colon AI, Colon Browser and the Admin Dashboard: 
 
 - Runtime: Node.js 24 (cPanel "Setup Node.js App", Passenger)
 - Startup file: `app.js`
-- Config: environment variables only (see `/.env.example`)
+- Config: environment variables only, validated at boot against `src/config/defaults.js`; documented in `config/README.md` and `config/api.env.example`
 
 ```
 src/
@@ -50,6 +50,6 @@ Tests: `npm test` (here) or `npm test` at the repo root.
 Full request/response shapes and the SSE event format: `docs/frontend-data-adapters.md`.
 
 ## Endpoints (Phase 4: Admin Dashboard)
-Overview, users (suspend, sessions, limits), moderation, providers and models (encrypted keys), live routing, usage limits, evaluation, African AI registry, voice, system settings and security, plus `POST /shared/:token/report`. Full table, permissions and the live-config rules: `docs/phase-4.md`.
+Overview, users (suspend, sessions, limits), moderation, providers and models (encrypted keys), live routing, usage limits, evaluation, African AI registry, voice, system settings and security, plus `POST /shared/:token/report`. Full table, permissions and the live-config rules: `docs/phases/phase-4.md`.
 
 State-changing requests need the `X-Colon-Client` header and an allowed `Origin`.

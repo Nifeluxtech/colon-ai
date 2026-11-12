@@ -9,6 +9,8 @@
 //   4. Web apps: apps import packages/ui only through its public entry files, never another app; every asset
 //      and module URL in apps/*/public/index.html is on the package.json version (/v<version>/... or ?v=<version>);
 //      Colon.version and every package.json version match it.
+//   5. Config: config/api.env.example lists exactly the keys of the API config schema
+//      (services/api/src/config/defaults.js), so the documented environment never drifts from what is read.
 const { execFileSync } = require('child_process');
 const fs = require('fs');
 const path = require('path');
@@ -164,6 +166,23 @@ for (const f of files.filter((x) => path.basename(x) === 'package.json')) {
   if (v !== undefined && v !== version) fail('versions', `${rel(f)}: version ${v} should be ${version}`);
 }
 console.log(`Versions: index.html assets, Colon.version and package.json files on v${version}`);
+
+/* ---------- 5. Config ---------- */
+const { SCHEMA } = require(path.join(ROOT, 'services', 'api', 'src', 'config', 'defaults.js'));
+const exampleFile = path.join(ROOT, 'config', 'api.env.example');
+if (!fs.existsSync(exampleFile)) fail('config', 'config/api.env.example is missing');
+else {
+  const text = fs.readFileSync(exampleFile, 'utf8');
+  const documented = new Set([...text.matchAll(/^([A-Z][A-Z0-9_]*)=/gm)].map((m) => m[1]));
+  const schemaKeys = new Set(SCHEMA.map((i) => i.key));
+  for (const k of schemaKeys) {
+    if (!documented.has(k)) fail('config', `${k} is in the schema but not in api.env.example`);
+  }
+  for (const k of documented) {
+    if (!schemaKeys.has(k)) fail('config', `${k} is in api.env.example but not in the schema`);
+  }
+  console.log(`Config: ${schemaKeys.size} schema keys documented in config/api.env.example`);
+}
 
 if (failures.length) {
   console.error('\n' + failures.join('\n'));

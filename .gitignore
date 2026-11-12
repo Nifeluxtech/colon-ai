@@ -5,7 +5,7 @@ package-lock.json
 # Environment & secrets
 .env
 .env.*
-!.env.example
+!*.env.example
 
 # Runtime (created on the server by cPanel / Passenger)
 tmp
