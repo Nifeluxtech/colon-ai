@@ -6,21 +6,21 @@ const db = require('../../db');
 const config = require('../../config');
 const v = require('../../shared/validate');
 const audit = require('../../shared/audit');
-const ai = require('../../modules/ai/generate');
-const limits = require('../../modules/ai/limits');
-const dynamic = require('../../modules/ai/dynamic');
+const ai = require('../../modules/ai');
+const limits = require('../../modules/ai').limits;
+const dynamic = require('../../modules/ai').dynamic;
 const settings = require('../../shared/settings');
-const { replyLanguage } = require('../../modules/ai/prompts');
-const store = require('../../modules/chat/store');
-const files = require('../../modules/chat/files');
-const { buildMessages } = require('../../modules/chat/context');
-const { respond, stopLocal } = require('../../modules/chat/reply');
-const { requireUser, deny } = require('../../modules/auth/guards');
-const { limit, hit } = require('../middleware/ratelimit');
+const { replyLanguage } = require('../../modules/ai').prompts;
+const store = require('../../modules/chat').store;
+const files = require('../../modules/chat').files;
+const { buildMessages } = require('../../modules/chat').context;
+const { respond, stopLocal } = require('../../modules/chat').reply;
+const { requireUser, deny } = require('../../modules/auth').guards;
+const { limit, perUser } = require('../middleware/ratelimit');
+const { guestOrigin } = require('../middleware/origin');
 
 const r = new Router();
 const MAX_CONTENT = 16000;
-const perUser = (name, max, windowSec) => async (req) => { await hit(`${name}:u${req.user.id}`, max, windowSec); };
 
 /* ---------- Models ---------- */
 r.get('/models', async () => [200, { models: ai.listModels(await dynamic.load()) }]);
@@ -364,11 +364,6 @@ r.get('/chat/stats', requireUser, async (req) => {
 /* ---------- Guest (and temporary) chat: streams a reply, saves nothing ---------- */
 // Signed-out visitors chat here with a lower daily limit. Signed-in users with "Save chat history"
 // off use it too (their own limit). The app keeps the conversation in memory for that tab only.
-function guestOrigin(req) {
-  const origin = req.headers.origin;
-  if (config.isProd && (!origin || !config.allowedOrigins.includes(origin))) deny(403, 'csrf', 'Request blocked.');
-}
-
 function guestCookie(gid) {
   const parts = [`colon_gid=${gid}`, 'Path=/', 'HttpOnly', 'SameSite=Lax', `Max-Age=${365 * 86400}`];
   if (config.isProd) parts.push('Secure');

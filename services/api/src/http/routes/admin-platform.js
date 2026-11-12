@@ -5,8 +5,8 @@ const db = require('../../db');
 const audit = require('../../shared/audit');
 const v = require('../../shared/validate');
 const settings = require('../../shared/settings');
-const { requireRole, deny } = require('../../modules/auth/guards');
-const searchConfig = require('../../modules/search/config');
+const { requireRole, deny } = require('../../modules/auth').guards;
+const searchConfig = require('../../modules/search').config;
 const { encrypt } = require('../../shared/crypto');
 
 const r = new Router();

@@ -1,8 +1,8 @@
 const Router = require('../router');
 const config = require('../../config');
 const db = require('../../db');
-const ai = require('../../modules/ai/generate');
-const dynamic = require('../../modules/ai/dynamic');
+const ai = require('../../modules/ai');
+const dynamic = require('../../modules/ai').dynamic;
 
 const r = new Router();
 r.get('/', async () => [200, { name: config.appName, service: 'api', status: 'ok' }]);

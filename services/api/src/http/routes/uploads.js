@@ -5,18 +5,18 @@ const Router = require('../router');
 const settings = require('../../shared/settings');
 const db = require('../../db');
 const config = require('../../config');
-const store = require('../../modules/chat/store');
-const files = require('../../modules/chat/files');
-const extract = require('../../modules/extract/extract');
-const { SECURITY_HEADERS } = require('../middleware/headers');
-const { readMultipartFile } = require('../middleware/multipart');
-const { requireUser } = require('../../modules/auth/guards');
-const { limit, hit } = require('../middleware/ratelimit');
+const store = require('../../modules/chat').store;
+const files = require('../../modules/chat').files;
+const extract = require('../../modules/extract');
+const { SECURITY_HEADERS } = require('../../shared/security-headers');
+const { readMultipartFile } = require('../../shared/multipart');
+const { requireUser } = require('../../modules/auth').guards;
+const { limit, perUser } = require('../middleware/ratelimit');
 
 const r = new Router();
 const MAX_UPLOAD = 20 * 1048576;
 
-r.post('/uploads', { body: 'raw' }, requireUser, settings.feature('uploads'), async (req) => { await hit(`upload:u${req.user.id}`, 60, 3600); }, async (req) => {
+r.post('/uploads', { body: 'raw' }, requireUser, settings.feature('uploads'), perUser('upload', 60, 3600), async (req) => {
   const { file, fields } = await readMultipartFile(req, { max: MAX_UPLOAD });
   const s = extract.validate(file.data, file.name, { fromRecorder: fields.recorder === '1' || /^audio\//.test(file.type) });
   const used = await db.one('SELECT COALESCE(SUM(size),0) AS bytes FROM chat_attachments WHERE user_id = ?', [req.user.id]);

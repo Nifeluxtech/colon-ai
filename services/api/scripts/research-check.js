@@ -4,13 +4,13 @@
 //
 //   node scripts/research-check.js "What is the current CBN monetary policy rate?" [language]
 //   BENCH_SANDBOX=1 drops the client's own key headers on model calls (sandbox key injection only, as in bench.js).
-const { respond } = require('../src/modules/chat/reply');
-const { createParser } = require('../src/modules/ai/sse');
+const { respond } = require('../src/modules/chat').reply;
+const { createParser } = require('../src/modules/ai').sse;
 const { EventEmitter } = require('events');
 
 const question = process.argv[2] || 'What is the current CBN monetary policy rate?';
 const language = process.argv[3] || 'en';
-const sandbox = process.env.BENCH_SANDBOX === '1' ? require('../src/modules/bench/runner').sandboxFetch() : undefined;
+const sandbox = process.env.BENCH_SANDBOX === '1' ? require('../src/modules/bench').runner.sandboxFetch() : undefined;
 
 const res = new EventEmitter();
 Object.assign(res, { writableEnded: false, socket: null, writeHead() {}, end() { this.writableEnded = true; } });
@@ -31,7 +31,7 @@ res.write = (c) => { parser.push(String(c)); return true; };
 const store = { async start() { return { id: 'check', role: 'assistant', content: '', status: 'streaming' }; }, async finish(x) { store.saved = x; return { id: 'check', ...x }; } };
 
 (async () => {
-  const routing = require('../src/modules/ai/routing');
+  const routing = require('../src/modules/ai').routing;
   await respond({
     req: { user: null }, res, mode: 'research', language, history: [{ role: 'user', content: question }], counters: [], store,
     routing, fetch: sandbox, webSearch: true, searchText: question,

@@ -3,7 +3,7 @@ const config = require('../config');
 const db = require('../db');
 const log = require('../shared/logger');
 const ws = require('../ws');
-const sessions = require('../modules/auth/sessions');
+const sessions = require('../modules/auth').sessions;
 const Router = require('./router');
 const { clientIp, parseCookies, readJson } = require('./middleware/request');
 

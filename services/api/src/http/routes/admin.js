@@ -8,9 +8,9 @@ const Router = require('../router');
 const db = require('../../db');
 const audit = require('../../shared/audit');
 const v = require('../../shared/validate');
-const dynamic = require('../../modules/ai/dynamic');
-const ai = require('../../modules/ai/generate');
-const { requireRole, RANK, deny } = require('../../modules/auth/guards');
+const dynamic = require('../../modules/ai').dynamic;
+const ai = require('../../modules/ai');
+const { requireRole, RANK, deny } = require('../../modules/auth').guards;
 
 const r = new Router();
 const n = (x) => Number(x || 0);

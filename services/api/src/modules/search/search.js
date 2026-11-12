@@ -82,8 +82,8 @@ async function search(query, o = {}) {
 // English search queries. Budget ~4 s; any problem means the heuristic queries are used instead.
 async function modelQueries(text, { routing, signal, fetch, now = new Date(), timeoutMs = 4000 } = {}) {
   if (!routing) return null;
-  const ai = require('../ai/generate');
-  const { streamChat } = require('../ai/client');
+  const ai = require('../ai');
+  const { streamChat } = require('../ai').client;
   const chain = ai.chainFor({ mode: 'general', language: 'en' }, routing).slice(0, 1);
   if (!chain.length) return null;
   const c = chain[0];

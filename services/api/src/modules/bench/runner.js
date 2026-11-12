@@ -3,9 +3,9 @@
 // and records timing. The CLI is scripts/bench.js; tests drive this module with a fake fetch.
 const fs = require('fs');
 const path = require('path');
-const { streamChat } = require('../ai/client');
-const { systemPrompt } = require('../ai/prompts');
-const routing = require('../ai/routing');
+const { streamChat } = require('../ai').client;
+const { systemPrompt } = require('../ai').prompts;
+const routing = require('../ai').routing;
 const { grade } = require('./graders');
 
 const SETS_DIR = path.resolve(__dirname, '../../../bench/sets');
