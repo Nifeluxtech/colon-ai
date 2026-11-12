@@ -30,7 +30,8 @@ function speedScore(ms) {
 
 function summarize(rows) {
   const ok = rows.filter(r => !r.error);
-  const lang = rows.filter(r => r.lang !== undefined && r.lang !== null).map(r => (r.error ? 0 : r.judge != null ? 0.5 * r.lang + 0.5 * r.judge : r.lang));
+  const lang = rows.filter(r => r.lang !== undefined && r.lang !== null).map(r => (r.error ? 0 : r.judge != null
+    ? 0.5 * r.lang + 0.5 * r.judge : r.lang));
   return {
     n: rows.length,
     accuracy: r3(mean(rows.map(r => (r.error ? 0 : r.score || 0)))),
@@ -38,7 +39,8 @@ function summarize(rows) {
     errors: rows.length - ok.length,
     error_rate: r3(rows.length ? (rows.length - ok.length) / rows.length : 0),
     language: lang.length ? r3(mean(lang)) : null,
-    first_token_ms: { median: quantile(ok.map(r => r.first_token_ms), 0.5), p90: quantile(ok.map(r => r.first_token_ms), 0.9) },
+    first_token_ms: { median: quantile(ok.map(r => r.first_token_ms), 0.5), p90: quantile(ok.map(r =>
+      r.first_token_ms), 0.9) },
     total_ms: { median: quantile(ok.map(r => r.total_ms), 0.5), p90: quantile(ok.map(r => r.total_ms), 0.9) },
     tokens: rows.reduce((a, r) => a + (Number(r.tokens) || 0), 0),
     cost_usd: r3(rows.reduce((a, r) => a + (Number(r.cost_usd) || 0), 0)),
@@ -59,7 +61,8 @@ function aggregate(rows) {
   const language = langVals.length ? mean(langVals) : 0;
   const speed = speedScore(overall.first_token_ms.median);
   const reliability = 1 - (overall.error_rate || 0);
-  const score = 100 * (WEIGHTS.accuracy * accuracy + WEIGHTS.language * language + WEIGHTS.speed * speed + WEIGHTS.reliability * reliability);
+  const score = 100 * (WEIGHTS.accuracy * accuracy + WEIGHTS.language * language + WEIGHTS.speed * speed
+    + WEIGHTS.reliability * reliability);
   return {
     score: Math.round(score * 10) / 10,
     components: { accuracy: r3(accuracy), language: r3(language), speed: r3(speed), reliability: r3(reliability) },

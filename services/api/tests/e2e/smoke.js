@@ -15,7 +15,8 @@ async function call(path, { method = 'GET', body, raw, headers = {} } = {}) {
   const h = { 'X-Colon-Client': 'chat', Origin: ORIGIN, ...headers };
   if (cookie) h.Cookie = cookie;
   if (body !== undefined && !(body instanceof FormData)) h['Content-Type'] = 'application/json';
-  const res = await fetch(API + path, { method, headers: h, body: body instanceof FormData ? body : body !== undefined ? JSON.stringify(body) : undefined });
+  const res = await fetch(API + path, { method, headers: h, body: body instanceof FormData ? body : body !== undefined
+    ? JSON.stringify(body) : undefined });
   const sc = res.headers.get('set-cookie');
   if (sc) cookie = sc.split(';')[0];
   if (raw) return res;
@@ -32,14 +33,16 @@ async function sse(path, body) {
     const data = (b.match(/^data: (.+)$/m) || [])[1];
     return { ev, data: data ? JSON.parse(data) : {} };
   });
-  return { status: res.status, type: res.headers.get('content-type'), events, text: events.filter(e => e.ev === 'delta').map(e => e.data.text).join('') };
+  return { status: res.status, type: res.headers.get('content-type'), events, text: events.filter(e =>
+    e.ev === 'delta').map(e => e.data.text).join('') };
 }
 
 (async () => {
   const step = (s) => console.log('✓', s);
 
   // Guest chat: nothing saved, streams.
-  let g = await sse('/chat/guest', { messages: [{ role: 'user', content: 'Wetin dey happen for Lagos today? Abeg tell me.' }], mode: 'general' });
+  let g = await sse('/chat/guest', { messages: [{ role: 'user',
+    content: 'Wetin dey happen for Lagos today? Abeg tell me.' }], mode: 'general' });
   assert.equal(g.status, 200, JSON.stringify(g.error));
   assert.match(g.type, /text\/event-stream/);
   assert.deepEqual(g.events.map(e => e.ev).filter(e => e !== 'delta'), ['start', 'done']);
@@ -51,13 +54,15 @@ async function sse(path, body) {
   const noAuth = await call('/conversations');
   assert.equal(noAuth.status, 401);
   step('history needs sign-in');
-  const badOrigin = await call('/chat/guest', { method: 'POST', body: { messages: [{ role: 'user', content: 'x' }] }, headers: { Origin: 'https://evil.example' } });
+  const badOrigin = await call('/chat/guest', { method: 'POST', body: { messages: [{ role: 'user', content: 'x' }] },
+    headers: { Origin: 'https://evil.example' } });
   assert.equal(badOrigin.status, 403);
   step('guest chat refuses other origins');
 
   // Account
   const email = `e2e${Date.now()}@example.com`;
-  let r = await call('/auth/register', { method: 'POST', body: { email, password: 'pass1234word', name: 'Ada Test', language: 'en', accept_terms: true } });
+  let r = await call('/auth/register', { method: 'POST', body: { email, password: 'pass1234word', name: 'Ada Test',
+    language: 'en', accept_terms: true } });
   assert.equal(r.status, 201, JSON.stringify(r.data));
   step('registered');
 
@@ -94,13 +99,15 @@ async function sse(path, body) {
   step('edit rewrites the question and re-answers');
 
   const last = r.data.messages[1];
-  r = await call(`/messages/${last.id}/feedback`, { method: 'POST', body: { rating: 'down', reason: 'Too long', comment: 'shorter please' } });
+  r = await call(`/messages/${last.id}/feedback`, { method: 'POST', body: { rating: 'down', reason: 'Too long',
+    comment: 'shorter please' } });
   assert.equal(r.status, 200);
   r = await call(`/conversations/${conv.id}`);
   assert.equal(r.data.messages[1].feedback.reason, 'Too long');
   step('feedback saved');
 
-  r = await call(`/conversations/${conv.id}`, { method: 'PATCH', body: { title: 'Closures', pinned: true, mode: 'study' } });
+  r = await call(`/conversations/${conv.id}`, { method: 'PATCH', body: { title: 'Closures', pinned: true,
+    mode: 'study' } });
   assert.equal(r.data.conversation.title, 'Closures');
   assert.equal(r.data.conversation.pinned, true);
   r = await call('/conversations?q=closures');
@@ -120,7 +127,8 @@ async function sse(path, body) {
 
   // Upload a text file and ask about it.
   const fd = new FormData();
-  fd.append('file', new Blob(['Lagos population is about 15 million.\nAbuja is the capital.'], { type: 'text/plain' }), 'notes.txt');
+  fd.append('file', new Blob(['Lagos population is about 15 million.\nAbuja is the capital.'], { type: 'text/plain' }),
+    'notes.txt');
   r = await call('/uploads', { method: 'POST', body: fd });
   assert.equal(r.status, 201, JSON.stringify(r.data));
   const att = r.data.attachment;
@@ -132,7 +140,8 @@ async function sse(path, body) {
   step('upload text file, attach, download');
 
   const fake = new FormData();
-  fake.append('file', new Blob([Buffer.from([0x4d, 0x5a, 0x90, 0x00, 1, 2, 3])], { type: 'application/pdf' }), 'evil.pdf');
+  fake.append('file', new Blob([Buffer.from([0x4d, 0x5a, 0x90, 0x00, 1, 2, 3])], { type: 'application/pdf' }),
+    'evil.pdf');
   r = await call('/uploads', { method: 'POST', body: fake });
   assert.equal(r.status, 422);
   step('fake PDF rejected by signature check');
@@ -152,7 +161,9 @@ async function sse(path, body) {
   await call(`/account/profile`, { method: 'PATCH', body: { language: 'en' } });
   process.env.SLOW = '1';
   const ctl = new AbortController();
-  const res = await fetch(`${API}/conversations/${c2.id}/messages`, { method: 'POST', signal: ctl.signal, headers: { 'X-Colon-Client': 'chat', Origin: ORIGIN, Cookie: cookie, 'Content-Type': 'application/json' }, body: JSON.stringify({ content: 'one two three four five six seven eight nine ten eleven twelve' }) });
+  const res = await fetch(`${API}/conversations/${c2.id}/messages`, { method: 'POST', signal: ctl.signal,
+    headers: { 'X-Colon-Client': 'chat', Origin: ORIGIN, Cookie: cookie, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ content: 'one two three four five six seven eight nine ten eleven twelve' }) });
   const reader = res.body.getReader();
   await reader.read(); await reader.read();
   ctl.abort();

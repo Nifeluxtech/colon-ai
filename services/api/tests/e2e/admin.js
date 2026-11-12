@@ -7,50 +7,28 @@
 const assert = require('node:assert/strict');
 const mysql = require('mysql2/promise');
 const totp = require('../../src/modules/auth/totp');
-const API = process.env.API || 'http://localhost:3100';
-const ORIGIN = process.env.ORIGIN || 'http://localhost:8080';
+const { client, guestReply } = require('../helpers/e2e-client');
 const run = Date.now();
-
-function client() {
-  let cookie = '';
-  async function call(path, { method = 'GET', body, headers = {}, raw } = {}) {
-    const h = { 'X-Colon-Client': 'admin', Origin: ORIGIN, ...headers };
-    if (cookie) h.Cookie = cookie;
-    if (body !== undefined) h['Content-Type'] = 'application/json';
-    const res = await fetch(API + path, { method, headers: h, body: body !== undefined ? JSON.stringify(body) : undefined });
-    const sc = res.headers.get('set-cookie');
-    if (sc) cookie = sc.split(';')[0];
-    if (raw) return res;
-    return { status: res.status, data: await res.json().catch(() => ({})) };
-  }
-  return { call, get cookie() { return cookie; }, set cookie(c) { cookie = c; } };
-}
-
-async function guestReply(c, content, mode = 'general') {
-  const res = await c.call('/chat/guest', { method: 'POST', body: { messages: [{ role: 'user', content }], mode }, raw: true });
-  const text = await res.text();
-  if (!res.ok) return { status: res.status, error: JSON.parse(text) };
-  const deltas = [...text.matchAll(/event: delta\ndata: (.+)/g)].map(m => JSON.parse(m[1]).text).join('');
-  const err = /event: error\ndata: (.+)/.exec(text);
-  return { status: res.status, text: deltas, error: err ? JSON.parse(err[1]) : null };
-}
 
 (async () => {
   const step = (s) => console.log('✓', s);
-  const db = await mysql.createConnection({ host: process.env.DB_HOST || '127.0.0.1', port: Number(process.env.DB_PORT || 3306), user: process.env.DB_USER, password: process.env.DB_PASSWORD, database: process.env.DB_NAME });
+  const db = await mysql.createConnection({ host: process.env.DB_HOST || '127.0.0.1', port: Number(process.env.DB_PORT
+    || 3306), user: process.env.DB_USER, password: process.env.DB_PASSWORD, database: process.env.DB_NAME });
 
   // Accounts: a member, a moderator, an admin and a super admin (staff get 2FA through the real flow).
   async function account(role) {
     const c = client();
     const email = `${role}-${run}@example.com`, password = 'pass1234word';
-    let r = await c.call('/auth/register', { method: 'POST', body: { email, password, name: `${role} tester`, language: 'en', accept_terms: true } });
+    let r = await c.call('/auth/register', { method: 'POST', body: { email, password, name: `${role} tester`,
+      language: 'en', accept_terms: true } });
     assert.equal(r.status, 201, JSON.stringify(r.data));
     const me = (await c.call('/auth/me')).data.user;
     let secret = null;
     if (role !== 'user') {
       await db.query('UPDATE users SET role = ? WHERE id = ?', [role, me.id]);
       secret = (await c.call('/account/2fa/setup', { method: 'POST' })).data.secret;
-      r = await c.call('/account/2fa/enable', { method: 'POST', body: { code: totp.code(secret, Math.floor(Date.now() / 30000)) } });
+      r = await c.call('/account/2fa/enable', { method: 'POST', body: { code: totp.code(secret, Math.floor(Date.now(
+        ) / 30000)) } });
       assert.equal(r.status, 200, JSON.stringify(r.data));
     }
     return { c, id: me.id, email, password, secret };
@@ -62,32 +40,42 @@ async function guestReply(c, content, mode = 'general') {
   step('member, moderator, admin and super admin accounts (staff with 2FA)');
 
   // A member gets 403 on every admin endpoint.
-  const adminGets = ['/admin/overview', '/admin/stats', '/admin/users', '/admin/moderation', '/admin/providers', '/admin/models', '/admin/routing', '/admin/limits',
+  const adminGets = ['/admin/overview', '/admin/stats', '/admin/users', '/admin/moderation', '/admin/providers',
+    '/admin/models', '/admin/routing', '/admin/limits',
     '/admin/evaluation', '/admin/registry', '/admin/voice', '/admin/system', '/admin/security', '/admin/audit'];
   for (const p of adminGets) assert.equal((await member.c.call(p)).status, 403, `member ${p}`);
   assert.equal((await member.c.call('/admin/system', { method: 'PATCH', body: { brandName: 'X' } })).status, 403);
   step('member is denied every admin endpoint');
 
   // Moderator: moderation + read-only users, nothing else.
-  for (const p of ['/admin/moderation', '/admin/users', `/admin/users/${member.id}`]) assert.equal((await mod.c.call(p)).status, 200, `moderator ${p}`);
-  for (const p of ['/admin/overview', '/admin/providers', '/admin/routing', '/admin/limits', '/admin/system', '/admin/security', '/admin/audit', '/admin/registry', '/admin/voice']) {
+  for (const p of ['/admin/moderation', '/admin/users', `/admin/users/${member.id}`]) assert.equal((await mod.c.call(
+    p)).status, 200, `moderator ${p}`);
+  for (const p of ['/admin/overview', '/admin/providers', '/admin/routing', '/admin/limits', '/admin/system',
+    '/admin/security', '/admin/audit', '/admin/registry', '/admin/voice']) {
     assert.equal((await mod.c.call(p)).status, 403, `moderator ${p}`);
   }
-  for (const [p, m] of [[`/admin/users/${member.id}/suspend`, 'POST'], [`/admin/users/${member.id}/unlock`, 'POST'], [`/admin/users/${member.id}/role`, 'PATCH'], [`/admin/users/${member.id}/limit`, 'PATCH']]) {
-    assert.equal((await mod.c.call(p, { method: m, body: { role: 'moderator', daily_limit: 5 } })).status, 403, `moderator ${m} ${p}`);
+  for (const [p, m] of [[`/admin/users/${member.id}/suspend`, 'POST'], [`/admin/users/${member.id}/unlock`, 'POST'],
+    [`/admin/users/${member.id}/role`, 'PATCH'], [`/admin/users/${member.id}/limit`, 'PATCH']]) {
+    assert.equal((await mod.c.call(p, { method: m, body: { role: 'moderator', daily_limit: 5 } })).status,
+      403, `moderator ${m} ${p}`);
   }
   step('moderator: moderation + read-only users only');
 
   // Admin: everything except admin roles, provider keys and system settings.
-  for (const p of ['/admin/overview', '/admin/providers', '/admin/models', '/admin/routing', '/admin/limits', '/admin/evaluation', '/admin/registry', '/admin/voice', '/admin/security', '/admin/audit']) {
+  for (const p of ['/admin/overview', '/admin/providers', '/admin/models', '/admin/routing', '/admin/limits',
+    '/admin/evaluation', '/admin/registry', '/admin/voice', '/admin/security', '/admin/audit']) {
     assert.equal((await admin.c.call(p)).status, 200, `admin ${p}`);
   }
   assert.equal((await admin.c.call('/admin/system')).status, 403);
-  assert.equal((await admin.c.call('/admin/providers/groq/key', { method: 'POST', body: { api_key: 'sk-test-12345678' } })).status, 403);
-  assert.equal((await admin.c.call(`/admin/users/${member.id}/role`, { method: 'PATCH', body: { role: 'admin' } })).status, 403);
+  assert.equal((await admin.c.call('/admin/providers/groq/key', { method: 'POST',
+    body: { api_key: 'sk-test-12345678' } })).status, 403);
+  assert.equal((await admin.c.call(`/admin/users/${member.id}/role`, { method: 'PATCH',
+    body: { role: 'admin' } })).status, 403);
   assert.equal((await admin.c.call(`/admin/users/${sup.id}/suspend`, { method: 'POST', body: {} })).status, 403);
-  assert.equal((await admin.c.call(`/admin/users/${member.id}/role`, { method: 'PATCH', body: { role: 'moderator' } })).status, 200);
-  assert.equal((await admin.c.call(`/admin/users/${member.id}/role`, { method: 'PATCH', body: { role: 'user' } })).status, 200);
+  assert.equal((await admin.c.call(`/admin/users/${member.id}/role`, { method: 'PATCH',
+    body: { role: 'moderator' } })).status, 200);
+  assert.equal((await admin.c.call(`/admin/users/${member.id}/role`, { method: 'PATCH',
+    body: { role: 'user' } })).status, 200);
   step('admin: no admin roles, no provider keys, no system settings');
 
   // Provider keys: Super Admin only, encrypted, masked.
@@ -111,13 +99,15 @@ async function guestReply(c, content, mode = 'general') {
   // Models: first edit copies the built-in table to the DB; then add a model and route to it live.
   r = await admin.c.call('/admin/models');
   assert.equal(r.data.source, 'default');
-  r = await admin.c.call('/admin/models', { method: 'POST', body: { target: 'kimi', provider_id: 'groq', model: 'kimi-test', vision: false } });
+  r = await admin.c.call('/admin/models', { method: 'POST', body: { target: 'kimi', provider_id: 'groq',
+    model: 'kimi-test', vision: false } });
   assert.equal(r.status, 201, JSON.stringify(r.data));
   const kimiId = r.data.id;
   r = await admin.c.call('/admin/models');
   assert.equal(r.data.source, 'database');
   assert.ok(r.data.models.some(m => m.target === 'qwen' && m.model === 'qwen-test'));
-  r = await admin.c.call('/admin/routing', { method: 'PATCH', body: { routes: { study: ['kimi', 'qwen'] }, hedge: 1 } });
+  r = await admin.c.call('/admin/routing', { method: 'PATCH', body: { routes: { study: ['kimi', 'qwen'] },
+    hedge: 1 } });
   assert.equal(r.status, 200, JSON.stringify(r.data));
   g = await guestReply(guest, 'Explain photosynthesis', 'study');
   assert.match(g.text, /kimi-test/);
@@ -143,7 +133,8 @@ async function guestReply(c, content, mode = 'general') {
   step('a broken/empty DB config falls back to routing.js defaults');
 
   // Limits: guest limit live, per-mode cap, per-user override.
-  r = await admin.c.call('/admin/limits', { method: 'PATCH', body: { guest: 1000, user: 1000, guestIp: 1000, modes: { research: 1 } } });
+  r = await admin.c.call('/admin/limits', { method: 'PATCH', body: { guest: 1000, user: 1000, guestIp: 1000,
+    modes: { research: 1 } } });
   assert.equal(r.status, 200);
   const g2 = client();
   g = await guestReply(g2, 'Research Lagos history', 'research');
@@ -188,14 +179,17 @@ async function guestReply(c, content, mode = 'general') {
   // Moderation: a "bad" feedback and a shared-link report land in the queue; resolve and dismiss.
   r = await member.c.call('/conversations', { method: 'POST', body: { mode: 'general' } });
   const conv = r.data.conversation;
-  const send = await member.c.call(`/conversations/${conv.id}/messages`, { method: 'POST', body: { content: 'Tell me a joke', attachment_ids: [] }, raw: true });
+  const send = await member.c.call(`/conversations/${conv.id}/messages`, { method: 'POST',
+    body: { content: 'Tell me a joke', attachment_ids: [] }, raw: true });
   const body = await send.text();
   const done = JSON.parse(/event: done\ndata: (.+)/.exec(body)[1]).message;
-  r = await member.c.call(`/messages/${done.id}/feedback`, { method: 'POST', body: { rating: 'down', reason: 'Not accurate', comment: 'wrong' } });
+  r = await member.c.call(`/messages/${done.id}/feedback`, { method: 'POST', body: { rating: 'down',
+    reason: 'Not accurate', comment: 'wrong' } });
   assert.equal(r.status, 200);
   r = await member.c.call(`/conversations/${conv.id}/share`, { method: 'POST' });
   const token = r.data.share.token;
-  r = await client().call(`/shared/${token}/report`, { method: 'POST', body: { reason: 'Spam or scam', comment: 'e2e' } });
+  r = await client().call(`/shared/${token}/report`, { method: 'POST', body: { reason: 'Spam or scam',
+    comment: 'e2e' } });
   assert.equal(r.status, 200);
   r = await mod.c.call('/admin/moderation');
   const fb = r.data.reports.find(x => x.kind === 'feedback' && x.conversation_id === conv.id);
@@ -203,7 +197,8 @@ async function guestReply(c, content, mode = 'general') {
   assert.ok(fb && sh);
   r = await mod.c.call(`/admin/moderation/${fb.id}`);
   assert.equal(r.data.messages.length, 2);
-  r = await mod.c.call(`/admin/moderation/${sh.id}/resolve`, { method: 'POST', body: { note: 'removed', unshare: true } });
+  r = await mod.c.call(`/admin/moderation/${sh.id}/resolve`, { method: 'POST', body: { note: 'removed',
+    unshare: true } });
   assert.equal(r.data.unshared, true);
   assert.equal((await client().call(`/shared/${token}`)).status, 404);
   r = await mod.c.call(`/admin/moderation/${fb.id}/dismiss`, { method: 'POST', body: {} });
@@ -217,18 +212,23 @@ async function guestReply(c, content, mode = 'general') {
   assert.ok(r.data.requests.day > 0);
   assert.ok(r.data.providers.some(p => p.provider === 'groq' && p.success > 0));
   assert.ok(r.data.latency.avg_ms >= 0);
-  step(`overview: ${r.data.requests.day} requests today, providers ${r.data.providers.map(p => `${p.provider} ${p.success}%`).join(', ')}`);
+  step(`overview: ${r.data.requests.day} requests today, providers ${r.data.providers.map(
+    p => `${p.provider} ${p.success}%`).join(', ')}`);
 
   // Evaluation, registry, voice.
-  r = await admin.c.call('/admin/evaluation/runs', { method: 'POST', body: { name: 'Pidgin set v0', model: 'qwen-test', status: 'planned' } });
+  r = await admin.c.call('/admin/evaluation/runs', { method: 'POST', body: { name: 'Pidgin set v0', model: 'qwen-test',
+    status: 'planned' } });
   assert.equal(r.status, 201);
   r = await admin.c.call('/admin/evaluation');
   assert.ok(r.data.runs.length && r.data.feedback.length);
   await admin.c.call(`/admin/evaluation/runs/${r.data.runs[0].id}`, { method: 'DELETE' });
-  r = await admin.c.call('/admin/registry', { method: 'POST', body: { kind: 'model', name: 'N-ATLaS', languages: 'yo, ha, ig, pcm', licence: 'custom', source_url: 'https://huggingface.co/NCAIR1/N-ATLaS', commercial: 'unknown' } });
+  r = await admin.c.call('/admin/registry', { method: 'POST', body: { kind: 'model', name: 'N-ATLaS',
+    languages: 'yo, ha, ig, pcm', licence: 'custom', source_url: 'https://huggingface.co/NCAIR1/N-ATLaS',
+    commercial: 'unknown' } });
   assert.equal(r.status, 201);
   const regId = r.data.id;
-  assert.equal((await admin.c.call(`/admin/registry/${regId}`, { method: 'PATCH', body: { status: 'approved' } })).status, 200);
+  assert.equal((await admin.c.call(`/admin/registry/${regId}`, { method: 'PATCH',
+    body: { status: 'approved' } })).status, 200);
   assert.equal((await admin.c.call('/admin/registry', { method: 'POST', body: { kind: 'x', name: '' } })).status, 422);
   assert.equal((await admin.c.call(`/admin/registry/${regId}`, { method: 'DELETE' })).status, 200);
   r = await admin.c.call('/admin/voice', { method: 'PATCH', body: { stt: { engine: 'whisper', enabled: true } } });
@@ -236,18 +236,24 @@ async function guestReply(c, content, mode = 'general') {
   step('evaluation runs + feedback stats, African AI registry CRUD, voice settings');
 
   // System settings (Super Admin): maintenance, banner, branding, feature flags.
-  r = await sup.c.call('/admin/system', { method: 'PATCH', body: { maintenance: { on: true, message: 'Back soon (e2e).' }, announcement: { on: true, text: 'Hello from e2e', tone: 'info' }, brandName: 'Colon AI' } });
+  r = await sup.c.call('/admin/system', { method: 'PATCH', body: { maintenance: { on: true,
+    message: 'Back soon (e2e).' }, announcement: { on: true, text: 'Hello from e2e', tone: 'info' },
+    brandName: 'Colon AI' } });
   assert.equal(r.status, 200, JSON.stringify(r.data));
   r = await client().call('/auth/config');
   assert.equal(r.data.announcement.text, 'Hello from e2e');
   assert.equal(r.data.maintenance.on, true);
   g = await guestReply(client(), 'Hello');
-  assert.equal(g.status, 503); assert.equal(g.error.error, 'maintenance'); assert.equal(g.error.message, 'Back soon (e2e).');
-  r = await sup.c.call('/chat/guest', { method: 'POST', body: { messages: [{ role: 'user', content: 'staff test' }] }, raw: true });
+  assert.equal(g.status, 503); assert.equal(g.error.error, 'maintenance'); assert.equal(g.error.message,
+    'Back soon (e2e).');
+  r = await sup.c.call('/chat/guest', { method: 'POST', body: { messages: [{ role: 'user', content: 'staff test' }] },
+    raw: true });
   assert.equal(r.status, 200); await r.text();
   assert.equal((await member.c.call('/conversations')).status, 200);   // reading history still works
-  await sup.c.call('/admin/system', { method: 'PATCH', body: { maintenance: { on: false }, announcement: { on: false }, features: { registration: false } } });
-  r = await client().call('/auth/register', { method: 'POST', body: { email: `x${run}@example.com`, password: 'pass1234word', name: 'X', language: 'en', accept_terms: true } });
+  await sup.c.call('/admin/system', { method: 'PATCH', body: { maintenance: { on: false }, announcement: { on: false },
+    features: { registration: false } } });
+  r = await client().call('/auth/register', { method: 'POST', body: { email: `x${run}@example.com`,
+    password: 'pass1234word', name: 'X', language: 'en', accept_terms: true } });
   assert.equal(r.status, 403); assert.equal(r.data.error, 'feature_off');
   await sup.c.call('/admin/system', { method: 'PATCH', body: { features: { registration: true } } });
   step('maintenance (503 for guests, staff exempt), announcement, feature flags');
@@ -257,7 +263,8 @@ async function guestReply(c, content, mode = 'general') {
   assert.ok(r.data.staff.some(s => s.id === mod.id && s.totp_enabled));
   r = await admin.c.call('/admin/audit?scope=admin');
   const actions = new Set(r.data.entries.map(e => e.action));
-  for (const a of ['admin.system_updated', 'admin.voice_updated', 'admin.registry_deleted', 'admin.report_dismissed']) assert.ok(actions.has(a), a);
+  for (const a of ['admin.system_updated', 'admin.voice_updated', 'admin.registry_deleted',
+    'admin.report_dismissed']) assert.ok(actions.has(a), a);
   r = await admin.c.call('/admin/audit?scope=logins');
   assert.ok(r.data.entries.some(e => e.action === 'auth.login_blocked_suspended'));
   step('security: staff 2FA, login events, admin actions audited');

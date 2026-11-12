@@ -1,5 +1,6 @@
 // Provider-agnostic OpenAI-compatible chat-completions client with streaming (Node's built-in fetch).
-// Works with Groq, OpenRouter, Google AI Studio (native streamGenerateContent, since Gemma isn't on its OpenAI endpoint), vLLM/TGI hosts (N-ATLaS) and anything
+// Works with Groq, OpenRouter, Google AI Studio (native streamGenerateContent, since Gemma isn't on its OpenAI
+// endpoint), vLLM/TGI hosts (N-ATLaS) and anything
 // else that speaks POST {base}/chat/completions with "stream": true.
 const { createParser, thinkFilter } = require('./sse');
 const { geminiBody, geminiChunk, geminiEmptyReason } = require('./providers/google');
@@ -33,7 +34,8 @@ function errorMessage(text) {
 }
 
 /**
- * streamChat({ provider:{baseUrl,apiKey,headers}, model, messages, onDelta(text), signal, ... }) -> { text, finishReason, usage }
+ * streamChat({ provider:{baseUrl,apiKey,headers}, model, messages, onDelta(text), signal, ... }) -> { text,
+ * finishReason, usage }
  * Throws ProviderError (fallback-able) or an AbortError when `signal` aborts (the user pressed Stop).
  */
 async function streamChat(o) {
@@ -44,10 +46,12 @@ async function streamChat(o) {
   const ctl = new AbortController();
   let timeoutReason = null;
   const onOuterAbort = () => ctl.abort();
-  if (o.signal) { if (o.signal.aborted) ctl.abort(); else o.signal.addEventListener('abort', onOuterAbort, { once: true }); }
+  if (o.signal) { if (o.signal.aborted) ctl.abort(); else o.signal.addEventListener('abort', onOuterAbort,
+    { once: true }); }
 
   let idleTimer = null;
-  const arm = (ms, reason) => { clearTimeout(idleTimer); idleTimer = setTimeout(() => { timeoutReason = reason; ctl.abort(); }, ms); };
+  const arm = (ms, reason) => { clearTimeout(idleTimer); idleTimer = setTimeout(() => { timeoutReason = reason;
+    ctl.abort(); }, ms); };
   const maxTimer = setTimeout(() => { timeoutReason = 'max'; ctl.abort(); }, maxMs);
   arm(firstTokenMs, 'first_token');
 
@@ -86,7 +90,8 @@ async function streamChat(o) {
     });
     if (!res.ok) {
       const t = await res.text().catch(() => '');
-      throw new ProviderError(errorMessage(t) || `HTTP ${res.status}`, { status: res.status, code: codeForStatus(res.status) });
+      throw new ProviderError(errorMessage(t) || `HTTP ${res.status}`, { status: res.status, code: codeForStatus(
+        res.status) });
     }
     const type = String(res.headers.get('content-type') || '');
     if (type.includes('application/json')) {      // host ignored "stream": answer arrives in one piece
@@ -101,7 +106,8 @@ async function streamChat(o) {
           if (g.usage) usage = g.usage;
         }
         emit(filter.flush());
-        if (!live && finishReason !== 'length') throw new ProviderError(geminiEmptyReason(list) || 'The model returned an empty reply.', { code: 'empty' });
+        if (!live && finishReason !== 'length') throw new ProviderError(geminiEmptyReason(list)
+          || 'The model returned an empty reply.', { code: 'empty' });
         return { text, finishReason, usage };
       }
       const j = raw;
@@ -116,7 +122,8 @@ async function streamChat(o) {
       if (data === '[DONE]') { done = true; return; }
       let j;
       try { j = JSON.parse(data); } catch { return; }
-      if (j.error) throw new ProviderError(errorMessage(JSON.stringify(j)), { code: j.error.code === 429 ? 'rate_limited' : 'upstream_error', partial: live });
+      if (j.error) throw new ProviderError(errorMessage(JSON.stringify(j)), { code: j.error.code === 429
+        ? 'rate_limited' : 'upstream_error', partial: live });
       if (native) {
         const g = geminiChunk(j);
         if (g.alive) arm(idleMs, 'idle');
@@ -151,7 +158,8 @@ async function streamChat(o) {
     if (ctl.signal.aborted) throw new Error('aborted');
     parser.end();
     emit(filter.flush());
-    if (!live && finishReason !== 'length') throw new ProviderError('The model returned an empty reply.', { code: 'empty' });
+    if (!live && finishReason !== 'length') throw new ProviderError('The model returned an empty reply.',
+      { code: 'empty' });
     return { text, finishReason, usage };
   } catch (e) {
     if (e instanceof ProviderError) { e.partial = e.partial || live; throw e; }
@@ -159,7 +167,8 @@ async function streamChat(o) {
       const a = new Error('aborted'); a.name = 'AbortError'; a.code = 'aborted'; throw a;
     }
     if (timeoutReason) {
-      throw new ProviderError(timeoutReason === 'first_token' ? 'The model took too long to start answering.' : 'The model stopped responding.', { code: 'timeout', partial: live });
+      throw new ProviderError(timeoutReason === 'first_token' ? 'The model took too long to start answering.' :
+        'The model stopped responding.', { code: 'timeout', partial: live });
     }
     throw new ProviderError(`Network error: ${e.message}`, { code: 'network', partial: live });
   } finally {

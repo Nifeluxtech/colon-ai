@@ -23,8 +23,10 @@ const postAccount2faEnable = async (req) => {
   const row = await db.one('SELECT totp_pending FROM users WHERE id = ?', [req.user.id]);
   if (!row.totp_pending) v.fail('code', 'Start the setup again.');
   const secret = decrypt(row.totp_pending);
-  if (!totp.verify(secret, req.body.code)) v.fail('code', "That code didn't work. Check the time on your phone and try again.");
-  await db.query('UPDATE users SET totp_secret = ?, totp_pending = NULL, totp_enabled = 1 WHERE id = ?', [encrypt(secret), req.user.id]);
+  if (!totp.verify(secret, req.body.code)) v.fail('code',
+    "That code didn't work. Check the time on your phone and try again.");
+  await db.query('UPDATE users SET totp_secret = ?, totp_pending = NULL, totp_enabled = 1 WHERE id = ?',
+    [encrypt(secret), req.user.id]);
   await audit(req, 'account.2fa_enabled', { actorId: req.user.id });
   return [200, { ok: true }];
 };
@@ -34,7 +36,8 @@ const postAccount2faDisable = async (req) => {
   if (req.user.role !== 'user') deny(403, 'staff_2fa_required', 'Admin accounts must keep two-factor on.');
   await checkPassword(req, req.body.password);
   const row = await db.one('SELECT totp_secret FROM users WHERE id = ?', [req.user.id]);
-  if (!row.totp_secret || !totp.verify(decrypt(row.totp_secret), req.body.code)) v.fail('code', "That code didn't work.");
+  if (!row.totp_secret || !totp.verify(decrypt(row.totp_secret), req.body.code)) v.fail('code',
+    "That code didn't work.");
   await db.query('UPDATE users SET totp_secret = NULL, totp_enabled = 0 WHERE id = ?', [req.user.id]);
   await audit(req, 'account.2fa_disabled', { actorId: req.user.id });
   return [200, { ok: true }];

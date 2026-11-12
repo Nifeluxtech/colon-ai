@@ -19,10 +19,13 @@ const postAuthLogin = async (req) => {
   const password = String(req.body.password || '');
   await hit(`login-account:${email}`, 20, 900);
   const generic = () => v.fail('password', 'Email or password is incorrect.');
-  const u = await db.one('SELECT id, password_hash, totp_enabled, totp_secret, locked_until FROM users WHERE email = ?', [email]);
+  const u = await db.one(
+    'SELECT id, password_hash, totp_enabled, totp_secret, locked_until FROM users WHERE email = ?', [email]);
   if (!u) { await verifyPassword(password, null); generic(); }
   if (u.locked_until && new Date(u.locked_until) > new Date()) {
-    throw Object.assign(new Error(`Too many failed attempts. Try again in ${LOCK_MINUTES} minutes or reset your password.`), { status: 423, code: 'locked' });
+    throw Object.assign(
+      new Error(`Too many failed attempts. Try again in ${LOCK_MINUTES} minutes or reset your password.`),
+      { status: 423, code: 'locked' });
   }
   if (!(await verifyPassword(password, u.password_hash))) {
     await db.query(

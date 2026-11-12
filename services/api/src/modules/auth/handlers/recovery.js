@@ -23,7 +23,8 @@ async function consumeEmailToken(token, purpose) {
 // POST /auth/verify-email
 const postAuthVerifyEmail = async (req) => {
   const userId = await consumeEmailToken(req.body.token, 'verify');
-  await db.query('UPDATE users SET email_verified_at = COALESCE(email_verified_at, UTC_TIMESTAMP()) WHERE id = ?', [userId]);
+  await db.query('UPDATE users SET email_verified_at = COALESCE(email_verified_at, UTC_TIMESTAMP()) WHERE id = ?',
+    [userId]);
   await audit(req, 'user.email_verified', { actorId: userId });
   return [200, { ok: true }];
 };
@@ -51,7 +52,8 @@ const postAuthForgot = async (req) => {
 const postAuthReset = async (req) => {
   const password = v.password(req.body.password);
   const userId = await consumeEmailToken(req.body.token, 'reset');
-  await db.query('UPDATE users SET password_hash = ?, failed_logins = 0, locked_until = NULL WHERE id = ?', [await hashPassword(password), userId]);
+  await db.query('UPDATE users SET password_hash = ?, failed_logins = 0, locked_until = NULL WHERE id = ?',
+    [await hashPassword(password), userId]);
   await sessions.destroyAll(userId);
   await audit(req, 'auth.password_reset', { actorId: userId });
   return [200, { ok: true }];

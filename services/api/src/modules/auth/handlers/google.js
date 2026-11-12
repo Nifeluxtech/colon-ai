@@ -14,13 +14,18 @@ const { roleFor, blockSuspended } = require('./auth-common');
 // POST /auth/google
 const postAuthGoogle = async (req) => {
   if (!config.auth.googleClientId) v.fail('google', 'Google sign-in is not set up yet.');
-  const res = await fetch(`https://oauth2.googleapis.com/tokeninfo?id_token=${encodeURIComponent(String(req.body.credential || ''))}`);
+  const res = await fetch(`https://oauth2.googleapis.com/tokeninfo?id_token=${encodeURIComponent(String(
+    req.body.credential || ''))}`);
   const g = res.ok ? await res.json() : null;
-  if (!g || g.aud !== config.auth.googleClientId || g.email_verified !== 'true' || !g.sub) v.fail('google', 'Google sign-in failed. Please try again.');
+  if (!g || g.aud !== config.auth.googleClientId || g.email_verified !== 'true' || !g.sub) v.fail('google',
+    'Google sign-in failed. Please try again.');
   const email = v.email(g.email);
-  let u = await db.one('SELECT id, totp_enabled, totp_secret FROM users WHERE google_sub = ? OR email = ? ORDER BY google_sub = ? DESC LIMIT 1', [g.sub, email, g.sub]);
+  let u = await db.one((
+    'SELECT id, totp_enabled, totp_secret FROM users WHERE google_sub = ? OR email = ? ORDER BY google_sub = ? '
+    + 'DESC LIMIT 1'), [g.sub, email, g.sub]);
   if (!u) {
-    if ((await settings.system()).features.registration === false) v.fail('google', 'New sign-ups are paused right now. Please try again later.');
+    if ((await settings.system()).features.registration === false) v.fail('google',
+      'New sign-ups are paused right now. Please try again later.');
     const result = await db.query(
       'INSERT INTO users (email, email_verified_at, name, google_sub, role) VALUES (?, UTC_TIMESTAMP(), ?, ?, ?)',
       [email, String(g.name || email.split('@')[0]).slice(0, 80), g.sub, roleFor(email)]
@@ -28,7 +33,9 @@ const postAuthGoogle = async (req) => {
     u = { id: result.insertId, totp_enabled: 0 };
     await audit(req, 'user.register_google', { actorId: u.id, targetType: 'user', targetId: u.id });
   } else {
-    await db.query('UPDATE users SET google_sub = ?, email_verified_at = COALESCE(email_verified_at, UTC_TIMESTAMP()) WHERE id = ?', [g.sub, u.id]);
+    await db.query(
+      'UPDATE users SET google_sub = ?, email_verified_at = COALESCE(email_verified_at, UTC_TIMESTAMP()) WHERE id = ?',
+      [g.sub, u.id]);
   }
   await blockSuspended(req, u.id);
   if (u.totp_enabled) {

@@ -2,7 +2,9 @@
 // Regex-based on purpose: no DOM library on 1 GB shared hosting. Good enough to keep a page's title and its
 // main paragraphs; scripts, styles, navigation, headers, footers, forms and asides are dropped.
 
-const NAMED = { amp: '&', lt: '<', gt: '>', quot: '"', apos: "'", nbsp: ' ', ndash: '–', mdash: '—', hellip: '…', lsquo: '‘', rsquo: '’', ldquo: '“', rdquo: '”', laquo: '«', raquo: '»', copy: '©', reg: '®', trade: '™', middot: '·', bull: '•', deg: '°', times: '×', divide: '÷', euro: '€', pound: '£', naira: '₦', ngn: '₦', shy: '' };
+const NAMED = { amp: '&', lt: '<', gt: '>', quot: '"', apos: "'", nbsp: ' ', ndash: '–', mdash: '—', hellip: '…',
+  lsquo: '‘', rsquo: '’', ldquo: '“', rdquo: '”', laquo: '«', raquo: '»', copy: '©', reg: '®', trade: '™', middot: '·',
+  bull: '•', deg: '°', times: '×', divide: '÷', euro: '€', pound: '£', naira: '₦', ngn: '₦', shy: '' };
 
 function decodeEntities(s) {
   return String(s || '').replace(/&(#x[0-9a-f]+|#\d+|[a-z]+);/gi, (m, e) => {
@@ -17,12 +19,16 @@ function decodeEntities(s) {
 
 const stripTags = (s) => decodeEntities(String(s || '').replace(/<[^>]*>/g, ' ')).replace(/\s+/g, ' ').trim();
 
-const DROP = ['script', 'style', 'noscript', 'svg', 'template', 'iframe', 'object', 'canvas', 'nav', 'header', 'footer', 'aside', 'form', 'button', 'select', 'figure', 'menu', 'dialog'];
+const DROP = ['script', 'style', 'noscript', 'svg', 'template', 'iframe', 'object', 'canvas', 'nav', 'header',
+  'footer', 'aside', 'form', 'button', 'select', 'figure', 'menu', 'dialog'];
 // Elements whose class/id says "chrome, not content".
-const JUNK_ATTR = /\b(nav|navbar|menu|breadcrumb|footer|header|sidebar|cookie|consent|banner|advert|ads?|promo|share|social|related|newsletter|subscribe|comment|popup|modal|skip)\b/i;
+const JUNK_ATTR = new RegExp(
+  String.raw`\b(nav|navbar|menu|breadcrumb|footer|header|sidebar|cookie|consent|banner|advert|ads?|promo|share|`
+  + String.raw`social|related|newsletter|subscribe|comment|popup|modal|skip)\b`, 'i');
 
 function dropBlocks(html, tag) {
-  return html.replace(new RegExp(`<${tag}\\b[\\s\\S]*?</${tag}\\s*>`, 'gi'), ' ').replace(new RegExp(`<${tag}\\b[^>]*/?>`, 'gi'), ' ');
+  return html.replace(new RegExp(`<${tag}\\b[\\s\\S]*?</${tag}\\s*>`, 'gi'), ' ').replace(
+    new RegExp(`<${tag}\\b[^>]*/?>`, 'gi'), ' ');
 }
 
 // Picks <article> or <main> when the page has one with real text in it.
@@ -51,7 +57,8 @@ function htmlToText(html) {
   body = mainPart(body);
   for (const t of DROP) body = dropBlocks(body, t);
   // Divs and lists marked as menus, cookie banners, share bars... (shallow: the opening tag to its first close).
-  body = body.replace(/<(div|section|ul|ol|p|span)\b([^>]*)>[\s\S]*?<\/\1>/gi, (m, tag, attrs) => (JUNK_ATTR.test((/\b(?:class|id)=["']([^"']*)/i.exec(attrs) || [])[1] || '') ? ' ' : m));
+  body = body.replace(/<(div|section|ul|ol|p|span)\b([^>]*)>[\s\S]*?<\/\1>/gi, (m, tag, attrs) => (JUNK_ATTR.test((
+    /\b(?:class|id)=["']([^"']*)/i.exec(attrs) || [])[1] || '') ? ' ' : m));
   body = body
     .replace(/<(h[1-6])\b[^>]*>([\s\S]*?)<\/\1>/gi, (m, h, t) => `\n\n${stripTags(t)}\n\n`)
     .replace(/<li\b[^>]*>/gi, '\n• ')
@@ -62,7 +69,8 @@ function htmlToText(html) {
     .replace(/[ \t\f\v\u00a0]+/g, ' ')
     .split(/\n\s*\n+/)
     .map(p => p.replace(/\s*\n\s*/g, ' ').trim())
-    .filter(p => p.length >= 40 || (p.length >= 3 && /^[^•|]{3,80}$/.test(p) && !/[.,;:]$/.test(p) && /[A-Za-zÀ-ɏḀ-ỿ]/.test(p) && p.split(' ').length <= 10))
+    .filter(p => p.length >= 40 || (p.length >= 3 && /^[^•|]{3,80}$/.test(p) && !/[.,;:]$/.test(p)
+      && /[A-Za-zÀ-ɏḀ-ỿ]/.test(p) && p.split(' ').length <= 10))
     .filter((p, i, all) => all.indexOf(p) === i)
     .join('\n\n');
   return { title: title.slice(0, 300), text: dropShortRuns(text), lang };
@@ -81,9 +89,15 @@ function dropShortRuns(text) {
   return out.join('\n\n').trim();
 }
 
-const STOP = new Set('a an the and or but of in on at to for from by with about as is are was were be been being it its this that these those what which who whom whose when where why how do does did can could should would will shall may might must i me my we our you your he she they them their his her not no yes than then so if into over under up down out more most less least very just also please tell explain give show find research search look information info current latest today now recent new ehn abeg'.split(' '));
+const STOP = new Set((
+  'a an the and or but of in on at to for from by with about as is are was were be been being it its this that '
+  + 'these those what which who whom whose when where why how do does did can could should would will shall may might '
+  + 'must i me my we our you your he she they them their his her not no yes than then so if into over under up down '
+  + 'out more most less least very just also please tell explain give show find research search look information info '
+  + 'current latest today now recent new ehn abeg').split(' '));
 
-const words = (s) => (String(s || '').toLowerCase().normalize('NFC').match(/[\p{L}\p{N}][\p{L}\p{N}\p{M}'’-]*/gu) || []);
+const words = (s) => (String(s || '').toLowerCase().normalize('NFC').match(/[\p{L}\p{N}][\p{L}\p{N}\p{M}'’-]*/gu)
+  || []);
 const keywords = (s) => words(s).filter(w => !STOP.has(w) && (w.length > 1 || /\d/.test(w)));
 
 /**

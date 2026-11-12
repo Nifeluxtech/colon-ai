@@ -32,10 +32,12 @@ function isPrivateIp(ip) {
   if (v === 4) return ipv4Private(ip);
   if (v !== 6) return true;
   if (ip === '::' || ip === '::1') return true;
-  const mapped = ip.match(/^(?:0{0,4}:){0,5}(?:0{0,4}:)?ffff:(\d+\.\d+\.\d+\.\d+)$/) || ip.match(/^::(\d+\.\d+\.\d+\.\d+)$/);
+  const mapped = ip.match(/^(?:0{0,4}:){0,5}(?:0{0,4}:)?ffff:(\d+\.\d+\.\d+\.\d+)$/) || ip.match(
+    /^::(\d+\.\d+\.\d+\.\d+)$/);
   if (mapped) return ipv4Private(mapped[1]);
   const m6 = ip.match(/^::ffff:([0-9a-f]{1,4}):([0-9a-f]{1,4})$/);
-  if (m6) { const n = (parseInt(m6[1], 16) << 16 >>> 0) + parseInt(m6[2], 16); return ipv4Private([n >>> 24, (n >> 16) & 255, (n >> 8) & 255, n & 255].join('.')); }
+  if (m6) { const n = (parseInt(m6[1], 16) << 16 >>> 0) + parseInt(m6[2], 16); return ipv4Private([n >>> 24,
+    (n >> 16) & 255, (n >> 8) & 255, n & 255].join('.')); }
   const first = parseInt(ip.split(':')[0] || '0', 16);
   return (first & 0xfe00) === 0xfc00 ||   // fc00::/7 unique local
     (first & 0xffc0) === 0xfe80 ||          // fe80::/10 link-local
@@ -44,7 +46,8 @@ function isPrivateIp(ip) {
     /^2001:0{0,3}db8:/.test(ip);            // documentation
 }
 
-const lookupAll = (host) => new Promise((resolve, reject) => dns.lookup(host, { all: true, verbatim: true }, (e, a) => (e ? reject(e) : resolve(a))));
+const lookupAll = (host) => new Promise((resolve, reject) => dns.lookup(host, { all: true, verbatim: true }, (e,
+  a) => (e ? reject(e) : resolve(a))));
 
 /**
  * checkUrl(url, { lookup }) -> URL. Throws { code: 'blocked_url' } for anything that isn't a public http(s) URL.
@@ -52,17 +55,21 @@ const lookupAll = (host) => new Promise((resolve, reject) => dns.lookup(host, { 
 async function checkUrl(raw, { lookup = lookupAll } = {}) {
   let u;
   try { u = new URL(String(raw)); } catch { throw Object.assign(new Error('bad url'), { code: 'blocked_url' }); }
-  if (u.protocol !== 'http:' && u.protocol !== 'https:') throw Object.assign(new Error('scheme not allowed'), { code: 'blocked_url' });
+  if (u.protocol !== 'http:' && u.protocol !== 'https:') throw Object.assign(new Error('scheme not allowed'),
+    { code: 'blocked_url' });
   if (u.username || u.password) throw Object.assign(new Error('credentials in url'), { code: 'blocked_url' });
-  if (u.port && !((u.protocol === 'https:' && u.port === '443') || (u.protocol === 'http:' && u.port === '80'))) throw Object.assign(new Error('port not allowed'), { code: 'blocked_url' });
+  if (u.port && !((u.protocol === 'https:' && u.port === '443') || (u.protocol === 'http:'
+    && u.port === '80'))) throw Object.assign(new Error('port not allowed'), { code: 'blocked_url' });
   const host = u.hostname.replace(/^\[|\]$/g, '');
-  if (!host || /(^|\.)(localhost|local|internal|localdomain|home\.arpa)$/i.test(host)) throw Object.assign(new Error('host not allowed'), { code: 'blocked_url' });
+  if (!host || /(^|\.)(localhost|local|internal|localdomain|home\.arpa)$/i.test(host)) throw Object.assign(new Error(
+    'host not allowed'), { code: 'blocked_url' });
   let addrs;
   if (net.isIP(host)) addrs = [{ address: host }];
   else {
     try { addrs = await lookup(host); } catch { throw Object.assign(new Error('dns failed'), { code: 'dns' }); }
   }
-  if (!addrs || !addrs.length || addrs.some(a => isPrivateIp(a.address))) throw Object.assign(new Error('private address'), { code: 'blocked_url' });
+  if (!addrs || !addrs.length || addrs.some(a => isPrivateIp(a.address))) throw Object.assign(new Error(
+    'private address'), { code: 'blocked_url' });
   return u;
 }
 
@@ -119,10 +126,13 @@ async function safeFetch(url, o = {}) {
       try {
         res = await doFetch(current, {
           method, body, redirect: 'manual', signal: ctl.signal,
-          headers: { 'User-Agent': UA, Accept: 'text/html,application/xhtml+xml,application/json;q=0.9,text/plain;q=0.8,*/*;q=0.5', 'Accept-Language': 'en-NG,en;q=0.9', ...(o.headers || {}) },
+          headers: { 'User-Agent': UA,
+            Accept: 'text/html,application/xhtml+xml,application/json;q=0.9,text/plain;q=0.8,*/*;q=0.5',
+            'Accept-Language': 'en-NG,en;q=0.9', ...(o.headers || {}) },
         });
       } catch (e) {
-        if (ctl.signal.aborted) throw Object.assign(new Error('timeout'), { code: o.signal && o.signal.aborted ? 'aborted' : 'timeout', name: o.signal && o.signal.aborted ? 'AbortError' : 'Error' });
+        if (ctl.signal.aborted) throw Object.assign(new Error('timeout'), { code: o.signal && o.signal.aborted
+          ? 'aborted' : 'timeout', name: o.signal && o.signal.aborted ? 'AbortError' : 'Error' });
         throw Object.assign(new Error(String(e.message || e)), { code: 'network' });
       }
       if (res.status >= 300 && res.status < 400 && res.headers.get('location')) {

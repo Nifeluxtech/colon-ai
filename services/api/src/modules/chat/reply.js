@@ -36,7 +36,8 @@ function openStream(res) {
  *   counters: daily-limit counters to charge ([{ subject, limit }], see ai/limits.js countersFor)
  *   store.start()                 -> message object sent in "start" (status 'streaming')
  *   webSearch, searchText, searchPrevious   Research mode: search the web for searchText first (see src/search)
- *   store.finish(result)          -> final message sent in "done" ({ content, status, error, providerId, providerModel, sources, web })
+ * store.finish(result) -> final message sent in "done" ({ content, status, error, providerId, providerModel, sources,
+ * web })
  *   store.isStopped()             -> optional: true when another request asked to stop this reply
  */
 async function respond(o) {
@@ -63,8 +64,10 @@ async function respond(o) {
     // Live routing from the Admin Dashboard (cached ~30 s); routing.js defaults when the database has none.
     const cfg = o.routing || await dynamic.load(o.db);
     const route = cfg.africanLanguages.includes(o.language) ? 'african' : (o.mode || 'general');
-    const logCalls = (attempts, code) => { if (!o.routing) calls.record({ mode: o.mode, route, guest: !req.user, attempts: attempts || [], code }, o.db); };
-    if (!ai.isConfigured(cfg)) { logCalls([], 'no_provider'); throw Object.assign(new Error('Colon Saga isn’t connected to an AI provider yet.'), { code: 'no_provider' }); }
+    const logCalls = (attempts, code) => { if (!o.routing) calls.record({ mode: o.mode, route, guest: !req.user,
+      attempts: attempts || [], code }, o.db); };
+    if (!ai.isConfigured(cfg)) { logCalls([], 'no_provider'); throw Object.assign(new Error(
+      'Colon Saga isn’t connected to an AI provider yet.'), { code: 'no_provider' }); }
     await limits.consumeAll(o.counters, o.db);
     // Research mode: search and read pages first. Never fatal: on failure the answer streams with a notice.
     if (o.webSearch) {
@@ -74,31 +77,38 @@ async function respond(o) {
     let result;
     try {
       result = await ai.generate({
-        mode: o.mode, language: o.language, model: o.model, name: o.name, messages: o.history, signal: ctl.signal, routing: cfg, fetch: o.fetch,
-        web: Boolean(web && web.ok), context: web ? webSearch.contextBlock({ sources: web.sources, failed: !web.ok, now: o.now }) : '',
+        mode: o.mode, language: o.language, model: o.model, name: o.name, messages: o.history, signal: ctl.signal,
+          routing: cfg, fetch: o.fetch,
+        web: Boolean(web && web.ok), context: web ? webSearch.contextBlock({ sources: web.sources, failed: !web.ok,
+          now: o.now }) : '',
         timeouts: cfg.hedge ? { ...(o.timeouts || {}), hedge: cfg.hedge } : o.timeouts,
         onDelta: (piece) => { text += piece; sse.send('delta', { text: piece }); },
       });
       logCalls(result.attempts);
     } catch (e) {
       if (e.name !== 'AbortError') logCalls(e.attempts, e.code || 'error');
-      if (e.code === 'no_provider' || e.code === 'no_vision' || (e.code === 'provider_down' && !e.partial)) await limits.refundAll(o.counters, o.db);
+      if (e.code === 'no_provider' || e.code === 'no_vision' || (e.code === 'provider_down'
+        && !e.partial)) await limits.refundAll(o.counters, o.db);
       throw e;
     }
     finished = true;
-    const final = await store.finish({ content: prefix + result.text, status: 'complete', providerId: result.providerId, providerModel: result.model, ...saved() });
+    const final = await store.finish({ content: prefix + result.text, status: 'complete',
+      providerId: result.providerId, providerModel: result.model, ...saved() });
     sse.send('done', { message: final });
   } catch (e) {
     finished = true;
     if (e.name === 'AbortError') {
-      const final = message ? await store.finish({ content: e.partialText != null ? prefix + e.partialText : text, status: 'stopped', providerId: e.providerId, providerModel: e.model, ...saved() }).catch(() => null) : null;
+      const final = message ? await store.finish({ content: e.partialText != null ? prefix + e.partialText : text,
+        status: 'stopped', providerId: e.providerId, providerModel: e.model, ...saved() }).catch(() => null) : null;
       if (final) sse.send('done', { message: final });
     } else {
       const known = ['no_provider', 'quota', 'provider_down', 'no_vision'];
       const code = known.includes(e.code) ? e.code : 'provider_down';
       const msg = known.includes(e.code) ? e.message : 'Something went wrong while answering. Please try again.';
       if (!known.includes(e.code)) log.error('chat_reply_failed', { err: e.message, code: e.code });
-      if (message) await store.finish({ content: e.partialText != null ? prefix + e.partialText : text, status: 'error', error: { code, message: msg }, providerId: e.providerId, providerModel: e.model, ...saved() }).catch((err) => log.error('chat_finish_failed', { err: err.message }));
+      if (message) await store.finish({ content: e.partialText != null ? prefix + e.partialText : text,
+        status: 'error', error: { code, message: msg }, providerId: e.providerId, providerModel: e.model,
+        ...saved() }).catch((err) => log.error('chat_finish_failed', { err: err.message }));
       sse.send('error', { code, message: msg });
     }
   } finally {
@@ -108,7 +118,8 @@ async function respond(o) {
   }
 }
 
-const UNAVAILABLE = '_Web search wasn’t available just now, so this answer comes from Colon’s own knowledge and may be out of date._\n\n';
+const UNAVAILABLE =
+  '_Web search wasn’t available just now, so this answer comes from Colon’s own knowledge and may be out of date._\n\n';
 const webMeta = (w) => ({ ok: Boolean(w.ok), provider: w.provider || null, ms: w.ms || 0, read: w.read || 0 });
 
 // Runs the web search for Research mode and tells the app what is happening.
@@ -124,8 +135,10 @@ async function searchFirst(o, sse, signal, routing) {
       onStatus: (s) => sse.send('status', s),
     });
   } catch (e) {
-    if (e.name === 'AbortError' || (signal && signal.aborted)) { const a = new Error('aborted'); a.name = 'AbortError'; a.partialText = ''; throw a; }
-    log.warn('search_failed', { provider: 'all', ms: Date.now() - started, code: e.code || 'error', err: String(e.message || '').slice(0, 160) });
+    if (e.name === 'AbortError' || (signal && signal.aborted)) { const a = new Error('aborted'); a.name = 'AbortError';
+      a.partialText = ''; throw a; }
+    log.warn('search_failed', { provider: 'all', ms: Date.now() - started, code: e.code || 'error',
+      err: String(e.message || '').slice(0, 160) });
     r = { ok: false, ms: Date.now() - started };
   }
   if (!r || r.skipped || r.reason === 'no_query') return null;

@@ -15,7 +15,8 @@ r.get('/conversations/export', requireUser, perUser('chat-export', 10, 3600), h.
 r.get('/conversations/:id', requireUser, h.getConversationsById);
 r.patch('/conversations/:id', requireUser, h.patchConversationsById);
 r.delete('/conversations/:id', requireUser, h.deleteConversationsById);
-r.post('/conversations/:id/share', requireUser, settings.feature('sharing'), perUser('chat-share', 30, 3600), h.postConversationsByIdShare);
+r.post('/conversations/:id/share', requireUser, settings.feature('sharing'), perUser('chat-share', 30, 3600),
+  h.postConversationsByIdShare);
 r.delete('/conversations/:id/share', requireUser, h.deleteConversationsByIdShare);
 r.get('/shared/:token', limit('shared-view', 120, 600), h.getSharedByToken);
 r.post('/shared/:token/report', limit('shared-report', 10, 3600), h.postSharedByTokenReport);

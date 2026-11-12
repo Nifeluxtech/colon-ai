@@ -6,7 +6,8 @@ const log = require('../../shared/logger');
 // In-memory "rest" per worker: a target that just failed is tried last for a while, so one dead free
 // model doesn't add seconds to every reply. It is still tried as a last resort.
 const resting = new Map();
-const REST_MS = { rate_limited: 60e3, model_not_found: 10 * 60e3, auth: 10 * 60e3, payment_required: 10 * 60e3, timeout: 30e3, upstream_error: 30e3 };
+const REST_MS = { rate_limited: 60e3, model_not_found: 10 * 60e3, auth: 10 * 60e3, payment_required: 10 * 60e3,
+  timeout: 30e3, upstream_error: 30e3 };
 const keyOf = (c) => `${c.providerId}|${c.model}`;
 
 // Puts targets from different providers into the same wave, so one busy host doesn't sink a whole wave.
@@ -43,9 +44,11 @@ function race(queue, hedge, { o, messages, timeouts, attempts }) {
       fn(v);
     };
     const fill = () => {
-      while (!settled && winner === null && running < hedge && queue.length && !(o.signal && o.signal.aborted)) start(queue.shift());
+      while (!settled && winner === null && running < hedge && queue.length && !(o.signal && o.signal.aborted)) start(
+        queue.shift());
       if (!settled && winner === null && running === 0) {
-        if (o.signal && o.signal.aborted) { const a = new Error('aborted'); a.name = 'AbortError'; a.partialText = ''; a.attempts = attempts; finish(reject, a); }
+        if (o.signal && o.signal.aborted) { const a = new Error('aborted'); a.name = 'AbortError'; a.partialText = '';
+          a.attempts = attempts; finish(reject, a); }
         else finish(resolve, null);
       }
     };
@@ -64,15 +67,18 @@ function race(queue, hedge, { o, messages, timeouts, attempts }) {
       streamChat({
         provider: c.provider, model: c.model, body: c.body, messages, signal: ctl.signal, fetch: o.fetch,
         maxTokens: timeouts.maxTokens, temperature: o.temperature,
-        firstTokenTimeoutMs: timeouts.firstTokenTimeoutMs, idleTimeoutMs: timeouts.idleTimeoutMs, maxMs: timeouts.maxReplyMs,
+        firstTokenTimeoutMs: timeouts.firstTokenTimeoutMs, idleTimeoutMs: timeouts.idleTimeoutMs,
+          maxMs: timeouts.maxReplyMs,
         onDelta: (piece) => { if (!claim()) return; text += piece; if (o.onDelta) o.onDelta(piece); },
       }).then(() => {
         live.delete(ctl); running--;
         if (!claim()) return;
         attempts.push({ provider: c.providerId, model: c.model, ok: true, ms: Date.now() - started });
         resting.delete(keyOf(c));
-        log.warn('ai_reply_ok', { provider: c.providerId, model: c.model, ms: Date.now() - started, tried: attempts.length });
-        finish(resolve, { text, providerId: c.providerId, providerName: c.providerName, model: c.model, target: c.target, attempts });
+        log.warn('ai_reply_ok', { provider: c.providerId, model: c.model, ms: Date.now() - started,
+          tried: attempts.length });
+        finish(resolve, { text, providerId: c.providerId, providerName: c.providerName, model: c.model,
+          target: c.target, attempts });
       }, (e) => {
         live.delete(ctl); running--;
         if (winner !== null && winner !== ctl) return;            // a slower model we cancelled
@@ -85,10 +91,13 @@ function race(queue, hedge, { o, messages, timeouts, attempts }) {
         }
         const ms = Date.now() - started;
         attempts.push({ provider: c.providerId, model: c.model, ok: false, code: e.code, status: e.status, ms });
-        log.warn('ai_provider_failed', { provider: c.providerId, model: c.model, code: e.code, status: e.status, ms, partial: Boolean(e.partial), err: String(e.message).slice(0, 200) });
+        log.warn('ai_provider_failed', { provider: c.providerId, model: c.model, code: e.code, status: e.status, ms,
+          partial: Boolean(e.partial), err: String(e.message).slice(0, 200) });
         if (winner === ctl) {
           // Text already reached the user: no silent switch to another model mid-answer.
-          return finish(reject, Object.assign(new ProviderError('The connection to the AI provider dropped before the reply finished.', { code: 'provider_down', partial: true }),
+          return finish(reject, Object.assign(new ProviderError(
+            'The connection to the AI provider dropped before the reply finished.', { code: 'provider_down',
+            partial: true }),
             { status: 502, partialText: text, attempts, providerId: c.providerId, model: c.model }));
         }
         const transient = e.code === 'upstream_error' && (e.status >= 500 || !e.status) && ms < 5000;

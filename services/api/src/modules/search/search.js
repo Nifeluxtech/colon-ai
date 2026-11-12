@@ -3,7 +3,7 @@
 // docs/phase-5-research.md.
 //
 //   search(query, { limit, lang, signal })  -> [{ title, url, snippet }]   (the configured chain, first that answers)
-//   research({ text, previous, language, signal, onStatus, routing, db }) -> { ok, sources, provider, queries, ms, read }
+// research({ text, previous, language, signal, onStatus, routing, db }) -> { ok, sources, provider, queries, ms, read }
 const { PROVIDERS } = require('./providers');
 const { readMany } = require('./reader');
 const { buildQueries, contextBlock, siteOf, todayLagos } = require('./prompt');
@@ -14,7 +14,8 @@ const log = require('../../shared/logger');
 const resting = new Map();
 const REST_MS = { blocked: 10 * 60e3, auth: 10 * 60e3, default: 60e3 };
 
-const normUrl = (u) => { try { const x = new URL(u); x.hash = ''; return x.toString().replace(/\/$/, '').replace(/^http:/, 'https:').replace('://www.', '://'); } catch { return ''; } };
+const normUrl = (u) => { try { const x = new URL(u); x.hash = ''; return x.toString().replace(/\/$/,
+  '').replace(/^http:/, 'https:').replace('://www.', '://'); } catch { return ''; } };
 
 function dedupe(list) {
   const seen = new Set();
@@ -24,7 +25,8 @@ function dedupe(list) {
     const k = normUrl(r.url);
     if (!k || seen.has(k)) continue;
     seen.add(k);
-    out.push({ title: String(r.title || '').trim().slice(0, 200) || siteOf(r.url), url: String(r.url).slice(0, 2000), snippet: String(r.snippet || '').trim().slice(0, 600) });
+    out.push({ title: String(r.title || '').trim().slice(0, 200) || siteOf(r.url), url: String(r.url).slice(0, 2000),
+      snippet: String(r.snippet || '').trim().slice(0, 600) });
   }
   return out;
 }
@@ -49,7 +51,8 @@ async function runChain(queries, o) {
     let results = [];
     try {
       for (const q of queries) {
-        const got = await impl.search(q, { limit, lang: o.lang, localQuery: o.localQuery, signal: o.signal, fetch: o.fetch, lookup: o.lookup, key: p.key, baseUrl: p.baseUrl });
+        const got = await impl.search(q, { limit, lang: o.lang, localQuery: o.localQuery, signal: o.signal,
+          fetch: o.fetch, lookup: o.lookup, key: p.key, baseUrl: p.baseUrl });
         results = dedupe(results.concat(got));
         if (results.length >= Math.min(limit, 4)) break;
       }
@@ -97,7 +100,13 @@ async function modelQueries(text, { routing, signal, fetch, now = new Date(), ti
       provider: c.provider, model: c.model, body: c.body, signal: ctl.signal, fetch, maxTokens: 120, temperature: 0.1,
       firstTokenTimeoutMs: timeoutMs, idleTimeoutMs: timeoutMs, maxMs: timeoutMs,
       messages: [
-        { role: 'system', content: `You turn a question (often in Nigerian Pidgin, Yorùbá, Hausa or Igbo) into English web search queries. Today is ${todayLagos(now)}. The user is most likely in Nigeria.\nReply in exactly this format and nothing else:\nEN: <a faithful, word-for-word-accurate English translation of the question>\nQ: <a short English search query, at most 8 words>\nQ: <an optional second query for another part of the question>\nKeep names, places and numbers. Add the year only when the question asks for current or recent information.` },
+        { role: 'system',
+          content: (`You turn a question (often in Nigerian Pidgin, Yorùbá, Hausa or Igbo) into English web search `
+          + `queries. Today is ${todayLagos(now)}. The user is most likely in Nigeria.\nReply in exactly this format `
+          + `and nothing else:\nEN: <a faithful, word-for-word-accurate English translation of the question>\nQ: <a `
+          + `short English search query, at most 8 words>\nQ: <an optional second query for another part of the `
+          + `question>\nKeep names, places and numbers. Add the year only when the question asks for current or `
+          + `recent information.`) },
         { role: 'user', content: String(text).slice(0, 1500) },
       ],
       onDelta: (p) => { out += p; },
@@ -106,17 +115,20 @@ async function modelQueries(text, { routing, signal, fetch, now = new Date(), ti
     clearTimeout(timer);
     if (signal) signal.removeEventListener('abort', onOuter);
   }
-  const tidy = (l) => l.replace(/^\s*(?:[-*•]|\d+[.)])\s*/, '').replace(/^(?:EN|Q)\s*:\s*/i, '').replace(/^["'“]|["'”]$/g, '').trim();
+  const tidy = (l) => l.replace(/^\s*(?:[-*•]|\d+[.)])\s*/, '').replace(/^(?:EN|Q)\s*:\s*/i,
+    '').replace(/^["'“]|["'”]$/g, '').trim();
   const lines = out.split('\n').map(l => l.trim()).filter(Boolean);
   const qs = lines.filter(l => /^Q\s*:/i.test(l)).map(tidy).filter(l => l.length >= 3 && l.length <= 120);
   const en = lines.filter(l => /^EN\s*:/i.test(l)).map(tidy)[0];
   // The queries first; the faithful translation backs them up when the queries drift from the question.
   const list = (qs.length ? qs.slice(0, 2) : lines.map(tidy).filter(l => l.length >= 3 && l.length <= 120).slice(0, 2));
-  if (en && en.length <= 200 && !list.some(q => q.toLowerCase() === en.toLowerCase())) list.splice(1, 0, en.replace(/[?!.]+$/, ''));
+  if (en && en.length <= 200 && !list.some(q => q.toLowerCase() === en.toLowerCase())) list.splice(1, 0,
+    en.replace(/[?!.]+$/, ''));
   return list.length ? list.slice(0, 3) : null;
 }
 
-const NON_ENGLISH = (lang, text) => (lang && lang !== 'en') || /[ẹọṣɓɗƙƴịụṅ]|[àáèéìíòóùú].*[àáèéìíòóùú]/i.test(String(text || ''));
+const NON_ENGLISH = (lang, text) => (lang && lang !== 'en') || /[ẹọṣɓɗƙƴịụṅ]|[àáèéìíòóùú].*[àáèéìíòóùú]/i.test(String(
+  text || ''));
 
 /**
  * research({ text, previous, language, signal, onStatus, routing, db, fetch, lookup, now, cfg })
@@ -133,30 +145,38 @@ async function research(o) {
   const localQuery = queries[0];
   let via = 'heuristic';
   if (queries.length && NON_ENGLISH(o.language, o.text)) {
-    const mq = await modelQueries(o.text, { routing: o.routing, signal: o.signal, fetch: o.modelFetch || o.fetch, now: o.now });
+    const mq = await modelQueries(o.text, { routing: o.routing, signal: o.signal, fetch: o.modelFetch || o.fetch,
+      now: o.now });
     if (mq) { queries = mq; via = 'model'; }
   }
   if (!queries.length) return { ok: false, sources: [], queries, ms: Date.now() - started, reason: 'no_query' };
-  const chain = await runChain(queries, { cfg, limit: cfg.results, lang: o.language, localQuery, signal: o.signal, fetch: o.fetch, lookup: o.lookup, providers: o.providers });
+  const chain = await runChain(queries, { cfg, limit: cfg.results, lang: o.language, localQuery, signal: o.signal,
+    fetch: o.fetch, lookup: o.lookup, providers: o.providers });
   if (!chain.results.length) {
-    log.warn('search_failed', { provider: 'all', ms: Date.now() - started, count: 0, tried: chain.tried.map(t => `${t.provider}:${t.code || 'ok'}`).join(',') });
+    log.warn('search_failed', { provider: 'all', ms: Date.now() - started, count: 0, tried: chain.tried.map(
+      t => `${t.provider}:${t.code || 'ok'}`).join(',') });
     return { ok: false, sources: [], queries, ms: Date.now() - started, tried: chain.tried, reason: 'no_results' };
   }
   const toRead = Math.min(cfg.pages, chain.results.length);
   if (toRead) status({ stage: 'reading', count: toRead });
   const query = queries.join(' ');
-  const pages = toRead ? await readMany(chain.results, { count: toRead, query, signal: o.signal, fetch: o.fetch, lookup: o.lookup, budgetMs: o.readBudgetMs || 12000, timeoutMs: o.pageTimeoutMs || 6000 }) : new Map();
+  const pages = toRead ? await readMany(chain.results, { count: toRead, query, signal: o.signal, fetch: o.fetch,
+    lookup: o.lookup, budgetMs: o.readBudgetMs || 12000, timeoutMs: o.pageTimeoutMs || 6000 }) : new Map();
   if (o.signal && o.signal.aborted) { const a = new Error('aborted'); a.name = 'AbortError'; throw a; }
   const sources = chain.results.map((r, i) => {
     const page = pages.get(r.url);
-    return { n: i + 1, title: (page && page.title) || r.title, url: r.url, site: siteOf(r.url), snippet: r.snippet.slice(0, 300), text: page ? page.text : undefined };
+    return { n: i + 1, title: (page && page.title) || r.title, url: r.url, site: siteOf(r.url),
+      snippet: r.snippet.slice(0, 300), text: page ? page.text : undefined };
   });
   const ms = Date.now() - started;
-  log.warn('search_ok', { provider: chain.provider, ms, count: sources.length, read: pages.size, queries: queries.length, via });
+  log.warn('search_ok', { provider: chain.provider, ms, count: sources.length, read: pages.size,
+    queries: queries.length, via });
   return { ok: true, sources, provider: chain.provider, queries, ms, read: pages.size, tried: chain.tried, via };
 }
 
 // What the app and the database get: no page text, just enough to show and link each source.
-const publicSources = (sources) => (sources || []).map(s => ({ n: s.n, title: s.title, url: s.url, site: s.site, snippet: s.snippet || '' }));
+const publicSources = (sources) => (sources || []).map(s => ({ n: s.n, title: s.title, url: s.url, site: s.site,
+  snippet: s.snippet || '' }));
 
-module.exports = { search, research, runChain, modelQueries, contextBlock, publicSources, dedupe, config: searchConfig, PROVIDERS, _resting: resting };
+module.exports = { search, research, runChain, modelQueries, contextBlock, publicSources, dedupe, config: searchConfig,
+  PROVIDERS, _resting: resting };

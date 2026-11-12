@@ -26,8 +26,10 @@ const CANDIDATES = [
 // Default answer-format instruction per grader type (an item or set "instruction" overrides it).
 const FORMAT = {
   mc: 'Reply with the letter of the correct option only.',
-  number: 'Work it out briefly, then end with a final line in the form "Answer: <number>" (the number only, no units or currency sign).',
-  code: 'Reply with only the complete JavaScript code in one ```javascript block (no require/import, no example calls).',
+  number: ('Work it out briefly, then end with a final line in the form "Answer: <number>" (the number only, no '
+    + 'units or currency sign).'),
+  code: ('Reply with only the complete JavaScript code in one ```javascript block (no require/import, no example '
+    + 'calls).'),
 };
 
 const keyOf = (c) => `${c.provider}:${c.model}`;
@@ -40,7 +42,8 @@ function parseCandidate(s) {
   return CANDIDATES.find(c => c.provider === provider && c.model === model) || { provider, model };
 }
 
-/** loadSets(dir, only?) -> [{ set, title, mode, language, judge, items:[{ id, set, prompt, grade, mode, language }] }] */
+/** loadSets(dir, only?) -> [{ set, title, mode, language, judge, items:[{ id, set, prompt, grade, mode, language }] }]
+   */
 function loadSets(dir = SETS_DIR, only = null) {
   const files = fs.readdirSync(dir).filter(f => f.endsWith('.json')).sort();
   const ids = new Set();
@@ -53,10 +56,13 @@ function loadSets(dir = SETS_DIR, only = null) {
       if (!it.id || !it.prompt || !it.grade) throw new Error(`${f}: every item needs id, prompt and grade`);
       if (ids.has(it.id)) throw new Error(`${f}: duplicate id ${it.id}`);
       ids.add(it.id);
-      const instr = it.instruction !== undefined ? it.instruction : s.instruction !== undefined ? s.instruction : FORMAT[it.grade.type] || '';
-      return { id: it.id, set: s.set, prompt: instr ? `${it.prompt}\n\n${instr}` : it.prompt, grade: it.grade, mode: it.mode || s.mode || 'general', language: it.language || s.language || 'en', judge: s.judge || null };
+      const instr = it.instruction !== undefined ? it.instruction : s.instruction !== undefined
+        ? s.instruction : FORMAT[it.grade.type] || '';
+      return { id: it.id, set: s.set, prompt: instr ? `${it.prompt}\n\n${instr}` : it.prompt, grade: it.grade,
+        mode: it.mode || s.mode || 'general', language: it.language || s.language || 'en', judge: s.judge || null };
     });
-    out.push({ set: s.set, title: s.title || s.set, mode: s.mode || 'general', language: s.language || 'en', judge: s.judge || null, items });
+    out.push({ set: s.set, title: s.title || s.set, mode: s.mode || 'general', language: s.language || 'en',
+      judge: s.judge || null, items });
   }
   return out;
 }
@@ -86,7 +92,8 @@ const RETRY = new Set(['rate_limited', 'upstream_error', 'network', 'timeout', '
  */
 async function runItem(c, item, opts = {}) {
   const provider = providerConfig(c.provider, opts.providers);
-  const messages = [{ role: 'system', content: systemPrompt({ mode: item.mode, language: item.language }) }, { role: 'user', content: item.prompt }];
+  const messages = [{ role: 'system', content: systemPrompt({ mode: item.mode, language: item.language }) },
+    { role: 'user', content: item.prompt }];
   const retries = opts.retries !== undefined ? opts.retries : 2;
   const backoff = opts.backoffMs || [10000, 30000];
   // A 429 is the free tier asking us to slow down, not a wrong answer: wait longer and try more often.
@@ -100,17 +107,21 @@ async function runItem(c, item, opts = {}) {
       const r = await streamChat({
         provider, model: c.model, body: c.body || null, messages, fetch: opts.fetch,
         maxTokens: opts.maxTokens || 2048, temperature: opts.temperature,
-        firstTokenTimeoutMs: opts.firstTokenTimeoutMs || 60000, idleTimeoutMs: opts.idleTimeoutMs || 60000, maxMs: opts.maxMs || 240000,
+        firstTokenTimeoutMs: opts.firstTokenTimeoutMs || 60000, idleTimeoutMs: opts.idleTimeoutMs || 60000,
+          maxMs: opts.maxMs || 240000,
         onDelta: () => { if (first === null) first = Date.now() - t0; },
       });
       const g = grade(r.text, item.grade);
       return {
-        set: item.set, id: item.id, pass: g.pass, score: Math.round(g.score * 1000) / 1000, ...(g.lang !== undefined ? { lang: Math.round(g.lang * 1000) / 1000 } : {}),
-        detail: g.detail, first_token_ms: first, total_ms: Date.now() - t0, attempts: attempt + 1, finish: r.finishReason || null,
+        set: item.set, id: item.id, pass: g.pass, score: Math.round(g.score * 1000) / 1000, ...(g.lang !== undefined
+          ? { lang: Math.round(g.lang * 1000) / 1000 } : {}),
+        detail: g.detail, first_token_ms: first, total_ms: Date.now() - t0, attempts: attempt + 1,
+          finish: r.finishReason || null,
         tokens: (r.usage && (r.usage.total_tokens || 0)) || 0, cost_usd: 0, reply: String(r.text).slice(0, 8000),
       };
     } catch (e) {
-      last = { code: e.code || 'error', status: e.status || 0, message: String(e.message || e).slice(0, 200), ms: Date.now() - t0 };
+      last = { code: e.code || 'error', status: e.status || 0, message: String(e.message || e).slice(0, 200),
+        ms: Date.now() - t0 };
       if (last.code === 'rate_limited' && limited < rateRetries) {
         await sleep(rateBackoff[Math.min(limited, rateBackoff.length - 1)]);
         limited++; attempt--;            // does not use up one of the normal retries
@@ -120,7 +131,8 @@ async function runItem(c, item, opts = {}) {
       await sleep(backoff[Math.min(attempt, backoff.length - 1)]);
     }
   }
-  return { set: item.set, id: item.id, pass: false, score: 0, detail: 'error', first_token_ms: null, total_ms: last.ms, attempts: retries + 1 + limited, error: `${last.code}${last.status ? ` ${last.status}` : ''}: ${last.message}` };
+  return { set: item.set, id: item.id, pass: false, score: 0, detail: 'error', first_token_ms: null, total_ms: last.ms,
+    attempts: retries + 1 + limited, error: `${last.code}${last.status ? ` ${last.status}` : ''}: ${last.message}` };
 }
 
 /**
@@ -167,7 +179,8 @@ function regrade(row, item) {
 function judgePrompt(languageName, item, reply) {
   return [
     `You are a strict native-speaker examiner for ${languageName}. Rate the ANSWER below from 1 to 5:`,
-    '5 = fluent, natural and correct, fully answers the request; 4 = good with small slips; 3 = understandable but clearly flawed or partly English;',
+    ('5 = fluent, natural and correct, fully answers the request; 4 = good with small slips; 3 = understandable but '
+      + 'clearly flawed or partly English;'),
     '2 = mostly wrong language or broken; 1 = not in the language or does not answer.',
     `REQUEST: ${item.prompt}`, `ANSWER: ${String(reply || '').slice(0, 1500)}`,
     'Reply with the single digit only.',
@@ -175,10 +188,12 @@ function judgePrompt(languageName, item, reply) {
 }
 async function judgeItem(judge, item, row, opts = {}) {
   if (row.error || !item.judge) return null;
-  const r = await runItem(judge, { ...item, prompt: judgePrompt(item.judge, item, row.reply), language: 'en', mode: 'general', grade: { type: 'regex', pattern: '[1-5]' } }, { ...opts, retries: 1 });
+  const r = await runItem(judge, { ...item, prompt: judgePrompt(item.judge, item, row.reply), language: 'en',
+    mode: 'general', grade: { type: 'regex', pattern: '[1-5]' } }, { ...opts, retries: 1 });
   if (r.error) return null;
   const m = /[1-5]/.exec(r.reply || '');
   return m ? (Number(m[0]) - 1) / 4 : null;
 }
 
-module.exports = { loadSets, runItem, regrade, runModel, judgeItem, sandboxFetch, parseCandidate, keyOf, slug, CANDIDATES, SUITE_VERSION, SETS_DIR, FORMAT };
+module.exports = { loadSets, runItem, regrade, runModel, judgeItem, sandboxFetch, parseCandidate, keyOf, slug,
+  CANDIDATES, SUITE_VERSION, SETS_DIR, FORMAT };

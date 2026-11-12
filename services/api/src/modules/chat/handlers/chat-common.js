@@ -14,7 +14,8 @@ const previousUserText = (history) => {
 
 /* ---------- Chat settings & stats ---------- */
 const DEFAULT_SETTINGS = {
-  enterToSend: true, defaultMode: 'general', defaultModel: null, showMeta: true, linksInPanel: true, browserLayout: 'split',
+  enterToSend: true, defaultMode: 'general', defaultModel: null, showMeta: true, linksInPanel: true,
+    browserLayout: 'split',
   streaming: true, textSize: 'md', saveHistory: true, shareFeedback: true,
   voice: { lang: 'en-NG', method: 'auto', autoSend: false, readAloudRate: 1 },
 };

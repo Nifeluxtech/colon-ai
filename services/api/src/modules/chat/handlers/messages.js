@@ -22,14 +22,17 @@ function persistedStore(conv, { version = 1 } = {}) {
     },
     async finish({ content, status, error, providerId, providerModel, sources, web }) {
       await db.query(
-        'UPDATE chat_messages SET content = ?, status = ?, error = ?, provider = ?, provider_model = ?, completed_at = UTC_TIMESTAMP(3) WHERE id = ?',
+        ('UPDATE chat_messages SET content = ?, status = ?, error = ?, provider = ?, provider_model = ?, '
+          + 'completed_at = UTC_TIMESTAMP(3) WHERE id = ?'),
         [content || '', status, error ? JSON.stringify(error) : null, providerId || null, providerModel || null, id]
       );
       // Research mode: the cited sources and how the search went (migration 0006). Separate, so a database
       // that hasn't run 0006 yet still saves the answer itself.
       if (web) {
-        await db.query('UPDATE chat_messages SET sources = ?, web_search = ? WHERE id = ?', [JSON.stringify(sources || []), JSON.stringify(web), id])
-          .catch(() => db.query('UPDATE chat_messages SET sources = ? WHERE id = ?', [JSON.stringify(sources || []), id]).catch(() => {}));
+        await db.query('UPDATE chat_messages SET sources = ?, web_search = ? WHERE id = ?', [JSON.stringify(sources
+          || []), JSON.stringify(web), id])
+          .catch(() => db.query('UPDATE chat_messages SET sources = ? WHERE id = ?', [JSON.stringify(sources || []),
+            id]).catch(() => {}));
       }
       if (content) await store.touch(conv, { preview: content });
       return store.getMessage(conv.id, id);
@@ -45,7 +48,8 @@ function persistedStore(conv, { version = 1 } = {}) {
 async function historyFor(req, conv, uptoMessageId) {
   const all = await store.messages(conv.id);
   const end = all.findIndex(m => m.id === uptoMessageId);
-  const turns = all.slice(0, end + 1).filter(m => m.role === 'user' || (m.role === 'assistant' && (m.status === 'complete' || m.status === 'stopped') && m.content));
+  const turns = all.slice(0, end + 1).filter(m => m.role === 'user' || (m.role === 'assistant'
+    && (m.status === 'complete' || m.status === 'stopped') && m.content));
   const latest = turns.length - 1;
   const fileLists = await files.forModel(req.user.id, turns.map(m => m.attachments || []), latest);
   return turns.map((m, i) => ({ role: m.role, content: m.content, files: fileLists[i] }));
@@ -59,7 +63,8 @@ async function seqOf(id) {
 async function streamFor(req, res, conv, userMsg, { version = 1, onOpen } = {}) {
   const counters = await limits.resolveCounters(req, conv.mode);
   return historyFor(req, conv, userMsg.id).then(history => respond({
-    req, res, mode: conv.mode, model: conv.model, language: replyLanguage(req.user.language, userMsg.content), name: req.user.name,
+    req, res, mode: conv.mode, model: conv.model, language: replyLanguage(req.user.language, userMsg.content),
+      name: req.user.name,
     history: buildMessages(history), counters, store: persistedStore(conv, { version }), onOpen,
     webSearch: wantsWeb(conv.mode), searchText: userMsg.content, searchPrevious: previousUserText(history),
   }));
@@ -81,12 +86,14 @@ const postConversationsByIdMessages = async (req, res) => {
   const ids = Array.isArray(req.body.attachment_ids) ? req.body.attachment_ids : [];
   if (!content && !ids.length) v.fail('content', 'Type a message first.');
   const atts = await store.claimAttachments(req.user.id, ids, conv, null);
-  const userMsg = await store.insertMessage(conv, { role: 'user', content, attachments: atts.map(store.attachmentOut) });
+  const userMsg = await store.insertMessage(conv, { role: 'user', content, attachments: atts.map(
+    store.attachmentOut) });
   if (atts.length) await store.claimAttachments(req.user.id, ids, conv, userMsg.id);
   const title = conv.title === 'New chat' ? store.titleFrom(content || (atts[0] && atts[0].name)) : null;
   await store.touch(conv, { title, preview: content || (atts[0] && atts[0].name) });
   const fresh = await store.getConv(req.user.id, conv.id);
-  await streamFor(req, res, fresh, userMsg, { onOpen: (sse) => sse.send('user', { message: userMsg, conversation: store.convOut(fresh) }) });
+  await streamFor(req, res, fresh, userMsg, { onOpen: (sse) => sse.send('user', { message: userMsg,
+    conversation: store.convOut(fresh) }) });
 };
 
 // POST /conversations/:id/messages/:mid/regenerate
@@ -114,7 +121,8 @@ const postConversationsByIdMessagesByMidEdit = async (req, res) => {
   await db.query('DELETE FROM chat_messages WHERE conversation_id = ? AND seq > ?', [conv.id, await seqOf(msg.id)]);
   await store.touch(conv, { preview: content });
   const userMsg = await store.getMessage(conv.id, msg.id);
-  await streamFor(req, res, conv, userMsg, { onOpen: (sse) => sse.send('user', { message: userMsg, conversation: store.convOut(conv) }) });
+  await streamFor(req, res, conv, userMsg, { onOpen: (sse) => sse.send('user', { message: userMsg,
+    conversation: store.convOut(conv) }) });
 };
 
 // POST /conversations/:id/messages/:mid/stop
@@ -123,7 +131,9 @@ const postConversationsByIdMessagesByMidStop = async (req) => {
   const mid = String(req.params.mid);
   if (!stopLocal(mid)) {
     // Another worker holds the stream: flag it; that worker checks every 2 seconds and stops.
-    await db.query("UPDATE chat_messages SET status = 'stopped' WHERE id = ? AND conversation_id = ? AND status = 'streaming'", [mid, conv.id]);
+    await db.query(
+      "UPDATE chat_messages SET status = 'stopped' WHERE id = ? AND conversation_id = ? AND status = 'streaming'",
+      [mid, conv.id]);
   }
   return [200, { ok: true }];
 };
@@ -135,11 +145,13 @@ const postConversationsByIdNotes = async (req) => {
   const content = String(req.body.content || '').slice(0, 60000).trim();
   if (!content) v.fail('content', 'The note is empty.');
   const sources = (Array.isArray(req.body.sources) ? req.body.sources : []).slice(0, 20).map((s, i) => ({
-    n: Number(s.n) || i + 1, title: String(s.title || '').slice(0, 200), url: /^https?:\/\//i.test(String(s.url || '')) ? String(s.url).slice(0, 2000) : '', snippet: String(s.snippet || '').slice(0, 500),
+    n: Number(s.n) || i + 1, title: String(s.title || '').slice(0, 200), url: /^https?:\/\//i.test(String(s.url || ''))
+      ? String(s.url).slice(0, 2000) : '', snippet: String(s.snippet || '').slice(0, 500),
   })).filter(s => s.url);
   const origin = req.body.origin === 'browse' ? 'browse' : 'note';
   const msg = await store.insertMessage(conv, { role: 'assistant', content, sources, status: 'complete', origin });
-  await store.touch(conv, { preview: content, title: conv.title === 'New chat' && req.body.title ? store.titleFrom(req.body.title) : null });
+  await store.touch(conv, { preview: content, title: conv.title === 'New chat' && req.body.title ? store.titleFrom(
+    req.body.title) : null });
   return [201, { message: msg }];
 };
 
@@ -147,7 +159,8 @@ const postConversationsByIdNotes = async (req) => {
 const postMessagesByIdFeedback = async (req) => {
   const m = await db.one(
     `SELECT m.id, m.conversation_id, m.mode, m.provider, m.provider_model, m.role FROM chat_messages m
-       JOIN chat_conversations c ON c.id = m.conversation_id WHERE m.id = ? AND c.user_id = ?`, [String(req.params.id), req.user.id]);
+       JOIN chat_conversations c ON c.id = m.conversation_id WHERE m.id = ? AND c.user_id = ?`,
+         [String(req.params.id), req.user.id]);
   if (!m || m.role !== 'assistant') throw store.notFound('This reply no longer exists.');
   const rating = req.body.rating;
   if (!rating) {
@@ -159,12 +172,17 @@ const postMessagesByIdFeedback = async (req) => {
   const comment = req.body.comment ? String(req.body.comment).slice(0, 1000) : null;
   const settings = await loadSettings(req.user.id);
   await db.query(
-    `INSERT INTO chat_feedback (message_id, user_id, conversation_id, rating, reason, comment, mode, provider, provider_model, shareable, created_at, updated_at)
+    `INSERT INTO chat_feedback (message_id, user_id, conversation_id, rating, reason, comment, mode, provider,
+      provider_model, shareable, created_at, updated_at)
      VALUES (?,?,?,?,?,?,?,?,?,?, UTC_TIMESTAMP(3), UTC_TIMESTAMP(3))
-     ON DUPLICATE KEY UPDATE rating = VALUES(rating), reason = VALUES(reason), comment = VALUES(comment), shareable = VALUES(shareable), updated_at = UTC_TIMESTAMP(3)`,
-    [m.id, req.user.id, m.conversation_id, rating, reason, comment, m.mode, m.provider, m.provider_model, settings.shareFeedback === false ? 0 : 1]
+     ON DUPLICATE KEY UPDATE rating = VALUES(rating), reason = VALUES(reason), comment = VALUES(comment),
+       shareable = VALUES(shareable), updated_at = UTC_TIMESTAMP(3)`,
+    [m.id, req.user.id, m.conversation_id, rating, reason, comment, m.mode, m.provider, m.provider_model,
+      settings.shareFeedback === false ? 0 : 1]
   );
   return [200, { ok: true, feedback: { rating, reason, comment } }];
 };
 
-module.exports = { postConversationsByIdMessages, postConversationsByIdMessagesByMidRegenerate, postConversationsByIdMessagesByMidEdit, postConversationsByIdMessagesByMidStop, postConversationsByIdNotes, postMessagesByIdFeedback };
+module.exports = { postConversationsByIdMessages, postConversationsByIdMessagesByMidRegenerate,
+  postConversationsByIdMessagesByMidEdit, postConversationsByIdMessagesByMidStop, postConversationsByIdNotes,
+  postMessagesByIdFeedback };

@@ -5,7 +5,8 @@ function readMultipartFile(req, { max = 21 * 1048576, field = 'file' } = {}) {
     const type = String(req.headers['content-type'] || '');
     const bm = type.match(/boundary=(?:"([^"]+)"|([^;]+))/i);
     if (!/^multipart\/form-data/i.test(type) || !bm) {
-      return reject(Object.assign(new Error('Send the file as multipart/form-data.'), { status: 400, code: 'bad_upload' }));
+      return reject(Object.assign(new Error('Send the file as multipart/form-data.'), { status: 400,
+        code: 'bad_upload' }));
     }
     const declared = Number(req.headers['content-length'] || 0);
     if (declared && declared > max + 64 * 1024) {

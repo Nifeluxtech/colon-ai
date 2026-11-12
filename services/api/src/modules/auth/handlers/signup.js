@@ -14,7 +14,8 @@ const postAuthRegister = async (req) => {
   const name = v.name(req.body.name);
   const language = v.language(req.body.language);
   if (req.body.accept_terms !== true) v.fail('accept_terms', 'Please accept the terms and privacy policy.');
-  if (await db.one('SELECT id FROM users WHERE email = ?', [email])) v.fail('email', 'An account with this email already exists. Try signing in.');
+  if (await db.one('SELECT id FROM users WHERE email = ?', [email])) v.fail('email',
+    'An account with this email already exists. Try signing in.');
   const result = await db.query(
     'INSERT INTO users (email, password_hash, name, language, role) VALUES (?,?,?,?,?)',
     [email, await hashPassword(password), name, language, roleFor(email)]

@@ -22,7 +22,8 @@ async function maintenance(req, path) {
   if (['GET', 'HEAD', 'OPTIONS'].includes(req.method) || !CHAT_WRITE.test(path)) return null;
   if (req.user && settings.STAFF.has(req.user.role)) return null;
   const sys = await settings.system();
-  return sys.maintenance.on ? { error: 'maintenance', message: sys.maintenance.message || settings.SYSTEM_DEFAULT.maintenance.message } : null;
+  return sys.maintenance.on ? { error: 'maintenance', message: sys.maintenance.message
+    || settings.SYSTEM_DEFAULT.maintenance.message } : null;
 }
 
 function cors(req, res) {

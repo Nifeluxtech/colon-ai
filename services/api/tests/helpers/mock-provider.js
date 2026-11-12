@@ -8,7 +8,8 @@ const http = require('http');
 function lastUserText(messages) {
   const m = [...(messages || [])].reverse().find(x => x.role === 'user');
   if (!m) return '';
-  return Array.isArray(m.content) ? m.content.filter(p => p.type === 'text').map(p => p.text).join(' ') : String(m.content);
+  return Array.isArray(m.content) ? m.content.filter(p => p.type === 'text').map(p => p.text).join(' ') : String(
+    m.content);
 }
 
 function create() {
@@ -21,10 +22,14 @@ function create() {
       try { j = JSON.parse(body || '{}'); } catch { /* ignore */ }
       calls.push({ url: req.url, auth: req.headers.authorization, body: j });
       const model = String(j.model || '');
-      if (req.url !== '/chat/completions' && !req.url.endsWith('/chat/completions')) { res.writeHead(404); return res.end('{}'); }
-      if (model.includes('429')) { res.writeHead(429, { 'Content-Type': 'application/json' }); return res.end('{"error":{"message":"rate limited"}}'); }
-      if (model.includes('500')) { res.writeHead(500, { 'Content-Type': 'application/json' }); return res.end('{"error":{"message":"boom"}}'); }
-      if (model.includes('404')) { res.writeHead(404, { 'Content-Type': 'application/json' }); return res.end('{"error":{"message":"No endpoints found"}}'); }
+      if (req.url !== '/chat/completions' && !req.url.endsWith('/chat/completions')) { res.writeHead(404);
+        return res.end('{}'); }
+      if (model.includes('429')) { res.writeHead(429, { 'Content-Type': 'application/json' });
+        return res.end('{"error":{"message":"rate limited"}}'); }
+      if (model.includes('500')) { res.writeHead(500, { 'Content-Type': 'application/json' });
+        return res.end('{"error":{"message":"boom"}}'); }
+      if (model.includes('404')) { res.writeHead(404, { 'Content-Type': 'application/json' });
+        return res.end('{"error":{"message":"No endpoints found"}}'); }
       if (model.includes('hang')) return; // never answers
       res.writeHead(200, { 'Content-Type': 'text/event-stream' });
       const text = `Mock reply (${model}): ${lastUserText(j.messages).slice(0, 200)}`;
@@ -46,7 +51,8 @@ function create() {
       tick();
     });
   });
-  return { server, calls, listen: (port = 0) => new Promise(r => server.listen(port, '127.0.0.1', () => r(server.address().port))) };
+  return { server, calls, listen: (port = 0) => new Promise(r => server.listen(port, '127.0.0.1',
+    () => r(server.address().port))) };
 }
 
 if (require.main === module) {

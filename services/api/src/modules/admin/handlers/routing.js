@@ -10,17 +10,20 @@ const ai = require('../../ai');
 const { changed, gateModel } = require('./ai-common');
 
 /* ---------- Routing: ordered model slots per mode + hedge ---------- */
-const ROUTE_LABELS = { general: 'General (Saga)', study: 'Study', developer: 'Developer', research: 'Research', african: 'African languages (Naijá, Yorùbá, Hausa, Igbo)' };
+const ROUTE_LABELS = { general: 'General (Saga)', study: 'Study', developer: 'Developer', research: 'Research',
+  african: 'African languages (Naijá, Yorùbá, Hausa, Igbo)' };
 
 // GET /admin/routing
 const getAdminRouting = async () => {
   const cfg = await dynamic.load();
   const saved = await settings.get('routing');
   const providers = ai.enabledProviders(cfg);
-  const targets = Object.fromEntries(Object.entries(cfg.targets()).map(([k, list]) => [k, list.map(t => ({ provider: t.provider, model: t.model, live: Boolean(providers[t.provider] && t.model) }))]));
+  const targets = Object.fromEntries(Object.entries(cfg.targets()).map(([k, list]) => [k, list.map(t => ({
+    provider: t.provider, model: t.model, live: Boolean(providers[t.provider] && t.model) }))]));
   return [200, {
     routes: cfg.routes, hedge: cfg.hedge || config.chat.hedge, labels: ROUTE_LABELS, targets,
-    defaults: { routes: routingDefault.routes, hedge: config.chat.hedge }, saved: Boolean(saved), source: cfg.source, cache_seconds: dynamic.TTL_MS / 1000,
+    defaults: { routes: routingDefault.routes, hedge: config.chat.hedge }, saved: Boolean(saved), source: cfg.source,
+      cache_seconds: dynamic.TTL_MS / 1000,
   }];
 };
 
@@ -39,7 +42,8 @@ const patchAdminRouting = async (req) => {
     if (bad.length) v.fail(`routes.${mode}`, `Unknown model slot: ${bad.join(', ')}.`);
     routes[mode] = list;
   }
-  // A new first choice for a mode (e.g. a new Saga default) is a model change: each of its models needs a fresh benchmark.
+  // A new first choice for a mode (e.g. a new Saga default) is a model change: each of its models needs a fresh
+  // benchmark.
   for (const mode of dynamic.MODES) {
     const first = routes[mode][0];
     if (first === cfg.routes[mode][0]) continue;
@@ -49,7 +53,8 @@ const patchAdminRouting = async (req) => {
   if (!Number.isInteger(hedge) || hedge < 1 || hedge > 4) v.fail('hedge', 'Use 1 to 4 models at once.');
   await settings.set('routing', { routes, hedge }, req.user.id);
   changed();
-  await audit(req, 'admin.routing_updated', { actorId: req.user.id, targetType: 'setting', targetId: 'routing', meta: { routes, hedge } });
+  await audit(req, 'admin.routing_updated', { actorId: req.user.id, targetType: 'setting', targetId: 'routing',
+    meta: { routes, hedge } });
   return [200, { ok: true }];
 };
 

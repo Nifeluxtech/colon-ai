@@ -4,7 +4,8 @@ const { guards } = require('../../modules/auth');
 
 function guestOrigin(req) {
   const origin = req.headers.origin;
-  if (config.isProd && (!origin || !config.allowedOrigins.includes(origin))) guards.deny(403, 'csrf', 'Request blocked.');
+  if (config.isProd && (!origin || !config.allowedOrigins.includes(origin))) guards.deny(403, 'csrf',
+    'Request blocked.');
 }
 
 module.exports = { guestOrigin };

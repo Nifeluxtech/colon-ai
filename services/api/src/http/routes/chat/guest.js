@@ -6,6 +6,7 @@ const { guestOrigin } = require('../../middleware/origin');
 const h = require('../../../modules/chat').handlers.guest;
 
 const r = new Router();
-r.post('/chat/guest', { bodyLimit: 1024 * 1024 }, guestOrigin, settings.feature('guestChat', { guestsOnly: true }), limit('guest-chat', 20, 60), h.postChatGuest);
+r.post('/chat/guest', { bodyLimit: 1024 * 1024 }, guestOrigin, settings.feature('guestChat', { guestsOnly: true }),
+  limit('guest-chat', 20, 60), h.postChatGuest);
 
 module.exports = r;

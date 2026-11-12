@@ -29,16 +29,19 @@ async function remove(rows) {
 
 // Deletes attachment rows (and their files) matching a WHERE clause scoped to the user.
 async function deleteWhere(userId, where = '1=1', params = []) {
-  const rows = await db.query(`SELECT id, path FROM chat_attachments WHERE user_id = ? AND ${where}`, [userId, ...params]);
+  const rows = await db.query(`SELECT id, path FROM chat_attachments WHERE user_id = ? AND ${where}`, [userId,
+    ...params]);
   if (!rows.length) return 0;
-  await db.query(`DELETE FROM chat_attachments WHERE user_id = ? AND id IN (${rows.map(() => '?').join(',')})`, [userId, ...rows.map(r => r.id)]);
+  await db.query(`DELETE FROM chat_attachments WHERE user_id = ? AND id IN (${rows.map(() => '?').join(',')})`,
+    [userId, ...rows.map(r => r.id)]);
   await remove(rows);
   return rows.length;
 }
 
 async function dataUrl(row) {
   if (row.size > IMAGE_MAX_FOR_MODEL) {
-    throw Object.assign(new Error(`“${row.name}” is too large for image reading. Use an image under 8 MB.`), { status: 422, code: 'invalid' });
+    throw Object.assign(new Error(`“${row.name}” is too large for image reading. Use an image under 8 MB.`),
+      { status: 422, code: 'invalid' });
   }
   const buf = await fs.promises.readFile(fullPath(row.path));
   return `data:${row.mime};base64,${buf.toString('base64')}`;
@@ -47,7 +50,8 @@ async function dataUrl(row) {
 // Model-ready file descriptions for messages: { name, kind, text, note, pages, duration, dataUrl? }.
 async function forModel(userId, attachmentLists, latestIndex) {
   const ids = [...new Set(attachmentLists.flat().map(a => a && a.id).filter(Boolean))];
-  const rows = ids.length ? await db.query(`SELECT * FROM chat_attachments WHERE user_id = ? AND id IN (${ids.map(() => '?').join(',')})`, [userId, ...ids]) : [];
+  const rows = ids.length ? await db.query(`SELECT * FROM chat_attachments WHERE user_id = ? AND id IN (${ids.map(() =>
+    '?').join(',')})`, [userId, ...ids]) : [];
   const byId = Object.fromEntries(rows.map(r => [r.id, r]));
   const out = [];
   for (let i = 0; i < attachmentLists.length; i++) {
@@ -56,7 +60,8 @@ async function forModel(userId, attachmentLists, latestIndex) {
       const r = byId[a.id];
       if (!r) { files.push({ name: a.name, kind: a.kind, text: '', note: 'This file was deleted.' }); continue; }
       const meta = store.json(r.meta) || {};
-      const f = { name: r.name, kind: r.kind, text: r.text || '', note: meta.note, pages: meta.pages, duration: meta.duration };
+      const f = { name: r.name, kind: r.kind, text: r.text || '', note: meta.note, pages: meta.pages,
+        duration: meta.duration };
       if (i === latestIndex && r.kind === 'image') f.dataUrl = await dataUrl(r);
       files.push(f);
     }

@@ -11,7 +11,8 @@ async function hit(bucket, limit, windowSec) {
   );
   const row = await db.one('SELECT hits FROM rate_limits WHERE bucket = ?', [bucket.slice(0, 190)]);
   if (row && row.hits > limit) {
-    throw Object.assign(new Error('Too many attempts. Please wait a few minutes and try again.'), { status: 429, code: 'rate_limited' });
+    throw Object.assign(new Error('Too many attempts. Please wait a few minutes and try again.'), { status: 429,
+      code: 'rate_limited' });
   }
 }
 

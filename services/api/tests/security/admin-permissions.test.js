@@ -23,7 +23,8 @@ function expected(method, p) {
 }
 const ROLES = ['user', 'moderator', 'admin', 'super_admin'];
 const RANK = { user: 0, moderator: 1, admin: 2, super_admin: 3 };
-const pathOf = (re) => re.source.replace(/^\^/, '').replace(/\$$/, '').replace(/\\\//g, '/').replace(/\(\[\^\/\]\+\)/g, ':id').replace(/:id\/sessions\/:id/, ':id/sessions/:sid');
+const pathOf = (re) => re.source.replace(/^\^/, '').replace(/\$$/, '').replace(/\\\//g, '/').replace(/\(\[\^\/\]\+\)/g,
+  ':id').replace(/:id\/sessions\/:id/, ':id/sessions/:sid');
 test('every admin endpoint is guarded: the right minimum role, 2FA required, members always refused', async () => {
   assert.ok(routes.length >= 40, `found ${routes.length} admin routes`);
   for (const r of routes) {
@@ -32,11 +33,13 @@ test('every admin endpoint is guarded: the right minimum role, 2FA required, mem
     const guard = r.handlers[0];
     for (const role of ROLES) {
       const req = { user: { id: 1, role, totp_enabled: 1 }, params: {}, query: new URLSearchParams(), body: {} };
-      const allowed = await guard(req).then(() => true, (e) => { assert.equal(e.status, 403, `${r.method} ${p}`); return false; });
+      const allowed = await guard(req).then(() => true, (e) => { assert.equal(e.status, 403, `${r.method} ${p}`);
+        return false; });
       assert.equal(allowed, RANK[role] >= RANK[need], `${r.method} ${p} as ${role} (needs ${need})`);
     }
     // Staff without 2FA are refused too.
-    await assert.rejects(guard({ user: { id: 1, role: 'super_admin', totp_enabled: 0 } }), (e) => e.code === 'needs_2fa', `${r.method} ${p} 2FA`);
+    await assert.rejects(guard({ user: { id: 1, role: 'super_admin', totp_enabled: 0 } }),
+      (e) => e.code === 'needs_2fa', `${r.method} ${p} 2FA`);
     await assert.rejects(guard({ user: null }), (e) => e.status === 401);
   }
 });
@@ -45,7 +48,8 @@ test('admins cannot act on admin accounts or themselves; only super admins grant
   const find = (m, p) => admin.routes.find(r => r.method === m && pathOf(r.re) === p);
   const suspend = find('POST', '/admin/users/:id/suspend');
   fakeDb.one = async () => ({ id: 9, email: 'boss@example.com', role: 'admin' });
-  const req = (role, id = 1) => ({ user: { id, role, totp_enabled: 1 }, params: { id: '9' }, body: { role: 'admin' }, ip: '' });
+  const req = (role, id = 1) => ({ user: { id, role, totp_enabled: 1 }, params: { id: '9' }, body: { role: 'admin' },
+    ip: '' });
   await assert.rejects(suspend.handlers[1](req('admin')), (e) => e.status === 403);
   await assert.rejects(suspend.handlers[1](req('super_admin', 9)), (e) => e.code === 'self');
   await suspend.handlers[1](req('super_admin'));   // allowed
@@ -54,14 +58,17 @@ test('admins cannot act on admin accounts or themselves; only super admins grant
   await assert.rejects(role.handlers[1](req('admin')), (e) => e.status === 403 && /Super Admin/.test(e.message));
   fakeDb.one = async () => null;
 });
-test('web search settings (Super Admin): keys stored encrypted and only ever shown masked; bad values refused', async () => {
+test('web search settings (Super Admin): keys stored encrypted and only ever shown masked; bad values refused',
+  async () => {
   const platform = adminRouter;
   const find = (m, p) => platform.routes.find(r => r.method === m && pathOf(r.re) === p);
-  const req = (body) => ({ user: { id: 1, role: 'super_admin', totp_enabled: 1 }, params: {}, query: new URLSearchParams(), body, ip: '' });
+  const req = (body) => ({ user: { id: 1, role: 'super_admin', totp_enabled: 1 }, params: {},
+    query: new URLSearchParams(), body, ip: '' });
   fakeDb.calls.length = 0;
   const saved = [];
   const oldQuery = fakeDb.query;
-  fakeDb.query = async function (sql, p) { this.calls.push(sql); if (/INSERT INTO app_settings/.test(sql)) saved.push(p); return []; };
+  fakeDb.query = async function (sql, p) { this.calls.push(sql); if (/INSERT INTO app_settings/.test(sql)) saved.push(
+    p); return []; };
   settings.clear();
   await find('POST', '/admin/search/key').handlers[1](req({ provider: 'brave', api_key: 'BSA-secret-key-9876' }));
   const stored = saved.find(p => p[0] === 'search_keys');
@@ -69,11 +76,17 @@ test('web search settings (Super Admin): keys stored encrypted and only ever sho
   assert.equal(decrypt(JSON.parse(stored[1]).brave.enc), 'BSA-secret-key-9876');
   const audits = fakeDb.calls.filter(sql => /audit/i.test(sql));
   assert.ok(audits.length >= 1);
-  await assert.rejects(find('POST', '/admin/search/key').handlers[1](req({ provider: 'google', api_key: 'x'.repeat(20) })), (e) => e.status === 422 || e.code === 'invalid');
-  await assert.rejects(find('PATCH', '/admin/search').handlers[1](req({ results: 50 })), (e) => e.status === 422 || e.code === 'invalid');
-  await assert.rejects(find('PATCH', '/admin/search').handlers[1](req({ disabled: ['brave', 'tavily', 'searxng', 'duckduckgo', 'wikipedia'] })), (e) => e.status === 422 || e.code === 'invalid');
-  const out = require('../../src/modules/admin').handlers.webSearch.searchOut({ enabled: true, order: ['brave', 'duckduckgo'], disabled: [], results: 5, pages: 3, searxngUrl: '',
-    providers: [{ id: 'brave', name: 'Brave Search', needs: 'key', ready: true, key: 'BSA-secret-key-9876', keySource: 'database', last4: '9876' }, { id: 'duckduckgo', name: 'DuckDuckGo', ready: true, key: '', keySource: 'none' }] });
+  await assert.rejects(find('POST', '/admin/search/key').handlers[1](req({ provider: 'google', api_key: 'x'.repeat(
+    20) })), (e) => e.status === 422 || e.code === 'invalid');
+  await assert.rejects(find('PATCH', '/admin/search').handlers[1](req({ results: 50 })), (e) => e.status === 422
+    || e.code === 'invalid');
+  await assert.rejects(find('PATCH', '/admin/search').handlers[1](req({ disabled: ['brave', 'tavily', 'searxng',
+    'duckduckgo', 'wikipedia'] })), (e) => e.status === 422 || e.code === 'invalid');
+  const out = require('../../src/modules/admin').handlers.webSearch.searchOut({ enabled: true, order: ['brave',
+    'duckduckgo'], disabled: [], results: 5, pages: 3, searxngUrl: '',
+    providers: [{ id: 'brave', name: 'Brave Search', needs: 'key', ready: true, key: 'BSA-secret-key-9876',
+      keySource: 'database', last4: '9876' }, { id: 'duckduckgo', name: 'DuckDuckGo', ready: true, key: '',
+      keySource: 'none' }] });
   assert.equal(out.providers[0].key.masked, '••••9876');
   assert.ok(!JSON.stringify(out).includes('BSA-secret'));
   fakeDb.query = oldQuery;

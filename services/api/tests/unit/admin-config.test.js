@@ -17,10 +17,12 @@ const limits = require('../../src/modules/ai/limits');
 const calls = require('../../src/modules/ai/calls');
 const { encrypt, decrypt } = require('../../src/shared/crypto');
 /* ---------- Live routing ---------- */
-const ENV = { GROQ_API_KEY: 'g', NVIDIA_API_KEY: 'n', GEMINI_API_KEY: '', OPENROUTER_API_KEY: '', NATLAS_API_KEY: '', NATLAS_BASE_URL: '' };
+const ENV = { GROQ_API_KEY: 'g', NVIDIA_API_KEY: 'n', GEMINI_API_KEY: '', OPENROUTER_API_KEY: '', NATLAS_API_KEY: '',
+  NATLAS_BASE_URL: '' };
 function withEnv(fn) {
   const old = {}; for (const k of Object.keys(ENV)) { old[k] = process.env[k]; process.env[k] = ENV[k]; }
-  try { return fn(); } finally { for (const k of Object.keys(ENV)) { if (old[k] === undefined) delete process.env[k]; else process.env[k] = old[k]; } }
+  try { return fn(); } finally { for (const k of Object.keys(ENV)) { if (old[k] === undefined) delete process.env[k];
+    else process.env[k] = old[k]; } }
 }
 test('routing: an empty database means the built-in routing.js table', () => withEnv(() => {
   const cfg = dynamic.compose({});
@@ -31,27 +33,32 @@ test('routing: an empty database means the built-in routing.js table', () => wit
 test('routing: DB models, per-mode order and hedge from the dashboard; unknown slots ignored', () => withEnv(() => {
   const modelRows = [
     { id: 1, target: 'qwen', provider_id: 'groq', model: 'qwen-x', vision: 0, body: null, enabled: 1, priority: 0 },
-    { id: 2, target: 'fast', provider_id: 'nvidia', model: 'fast-1', vision: 0, body: '{"a":1}', enabled: 1, priority: 0 },
+    { id: 2, target: 'fast', provider_id: 'nvidia', model: 'fast-1', vision: 0, body: '{"a":1}', enabled: 1,
+      priority: 0 },
     { id: 3, target: 'fast', provider_id: 'groq', model: 'fast-0', vision: 1, body: null, enabled: 1, priority: -1 },
     { id: 4, target: 'off', provider_id: 'groq', model: 'off-1', vision: 0, body: null, enabled: 0, priority: 0 },
   ];
-  const cfg = dynamic.compose({ modelRows, routing: { routes: { study: ['fast', 'qwen'], general: ['nope'] }, hedge: 3 } });
+  const cfg = dynamic.compose({ modelRows, routing: { routes: { study: ['fast', 'qwen'], general: ['nope'] },
+    hedge: 3 } });
   assert.equal(cfg.source, 'database');
   assert.equal(cfg.hedge, 3);
   assert.deepEqual(cfg.routes.study, ['fast', 'qwen']);
   assert.deepEqual(cfg.targets().fast.map(t => t.model), ['fast-0', 'fast-1']);   // priority order
   assert.deepEqual(cfg.targets().fast[1].body, { a: 1 });
   assert.equal(cfg.targets().off, undefined);                                      // disabled rows dropped
-  assert.notDeepEqual(cfg.routes.general, ['nope']);                               // a route with no real slot keeps a working default
+  // a route with no real slot keeps a working default
+  assert.notDeepEqual(cfg.routes.general, ['nope']);
   const chain = ai.chainFor({ mode: 'study', language: 'en' }, cfg).map(c => c.model);
   assert.deepEqual(chain, ['fast-0', 'fast-1', 'qwen-x']);
 }));
-test('routing: provider rows override name/URL, a stored key wins over env, disabled providers drop out', () => withEnv(() => {
+test('routing: provider rows override name/URL, a stored key wins over env, disabled providers drop out', () => withEnv(
+  () => {
   const box = encrypt('db-key');
   const providerRows = [
     { id: 'groq', name: 'Groq DB', base_url: 'https://groq.example/v1', native: '', api_key_enc: box, enabled: 1 },
     { id: 'nvidia', name: 'NVIDIA', base_url: '', native: '', api_key_enc: null, enabled: 0 },
-    { id: 'custom', name: 'Custom', base_url: 'https://custom.example/v1', native: '', api_key_enc: encrypt('c-key'), enabled: 1 },
+    { id: 'custom', name: 'Custom', base_url: 'https://custom.example/v1', native: '', api_key_enc: encrypt('c-key'),
+      enabled: 1 },
   ];
   const modelRows = [
     { id: 1, target: 'qwen', provider_id: 'groq', model: 'q', vision: 0, enabled: 1, priority: 0 },
@@ -66,7 +73,8 @@ test('routing: provider rows override name/URL, a stored key wins over env, disa
   assert.equal(p.custom.apiKey, 'c-key');
   assert.deepEqual(Object.keys(ai.enabledProviders(cfg)).sort(), ['custom', 'groq']);
   // An env key is the fallback when no key is stored.
-  const cfg2 = dynamic.compose({ providerRows: [{ id: 'groq', name: 'Groq', base_url: '', native: '', api_key_enc: null, enabled: 1 }], decrypt });
+  const cfg2 = dynamic.compose({ providerRows: [{ id: 'groq', name: 'Groq', base_url: '', native: '',
+    api_key_enc: null, enabled: 1 }], decrypt });
   assert.equal(cfg2.providers().groq.apiKey, 'g');
 }));
 test('routing: a DB config with no usable model falls back to routing.js (chat never breaks)', () => withEnv(() => {
@@ -76,13 +84,15 @@ test('routing: a DB config with no usable model falls back to routing.js (chat n
   assert.equal(cfg.hedge, 2);
   assert.ok(ai.isConfigured(cfg));
   // An unreadable stored key (e.g. APP_SECRET changed) falls back to the env key.
-  const bad = dynamic.compose({ providerRows: [{ id: 'groq', name: 'Groq', base_url: '', api_key_enc: 'v1.bad.box.x', enabled: 1 }], decrypt });
+  const bad = dynamic.compose({ providerRows: [{ id: 'groq', name: 'Groq', base_url: '', api_key_enc: 'v1.bad.box.x',
+    enabled: 1 }], decrypt });
   assert.equal(bad.providers().groq.apiKey, 'g');
 }));
 test('routing: load() caches ~30 s and falls back to defaults when the database fails', async () => {
   dynamic.clear();
   let n = 0;
-  const broken = { query: async () => { n++; throw new Error('ER_NO_SUCH_TABLE'); }, one: async () => { throw new Error('down'); } };
+  const broken = { query: async () => { n++; throw new Error('ER_NO_SUCH_TABLE'); }, one: async () => { throw new Error(
+    'down'); } };
   const a = await dynamic.load(broken, 1000);
   assert.equal(a.source, 'default');
   assert.deepEqual(a.routes, routingDefault.routes);
@@ -124,7 +134,8 @@ test('system settings merge with safe defaults; feature flags block members, nev
   settings.clear();
 });
 /* ---------- Limits ---------- */
-test('limits: dashboard values override env, per-mode caps, per-user override, staff exempt from mode caps', async () => {
+test('limits: dashboard values override env, per-mode caps, per-user override, staff exempt from mode caps',
+  async () => {
   const base = { dailyLimit: 100, guestDailyLimit: 15, guestIpDailyLimit: 300 };
   const m = limits.mergeLimits(base, { user: 50, guest: 0, modes: { research: 3, study: '', bad: 1 } });
   assert.equal(m.dailyLimit, 50);
@@ -135,14 +146,17 @@ test('limits: dashboard values override env, per-mode caps, per-user override, s
   const db = { one: async () => ({ daily_limit: 7 }) };
   const user = await limits.resolveCounters({ user: { id: 4, role: 'user' } }, 'research', db, st);
   assert.deepEqual(user, [{ subject: 'u:4', limit: 7 }, { subject: 'u:4:research', limit: 3, mode: 'research' }]);
-  const staff = await limits.resolveCounters({ user: { id: 5, role: 'admin' } }, 'research', { one: async () => null }, st);
+  const staff = await limits.resolveCounters({ user: { id: 5, role: 'admin' } }, 'research', { one: async () => null },
+    st);
   assert.deepEqual(staff, [{ subject: 'u:5', limit: 1000 }]);
   const guest = await limits.resolveCounters({ user: null, ip: '1.2.3.4', cookies: {} }, 'general', db, st);
   assert.equal(guest.length, 2);
   assert.match(guest[0].subject, /^g:/);
   // The per-mode cap gives its own message.
   const fake = new Map();
-  const fdb = { async query(sql, [s]) { if (/^\s*INSERT/.test(sql)) fake.set(s, (fake.get(s) || 0) + 1); else if (/- 1/.test(sql)) fake.set(s, fake.get(s) - 1); return []; }, async one(sql, [s]) { return { requests: fake.get(s) || 0 }; } };
+  const fdb = { async query(sql, [s]) { if (/^\s*INSERT/.test(sql)) fake.set(s, (fake.get(s) || 0) + 1);
+    else if (/- 1/.test(sql)) fake.set(s, fake.get(s) - 1); return []; }, async one(sql, [s]) { return {
+    requests: fake.get(s) || 0 }; } };
   await limits.consumeAll(user, fdb);
   await limits.consumeAll(user, fdb);
   await limits.consumeAll(user, fdb);
@@ -151,7 +165,8 @@ test('limits: dashboard values override env, per-mode caps, per-user override, s
 });
 /* ---------- AI call log ---------- */
 test('ai_calls: one row per attempt; a request with no attempt still records its error', () => {
-  const rows = calls.rowsFor({ mode: 'study', route: 'study', guest: true, attempts: [{ provider: 'groq', model: 'q', ok: false, code: 'timeout', ms: 25000 }, { provider: 'nvidia', model: 'd', ok: true, ms: 1200.4 }] });
+  const rows = calls.rowsFor({ mode: 'study', route: 'study', guest: true, attempts: [{ provider: 'groq', model: 'q',
+    ok: false, code: 'timeout', ms: 25000 }, { provider: 'nvidia', model: 'd', ok: true, ms: 1200.4 }] });
   assert.equal(rows.length, 2);
   assert.equal(rows[0][0], rows[1][0]);                 // same request id
   assert.deepEqual(rows[0].slice(1), ['study', 'study', 'groq', 'q', 0, 'timeout', null, 25000, 1]);

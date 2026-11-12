@@ -26,7 +26,9 @@ class Lru {
 
 const pageCache = new Lru(80);
 const READABLE = /^(text\/html|application\/xhtml\+xml|text\/plain)\b/i;
-const BINARY_EXT = /\.(pdf|zip|rar|7z|gz|tgz|exe|apk|dmg|iso|docx?|xlsx?|pptx?|odt|mp3|mp4|m4a|wav|ogg|webm|mov|avi|jpe?g|png|gif|webp|svg|ico)(\?|#|$)/i;
+const BINARY_EXT = new RegExp(
+  String.raw`\.(pdf|zip|rar|7z|gz|tgz|exe|apk|dmg|iso|docx?|xlsx?|pptx?|odt|mp3|mp4|m4a|wav|ogg|webm|mov|avi|jpe?g|`
+  + String.raw`png|gif|webp|svg|ico)(\?|#|$)`, 'i');
 
 function wikiTitle(url) {
   try {
@@ -38,8 +40,11 @@ function wikiTitle(url) {
 }
 
 async function readWikipedia(w, o) {
-  const api = `https://${w.lang}.wikipedia.org/w/api.php?` + new URLSearchParams({ action: 'query', prop: 'extracts', explaintext: '1', exsectionformat: 'plain', redirects: '1', titles: w.title, format: 'json', formatversion: '2' });
-  const r = await safeFetch(api, { headers: { 'User-Agent': 'ColonAI/0.5 (https://chat.apparatus.name.ng; Nifelux)', Accept: 'application/json' }, timeoutMs: o.timeoutMs, maxBytes: o.maxBytes, signal: o.signal, fetch: o.fetch, guard: false, maxRedirects: 1 });
+  const api = `https://${w.lang}.wikipedia.org/w/api.php?` + new URLSearchParams({ action: 'query', prop: 'extracts',
+    explaintext: '1', exsectionformat: 'plain', redirects: '1', titles: w.title, format: 'json', formatversion: '2' });
+  const r = await safeFetch(api, { headers: { 'User-Agent': 'ColonAI/0.5 (https://chat.apparatus.name.ng; Nifelux)',
+    Accept: 'application/json' }, timeoutMs: o.timeoutMs, maxBytes: o.maxBytes, signal: o.signal, fetch: o.fetch,
+    guard: false, maxRedirects: 1 });
   if (r.status !== 200) throw Object.assign(new Error(`http ${r.status}`), { code: `http_${r.status}` });
   const page = (((JSON.parse(r.text) || {}).query || {}).pages || [])[0] || {};
   if (!page.extract) throw Object.assign(new Error('empty'), { code: 'empty' });
@@ -49,14 +54,15 @@ async function readWikipedia(w, o) {
 
 /**
  * readPage(url, { query, signal, fetch, lookup, timeoutMs = 6000, maxBytes = 1.5 MB, maxChars = 2500 })
- *   -> { url, title, text, chars }      or throws { code: 'skipped' | 'blocked_url' | 'timeout' | 'http_<n>' | 'empty' | … }
+ * -> { url, title, text, chars } or throws { code: 'skipped' | 'blocked_url' | 'timeout' | 'http_<n>' | 'empty' | … }
  */
 async function readPage(url, o = {}) {
   const maxChars = o.maxChars || 2500;
   const key = `${url}#${maxChars}#${String(o.query || '').slice(0, 200)}`;
   const hit = pageCache.get(key);
   if (hit) return { ...hit, cached: true };
-  const opts = { timeoutMs: o.timeoutMs || 6000, maxBytes: o.maxBytes || 1.5 * 1024 * 1024, signal: o.signal, fetch: o.fetch, lookup: o.lookup };
+  const opts = { timeoutMs: o.timeoutMs || 6000, maxBytes: o.maxBytes || 1.5 * 1024 * 1024, signal: o.signal,
+    fetch: o.fetch, lookup: o.lookup };
   if (BINARY_EXT.test(url)) throw Object.assign(new Error('not a web page'), { code: 'skipped' });
   let title = '', text = '', finalUrl = url;
   const w = wikiTitle(url);
@@ -89,8 +95,10 @@ async function readMany(results, o = {}) {
   const onOuter = () => ctl.abort();
   if (o.signal) o.signal.addEventListener('abort', onOuter, { once: true });
   let timer;
-  const budget = new Promise((resolve) => { timer = setTimeout(() => { ctl.abort(); resolve(); }, o.budgetMs || 12000); });
-  const jobs = list.map(r => readPage(r.url, { ...o, signal: ctl.signal }).then(p => { out.set(r.url, p); }, (e) => { if (o.onError) o.onError(r.url, e); }));
+  const budget = new Promise((resolve) => { timer = setTimeout(() => { ctl.abort(); resolve(); }, o.budgetMs || 12000);
+    });
+  const jobs = list.map(r => readPage(r.url, { ...o, signal: ctl.signal }).then(p => { out.set(r.url, p);
+    }, (e) => { if (o.onError) o.onError(r.url, e); }));
   await Promise.race([Promise.all(jobs), budget]);
   clearTimeout(timer);
   if (o.signal) o.signal.removeEventListener('abort', onOuter);

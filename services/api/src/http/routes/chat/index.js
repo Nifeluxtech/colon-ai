@@ -1,4 +1,5 @@
-// Chat routes (models, conversations, messages, settings, guest chat, uploads), in registration order (the order is part of the contract: the first match wins).
+// Chat routes (models, conversations, messages, settings, guest chat, uploads), in registration order (the order is
+// part of the contract: the first match wins).
 const Router = require('../../router');
 
 module.exports = new Router()

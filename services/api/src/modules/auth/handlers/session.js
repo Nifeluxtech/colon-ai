@@ -16,7 +16,8 @@ const getAuthConfig = async () => {
     brand_name: sys.brandName,
     features: sys.features,
     maintenance: { on: Boolean(sys.maintenance.on), message: sys.maintenance.on ? sys.maintenance.message : '' },
-    announcement: sys.announcement.on && sys.announcement.text ? { text: sys.announcement.text, tone: sys.announcement.tone } : null,
+    announcement: sys.announcement.on && sys.announcement.text ? { text: sys.announcement.text,
+      tone: sys.announcement.tone } : null,
   }];
 };
 

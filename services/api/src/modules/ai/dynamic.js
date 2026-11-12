@@ -51,7 +51,8 @@ function compose({ providerRows = [], modelRows = [], routing = null, decrypt = 
   if (modelRows.length) {
     const t = {};
     for (const r of [...enabledRows].sort((a, b) => (a.priority - b.priority) || (a.id - b.id))) {
-      (t[r.target] = t[r.target] || []).push({ provider: r.provider_id, model: r.model, vision: Boolean(Number(r.vision)), body: parseJson(r.body) });
+      (t[r.target] = t[r.target] || []).push({ provider: r.provider_id, model: r.model, vision: Boolean(Number(
+        r.vision)), body: parseJson(r.body) });
     }
     targets = t;
   }
@@ -65,7 +66,8 @@ function compose({ providerRows = [], modelRows = [], routing = null, decrypt = 
     else if (!(routes[mode] || []).some(n => targets[n] && targets[n].length)) routes[mode] = Object.keys(targets);
   }
   // Pinned model chains (e.g. Saga Fast) only keep slots that exist.
-  const models = base.models.map(m => (m.route ? { ...m, route: m.route.some(n => targets[n]) ? m.route : routes.general } : m));
+  const models = base.models.map(m => (m.route ? { ...m, route: m.route.some(n => targets[n])
+    ? m.route : routes.general } : m));
 
   const h = routing && Number(routing.hedge);
   const cfg = {
@@ -73,7 +75,8 @@ function compose({ providerRows = [], modelRows = [], routing = null, decrypt = 
     hedge: h >= 1 && h <= 4 ? Math.round(h) : undefined,
     source: providerRows.length || modelRows.length || routing ? 'database' : 'default',
   };
-  if (!usable(cfg) && usable(base)) return { ...base, hedge: cfg.hedge, source: 'default (database config had no usable model)' };
+  if (!usable(cfg) && usable(base)) return { ...base, hedge: cfg.hedge,
+    source: 'default (database config had no usable model)' };
   return cfg;
 }
 

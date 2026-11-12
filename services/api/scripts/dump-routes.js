@@ -7,7 +7,8 @@ const api = path.resolve(process.argv[2] || path.join(__dirname, '..'));
 http.Server.prototype.listen = function () { return this; };
 const dbPath = require.resolve(path.join(api, 'src/db'));
 const fake = { query: async () => [], one: async () => null, migrate: async () => {}, pool: () => null };
-require.cache[dbPath] = { id: dbPath, filename: dbPath, loaded: true, exports: new Proxy(fake, { get: (t, k) => t[k] || (async () => null) }) };
+require.cache[dbPath] = { id: dbPath, filename: dbPath, loaded: true, exports: new Proxy(fake, { get: (t, k) => t[k]
+  || (async () => null) }) };
 const Router = require(path.join(api, 'src/http/router.js'));
 let main = null;
 const use = Router.prototype.use;

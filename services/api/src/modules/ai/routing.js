@@ -38,18 +38,22 @@ function targets() {
         body: env('NVIDIA_DEEPSEEK_THINKING', 'off') === 'on' ? null : { chat_template_kwargs: { thinking: false } } },
       // No DeepSeek ":free" id was listed on OpenRouter on 11 Nov 2026. Set OPENROUTER_DEEPSEEK_MODEL to a live
       // id; a missing model answers 404 and the router skips to the next target (and rests it for 10 minutes).
-      { provider: 'openrouter', model: env('OPENROUTER_DEEPSEEK_MODEL', 'deepseek/deepseek-v4-flash:free'), vision: env('OPENROUTER_DEEPSEEK_VISION', '0') === '1' },
+      { provider: 'openrouter', model: env('OPENROUTER_DEEPSEEK_MODEL', 'deepseek/deepseek-v4-flash:free'),
+        vision: env('OPENROUTER_DEEPSEEK_VISION', '0') === '1' },
     ],
     gemma: [
       // Google AI Studio first: its free Gemma quota is far larger than OpenRouter's free tier.
-      { provider: 'gemini', model: env('GEMINI_MODEL', 'gemma-4-26b-a4b-it'), vision: env('GEMINI_VISION', '1') === '1' },
+      { provider: 'gemini', model: env('GEMINI_MODEL', 'gemma-4-26b-a4b-it'), vision: env('GEMINI_VISION',
+        '1') === '1' },
       // Gemma 4 31B on NVIDIA too, so a busy Google free tier has a second host.
       { provider: 'nvidia', model: env('NVIDIA_GEMMA_MODEL', ''), vision: false },
-      { provider: 'openrouter', model: env('OPENROUTER_GEMMA_MODEL', 'google/gemma-4-31b-it:free'), vision: env('OPENROUTER_GEMMA_VISION', '1') === '1' },
+      { provider: 'openrouter', model: env('OPENROUTER_GEMMA_MODEL', 'google/gemma-4-31b-it:free'),
+        vision: env('OPENROUTER_GEMMA_VISION', '1') === '1' },
     ],
     // Gemma 4 31B (Google): strong in Yorùbá/Hausa/Igbo but ~21 s to first token on the free tier (bench 2026-11-12).
     gemma31: [
-      { provider: 'gemini', model: env('GEMINI_FALLBACK_MODEL', 'gemma-4-31b-it') === 'off' ? '' : env('GEMINI_FALLBACK_MODEL', 'gemma-4-31b-it'), vision: env('GEMINI_VISION', '1') === '1' },
+      { provider: 'gemini', model: env('GEMINI_FALLBACK_MODEL', 'gemma-4-31b-it') === 'off' ? '' : env(
+        'GEMINI_FALLBACK_MODEL', 'gemma-4-31b-it'), vision: env('GEMINI_VISION', '1') === '1' },
     ],
     // MiniMax M3.1 Flash (NVIDIA): bench 88.9, 100% on code/tools/exams, weak in Yorùbá/Hausa/Igbo (51-66%).
     minimax: [
@@ -78,10 +82,16 @@ const routes = {
 const africanLanguages = ['pcm', 'yo', 'ha', 'ig'];
 
 const models = [
-  { id: 'colon-saga', name: 'Colon Saga', description: 'Colon’s default assistant, tuned for Nigerian and African context.', default: true, capabilities: ['text', 'reasoning', 'code'] },
-  { id: 'colon-saga-fast', name: 'Saga Fast', description: 'Quicker answers for everyday questions and low data use.', route: ['gemma', 'minimax', 'qwen', 'deepseek', 'glm'], capabilities: ['text', 'code'] },
-  { id: 'colon-saga-deep', name: 'Saga Deep Research', description: 'Multi-step research with cited sources.', comingSoon: true, capabilities: ['reasoning', 'web', 'citations'] },
-  { id: 'colon-saga-voice', name: 'Saga Voice', description: 'Talk with Colon in English, Naijá, Yorùbá, Hausa and Igbo.', comingSoon: true, capabilities: ['voice'] },
+  { id: 'colon-saga', name: 'Colon Saga',
+    description: 'Colon’s default assistant, tuned for Nigerian and African context.', default: true, capabilities: [
+    'text', 'reasoning', 'code'] },
+  { id: 'colon-saga-fast', name: 'Saga Fast', description: 'Quicker answers for everyday questions and low data use.',
+    route: ['gemma', 'minimax', 'qwen', 'deepseek', 'glm'], capabilities: ['text', 'code'] },
+  { id: 'colon-saga-deep', name: 'Saga Deep Research', description: 'Multi-step research with cited sources.',
+    comingSoon: true, capabilities: ['reasoning', 'web', 'citations'] },
+  { id: 'colon-saga-voice', name: 'Saga Voice',
+    description: 'Talk with Colon in English, Naijá, Yorùbá, Hausa and Igbo.', comingSoon: true, capabilities: [
+    'voice'] },
 ];
 
 module.exports = { providers, targets, routes, africanLanguages, models };

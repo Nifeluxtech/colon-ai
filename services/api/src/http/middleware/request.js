@@ -22,7 +22,8 @@ function readJson(req, max = MAX_BODY) {
     let size = 0; const chunks = [];
     req.on('data', c => {
       size += c.length;
-      if (size > max) { reject(Object.assign(new Error('Body too large'), { status: 413, code: 'too_large' })); req.destroy(); return; }
+      if (size > max) { reject(Object.assign(new Error('Body too large'), { status: 413, code: 'too_large' }));
+        req.destroy(); return; }
       chunks.push(c);
     });
     req.on('end', () => {

@@ -14,4 +14,5 @@ const { searxng } = require('./searxng');
 // Order of keys = the default order shown in Admin > Web search.
 const PROVIDERS = { brave, tavily, searxng, duckduckgo, wikipedia };
 
-module.exports = { PROVIDERS, wikiQuery, parseDdgHtml, parseDdgLite, unwrapDdg, isDdgBlocked, parseWikiSearch, parseOpenSearch, wikiUrl };
+module.exports = { PROVIDERS, wikiQuery, parseDdgHtml, parseDdgLite, unwrapDdg, isDdgBlocked, parseWikiSearch,
+  parseOpenSearch, wikiUrl };

@@ -16,7 +16,8 @@ const changed = () => { dynamic.clear(); };
 async function gateModel(req, provider, model) {
   const skipReason = String(req.body.skip_benchmark || '').trim().slice(0, 300);
   const r = await benchGate.requireBenchmark(db, { provider, model }, { isSuper: isSuper(req), skipReason });
-  if (r.skipped === 'super_admin') await audit(req, 'admin.bench_gate_skipped', { actorId: req.user.id, targetType: 'model', targetId: `${provider}:${model}`, meta: { reason: skipReason } });
+  if (r.skipped === 'super_admin') await audit(req, 'admin.bench_gate_skipped', { actorId: req.user.id,
+    targetType: 'model', targetId: `${provider}:${model}`, meta: { reason: skipReason } });
   return r;
 }
 

@@ -6,7 +6,8 @@ const { MB, fail, decodeEntities, stripXml } = require('./common');
 function unzip(buf, want) {
   const out = {};
   let eocd = -1;
-  for (let i = buf.length - 22; i >= Math.max(0, buf.length - 65557); i--) if (buf.readUInt32LE(i) === 0x06054b50) { eocd = i; break; }
+  for (let i = buf.length - 22; i >= Math.max(0, buf.length - 65557); i--) if (buf.readUInt32LE(i) === 0x06054b50) {
+    eocd = i; break; }
   if (eocd < 0) fail('This document looks damaged (no ZIP directory).', 'processing');
   const count = buf.readUInt16LE(eocd + 10);
   let p = buf.readUInt32LE(eocd + 16);
@@ -15,7 +16,8 @@ function unzip(buf, want) {
     if (buf.readUInt32LE(p) !== 0x02014b50) break;
     const method = buf.readUInt16LE(p + 10);
     const csize = buf.readUInt32LE(p + 20);
-    const nameLen = buf.readUInt16LE(p + 28), extraLen = buf.readUInt16LE(p + 30), commentLen = buf.readUInt16LE(p + 32);
+    const nameLen = buf.readUInt16LE(p + 28), extraLen = buf.readUInt16LE(p + 30), commentLen = buf.readUInt16LE(p
+      + 32);
     const local = buf.readUInt32LE(p + 42);
     const name = buf.toString('utf8', p + 46, p + 46 + nameLen);
     p += 46 + nameLen + extraLen + commentLen;
@@ -66,7 +68,8 @@ function xlsxText(files) {
   }).join('\n\n');
 }
 function odtText(files) {
-  return stripXml((files['content.xml'] || '').replace(/<text:tab\/>/g, '\t').replace(/<text:line-break\/>/g, '\n').replace(/<\/text:(p|h)>/g, '\n'));
+  return stripXml((files['content.xml'] || '').replace(/<text:tab\/>/g, '\t').replace(/<text:line-break\/>/g,
+    '\n').replace(/<\/text:(p|h)>/g, '\n'));
 }
 
 module.exports = { unzip, docxText, pptxText, xlsxText, odtText };

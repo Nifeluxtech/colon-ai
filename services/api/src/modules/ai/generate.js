@@ -16,7 +16,8 @@ function enabledProviders(cfg = routingDefault) {
   return out;
 }
 
-function chainFor({ mode = 'general', language = 'en', model = null, needsVision = false } = {}, cfg = routingDefault, now = Date.now()) {
+function chainFor({ mode = 'general', language = 'en', model = null, needsVision = false } = {}, cfg = routingDefault,
+  now = Date.now()) {
   const providers = enabledProviders(cfg);
   const targets = cfg.targets();
   const african = cfg.africanLanguages.includes(language);
@@ -29,7 +30,8 @@ function chainFor({ mode = 'general', language = 'en', model = null, needsVision
       const p = providers[t.provider];
       if (!p || !t.model) continue;
       if (needsVision && !t.vision) continue;
-      const c = { target: name, providerId: t.provider, providerName: p.name, provider: p, model: t.model, vision: Boolean(t.vision), body: t.body || null };
+      const c = { target: name, providerId: t.provider, providerName: p.name, provider: p, model: t.model,
+        vision: Boolean(t.vision), body: t.body || null };
       if (seen.has(keyOf(c))) continue;
       seen.add(keyOf(c));
       chain.push(c);
@@ -65,7 +67,8 @@ function listModels(cfg = routingDefault) {
   }));
 }
 
-const needsVisionFor = (messages) => messages.some(m => Array.isArray(m.content) && m.content.some(p => p && p.type === 'image_url'));
+const needsVisionFor = (messages) => messages.some(m => Array.isArray(m.content) && m.content.some(p => p
+  && p.type === 'image_url'));
 
 /**
  * generate({ mode, language, model, name, messages, signal, onDelta, onAttempt, web, context })
@@ -78,16 +81,20 @@ async function generate(o) {
   const cfg = o.routing || routingDefault;
   const timeouts = { ...config.chat, ...(o.timeouts || {}) };
   if (!isConfigured(cfg)) {
-    throw Object.assign(new Error('Colon Saga isn’t connected to an AI provider yet.'), { status: 503, code: 'no_provider' });
+    throw Object.assign(new Error('Colon Saga isn’t connected to an AI provider yet.'), { status: 503,
+      code: 'no_provider' });
   }
   const needsVision = needsVisionFor(o.messages);
   const chain = chainFor({ mode: o.mode, language: o.language, model: o.model, needsVision }, cfg);
   if (!chain.length) {
     throw Object.assign(new Error(needsVision
-      ? 'Image reading isn’t switched on yet: no vision-capable model is configured. Describe the image in words, or attach a PDF or text file instead.'
-      : 'Colon Saga isn’t connected to an AI provider yet.'), { status: 503, code: needsVision ? 'no_vision' : 'no_provider' });
+      ? ('Image reading isn’t switched on yet: no vision-capable model is configured. Describe the image in words, '
+        + 'or attach a PDF or text file instead.')
+      : 'Colon Saga isn’t connected to an AI provider yet.'), { status: 503, code: needsVision
+        ? 'no_vision' : 'no_provider' });
   }
-  const messages = [{ role: 'system', content: systemPrompt({ mode: o.mode, language: o.language, name: o.name, web: Boolean(o.web), context: o.context }) }, ...o.messages];
+  const messages = [{ role: 'system', content: systemPrompt({ mode: o.mode, language: o.language, name: o.name,
+    web: Boolean(o.web), context: o.context }) }, ...o.messages];
   const attempts = [];
   // Hedged racing: free hosts are often slow to start, so each "wave" asks up to `hedge` models at once
   // (different providers first) and keeps whichever starts answering first; the others are cancelled.
@@ -95,8 +102,11 @@ async function generate(o) {
   const hedge = Math.max(1, Number(timeouts.hedge || 1));
   const won = await race(orderForHedge(chain, hedge), hedge, { o, messages, timeouts, attempts });
   if (won) return won;
-  if (o.signal && o.signal.aborted) { const a = new Error('aborted'); a.name = 'AbortError'; a.partialText = ''; a.attempts = attempts; throw a; }
-  throw Object.assign(new ProviderError('Colon Saga couldn’t reach an AI provider right now. Please try again in a moment.', { code: 'provider_down' }), { status: 503, attempts });
+  if (o.signal && o.signal.aborted) { const a = new Error('aborted'); a.name = 'AbortError'; a.partialText = '';
+    a.attempts = attempts; throw a; }
+  throw Object.assign(new ProviderError(
+    'Colon Saga couldn’t reach an AI provider right now. Please try again in a moment.', { code: 'provider_down' }),
+    { status: 503, attempts });
 }
 
 module.exports = { generate, chainFor, listModels, isConfigured, hasVision, enabledProviders, _resting: resting };

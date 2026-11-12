@@ -36,10 +36,12 @@ async function load(req) {
   );
   if (!row) return null;
   // Phase 4: a suspended account loses every session (suspending also deletes them; this is the backstop).
-  if (await isSuspended(row.id)) { await db.query('DELETE FROM sessions WHERE user_id = ?', [row.id]).catch(() => {}); return null; }
+  if (await isSuspended(row.id)) { await db.query('DELETE FROM sessions WHERE user_id = ?', [row.id]).catch(() => {});
+    return null; }
   if (Date.now() - new Date(row.last_seen_at).getTime() > 10 * 60 * 1000) {
     await db.query(
-      'UPDATE sessions SET last_seen_at = UTC_TIMESTAMP(), expires_at = UTC_TIMESTAMP() + INTERVAL ? DAY, ip = ? WHERE id = ?',
+      ('UPDATE sessions SET last_seen_at = UTC_TIMESTAMP(), expires_at = UTC_TIMESTAMP() + INTERVAL ? DAY, ip = ? '
+        + 'WHERE id = ?'),
       [auth.sessionDays, req.ip, row.session_id]
     );
   }
@@ -47,6 +49,7 @@ async function load(req) {
 }
 
 const destroy = (sessionId) => db.query('DELETE FROM sessions WHERE id = ?', [sessionId]);
-const destroyAll = (userId, exceptId = 0) => db.query('DELETE FROM sessions WHERE user_id = ? AND id <> ?', [userId, exceptId]);
+const destroyAll = (userId, exceptId = 0) => db.query('DELETE FROM sessions WHERE user_id = ? AND id <> ?', [userId,
+  exceptId]);
 
 module.exports = { create, clear, load, destroy, destroyAll };

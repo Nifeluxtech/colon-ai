@@ -41,6 +41,7 @@ function verify(secret, token) {
 }
 
 const otpauthUrl = (secret, account, issuer) =>
-  `otpauth://totp/${encodeURIComponent(issuer)}:${encodeURIComponent(account)}?secret=${secret}&issuer=${encodeURIComponent(issuer)}&algorithm=SHA1&digits=6&period=30`;
+  `otpauth://totp/${encodeURIComponent(issuer)}:${encodeURIComponent(
+    account)}?secret=${secret}&issuer=${encodeURIComponent(issuer)}&algorithm=SHA1&digits=6&period=30`;
 
 module.exports = { newSecret, verify, otpauthUrl, code };

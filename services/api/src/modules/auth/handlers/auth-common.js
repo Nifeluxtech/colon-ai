@@ -8,9 +8,12 @@ const { isSuspended, SUSPENDED_MESSAGE } = require('../suspension');
 
 async function issueEmailToken(userId, purpose, hours) {
   const token = randomToken(32);
-  await db.query('UPDATE email_tokens SET used_at = UTC_TIMESTAMP() WHERE user_id = ? AND purpose = ? AND used_at IS NULL', [userId, purpose]);
   await db.query(
-    'INSERT INTO email_tokens (user_id, purpose, token_hash, expires_at) VALUES (?,?,?, UTC_TIMESTAMP() + INTERVAL ? HOUR)',
+    'UPDATE email_tokens SET used_at = UTC_TIMESTAMP() WHERE user_id = ? AND purpose = ? AND used_at IS NULL', [userId,
+    purpose]);
+  await db.query(
+    ('INSERT INTO email_tokens (user_id, purpose, token_hash, expires_at) VALUES (?,?,?, UTC_TIMESTAMP() + INTERVAL '
+      + '? HOUR)'),
     [userId, purpose, sha256(token), hours]
   );
   return token;

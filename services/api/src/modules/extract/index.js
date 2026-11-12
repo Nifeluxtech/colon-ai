@@ -28,8 +28,11 @@ function extract(buf, s) {
       if (s.format === 'rtf') text = rtfText(buf.toString('latin1'));
       else if (['doc', 'ppt', 'xls'].includes(s.format)) { text = oleText(buf); meta.approximate = true; }
       else {
-        const files = unzip(buf, (n) => /^(word\/document\.xml|ppt\/slides\/slide\d+\.xml|xl\/sharedStrings\.xml|xl\/worksheets\/sheet\d+\.xml|content\.xml)$/.test(n));
-        text = s.format === 'docx' ? docxText(files) : s.format === 'pptx' ? pptxText(files) : s.format === 'xlsx' ? xlsxText(files) : odtText(files);
+        const files = unzip(buf, (n) => new RegExp(
+          String.raw`^(word\/document\.xml|ppt\/slides\/slide\d+\.xml|xl\/sharedStrings\.xml|`
+          + String.raw`xl\/worksheets\/sheet\d+\.xml|content\.xml)$`).test(n));
+        text = s.format === 'docx' ? docxText(files) : s.format === 'pptx' ? pptxText(files) : s.format === 'xlsx'
+          ? xlsxText(files) : odtText(files);
       }
     }
   } catch (e) {
@@ -41,7 +44,9 @@ function extract(buf, s) {
   if (s.kind === 'pdf' || s.kind === 'doc') {
     if (!readable(text)) {
       text = '';
-      meta.note = s.kind === 'pdf' ? 'No readable text layer (it may be a scanned PDF or use an unusual font encoding).' : 'No readable text found in this document.';
+      meta.note = s.kind === 'pdf'
+        ? 'No readable text layer (it may be a scanned PDF or use an unusual font encoding).' :
+        'No readable text found in this document.';
     }
   }
   if (text.length > MAX_TEXT) { text = text.slice(0, MAX_TEXT); meta.truncated = true; }

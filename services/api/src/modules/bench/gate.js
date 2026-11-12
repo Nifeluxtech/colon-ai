@@ -18,17 +18,22 @@ const maxAgeDays = () => {
 function check({ provider, model }, runs, opts = {}) {
   const now = opts.now ? new Date(opts.now).getTime() : Date.now();
   const days = opts.maxAgeDays || maxAgeDays();
-  const mine = (runs || []).filter(r => r && r.kind === 'bench' && r.status === 'done' && r.provider === provider && r.model === model)
+  const mine = (runs || []).filter(r => r && r.kind === 'bench' && r.status === 'done' && r.provider === provider
+    && r.model === model)
     .sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
-  if (!mine.length) return { ok: false, reason: `${provider}:${model} has no Colon benchmark run. Run "npm run bench -- --models ${provider}:${model} --save" first.`, run: null };
+  if (!mine.length) return { ok: false,
+    reason: (`${provider}:${model} has no Colon benchmark run. Run "npm run bench -- --models ${provider}:${model} `
+    + `--save" first.`), run: null };
   const run = mine[0];
   const ageDays = (now - new Date(run.created_at).getTime()) / 86400000;
-  if (ageDays > days) return { ok: false, reason: `The last Colon benchmark of ${provider}:${model} is ${Math.floor(ageDays)} days old (limit ${days}). Re-run the benchmark first.`, run };
+  if (ageDays > days) return { ok: false, reason: `The last Colon benchmark of ${provider}:${model} is ${Math.floor(
+    ageDays)} days old (limit ${days}). Re-run the benchmark first.`, run };
   return { ok: true, reason: 'benchmarked', run };
 }
 
 const fetchRuns = (db, provider, model) => db.query(
-  "SELECT id, provider, model, kind, status, score, created_at FROM eval_runs WHERE provider = ? AND model = ? AND kind = 'bench' AND status = 'done' ORDER BY created_at DESC LIMIT 5",
+  ("SELECT id, provider, model, kind, status, score, created_at FROM eval_runs WHERE provider = ? AND model = ? AND "
+    + "kind = 'bench' AND status = 'done' ORDER BY created_at DESC LIMIT 5"),
   [provider, model]);
 
 /**
@@ -42,7 +47,8 @@ async function requireBenchmark(db, { provider, model }, { isSuper = false, skip
   try { runs = await fetchRuns(db, provider, model); }
   catch (e) {
     // Database before migration 0005 (no provider/kind columns): refuse with a clear message rather than guess.
-    throw Object.assign(new Error('The benchmark gate could not read eval_runs (run migration 0005).'), { status: 409, code: 'needs_benchmark' });
+    throw Object.assign(new Error('The benchmark gate could not read eval_runs (run migration 0005).'), { status: 409,
+      code: 'needs_benchmark' });
   }
   const r = check({ provider, model }, runs);
   if (!r.ok) throw Object.assign(new Error(r.reason), { status: 409, code: 'needs_benchmark', field: 'model' });

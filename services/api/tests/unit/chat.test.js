@@ -21,7 +21,8 @@ function fakeDb() {
 test('daily limit: counts replies, refuses past the limit without counting the refused one', async () => {
   const db = fakeDb();
   for (let i = 1; i <= 3; i++) assert.equal((await limits.consume('u:7', 3, db)).used, i);
-  await assert.rejects(limits.consume('u:7', 3, db), (e) => e.code === 'quota' && e.status === 429 && /limit of 3/.test(e.message));
+  await assert.rejects(limits.consume('u:7', 3, db), (e) => e.code === 'quota' && e.status === 429 && /limit of 3/.test(
+    e.message));
   assert.equal(db.rows.get('u:7'), 3);
   await limits.refund('u:7', db);
   assert.equal((await limits.usage('u:7', 3, db)).remaining, 1);
@@ -48,14 +49,17 @@ test('guests: counted per browser cookie when present, plus a shared per-IP cap'
   const reqA = { user: null, ip: '105.112.0.9', cookies: { colon_gid: gidA } };
   const reqB = { user: null, ip: '105.112.0.9', cookies: { colon_gid: gidB } };
   assert.notEqual(limits.subjectFor(reqA), limits.subjectFor(reqB));
-  assert.equal(limits.subjectFor({ user: null, ip: '1.2.3.4', cookies: { colon_gid: 'bad id!' } }), limits.guestSubject('1.2.3.4'));
+  assert.equal(limits.subjectFor({ user: null, ip: '1.2.3.4', cookies: { colon_gid: 'bad id!' } }), limits.guestSubject(
+    '1.2.3.4'));
   assert.deepEqual(limits.countersFor({ user: { id: 3, role: 'user' } }, cfg), [{ subject: 'u:3', limit: 100 }]);
   const db = fakeDb();
   await limits.consumeAll(limits.countersFor(reqA, cfg), db);
   await limits.consumeAll(limits.countersFor(reqA, cfg), db);
-  await assert.rejects(limits.consumeAll(limits.countersFor(reqA, cfg), db), (e) => e.code === 'quota' && /guest replies/.test(e.message));
+  await assert.rejects(limits.consumeAll(limits.countersFor(reqA, cfg), db), (e) => e.code === 'quota'
+    && /guest replies/.test(e.message));
   await limits.consumeAll(limits.countersFor(reqB, cfg), db);           // same IP, other browser: own allowance
-  await assert.rejects(limits.consumeAll(limits.countersFor(reqB, cfg), db), (e) => e.code === 'quota' && /your network/.test(e.message));
+  await assert.rejects(limits.consumeAll(limits.countersFor(reqB, cfg), db), (e) => e.code === 'quota'
+    && /your network/.test(e.message));
   assert.equal(db.rows.get(limits.subjectFor(reqB)), 1);                 // refused reply not counted
   assert.equal(db.rows.get(limits.ipSubject('105.112.0.9')), 3);
 });
@@ -89,7 +93,8 @@ test('context: history within budget, file text inlined, images only on the late
     { role: 'assistant', content: 'stray first assistant turn' },
     { role: 'user', content: 'first', files: [img, { name: 'n.txt', kind: 'text', text: 'old notes' }] },
     { role: 'assistant', content: 'ok' },
-    { role: 'user', content: 'Summarise this', files: [{ name: 'r.pdf', kind: 'pdf', text: 'Lagos report', pages: 3 }, img, { name: 'v.webm', kind: 'audio', duration: 4 }] },
+    { role: 'user', content: 'Summarise this', files: [{ name: 'r.pdf', kind: 'pdf', text: 'Lagos report', pages: 3 },
+      img, { name: 'v.webm', kind: 'audio', duration: 4 }] },
   ]);
   assert.equal(msgs[0].role, 'user');
   assert.equal(msgs.length, 3);
@@ -101,7 +106,8 @@ test('context: history within budget, file text inlined, images only on the late
   assert.match(last[0].text, /Attached PDF: “r\.pdf” \(3 pages\)[\s\S]*Lagos report/);
   assert.match(last[0].text, /Voice transcription isn’t available yet/);
   assert.equal(last[1].type, 'image_url');
-  const long = Array.from({ length: 60 }, (_, i) => ({ role: i % 2 ? 'assistant' : 'user', content: 'x'.repeat(5000) }));
+  const long = Array.from({ length: 60 }, (_, i) => ({ role: i % 2 ? 'assistant' : 'user', content: 'x'.repeat(
+    5000) }));
   long.push({ role: 'user', content: 'latest' });
   const cut = buildMessages(long);
   assert.ok(cut.length < 24 && cut.length > 2);

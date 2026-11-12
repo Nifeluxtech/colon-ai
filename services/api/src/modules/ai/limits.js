@@ -4,7 +4,8 @@
 const crypto = require('crypto');
 const config = require('../../config');
 
-const hash = (secret, kind, value) => crypto.createHash('sha256').update(`${secret || 'colon'}|${kind}|${value || ''}`).digest('hex').slice(0, 32);
+const hash = (secret, kind, value) => crypto.createHash('sha256').update(`${secret || 'colon'}|${kind}|${value
+  || ''}`).digest('hex').slice(0, 32);
 
 // Guests are counted per browser (an anonymous "colon_gid" cookie) when it has one, else per IP. Many
 // Nigerian mobile users share one IP (carrier NAT), so the IP alone would lump strangers together; a
@@ -16,7 +17,8 @@ const ipSubject = (ip, secret = config.auth.appSecret) => `gi:${hash(secret, 'ip
 const validGid = (v) => (typeof v === 'string' && /^[A-Za-z0-9_-]{20,64}$/.test(v) ? v : null);
 
 function subjectFor(req) {
-  return req.user ? `u:${req.user.id}` : guestSubject(req.ip, undefined, validGid(req.cookies && req.cookies.colon_gid));
+  return req.user ? `u:${req.user.id}` : guestSubject(req.ip, undefined, validGid(req.cookies
+    && req.cookies.colon_gid));
 }
 
 function limitFor(req, cfg = config.chat) {
@@ -34,14 +36,18 @@ function countersFor(req, cfg = config.chat) {
 // Phase 4: limits editable live from the Admin Dashboard ("limits" setting, cached ~30 s per worker) on top
 // of the env defaults, plus a per-user override (user_limits) and optional per-mode daily caps.
 const MODE_NAMES = { general: 'General', study: 'Study', developer: 'Developer', research: 'Research' };
-const posInt = (v, d) => (Number.isFinite(Number(v)) && Number(v) >= 0 && v !== null && v !== '' ? Math.floor(Number(v)) : d);
+const posInt = (v, d) => (Number.isFinite(Number(v)) && Number(v) >= 0 && v !== null && v !== '' ? Math.floor(Number(
+  v)) : d);
 function mergeLimits(base, s) {
   s = s && typeof s === 'object' ? s : {};
   const modes = {};
-  for (const m of Object.keys(MODE_NAMES)) { const n = s.modes && posInt(s.modes[m], null); if (n !== null && n !== undefined) modes[m] = n; }
-  return { ...base, dailyLimit: posInt(s.user, base.dailyLimit), guestDailyLimit: posInt(s.guest, base.guestDailyLimit), guestIpDailyLimit: posInt(s.guestIp, base.guestIpDailyLimit), modes };
+  for (const m of Object.keys(MODE_NAMES)) { const n = s.modes && posInt(s.modes[m], null); if (n !== null
+    && n !== undefined) modes[m] = n; }
+  return { ...base, dailyLimit: posInt(s.user, base.dailyLimit), guestDailyLimit: posInt(s.guest,
+    base.guestDailyLimit), guestIpDailyLimit: posInt(s.guestIp, base.guestIpDailyLimit), modes };
 }
-async function effective(db, settings = require('../../shared/settings')) { return mergeLimits(config.chat, await settings.get('limits', db)); }
+async function effective(db, settings = require('../../shared/settings')) { return mergeLimits(config.chat,
+  await settings.get('limits', db)); }
 
 // Every counter for this request, with live limits, the user's override and the mode's cap. Never throws on
 // a settings/database read error (the env defaults apply).
@@ -51,7 +57,8 @@ async function resolveCounters(req, mode, db, settings) {
   const staff = req.user && req.user.role && req.user.role !== 'user';
   if (req.user) {
     let row = null;
-    try { row = await (db || require('../../db')).one('SELECT daily_limit FROM user_limits WHERE user_id = ?', [req.user.id]); } catch { row = null; }
+    try { row = await (db || require('../../db')).one('SELECT daily_limit FROM user_limits WHERE user_id = ?',
+      [req.user.id]); } catch { row = null; }
     if (row && row.daily_limit != null) list[0].limit = Number(row.daily_limit);
   }
   const cap = cfg.modes[mode];
@@ -77,7 +84,9 @@ async function consume(subject, limit, db = require('../../db')) {
   const row = await db.one('SELECT requests FROM chat_usage WHERE subject = ? AND day = UTC_DATE()', [subject]);
   const used = row ? Number(row.requests) : 1;
   if (used > limit) {
-    await db.query('UPDATE chat_usage SET requests = requests - 1 WHERE subject = ? AND day = UTC_DATE() AND requests > 0', [subject]);
+    await db.query(
+      'UPDATE chat_usage SET requests = requests - 1 WHERE subject = ? AND day = UTC_DATE() AND requests > 0',
+      [subject]);
     throw quotaError(subject.startsWith('g:'), limit);
   }
   return { used, limit, remaining: limit - used };
@@ -85,7 +94,9 @@ async function consume(subject, limit, db = require('../../db')) {
 
 // Gives a reply back (for example when no provider could answer at all).
 async function refund(subject, db = require('../../db')) {
-  await db.query('UPDATE chat_usage SET requests = requests - 1 WHERE subject = ? AND day = UTC_DATE() AND requests > 0', [subject]).catch(() => {});
+  await db.query(
+    'UPDATE chat_usage SET requests = requests - 1 WHERE subject = ? AND day = UTC_DATE() AND requests > 0',
+    [subject]).catch(() => {});
 }
 
 // Consumes several counters; if one is over its limit, the ones already taken are given back.
@@ -96,10 +107,13 @@ async function consumeAll(counters, db = require('../../db')) {
     catch (e) {
       for (const d of done) await refund(d.subject, db);
       if (e.code === 'quota' && c.mode) {
-        throw Object.assign(new Error(`You’ve reached today’s limit of ${c.limit} replies in ${MODE_NAMES[c.mode] || c.mode} mode. Try another mode, or come back tomorrow.`), { status: 429, code: 'quota' });
+        throw Object.assign(new Error(`You’ve reached today’s limit of ${c.limit} replies in ${MODE_NAMES[c.mode]
+          || c.mode} mode. Try another mode, or come back tomorrow.`), { status: 429, code: 'quota' });
       }
       if (e.code === 'quota' && c.subject.startsWith('gi:')) {
-        throw Object.assign(new Error('Lots of guests on your network have chatted with Colon today. Log in or sign up (free) to keep chatting.'), { status: 429, code: 'quota' });
+        throw Object.assign(new Error(
+          'Lots of guests on your network have chatted with Colon today. Log in or sign up (free) to keep chatting.'),
+          { status: 429, code: 'quota' });
       }
       throw e;
     }
@@ -113,4 +127,5 @@ async function usage(subject, limit, db = require('../../db')) {
   return { used, limit, remaining: Math.max(0, limit - used) };
 }
 
-module.exports = { mergeLimits, effective, resolveCounters, consume, refund, consumeAll, refundAll, usage, subjectFor, limitFor, countersFor, guestSubject, ipSubject, validGid, quotaError };
+module.exports = { mergeLimits, effective, resolveCounters, consume, refund, consumeAll, refundAll, usage, subjectFor,
+  limitFor, countersFor, guestSubject, ipSubject, validGid, quotaError };

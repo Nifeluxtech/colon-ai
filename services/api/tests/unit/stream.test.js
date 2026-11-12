@@ -2,14 +2,18 @@
 // format and the native Google AI Studio (Gemini) mapping. fetch is mocked.
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const KEYS = ['GROQ_API_KEY', 'OPENROUTER_API_KEY', 'GEMINI_API_KEY', 'NATLAS_API_KEY', 'NATLAS_BASE_URL', 'GROQ_MODEL', 'OPENROUTER_DEEPSEEK_MODEL', 'OPENROUTER_GEMMA_MODEL', 'GEMINI_MODEL', 'NATLAS_MODEL', 'GEMINI_FALLBACK_MODEL', 'NVIDIA_API_KEY'];
+const KEYS = ['GROQ_API_KEY', 'OPENROUTER_API_KEY', 'GEMINI_API_KEY', 'NATLAS_API_KEY', 'NATLAS_BASE_URL',
+  'GROQ_MODEL', 'OPENROUTER_DEEPSEEK_MODEL', 'OPENROUTER_GEMMA_MODEL', 'GEMINI_MODEL', 'NATLAS_MODEL',
+  'GEMINI_FALLBACK_MODEL', 'NVIDIA_API_KEY'];
 function setEnv(vals) {
   for (const k of KEYS) delete process.env[k];
   Object.assign(process.env, vals);
 }
 const ALL = {
-  GROQ_API_KEY: 'g', OPENROUTER_API_KEY: 'o', GEMINI_API_KEY: 'm', NATLAS_API_KEY: 'n', NATLAS_BASE_URL: 'https://natlas.example/v1',
-  GROQ_MODEL: 'qwen', OPENROUTER_DEEPSEEK_MODEL: 'deepseek', OPENROUTER_GEMMA_MODEL: 'gemma-or', GEMINI_MODEL: 'gemma-g', NATLAS_MODEL: 'natlas', GEMINI_FALLBACK_MODEL: 'off',
+  GROQ_API_KEY: 'g', OPENROUTER_API_KEY: 'o', GEMINI_API_KEY: 'm', NATLAS_API_KEY: 'n',
+    NATLAS_BASE_URL: 'https://natlas.example/v1',
+  GROQ_MODEL: 'qwen', OPENROUTER_DEEPSEEK_MODEL: 'deepseek', OPENROUTER_GEMMA_MODEL: 'gemma-or',
+    GEMINI_MODEL: 'gemma-g', NATLAS_MODEL: 'natlas', GEMINI_FALLBACK_MODEL: 'off',
 };
 const ai = require('../../src/modules/ai/generate');
 const { streamChat } = require('../../src/modules/ai/client');
@@ -30,23 +34,28 @@ function sseResponse(chunks, opts = {}) {
 }
 const delta = (t) => `data: ${JSON.stringify({ choices: [{ delta: { content: t } }] })}\n\n`;
 const okStream = (text) => sseResponse([...text.split(/(?<= )/).map(delta), 'data: [DONE]\n\n']);
-const errResponse = (status) => new Response(JSON.stringify({ error: { message: `status ${status}` } }), { status, headers: { 'content-type': 'application/json' } });
+const errResponse = (status) => new Response(JSON.stringify({ error: { message: `status ${status}` } }), { status,
+  headers: { 'content-type': 'application/json' } });
 // fetch mock: behaviour per model id; records the order of models called.
 function mockFetch(behaviour) {
   const calls = [];
   const fn = async (url, init) => {
     const body = JSON.parse(init.body);
     // Google AI Studio's native API carries the model in the URL, not the body.
-    const native = /:streamGenerateContent/.exec(url) ? decodeURIComponent(url.split('/models/')[1].split(':')[0]) : null;
+    const native = /:streamGenerateContent/.exec(url) ? decodeURIComponent(url.split('/models/')[1].split(':')[
+      0]) : null;
     const model = native || body.model;
-    calls.push({ url, model, auth: init.headers.Authorization || init.headers['x-goog-api-key'], body, native: Boolean(native) });
+    calls.push({ url, model, auth: init.headers.Authorization || init.headers['x-goog-api-key'], body, native: Boolean(
+      native) });
     const b = behaviour[model] || 'ok';
     if (typeof b === 'number') return errResponse(b);
-    if (b === 'hang') return new Promise((_, rej) => init.signal.addEventListener('abort', () => rej(Object.assign(new Error('aborted'), { name: 'AbortError' }))));
+    if (b === 'hang') return new Promise((_, rej) => init.signal.addEventListener('abort', () => rej(Object.assign(
+      new Error('aborted'), { name: 'AbortError' }))));
     if (b === 'hang-stream') return sseResponse([], { hang: true });
     if (b === 'drop') return sseResponse([delta('Partial '), delta('answer ')], { breakAfter: 2 });
     if (b === 'network') throw new TypeError('fetch failed');
-    if (native) return sseResponse(`Answer from ${model}`.split(/(?<= )/).map(t => `data: ${JSON.stringify({ candidates: [{ content: { parts: [{ text: t }] } }] })}\n\n`));
+    if (native) return sseResponse(`Answer from ${model}`.split(/(?<= )/).map(t => `data: ${JSON.stringify({
+      candidates: [{ content: { parts: [{ text: t }] } }] })}\n\n`));
     return okStream(`Answer from ${model}`);
   };
   fn.calls = calls;
@@ -55,17 +64,23 @@ function mockFetch(behaviour) {
 const fast = { firstTokenTimeoutMs: 80, idleTimeoutMs: 200, maxReplyMs: 2000, hedge: 1 };
 test.beforeEach(() => { ai._resting.clear(); setEnv(ALL); });
 test('streamChat: hides <think> reasoning, ignores keep-alives, handles JSON (non-stream) replies', async () => {
-  const chunks = [': keep-alive\n\n', delta('<thi'), delta('nk>secret plan</th'), delta('ink>\n\nThe '), 'data: {"choices":[{"delta":{"content":"answer"},"finish_reason":"stop"}]}\n\n', 'data: [DONE]\n\n'];
+  const chunks = [': keep-alive\n\n', delta('<thi'), delta('nk>secret plan</th'), delta('ink>\n\nThe '),
+    'data: {"choices":[{"delta":{"content":"answer"},"finish_reason":"stop"}]}\n\n', 'data: [DONE]\n\n'];
   const seen = [];
-  const r = await streamChat({ provider: { baseUrl: 'https://x/v1/', apiKey: 'k' }, model: 'm', messages: [], fetch: async (url) => { assert.equal(url, 'https://x/v1/chat/completions'); return sseResponse(chunks); }, onDelta: (t) => seen.push(t) });
+  const r = await streamChat({ provider: { baseUrl: 'https://x/v1/', apiKey: 'k' }, model: 'm', messages: [],
+    fetch: async (url) => { assert.equal(url, 'https://x/v1/chat/completions'); return sseResponse(chunks);
+    }, onDelta: (t) => seen.push(t) });
   assert.equal(seen.join(''), 'The answer');
   assert.equal(r.finishReason, 'stop');
-  const j = await streamChat({ provider: { baseUrl: 'https://x', apiKey: 'k' }, model: 'm', messages: [], fetch: async () => new Response(JSON.stringify({ choices: [{ message: { content: 'whole reply' }, finish_reason: 'stop' }] }), { headers: { 'content-type': 'application/json' } }) });
+  const j = await streamChat({ provider: { baseUrl: 'https://x', apiKey: 'k' }, model: 'm', messages: [], fetch: async (
+    ) => new Response(JSON.stringify({ choices: [{ message: { content: 'whole reply' }, finish_reason: 'stop' }] }),
+    { headers: { 'content-type': 'application/json' } }) });
   assert.equal(j.text, 'whole reply');
 });
 test('streamChat: an error object inside the stream is a provider error', async () => {
   await assert.rejects(
-    streamChat({ provider: { baseUrl: 'https://x', apiKey: 'k' }, model: 'm', messages: [], fetch: async () => sseResponse(['data: {"error":{"message":"quota exceeded","code":429}}\n\n']) }),
+    streamChat({ provider: { baseUrl: 'https://x', apiKey: 'k' }, model: 'm', messages: [], fetch: async () =>
+      sseResponse(['data: {"error":{"message":"quota exceeded","code":429}}\n\n']) }),
     (e) => e.name === 'ProviderError' && e.code === 'rate_limited' && /quota/.test(e.message),
   );
 });
@@ -92,10 +107,12 @@ test('the app SSE format round-trips through the same parser the browser uses', 
   let out = '';
   const res = { writableEnded: false, on() {}, write: (s) => { out += s; }, end() { this.writableEnded = true; } };
   const w = writer(res);
-  w.send('start', { message: { id: 'm1' } }); w.send('delta', { text: 'Ẹ káàrọ̀\n"hi"' }); w.send('done', { message: { id: 'm1', status: 'complete' } }); w.end();
+  w.send('start', { message: { id: 'm1' } }); w.send('delta', { text: 'Ẹ káàrọ̀\n"hi"' }); w.send('done', { message: {
+    id: 'm1', status: 'complete' } }); w.end();
   const events = out.split(/\n\n/).filter(Boolean).map((block) => {
     let ev = 'message', data = '';
-    block.split('\n').forEach((l) => { if (l.indexOf('event:') === 0) ev = l.slice(6).trim(); else if (l.indexOf('data:') === 0) data += l.slice(5).trim(); });
+    block.split('\n').forEach((l) => { if (l.indexOf('event:') === 0) ev = l.slice(6).trim(); else if (l.indexOf(
+      'data:') === 0) data += l.slice(5).trim(); });
     return { ev, d: JSON.parse(data) };
   });
   assert.deepEqual(events.map(e => e.ev), ['start', 'delta', 'done']);
@@ -103,7 +120,8 @@ test('the app SSE format round-trips through the same parser the browser uses', 
 });
 test('Google AI Studio uses the native Gemini API: system instruction, model roles, thought parts hidden', async () => {
   const f = mockFetch({ qwen: 500, deepseek: 500 });
-  const r = await ai.generate({ mode: 'general', messages: [{ role: 'user', content: 'hi' }, { role: 'assistant', content: 'yo' }, { role: 'user', content: 'again' }], fetch: f, timeouts: fast });
+  const r = await ai.generate({ mode: 'general', messages: [{ role: 'user', content: 'hi' }, { role: 'assistant',
+    content: 'yo' }, { role: 'user', content: 'again' }], fetch: f, timeouts: fast });
   assert.equal(r.providerId, 'gemini');
   assert.equal(r.text, 'Answer from gemma-g');
   const call = f.calls.find(c => c.native);
@@ -115,9 +133,12 @@ test('Google AI Studio uses the native Gemini API: system instruction, model rol
   let out = '';
   const thought = sseResponse([
     `data: ${JSON.stringify({ candidates: [{ content: { parts: [{ text: 'secret plan', thought: true }] } }] })}\n\n`,
-    `data: ${JSON.stringify({ candidates: [{ content: { parts: [{ text: 'How far!' }] }, finishReason: 'STOP' }] })}\n\n`,
+    `data: ${JSON.stringify({ candidates: [{ content: { parts: [{ text: 'How far!' }] },
+      finishReason: 'STOP' }] })}\n\n`,
   ]);
-  const res = await streamChat({ fetch: async () => thought, provider: { baseUrl: 'https://x/v1beta', apiKey: 'k', native: 'gemini' }, model: 'gemma-4-31b-it', messages: [{ role: 'user', content: 'x' }], onDelta: (t) => { out += t; } });
+  const res = await streamChat({ fetch: async () => thought, provider: { baseUrl: 'https://x/v1beta', apiKey: 'k',
+    native: 'gemini' }, model: 'gemma-4-31b-it', messages: [{ role: 'user', content: 'x' }], onDelta: (t) => { out +=
+    t; } });
   assert.equal(out, 'How far!');
   assert.equal(res.finishReason, 'stop');
 });

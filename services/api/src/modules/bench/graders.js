@@ -34,7 +34,8 @@ function extractChoice(text) {
   const s = stripMd(text).trim();
   const firstLine = s.split('\n')[0].trim();
   // 1. The reply starts with the letter ("B", "(C)", "C. Mitochondrion"), but not the article "A fair die…".
-  let m = /^\(?([A-E])(?:[).:]|$)/.exec(firstLine) || (firstLine.length <= 40 ? /^\(?([A-E])\s+(?![a-z])/.exec(firstLine) : null);
+  let m = /^\(?([A-E])(?:[).:]|$)/.exec(firstLine) || (firstLine.length <= 40 ? /^\(?([A-E])\s+(?![a-z])/.exec(
+    firstLine) : null);
   if (m) return m[1];
   // 2. "The answer is B", "Answer: (B)", "correct option is C".
   m = /\b(?:answer|correct (?:option|choice))\s*(?:is|:|-|=)?\s*(?:option\s*)?\(?([A-E])\b(?![a-z])/i.exec(s);
@@ -66,7 +67,8 @@ function extractNumber(text) {
     }
   }
   // No "Answer:" line: Study mode often ends with a practice question, so ignore everything from such a section on.
-  const cut = s.search(/^.*(check[- ]yourself|quick check|practice question|try (this|these|it)|quiz|exercise|your turn)/im);
+  const cut = s.search(
+    /^.*(check[- ]yourself|quick check|practice question|try (this|these|it)|quiz|exercise|your turn)/im);
   const body = cut > 0 ? s.slice(0, cut) : s;
   const all = body.match(NUM_RE);
   return all ? toNumber(all[all.length - 1]) : null;
@@ -89,7 +91,9 @@ function keywords(text, spec) {
   const got = (spec.all || []).length - missing.length + (spec.any && spec.any.length && anyOk ? 1 : 0);
   const pass = !missing.length && anyOk && !banned.length;
   const score = banned.length ? 0 : parts ? got / parts : 1;
-  return { pass, score: pass ? 1 : score, detail: pass ? 'ok' : `missing ${[...missing, ...(anyOk ? [] : [`one of ${spec.any.join('/')}`])].join(', ') || '-'}${banned.length ? `; banned ${banned.join(', ')}` : ''}` };
+  return { pass, score: pass ? 1 : score, detail: pass ? 'ok' : `missing ${[...missing, ...(anyOk
+    ? [] : [`one of ${spec.any.join('/')}`])].join(', ') || '-'}${banned.length ? `; banned ${banned.join(
+    ', ')}` : ''}` };
 }
 function regex(text, spec) {
   const re = new RegExp(spec.pattern, spec.flags || 'i');
@@ -109,45 +113,62 @@ function extractJson(text) {
     const close = s[first] === '{' ? '}' : ']';
     tries.push(s.slice(first, s.lastIndexOf(close) + 1));
   }
-  for (const t of tries) { try { return { ok: true, value: JSON.parse(t.trim()), bare: t === s }; } catch { /* next */ } }
+  for (const t of tries) { try { return { ok: true, value: JSON.parse(t.trim()), bare: t === s }; } catch { /* next */
+    } }
   return { ok: false };
 }
-function typeOf(v) { return v === null ? 'null' : Array.isArray(v) ? 'array' : Number.isInteger(v) ? 'integer' : typeof v; }
-// A small JSON-schema subset: type, enum, const, required, properties, additionalProperties:false, items, minItems, maxItems, minimum, maximum, pattern.
+function typeOf(v) { return v === null ? 'null' : Array.isArray(v) ? 'array' : Number.isInteger(v)
+  ? 'integer' : typeof v; }
+// A small JSON-schema subset: type, enum, const, required, properties, additionalProperties:false, items, minItems,
+// maxItems, minimum, maximum, pattern.
 function validate(v, schema, at = '$') {
   const errs = [];
   if (!schema) return errs;
   if (schema.type) {
     const t = typeOf(v);
     const types = [].concat(schema.type);
-    if (!types.some(x => x === t || (x === 'number' && t === 'integer'))) return [`${at} should be ${types.join('|')}, got ${t}`];
+    if (!types.some(x => x === t || (x === 'number' && t === 'integer'))) return [`${at} should be ${types.join(
+      '|')}, got ${t}`];
   }
-  if (schema.enum && !schema.enum.some(e => e === v || (typeof e === 'string' && typeof v === 'string' && fold(e) === fold(v)))) errs.push(`${at} not in enum`);
-  if (schema.const !== undefined && !looseEqual(v, schema.const)) errs.push(`${at} should be ${JSON.stringify(schema.const)}`);
+  if (schema.enum && !schema.enum.some(e => e === v || (typeof e === 'string' && typeof v === 'string' && fold(
+    e) === fold(v)))) errs.push(`${at} not in enum`);
+  if (schema.const !== undefined && !looseEqual(v, schema.const)) errs.push(`${at} should be ${JSON.stringify(
+    schema.const)}`);
   if (typeof v === 'number') {
     if (schema.minimum !== undefined && v < schema.minimum) errs.push(`${at} < ${schema.minimum}`);
     if (schema.maximum !== undefined && v > schema.maximum) errs.push(`${at} > ${schema.maximum}`);
   }
-  if (typeof v === 'string' && schema.pattern && !new RegExp(schema.pattern).test(v)) errs.push(`${at} does not match ${schema.pattern}`);
+  if (typeof v === 'string' && schema.pattern && !new RegExp(schema.pattern).test(
+    v)) errs.push(`${at} does not match ${schema.pattern}`);
   if (Array.isArray(v)) {
-    if (schema.minItems !== undefined && v.length < schema.minItems) errs.push(`${at} has ${v.length} items (< ${schema.minItems})`);
-    if (schema.maxItems !== undefined && v.length > schema.maxItems) errs.push(`${at} has ${v.length} items (> ${schema.maxItems})`);
-    if (schema.uniqueItems && new Set(v.map(x => fold(JSON.stringify(x)))).size !== v.length) errs.push(`${at} has duplicates`);
+    if (schema.minItems !== undefined
+      && v.length < schema.minItems) errs.push(`${at} has ${v.length} items (< ${schema.minItems})`);
+    if (schema.maxItems !== undefined
+      && v.length > schema.maxItems) errs.push(`${at} has ${v.length} items (> ${schema.maxItems})`);
+    if (schema.uniqueItems && new Set(v.map(x => fold(JSON.stringify(
+      x)))).size !== v.length) errs.push(`${at} has duplicates`);
     if (schema.items) v.forEach((x, i) => errs.push(...validate(x, schema.items, `${at}[${i}]`)));
   }
   if (v && typeof v === 'object' && !Array.isArray(v)) {
     for (const k of schema.required || []) if (!(k in v)) errs.push(`${at}.${k} is missing`);
-    for (const [k, s] of Object.entries(schema.properties || {})) if (k in v) errs.push(...validate(v[k], s, `${at}.${k}`));
-    if (schema.additionalProperties === false) for (const k of Object.keys(v)) if (!(schema.properties || {})[k]) errs.push(`${at}.${k} is not allowed`);
+    for (const [k, s] of Object.entries(schema.properties || {})) if (k in v) errs.push(...validate(v[k],
+      s, `${at}.${k}`));
+    if (schema.additionalProperties === false) for (const k of Object.keys(v)) if (!(schema.properties || {})[
+      k]) errs.push(`${at}.${k} is not allowed`);
   }
   return errs;
 }
-// Strings compare accent/case/space-insensitively; numbers exactly; objects as a subset (every expected key must match).
+// Strings compare accent/case/space-insensitively; numbers exactly; objects as a subset (every expected key must
+// match).
 function looseEqual(got, want) {
-  if (typeof want === 'string') return typeof got === 'string' && fold(got).replace(/\s+/g, ' ').trim() === fold(want).replace(/\s+/g, ' ').trim();
-  if (typeof want === 'number') return typeof got === 'number' ? Math.abs(got - want) < 1e-9 : (typeof got === 'string' && Number(got.replace(/[,₦]/g, '')) === want);
-  if (Array.isArray(want)) return Array.isArray(got) && got.length === want.length && want.every((w, i) => looseEqual(got[i], w));
-  if (want && typeof want === 'object') return got && typeof got === 'object' && Object.entries(want).every(([k, w]) => looseEqual(got[k], w));
+  if (typeof want === 'string') return typeof got === 'string' && fold(got).replace(/\s+/g, ' ').trim() === fold(
+    want).replace(/\s+/g, ' ').trim();
+  if (typeof want === 'number') return typeof got === 'number' ? Math.abs(got - want) < 1e-9 : (typeof got === 'string'
+    && Number(got.replace(/[,₦]/g, '')) === want);
+  if (Array.isArray(want)) return Array.isArray(got) && got.length === want.length && want.every((w, i) => looseEqual(
+    got[i], w));
+  if (want && typeof want === 'object') return got && typeof got === 'object' && Object.entries(want).every(([k,
+    w]) => looseEqual(got[k], w));
   return got === want;
 }
 function json(text, spec) {
@@ -156,7 +177,8 @@ function json(text, spec) {
   const errs = validate(j.value, spec.schema);
   if (spec.match !== undefined && !looseEqual(j.value, spec.match)) errs.push('values differ from expected');
   const pass = !errs.length;
-  return { pass, score: pass ? 1 : 0.25, detail: pass ? (j.bare ? 'ok' : 'ok (JSON wrapped in text/fence)') : errs.slice(0, 3).join('; ') };
+  return { pass, score: pass ? 1 : 0.25, detail: pass ? (j.bare ? 'ok' : 'ok (JSON wrapped in text/fence)') :
+    errs.slice(0, 3).join('; ') };
 }
 
 /* ---------- code ---------- */
@@ -169,17 +191,27 @@ function extractCode(text) {
 function code(text, spec) {
   const r = runCode(extractCode(text), spec.fn, spec.tests || [], spec.timeoutMs);
   const pass = r.passed === r.total && r.total > 0;
-  return { pass, score: r.total ? r.passed / r.total : 0, detail: pass ? `${r.passed}/${r.total} tests` : `${r.passed}/${r.total} tests${r.error ? `; ${r.error}` : ''}` };
+  return { pass, score: r.total ? r.passed / r.total : 0, detail: pass
+    ? `${r.passed}/${r.total} tests` : `${r.passed}/${r.total} tests${r.error ? `; ${r.error}` : ''}` };
 }
 
 /* ---------- lang: is the reply written in the target language? ---------- */
 const LEX = {
-  pcm: 'na dey di wetin abeg una wey don pikin sabi wahala chop oga comot sef sha abi wan dem im dis dat tori shey oya jare ehn wella belle waka wan fit kuku sotey yarn gist ova pesin person no be e don dey go',
-  yo: 'mo o won awon ati ni ti ki se ko si fun re mi wa yii naa je n lati omi ile omo ojo gbogbo pe bi nitori eyi ilu ola lo dara pupo kan nla ninu sugbon tabi fe a ba oun yin wonyi meji meta ewa owo iwe oja',
-  ha: 'da na ya ta su ba ne ce ina yana tana suna kuma amma don saboda wannan wanda akwai babu ruwa gida mutane sosai za zai zata domin shi ita mu ku ga cikin kan daga har lokacin yi abin ake an kasa rana yara makaranta lafiya sannu nagode ilimi ke kai mai masu wani wata goma biyu hannu yatsu',
-  ig: 'na nke bu ka o m ha anyi unu ya di mmiri ihe ndi maka nihi ma nwere ga ime iga onye oma nne nna nwa ulo ahu ji gi mere otu ubochi ndu ahuike nyere ebe ugbu a ozo kwa ruo kwesiri no aka iri abuo ato ano ise akwukwo ahia echi taa',
+  pcm: ('na dey di wetin abeg una wey don pikin sabi wahala chop oga comot sef sha abi wan dem im dis dat tori shey '
+    + 'oya jare ehn wella belle waka wan fit kuku sotey yarn gist ova pesin person no be e don dey go'),
+  yo: ('mo o won awon ati ni ti ki se ko si fun re mi wa yii naa je n lati omi ile omo ojo gbogbo pe bi nitori eyi '
+    + 'ilu ola lo dara pupo kan nla ninu sugbon tabi fe a ba oun yin wonyi meji meta ewa owo iwe oja'),
+  ha: ('da na ya ta su ba ne ce ina yana tana suna kuma amma don saboda wannan wanda akwai babu ruwa gida mutane '
+    + 'sosai za zai zata domin shi ita mu ku ga cikin kan daga har lokacin yi abin ake an kasa rana yara makaranta '
+    + 'lafiya sannu nagode ilimi ke kai mai masu wani wata goma biyu hannu yatsu'),
+  ig: ('na nke bu ka o m ha anyi unu ya di mmiri ihe ndi maka nihi ma nwere ga ime iga onye oma nne nna nwa ulo ahu '
+    + 'ji gi mere otu ubochi ndu ahuike nyere ebe ugbu a ozo kwa ruo kwesiri no aka iri abuo ato ano ise akwukwo ahia '
+    + 'echi taa'),
 };
-const EN = new Set('the is are was were and of to in it that this for with you your have has be on as by at from or an will can not they their there what which would should we he she my me our do does about into because very also if but more than then these those been being its'.split(' '));
+const EN = new Set((
+  'the is are was were and of to in it that this for with you your have has be on as by at from or an will can not '
+  + 'they their there what which would should we he she my me our do does about into because very also if but more '
+  + 'than then these those been being its').split(' '));
 const LEXSET = Object.fromEntries(Object.entries(LEX).map(([k, v]) => [k, new Set(v.split(' '))]));
 // Special letters (counted on NFC text) and tone marks (combining accents, counted on NFD text).
 const ORTHO = { yo: [/[ẹọṣẸỌṢ]/g, /[\u0300\u0301]/g], ig: [/[ịọụṅỊỌỤṄ]/g, null], ha: [/[ɗƙɓƴƊƘƁƳ]/g, null] };
@@ -187,7 +219,9 @@ const ORTHO_WORD = { yo: /[ẹọṣẸỌṢ]/, ig: /[ịọụṅỊỌỤṄ]
 const THRESH = { pcm: 0.3, yo: 0.5, ha: 0.5, ig: 0.5 };
 // Naijá shares most of its words with English, so its grammar gives it away: "you go pay", "if you no count",
 // "e still remain", "Nigeria get 36 states". These count as Pidgin markers; "for/if/no/so" are neutral for Pidgin.
-const PCM_PATTERNS = [/\b(i|you|we|e|dem|una|im|e no) go [a-z]+/g, /\b(you|i|we|dem|una|e|im) no [a-z]+/g, /\be (still|go|dey|don|be|no|fit|wan|get)\b/g, /\b[a-z]+ get \d+/g, /\bfor (market|house|road|lokoja|lagos|abuja|school|work)\b/g];
+const PCM_PATTERNS = [/\b(i|you|we|e|dem|una|im|e no) go [a-z]+/g, /\b(you|i|we|dem|una|e|im) no [a-z]+/g,
+  /\be (still|go|dey|don|be|no|fit|wan|get)\b/g, /\b[a-z]+ get \d+/g,
+  /\bfor (market|house|road|lokoja|lagos|abuja|school|work)\b/g];
 const PCM_NEUTRAL = new Set(['for', 'if', 'no', 'so']);
 
 // -> { score 0..1 (target words vs English function words), ortho 0..1 (special letters/tone marks used), pass }
@@ -200,7 +234,8 @@ function langScore(text, lang) {
   if (lang === 'pcm') { const f = toks.join(' '); for (const re of PCM_PATTERNS) t += (f.match(re) || []).length; }
   // Words written with the language's own letters (ẹ ọ ṣ, ị ọ ụ ṅ, ɗ ƙ ɓ) count as target words too.
   if (ORTHO[lang]) {
-    const raw = String(text || '').normalize('NFC').replace(/```[\s\S]*?```/g, '').split(/[^\p{L}\p{M}']+/u).filter(Boolean);
+    const raw = String(text || '').normalize('NFC').replace(/```[\s\S]*?```/g, '').split(/[^\p{L}\p{M}']+/u).filter(
+      Boolean);
     for (const w of raw) if (ORTHO_WORD[lang].test(w) && !lex.has(fold(w))) t++;
   }
   const ratio = t / (t + en || 1);
@@ -210,14 +245,16 @@ function langScore(text, lang) {
   let ortho = 1;
   if (ORTHO[lang]) {
     const [letters, tones] = ORTHO[lang];
-    const marks = (String(text).normalize('NFC').match(letters) || []).length + (tones ? (String(text).normalize('NFD').match(tones) || []).length : 0);
+    const marks = (String(text).normalize('NFC').match(letters) || []).length + (tones ? (String(text).normalize(
+      'NFD').match(tones) || []).length : 0);
     ortho = Math.min(1, marks / Math.max(2, toks.length * 0.1));
   }
   return { score, ortho, pass: score >= 1 };
 }
 function lang(text, spec) {
   const r = langScore(text, spec.lang);
-  return { pass: r.pass, score: r.score, detail: `${spec.lang} ${(r.score * 100).toFixed(0)}%, orthography ${(r.ortho * 100).toFixed(0)}%`, lang: 0.75 * r.score + 0.25 * r.ortho };
+  return { pass: r.pass, score: r.score, detail: `${spec.lang} ${(r.score * 100).toFixed(0)}%, orthography ${(
+    r.ortho * 100).toFixed(0)}%`, lang: 0.75 * r.score + 0.25 * r.ortho };
 }
 
 /* ---------- all ---------- */
@@ -226,7 +263,8 @@ function all(text, spec) {
   const pass = parts.length > 0 && parts.every(p => p.pass);
   const score = parts.length ? parts.reduce((a, p) => a + p.score, 0) / parts.length : 0;
   const langPart = parts.find(p => p.lang !== undefined);
-  return { pass, score: pass ? 1 : score, detail: parts.map(p => p.detail).join(' | '), ...(langPart ? { lang: langPart.lang } : {}) };
+  return { pass, score: pass ? 1 : score, detail: parts.map(p => p.detail).join(' | '), ...(langPart
+    ? { lang: langPart.lang } : {}) };
 }
 
 const GRADERS = { mc, number, keywords, regex, json, code, lang, all };
@@ -236,4 +274,5 @@ function grade(text, spec) {
   try { return g(text, spec); } catch (e) { return { pass: false, score: 0, detail: `grader error: ${e.message}` }; }
 }
 
-module.exports = { grade, fold, extractChoice, extractNumber, extractJson, extractCode, validate, looseEqual, langScore, GRADERS };
+module.exports = { grade, fold, extractChoice, extractNumber, extractJson, extractCode, validate, looseEqual,
+  langScore, GRADERS };

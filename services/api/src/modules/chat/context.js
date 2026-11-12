@@ -13,7 +13,8 @@ function fileBlock(f, latest) {
   if (f.duration) bits.push(`${f.duration} s`);
   const head = `[Attached ${bits[0]}: “${f.name}”${bits.length > 1 ? ' (' + bits.slice(1).join(', ') + ')' : ''}]`;
   if (f.kind === 'image') return latest && f.dataUrl ? head : `${head} (image shown earlier in the chat)`;
-  if (f.kind === 'audio') return `${head} Voice transcription isn’t available yet, so ask the user to type what they said.`;
+  if (f.kind === 'audio') return (`${head} Voice transcription isn’t available yet, so ask the user to type what `
+    + `they said.`);
   if (!f.text) return `${head} ${f.note || 'No readable text could be extracted from this file.'}`;
   const cap = latest ? FILE_CHARS_LATEST : FILE_CHARS_OLDER;
   const body = f.text.length > cap ? f.text.slice(0, cap) + '\n[…truncated…]' : f.text;
@@ -25,7 +26,8 @@ function fileBlock(f, latest) {
  * The last item is the user message being answered. Returns OpenAI-style messages (no system prompt).
  */
 function buildMessages(history) {
-  const items = history.filter(m => (m.role === 'user' || m.role === 'assistant') && (String(m.content || '').trim() || (m.files && m.files.length)));
+  const items = history.filter(m => (m.role === 'user' || m.role === 'assistant') && (String(m.content || '').trim()
+    || (m.files && m.files.length)));
   const out = [];
   let used = 0;
   for (let i = items.length - 1; i >= 0 && out.length < MAX_MESSAGES; i--) {
@@ -40,7 +42,8 @@ function buildMessages(history) {
     used += text.length;
     const images = latest ? files.filter(f => f.kind === 'image' && f.dataUrl) : [];
     out.unshift(images.length
-      ? { role: m.role, content: [{ type: 'text', text }, ...images.map(f => ({ type: 'image_url', image_url: { url: f.dataUrl } }))] }
+      ? { role: m.role, content: [{ type: 'text', text }, ...images.map(f => ({ type: 'image_url', image_url: {
+        url: f.dataUrl } }))] }
       : { role: m.role, content: text });
   }
   // Providers expect the conversation to start with a user turn.

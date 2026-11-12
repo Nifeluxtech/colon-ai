@@ -4,7 +4,8 @@ const { env } = require('./env');
 
 const config = () => ({
   // Native Gemini API: Google serves Gemma models only there, not on its OpenAI-compatible endpoint.
-  name: 'Google AI Studio', baseUrl: env('GEMINI_BASE_URL', 'https://generativelanguage.googleapis.com/v1beta'), apiKey: env('GEMINI_API_KEY', ''),
+  name: 'Google AI Studio', baseUrl: env('GEMINI_BASE_URL', 'https://generativelanguage.googleapis.com/v1beta'),
+    apiKey: env('GEMINI_API_KEY', ''),
   native: 'gemini',
   // Gemma 4 takes thinkingLevel "minimal" (fast, no hidden reasoning) or "high". Set GEMINI_THINKING=off to omit.
   thinkingLevel: env('GEMINI_THINKING', 'minimal') === 'off' ? '' : env('GEMINI_THINKING', 'minimal'),
@@ -31,7 +32,8 @@ function geminiBody(o) {
   const system = [];
   const contents = [];
   for (const msg of o.messages || []) {
-    if (msg.role === 'system') { const t = typeof msg.content === 'string' ? msg.content : geminiParts(msg.content).map(x => x.text || '').join('\n'); if (t) system.push(t); continue; }
+    if (msg.role === 'system') { const t = typeof msg.content === 'string' ? msg.content : geminiParts(msg.content).map(
+      x => x.text || '').join('\n'); if (t) system.push(t); continue; }
     const role = msg.role === 'assistant' ? 'model' : 'user';
     const parts = geminiParts(msg.content);
     if (!parts.length) continue;
@@ -59,9 +61,11 @@ function geminiChunk(j) {
     if (typeof p.text === 'string') text += p.text;
   }
   let finish = null;
-  if (c && c.finishReason) finish = c.finishReason === 'MAX_TOKENS' ? 'length' : c.finishReason === 'STOP' ? 'stop' : String(c.finishReason).toLowerCase();
+  if (c && c.finishReason) finish = c.finishReason === 'MAX_TOKENS' ? 'length' : c.finishReason === 'STOP'
+    ? 'stop' : String(c.finishReason).toLowerCase();
   const u = j && j.usageMetadata;
-  const usage = u ? { prompt_tokens: u.promptTokenCount || 0, completion_tokens: u.candidatesTokenCount || 0, total_tokens: u.totalTokenCount || 0 } : null;
+  const usage = u ? { prompt_tokens: u.promptTokenCount || 0, completion_tokens: u.candidatesTokenCount || 0,
+    total_tokens: u.totalTokenCount || 0 } : null;
   return { text, alive, finish, usage };
 }
 

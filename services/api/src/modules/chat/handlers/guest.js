@@ -26,8 +26,10 @@ function cleanGuestHistory(list) {
     const role = m && m.role === 'assistant' ? 'assistant' : 'user';
     const content = String((m && m.content) || '').slice(0, MAX_CONTENT);
     const files = (Array.isArray(m && m.attachments) ? m.attachments : []).slice(0, 5).map(a => ({
-      name: String((a && a.name) || 'file').slice(0, 180), kind: ['pdf', 'doc', 'text', 'audio', 'image'].includes(a && a.kind) ? a.kind : 'text',
-      text: String((a && a.text) || '').slice(0, 24000), pages: Number(a && a.pages) || undefined, note: a && a.note ? String(a.note).slice(0, 200) : undefined,
+      name: String((a && a.name) || 'file').slice(0, 180), kind: ['pdf', 'doc', 'text', 'audio', 'image'].includes(a
+        && a.kind) ? a.kind : 'text',
+      text: String((a && a.text) || '').slice(0, 24000), pages: Number(a && a.pages) || undefined, note: a && a.note
+        ? String(a.note).slice(0, 200) : undefined,
     }));
     return { role, content, files };
   });
@@ -62,7 +64,8 @@ const postChatGuest = async (req, res) => {
     webSearch: wantsWeb(mode), searchText: last.content, searchPrevious: previousUserText(history),
     store: {
       async start() {
-        msg = { id: store.newId(), role: 'assistant', content: '', sources: [], status: 'streaming', mode, model, created_at: new Date().toISOString(), temporary: true };
+        msg = { id: store.newId(), role: 'assistant', content: '', sources: [], status: 'streaming', mode, model,
+          created_at: new Date().toISOString(), temporary: true };
         return msg;
       },
       async finish({ content, status, error, sources, web }) {

@@ -5,9 +5,11 @@ const { err } = require('./errors');
 
 /* ---------- Wikipedia (no key) ---------- */
 const WIKI_LANGS = { pcm: 'pcm', yo: 'yo', ha: 'ha', ig: 'ig' };
-const WIKI_UA = { 'User-Agent': 'ColonAI/0.5 (https://chat.apparatus.name.ng; Nifelux) node-fetch', Accept: 'application/json' };
+const WIKI_UA = { 'User-Agent': 'ColonAI/0.5 (https://chat.apparatus.name.ng; Nifelux) node-fetch',
+  Accept: 'application/json' };
 
-const wikiUrl = (lang, title) => `https://${lang}.wikipedia.org/wiki/${encodeURIComponent(String(title).replace(/ /g, '_')).replace(/%2F/g, '/').replace(/%3A/g, ':')}`;
+const wikiUrl = (lang, title) => `https://${lang}.wikipedia.org/wiki/${encodeURIComponent(String(title).replace(/ /g,
+  '_')).replace(/%2F/g, '/').replace(/%3A/g, ':')}`;
 
 // action=query&list=search JSON -> results
 function parseWikiSearch(json, lang = 'en') {
@@ -18,12 +20,15 @@ function parseWikiSearch(json, lang = 'en') {
 // opensearch JSON [query, titles[], descriptions[], urls[]] -> results (kept for SearXNG-less fallbacks and tests)
 function parseOpenSearch(json) {
   if (!Array.isArray(json) || !Array.isArray(json[1])) return [];
-  return json[1].map((t, i) => ({ title: t, url: (json[3] && json[3][i]) || '', snippet: (json[2] && json[2][i]) || '' })).filter(r => r.url);
+  return json[1].map((t, i) => ({ title: t, url: (json[3] && json[3][i]) || '', snippet: (json[2] && json[2][i])
+    || '' })).filter(r => r.url);
 }
 
 async function wikiSearch(lang, query, o) {
-  const url = `https://${lang}.wikipedia.org/w/api.php?` + new URLSearchParams({ action: 'query', list: 'search', srsearch: query, srlimit: String(Math.min(o.limit || 5, 10)), srprop: 'snippet', format: 'json', utf8: '1' });
-  const r = await safeFetch(url, { headers: WIKI_UA, timeoutMs: o.timeoutMs || 5000, maxBytes: 300 * 1024, signal: o.signal, fetch: o.fetch, guard: false, maxRedirects: 1 });
+  const url = `https://${lang}.wikipedia.org/w/api.php?` + new URLSearchParams({ action: 'query', list: 'search',
+    srsearch: query, srlimit: String(Math.min(o.limit || 5, 10)), srprop: 'snippet', format: 'json', utf8: '1' });
+  const r = await safeFetch(url, { headers: WIKI_UA, timeoutMs: o.timeoutMs || 5000, maxBytes: 300 * 1024,
+    signal: o.signal, fetch: o.fetch, guard: false, maxRedirects: 1 });
   if (r.status === 429 || r.status === 403) throw err('blocked', `Wikipedia answered ${r.status}`);
   if (r.status !== 200) throw err(`http_${r.status}`);
   let j;
@@ -32,7 +37,13 @@ async function wikiSearch(lang, query, o) {
 }
 
 // Wikipedia's search matches words, not questions: drop question words and years, spell out Nigerian acronyms.
-const ACRONYMS = { cbn: 'Central Bank of Nigeria', nbs: 'National Bureau of Statistics Nigeria', inec: 'Independent National Electoral Commission', nnpc: 'NNPC Limited', efcc: 'Economic and Financial Crimes Commission', jamb: 'Joint Admissions and Matriculation Board', waec: 'West African Examinations Council', neco: 'National Examinations Council Nigeria', nysc: 'National Youth Service Corps', firs: 'Federal Inland Revenue Service', ncc: 'Nigerian Communications Commission', nin: 'National Identification Number Nigeria', mpr: 'monetary policy rate', mpc: 'Monetary Policy Committee', fg: 'Federal Government of Nigeria' };
+const ACRONYMS = { cbn: 'Central Bank of Nigeria', nbs: 'National Bureau of Statistics Nigeria',
+  inec: 'Independent National Electoral Commission', nnpc: 'NNPC Limited',
+  efcc: 'Economic and Financial Crimes Commission', jamb: 'Joint Admissions and Matriculation Board',
+  waec: 'West African Examinations Council', neco: 'National Examinations Council Nigeria',
+  nysc: 'National Youth Service Corps', firs: 'Federal Inland Revenue Service',
+  ncc: 'Nigerian Communications Commission', nin: 'National Identification Number Nigeria',
+  mpr: 'monetary policy rate', mpc: 'Monetary Policy Committee', fg: 'Federal Government of Nigeria' };
 function wikiQuery(q) {
   const ws = keywords(q).filter(w => !/^(19|20)\d{2}$/.test(w));
   const out = ws.map(w => ACRONYMS[w] || w).join(' ');

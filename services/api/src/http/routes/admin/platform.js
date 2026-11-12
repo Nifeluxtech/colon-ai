@@ -1,4 +1,5 @@
-// Admin: African AI registry, voice and system settings: route wiring only. Handlers: modules/admin/handlers/platform.js
+// Admin: African AI registry, voice and system settings: route wiring only. Handlers:
+// modules/admin/handlers/platform.js
 const Router = require('../../router');
 const { requireRole } = require('../../../modules/auth').guards;
 const h = require('../../../modules/admin').handlers.platform;

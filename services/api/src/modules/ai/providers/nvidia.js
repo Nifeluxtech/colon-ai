@@ -4,5 +4,6 @@ const { env } = require('./env');
 
 module.exports = () => ({
   // NVIDIA build.nvidia.com (free developer endpoints, OpenAI-compatible): DeepSeek, Gemma 4, GLM and more.
-  name: 'NVIDIA', baseUrl: env('NVIDIA_BASE_URL', 'https://integrate.api.nvidia.com/v1'), apiKey: env('NVIDIA_API_KEY', ''),
+  name: 'NVIDIA', baseUrl: env('NVIDIA_BASE_URL', 'https://integrate.api.nvidia.com/v1'), apiKey: env('NVIDIA_API_KEY',
+    ''),
 });

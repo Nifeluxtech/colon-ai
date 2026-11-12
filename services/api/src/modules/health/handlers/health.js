@@ -18,7 +18,8 @@ const getHealth = async () => { const cfg = await dynamic.load(); return [200, {
   email: Boolean(config.mail.brevoKey),
   two_factor: config.auth.appSecret.length >= 32,
   websocket: '/ws',
-  ai: { configured: ai.isConfigured(cfg), providers: Object.keys(ai.enabledProviders(cfg)), vision: ai.hasVision(cfg), routing: cfg.source },
+  ai: { configured: ai.isConfigured(cfg), providers: Object.keys(ai.enabledProviders(cfg)), vision: ai.hasVision(cfg),
+    routing: cfg.source },
 }]; };
 
 module.exports = { getRoot, getHealth };

@@ -7,7 +7,8 @@ const sessions = require('../../auth').sessions;
 // GET /account/sessions
 const getAccountSessions = async (req) => {
   const rows = await db.query(
-    'SELECT id, user_agent, ip, created_at, last_seen_at FROM sessions WHERE user_id = ? AND expires_at > UTC_TIMESTAMP() ORDER BY last_seen_at DESC',
+    ('SELECT id, user_agent, ip, created_at, last_seen_at FROM sessions WHERE user_id = ? AND expires_at > '
+      + 'UTC_TIMESTAMP() ORDER BY last_seen_at DESC'),
     [req.user.id]
   );
   return [200, { sessions: rows.map(s => ({ ...s, current: s.id === req.user.session_id })) }];

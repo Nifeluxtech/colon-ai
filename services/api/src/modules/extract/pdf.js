@@ -15,13 +15,16 @@ function pdfLiteralBytes(s) {
     if (n === undefined) break;
     if (n === 'n') out.push(10); else if (n === 'r') out.push(13); else if (n === 't') out.push(9);
     else if (n === 'b') out.push(8); else if (n === 'f') out.push(12);
-    else if (/[0-7]/.test(n)) { let oct = n; while (oct.length < 3 && /[0-7]/.test(s[i + 1])) oct += s[++i]; out.push(parseInt(oct, 8) & 0xff); }
-    else if (n === '\r') { if (s[i + 1] === '\n') i++; } else if (n === '\n') { /* line continuation */ } else out.push(n.charCodeAt(0) & 0xff);
+    else if (/[0-7]/.test(n)) { let oct = n; while (oct.length < 3 && /[0-7]/.test(s[i + 1])) oct += s[++i];
+      out.push(parseInt(oct, 8) & 0xff); }
+    else if (n === '\r') { if (s[i + 1] === '\n') i++; } else if (n === '\n') { /* line continuation */ } else out.push(
+      n.charCodeAt(0) & 0xff);
   }
   return Buffer.from(out);
 }
 function hexBytes(h) { h = h.replace(/[^0-9a-fA-F]/g, ''); if (h.length % 2) h += '0'; return Buffer.from(h, 'hex'); }
-const utf16be = (b) => { const c = Buffer.from(b); if (c.length % 2) return c.toString('latin1'); return c.swap16().toString('utf16le'); };
+const utf16be = (b) => { const c = Buffer.from(b); if (c.length % 2) return c.toString('latin1');
+  return c.swap16().toString('utf16le'); };
 
 // Reads the value of /Key in a dictionary's text: a reference, name, number, array or nested dictionary.
 function dictGet(text, key) {
@@ -31,7 +34,8 @@ function dictGet(text, key) {
   while ((m = re.exec(text))) {
     depth = 0;
     for (let i = 0; i < m.index; i++) {
-      if (text[i] === '<' && text[i + 1] === '<') { depth++; i++; } else if (text[i] === '>' && text[i + 1] === '>') { depth--; i++; }
+      if (text[i] === '<' && text[i + 1] === '<') { depth++; i++; } else if (text[i] === '>' && text[i + 1] === '>') {
+        depth--; i++; }
     }
     if (depth <= 1) break;
   }
@@ -43,11 +47,13 @@ function dictGet(text, key) {
   if (rest.startsWith('<<')) {
     let d = 0, j = 0;
     for (; j < rest.length; j++) {
-      if (rest[j] === '<' && rest[j + 1] === '<') { d++; j++; } else if (rest[j] === '>' && rest[j + 1] === '>') { d--; j++; if (!d) break; }
+      if (rest[j] === '<' && rest[j + 1] === '<') { d++; j++; } else if (rest[j] === '>' && rest[j + 1] === '>') { d--;
+        j++; if (!d) break; }
     }
     return { dict: rest.slice(0, j + 1) };
   }
-  if (rest[0] === '[') { let d = 0, j = 0; for (; j < rest.length; j++) { if (rest[j] === '[') d++; else if (rest[j] === ']' && !--d) break; } return { array: rest.slice(1, j) }; }
+  if (rest[0] === '[') { let d = 0, j = 0; for (; j < rest.length; j++) { if (rest[j] === '[') d++;
+    else if (rest[j] === ']' && !--d) break; } return { array: rest.slice(1, j) }; }
   const name = rest.match(/^\/([^\s/<>\[\]()]+)/);
   if (name) return { name: name[1] };
   const num = rest.match(/^-?\d+(\.\d+)?/);
@@ -57,7 +63,8 @@ const refsIn = (arr) => [...String(arr).matchAll(/(\d+)\s+\d+\s+R/g)].map(x => N
 
 function inflate(data) {
   try { return zlib.inflateSync(data, { maxOutputLength: 16 * MB }); } catch {
-    try { return zlib.inflateSync(data.subarray(0, data.length - 1), { maxOutputLength: 16 * MB }); } catch { return null; }
+    try { return zlib.inflateSync(data.subarray(0, data.length - 1), { maxOutputLength: 16 * MB });
+      } catch { return null; }
   }
 }
 
@@ -131,7 +138,8 @@ function parseCMap(text) {
         for (let c = lo; c <= hi; c++) {
           const b = Buffer.from(base);
           let add = c - lo, idx = b.length - 1;
-          while (add > 0 && idx >= 0) { const v = b[idx] + (add & 0xff); b[idx] = v & 0xff; add = (add >> 8) + (v >> 8); idx--; }
+          while (add > 0 && idx >= 0) { const v = b[idx] + (add & 0xff); b[idx] = v & 0xff; add = (add >> 8)
+            + (v >> 8); idx--; }
           map.set(c, utf16be(b));
         }
       }
@@ -210,10 +218,12 @@ function contentText(content, fonts) {
       if (Math.abs(ty) > 0.01) newline();
       pending = [];
     }
-    else if (t === 'Tm') { const y = nums.length >= 6 ? nums[5] : null; if (y === null || lastY === null || Math.abs(y - lastY) > 0.5) newline(); lastY = y; pending = []; }
+    else if (t === 'Tm') { const y = nums.length >= 6 ? nums[5] : null; if (y === null || lastY === null || Math.abs(y
+      - lastY) > 0.5) newline(); lastY = y; pending = []; }
     else if (t === 'T*') { newline(); pending = []; }
     else if (t === 'ET') { if (out && !out.endsWith('\n')) out += '\n'; pending = []; }
-    else if (t === 'BI') { const ei = content.indexOf('EI', re.lastIndex); if (ei > -1) re.lastIndex = ei + 2; } // inline image data
+    // inline image data
+    else if (t === 'BI') { const ei = content.indexOf('EI', re.lastIndex); if (ei > -1) re.lastIndex = ei + 2; }
     else if (t === 'BT') pending = [];
     if (!/^[\[\]]$/.test(t) && t[0] !== '(' && t[0] !== '<' && t[0] !== '/') nums = [];
   }
@@ -228,7 +238,8 @@ function pdfText(buf) {
   const walk = (num, depth) => {
     const o = objs.get(num);
     if (!o || depth > 30 || pages.length > 2000) return;
-    if (/\/Type\s*\/Pages/.test(o.dict)) { const kids = dictGet(o.dict, 'Kids'); if (kids && kids.array) refsIn(kids.array).forEach(k => walk(k, depth + 1)); }
+    if (/\/Type\s*\/Pages/.test(o.dict)) { const kids = dictGet(o.dict, 'Kids'); if (kids && kids.array) refsIn(
+      kids.array).forEach(k => walk(k, depth + 1)); }
     else if (/\/Type\s*\/Page\b/.test(o.dict)) pages.push(o);
   };
   const root = catalog && dictGet(catalog.dict, 'Pages');
@@ -241,8 +252,10 @@ function pdfText(buf) {
     const c = dictGet(p.dict, 'Contents');
     const nums = !c ? [] : c.ref !== undefined ? [c.ref] : c.array ? refsIn(c.array) : [];
     // /Contents can point at an array object holding the stream references.
-    const expanded = nums.flatMap(n => { const o = objs.get(n); return o && !o.stream && /^\s*\[/.test(o.dict) ? refsIn(o.dict) : [n]; });
-    const content = expanded.map(n => { const b = streamOf(objs, n); return b ? b.toString('latin1') : ''; }).join('\n');
+    const expanded = nums.flatMap(n => { const o = objs.get(n); return o && !o.stream && /^\s*\[/.test(o.dict) ? refsIn(
+      o.dict) : [n]; });
+    const content = expanded.map(n => { const b = streamOf(objs, n); return b ? b.toString('latin1') : '';
+      }).join('\n');
     text += contentText(content, fonts) + '\n\n';
     if (text.length > MAX_TEXT * 2) break;
   }

@@ -16,12 +16,14 @@ function oleText(buf) {
   const runs = [];
   const u16 = buf.toString('utf16le');
   for (const m of u16.matchAll(/[\p{L}\p{N}\p{P}\p{Zs}\n\r\t]{6,}/gu)) if (/[\p{L}]{3}/u.test(m[0])) runs.push(m[0]);
-  if (runs.join('').length < 200) for (const m of buf.toString('latin1').matchAll(/[\x20-\x7e\n\r\t]{8,}/g)) if (/[a-z]{3}/i.test(m[0])) runs.push(m[0]);
+  if (runs.join('').length < 200) for (const m of buf.toString('latin1').matchAll(/[\x20-\x7e\n\r\t]{8,}/g)) if (
+    /[a-z]{3}/i.test(m[0])) runs.push(m[0]);
   return runs.join('\n');
 }
 
 function tidy(t) {
-  return String(t || '').replace(/\r\n?/g, '\n').replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f]/g, '').replace(/[ \t]+\n/g, '\n').replace(/\n{3,}/g, '\n\n').trim();
+  return String(t || '').replace(/\r\n?/g, '\n').replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f]/g,
+    '').replace(/[ \t]+\n/g, '\n').replace(/\n{3,}/g, '\n\n').trim();
 }
 function readable(t) {
   if (!t) return false;
