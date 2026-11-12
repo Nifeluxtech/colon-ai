@@ -81,7 +81,7 @@ body.cw-noscroll{overflow:hidden}
 /* centred when it fits, scrollable from the first chip when it doesn't (auto margins never clip) */
 .cw-welcome-modes > :first-child{margin-left:auto}.cw-welcome-modes > :last-child{margin-right:auto}
 .cw-welcome.leaving{opacity:0;transform:translateY(-12px)}
-.cw-hero-mark{display:flex;justify-content:center;margin:0 auto 10px}
+.cw-hero-mark{display:flex;justify-content:center;margin:0 auto 10px;pointer-events:none}
 .cw-hero-mark .logo-mark{width:clamp(64px,14vw,92px);height:auto;filter:drop-shadow(0 10px 34px rgba(65,105,225,.75)) drop-shadow(0 0 18px rgba(255,138,61,.35));animation:flame 3.2s ease-in-out infinite}
 @keyframes flame{50%{transform:translateY(-3px) scale(1.03)}}
 .cw-hero-h{font-size:clamp(26px,6.4vw,36px);line-height:1.15;font-weight:750;letter-spacing:-.025em;margin:0 0 8px}
