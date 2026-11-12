@@ -133,7 +133,8 @@ CW.pages.settings = function (page, ctx) {
           + ('</span><span class="body"><span class="title" style="color:var(--bad)">Delete all '
           + 'conversations</span><span class="sub">Permanently remove every chat and file.</span></span></button>')) +
       '<div class="set-out"><button class="btn block danger" type="button" data-signout>' + icon('out')
-        + 'Sign out</button><p class="tiny muted" style="text-align:center;margin-top:14px">Colon AI v0.5.3 · '
+        + 'Sign out</button><p class="tiny muted" style="text-align:center;margin-top:14px">Colon AI v'
+        + esc(C.version) + ' · '
         + (data.kind === 'local' ? 'preview data mode' : 'synced') + ' · by Nifelux</p></div></div>';
     bind(s);
     stats();

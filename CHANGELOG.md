@@ -1,5 +1,47 @@
 # Changelog
 
+## [0.5.4] — 2026-11-12 · Restructure: company-grade layout
+The repository is reorganised so each part has one obvious place and the rules are checked by CI. Same routes
+(97, identical order), same API behaviour and same screens; the only visible differences are the URL changes below.
+### Changed
+- **API layers** (`services/api/src`): `http/` (server, middleware, router, routes), `ws/`, `modules/` (account, admin,
+  ai, auth, bench, chat, extract, health, search), `shared/`, `db/`, `config/`. Dependencies point one way:
+  http/ws → modules → shared/db/config.
+- **Thin routes**: `http/routes/{health,auth,account,admin,chat}/` only wire paths to guards, rate limits and handlers;
+  handlers live in `modules/*/handlers/`.
+- **Module facades**: every module has an `index.js`; other code imports a module only through it.
+- **One file per provider**: AI providers in `modules/ai/providers/` (hedged racing in `hedge.js`), web search
+  providers in `modules/search/providers/`; text extraction split by file type (`sniff`, `image`, `docx`, `pdf`,
+  `text`).
+- **Tests split**: `services/api/tests/{unit,integration,security,e2e,helpers,fixtures}` (same 87 tests).
+- **Config validated at boot**: one schema (`src/config/defaults.js`); production refuses to start without
+  `DB_USER`/`DB_NAME`, and any non-numeric value in a numeric variable (or a malformed URL) stops the API with a
+  message listing every problem. `.env.example` → `config/api.env.example`, every variable documented in
+  `config/README.md`.
+- **Request ids**: every response has an `X-Request-Id` header and every log line for that request carries `req_id`.
+- **e2e** scripts fixed for Gemma-first routing (`config/e2e.env.example`, mock provider in every slot).
+- **Frontend**: classic scripts → ES modules, split into `core/`, `pages/`, `components/` and `actions/` per app;
+  the UI kit into `packages/ui/js/{colon,markdown,browser}/` behind its entry files; CSS split per concern
+  (`packages/ui/css/*`, `apps/*/public/assets/css/*`); fonts in `packages/ui/fonts`, brand in `packages/brand`.
+  `window.Colon` and the other globals keep their keys. The version shown in Help and Settings now comes from
+  `Colon.version`.
+- **Versioned deploy**: `scripts/deploy/build-docroot.sh` (run by `.cpanel.yml`) puts each release's modules under
+  `/v<version>/` and copies `index.html` last; `.htaccess` is never written.
+- **`scripts/check.js`** enforces syntax, ≤300 lines per file, ≤120 characters per line, API layer rules, app import
+  rules, one version everywhere, and `config/api.env.example` matching the config schema.
+- **Docs**: `docs/adr` → `docs/decisions`, phase notes → `docs/phases`; `docs/architecture.md` rewritten; new runbooks
+  (`docs/runbooks/`: deploy, rollback, key rotation, backup and restore) and `docs/security/threat-model.md`.
+- Dev tools: `scripts/dev/headless-check.js` (Playwright), `static-server.js`, `linkcheck.js`, `cycles.js`.
+### URL changes
+- Favicon is the SVG file `/v<version>/packages/brand/assets/colon-mark.svg` (admin: `colon-admin-mark.svg`)
+  instead of an inline data URL.
+- The Preview model list moved to `assets/config/models.json`.
+- `/ui/` on the app subdomains now only mirrors the fonts (`/ui/fonts/`) for older pages; the kit itself loads from
+  `/v<version>/packages/ui/`. `/brand/` keeps its old files.
+### Not changed
+- No other behaviour change: same API routes and responses, same database schema (no new migration), same
+  screens.
+
 ## [0.5.3] — 2026-11-12 · Phase 5: web search with cited sources (Research mode)
 Research mode now looks things up on the web before answering and cites what it found with tappable [1], [2] chips and a Sources list. Free and keyless by default; never breaks chat. Details: `docs/phases/phase-5-research.md`.
 ### Added
