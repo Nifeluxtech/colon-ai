@@ -1,4 +1,4 @@
-// Health and root (handlers for src/http/routes/health/health.js).
+// Health and root (handlers for src/http/routes/health.js).
 
 const config = require('../../../config');
 const db = require('../../../db');
