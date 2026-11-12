@@ -49,7 +49,10 @@ for (const f of walk(ROOT).filter((x) => TEXT.test(x))) {
     // Repo-rooted, or relative to a package (a path named from inside services/api).
     let dir = path.dirname(f);
     let found = exists(path.join(ROOT, p));
-    while (!found && dir.startsWith(ROOT) && dir !== ROOT) { found = exists(path.join(dir, p)); dir = path.dirname(dir); }
+    while (!found && dir.startsWith(ROOT) && dir !== ROOT) {
+      found = exists(path.join(dir, p));
+      dir = path.dirname(dir);
+    }
     if (!found) broken.push(`${r}: mentions ${p}`);
   }
 }
