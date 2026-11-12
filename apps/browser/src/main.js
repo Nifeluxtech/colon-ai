@@ -7,7 +7,7 @@ import '../../../packages/ui/js/url.js';
 import '../../../packages/ui/js/browser/data.js';
 import '../../../packages/ui/js/browser/saga-browse.js';
 import '../../../packages/ui/js/browser/index.js';
-import './app.js';
+import './core/app.js';
 
 const NEED = ['icon', 'esc', 'sheet', 'menu', 'confirm', 'prompt', 'toast', 'debounce', 'logo', 'uid', 'copyText',
   'fmtBytes', 'ago'];
