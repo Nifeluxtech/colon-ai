@@ -11,4 +11,5 @@ module.exports = new Router()
   .use(require('./limits'))
   .use(require('./evaluation'))
   .use(require('./platform'))
-  .use(require('./web-search'));
+  .use(require('./web-search'))
+  .use(require('./safety'));
