@@ -1,0 +1,15 @@
+{"set":"coding","id":"code-01","pass":false,"score":0,"detail":"error","first_token_ms":null,"total_ms":60008,"attempts":3,"error":"timeout: The model took too long to start answering."}
+{"set":"everyday","id":"everyday-01","pass":false,"score":0,"detail":"error","first_token_ms":null,"total_ms":60002,"attempts":3,"error":"timeout: The model took too long to start answering."}
+{"set":"hausa","id":"ha-01","pass":false,"score":0,"detail":"error","first_token_ms":null,"total_ms":60001,"attempts":3,"error":"timeout: The model took too long to start answering."}
+{"set":"igbo","id":"ig-01","pass":false,"score":0,"detail":"error","first_token_ms":null,"total_ms":60000,"attempts":3,"error":"timeout: The model took too long to start answering."}
+{"set":"jamb","id":"jamb-01","pass":false,"score":0,"detail":"error","first_token_ms":null,"total_ms":60001,"attempts":3,"error":"timeout: The model took too long to start answering."}
+{"set":"pidgin","id":"pcm-01","pass":false,"score":0,"detail":"error","first_token_ms":null,"total_ms":60002,"attempts":3,"error":"timeout: The model took too long to start answering."}
+{"set":"reasoning","id":"reason-01","pass":false,"score":0,"detail":"error","first_token_ms":null,"total_ms":60000,"attempts":3,"error":"timeout: The model took too long to start answering."}
+{"set":"tooluse","id":"tool-01","pass":false,"score":0,"detail":"error","first_token_ms":null,"total_ms":60001,"attempts":3,"error":"timeout: The model took too long to start answering."}
+{"set":"university","id":"uni-01","pass":false,"score":0,"detail":"error","first_token_ms":null,"total_ms":60000,"attempts":3,"error":"timeout: The model took too long to start answering."}
+{"set":"waec","id":"waec-01","pass":false,"score":0,"detail":"error","first_token_ms":null,"total_ms":60001,"attempts":3,"error":"timeout: The model took too long to start answering."}
+{"set":"yoruba","id":"yo-01","pass":false,"score":0,"detail":"error","first_token_ms":null,"total_ms":60002,"attempts":3,"error":"timeout: The model took too long to start answering."}
+{"set":"coding","id":"code-02","pass":false,"score":0,"detail":"error","first_token_ms":null,"total_ms":60004,"attempts":3,"error":"timeout: The model took too long to start answering."}
+{"set":"everyday","id":"everyday-02","pass":false,"score":0,"detail":"error","first_token_ms":null,"total_ms":60001,"attempts":3,"error":"timeout: The model took too long to start answering."}
+{"set":"hausa","id":"ha-02","pass":false,"score":0,"detail":"error","first_token_ms":null,"total_ms":60001,"attempts":3,"error":"timeout: The model took too long to start answering."}
+{"set":"igbo","id":"ig-02","pass":false,"score":0,"detail":"error","first_token_ms":null,"total_ms":60000,"attempts":3,"error":"timeout: The model took too long to start answering."}

@@ -1,6 +1,8 @@
 # Changelog
 
 ## [0.5.2] — 2026-11-12 · Phase 5: the Colon benchmark
+### Results (first run, 2026-11-12, `services/api/bench/results/2026-11-12.md`)
+- Gemma 4 26B (Google) 94.6, fastest (0.8 s first token), wrong answers 0 (all 6 misses were Google 500s). MiniMax M3.1 Flash 88.9 (weak Yorùbá/Hausa/Igbo). Gemma 4 31B 83.5 (21 s first token). Gemini 3.5 Flash Lite 96.8 (reference only). DeepSeek V4.1 Flash and GLM-5.3 Flash (NVIDIA) answered nothing. Nemotron and Mistral Large 4 incomplete.
 Saga's default is now chosen by benchmark score, and a model can only go into routing after a fresh benchmark. Details and the score formula: `docs/phase-5-benchmark.md`. First live run: `services/api/bench/results/2026-11-12.md`.
 ### Added
 - **The Colon benchmark** (`services/api/bench/sets/*.json`, suite `colon-bench-1`, 135 original items): Nigerian everyday questions, WAEC-style, JAMB-style, university study, coding, reasoning, tool use (tool calls and structured JSON), and Naijá, Yorùbá, Hausa and Igbo. Everything is graded automatically: multiple-choice letters, numbers (`Answer:` line, ₦, commas, fractions), accent-insensitive keywords and regex, JSON parsed and checked against a schema subset and expected values, JavaScript run against unit tests in a **sandboxed child process** (fresh `vm` context, no `require`/`process`/network, CPU and wall-clock timeouts), and a target-language check (function words vs English, plus subdots/tone marks/hooked letters). Optional LLM judge for the language sets (`--judge`).
