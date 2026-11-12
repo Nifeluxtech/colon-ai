@@ -1,0 +1,20 @@
+{
+  "set": "yoruba",
+  "title": "Yorùbá",
+  "mode": "general",
+  "language": "yo",
+  "judge": "Yorùbá",
+  "items": [
+    { "id": "yo-01", "prompt": "Translate into Yorùbá (with tone marks): \"I want water.\"", "grade": { "type": "keywords", "all": ["omi"] } },
+    { "id": "yo-02", "prompt": "Translate into Yorùbá (with tone marks): \"Good morning, mother.\"", "grade": { "type": "keywords", "any": ["kaaro", "e kaaro", "ekaaro"] } },
+    { "id": "yo-03", "prompt": "Translate into Yorùbá (with tone marks): \"Thank you, my friend.\"", "grade": { "type": "all", "of": [ { "type": "regex", "pattern": "\\b(e|o)\\s?se\\b|\\bese\\b|\\bose\\b" }, { "type": "keywords", "any": ["ore", "ore mi"] } ] } },
+    { "id": "yo-04", "prompt": "Translate into Yorùbá (with tone marks): \"The child is going to school.\"", "grade": { "type": "keywords", "all": ["omo"], "any": ["ile iwe", "ileewe", "ile-iwe", "ile eko", "ile-eko"] } },
+    { "id": "yo-05", "prompt": "Count from one to five in Yorùbá.", "grade": { "type": "keywords", "all": ["meji", "meta", "merin", "marun"], "any": ["okan", "ookan", "eni", "kan"] } },
+    { "id": "yo-06", "prompt": "Kí ni olú ìlú orílẹ̀-èdè Nàìjíríà? Dáhùn ní èdè Yorùbá.", "grade": { "type": "all", "of": [ { "type": "lang", "lang": "yo" }, { "type": "keywords", "all": ["Abuja"] } ] } },
+    { "id": "yo-07", "prompt": "In Yorùbá only, explain in two or three sentences why drinking clean water is important.", "grade": { "type": "all", "of": [ { "type": "lang", "lang": "yo" }, { "type": "keywords", "all": ["omi"] } ] } },
+    { "id": "yo-08", "prompt": "Translate into Yorùbá (with tone marks): \"Tomorrow we will go to the market.\"", "grade": { "type": "keywords", "all": ["ola", "oja"] } },
+    { "id": "yo-09", "prompt": "How many fingers are on two hands? Answer in a full Yorùbá sentence.", "grade": { "type": "all", "of": [ { "type": "lang", "lang": "yo" }, { "type": "keywords", "any": ["10", "ewa", "mewa"] } ] } },
+    { "id": "yo-10", "prompt": "Translate into Yorùbá (with tone marks): \"My father bought a book.\"", "grade": { "type": "keywords", "all": ["iwe"], "any": ["baba", "baba mi"] } },
+    { "id": "yo-11", "prompt": "In Yorùbá only, give two pieces of advice to a student preparing for WAEC.", "grade": { "type": "lang", "lang": "yo" } }
+  ]
+}

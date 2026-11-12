@@ -1,0 +1,20 @@
+{
+  "set": "everyday",
+  "title": "Nigerian everyday questions",
+  "mode": "general",
+  "items": [
+    { "id": "everyday-01", "prompt": "What is the capital city of Nigeria? Answer in one short sentence.", "grade": { "type": "keywords", "all": ["Abuja"] } },
+    { "id": "everyday-02", "prompt": "How many states does Nigeria have (not counting the FCT)?", "grade": { "type": "number", "answer": 36 } },
+    { "id": "everyday-03", "prompt": "What is the name of Nigeria's currency? Answer in one word.", "grade": { "type": "keywords", "all": ["naira"] } },
+    { "id": "everyday-04", "prompt": "Which government agency issues the National Identification Number (NIN) in Nigeria? Give the agency's abbreviation.", "grade": { "type": "keywords", "any": ["NIMC", "National Identity Management Commission"] } },
+    { "id": "everyday-05", "prompt": "On what date did Nigeria gain independence from Britain? Give the day, month and year.", "grade": { "type": "all", "of": [ { "type": "keywords", "all": ["1960"] }, { "type": "regex", "pattern": "(1(st)?\\s+(of\\s+)?october|october\\s+1(st)?\\b|1/10/1960|1960-10-01)" } ] } },
+    { "id": "everyday-06", "prompt": "What is Nigeria's toll-free national emergency phone number?", "grade": { "type": "number", "answer": 112 } },
+    { "id": "everyday-07", "prompt": "Mama Tunde buys 3 loaves of bread at ₦1,200 each and pays with a ₦5,000 note. How much change should she get?", "grade": { "type": "number", "answer": 1400 } },
+    { "id": "everyday-08", "prompt": "A driver buys 25 litres of petrol at ₦1,050 per litre. How much does he pay in naira?", "grade": { "type": "number", "answer": 26250 } },
+    { "id": "everyday-09", "prompt": "Which river joins the River Niger at Lokoja?\nA. Kaduna\nB. Benue\nC. Ogun\nD. Cross River", "grade": { "type": "mc", "answer": "B" } },
+    { "id": "everyday-10", "prompt": "Which Nigerian city has the largest population?\nA. Kano\nB. Ibadan\nC. Lagos\nD. Port Harcourt", "grade": { "type": "mc", "answer": "C" } },
+    { "id": "everyday-11", "prompt": "Which Nigerian state uses the slogan \"Centre of Excellence\"?\nA. Lagos\nB. Ogun\nC. Enugu\nD. Kano", "grade": { "type": "mc", "answer": "A" } },
+    { "id": "everyday-12", "prompt": "Your monthly data plan costs ₦2,500. How much do you spend on data in 6 months?", "grade": { "type": "number", "answer": 15000 } },
+    { "id": "everyday-13", "prompt": "How long is the National Youth Service Corps (NYSC) service year? Answer briefly.", "grade": { "type": "regex", "pattern": "\\b(one|1)[ -]year|12 months|twelve months" } }
+  ]
+}

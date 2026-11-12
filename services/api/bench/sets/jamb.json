@@ -1,0 +1,21 @@
+{
+  "set": "jamb",
+  "title": "JAMB/UTME-style questions, original",
+  "mode": "study",
+  "items": [
+    { "id": "jamb-01", "prompt": "Evaluate log₁₀ 1000.", "grade": { "type": "number", "answer": 3 } },
+    { "id": "jamb-02", "prompt": "If 3ˣ = 81, find x.", "grade": { "type": "number", "answer": 4 } },
+    { "id": "jamb-03", "prompt": "A fair die is thrown once. What is the probability of getting a prime number? Give the answer as a decimal.", "grade": { "type": "number", "answer": 0.5, "tol": 0.001 } },
+    { "id": "jamb-04", "prompt": "Find the sum of the interior angles of a hexagon, in degrees.", "grade": { "type": "number", "answer": 720 } },
+    { "id": "jamb-05", "prompt": "Two resistors of 4 Ω and 6 Ω are connected in parallel. Find the effective resistance in ohms.", "grade": { "type": "number", "answer": 2.4, "tol": 0.01 } },
+    { "id": "jamb-06", "prompt": "How many moles are in 4 g of sodium hydroxide (NaOH)? (Na = 23, O = 16, H = 1)", "grade": { "type": "number", "answer": 0.1, "tol": 0.001 } },
+    { "id": "jamb-07", "prompt": "Find the roots of x² − 5x + 6 = 0.\nA. −2 and −3\nB. 2 and 3\nC. 1 and 6\nD. −1 and 6", "grade": { "type": "mc", "answer": "B" } },
+    { "id": "jamb-08", "prompt": "Choose the option nearest in meaning to the word in capitals: Dr Bello is a BIBLIOPHILE.\nA. a lover of books\nB. a lover of wine\nC. a hater of books\nD. a seller of Bibles", "grade": { "type": "mc", "answer": "A" } },
+    { "id": "jamb-09", "prompt": "The SI unit of force is the\nA. joule\nB. watt\nC. newton\nD. pascal", "grade": { "type": "mc", "answer": "C" } },
+    { "id": "jamb-10", "prompt": "Which gas turns lime water milky?\nA. Oxygen\nB. Carbon dioxide\nC. Hydrogen\nD. Ammonia", "grade": { "type": "mc", "answer": "B" } },
+    { "id": "jamb-11", "prompt": "Blood vessels that carry blood away from the heart are called\nA. veins\nB. capillaries\nC. arteries\nD. venules", "grade": { "type": "mc", "answer": "C" } },
+    { "id": "jamb-12", "prompt": "In economics, GDP stands for\nA. Gross Domestic Product\nB. General Development Plan\nC. Gross Dividend Payment\nD. Government Debt Profile", "grade": { "type": "mc", "answer": "A" } },
+    { "id": "jamb-13", "prompt": "Nigeria became a republic in\nA. 1960\nB. 1963\nC. 1966\nD. 1979", "grade": { "type": "mc", "answer": "B" } },
+    { "id": "jamb-14", "prompt": "The speed of light in a vacuum is approximately\nA. 3 × 10⁶ m/s\nB. 3 × 10⁸ m/s\nC. 3 × 10¹⁰ m/s\nD. 340 m/s", "grade": { "type": "mc", "answer": "B" } }
+  ]
+}

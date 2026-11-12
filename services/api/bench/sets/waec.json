@@ -1,0 +1,21 @@
+{
+  "set": "waec",
+  "title": "WAEC-style (SSCE) questions, original",
+  "mode": "study",
+  "items": [
+    { "id": "waec-01", "prompt": "Solve for x: 2x + 5 = 17.", "grade": { "type": "number", "answer": 6 } },
+    { "id": "waec-02", "prompt": "Simplify (2³ × 2⁴) ÷ 2⁵.", "grade": { "type": "number", "answer": 4 } },
+    { "id": "waec-03", "prompt": "Find the area of a circle of radius 7 cm. Take π = 22/7. Give the answer in cm².", "grade": { "type": "number", "answer": 154 } },
+    { "id": "waec-04", "prompt": "Find the mean of 2, 4, 6, 8 and 10.", "grade": { "type": "number", "answer": 6 } },
+    { "id": "waec-05", "prompt": "Calculate the simple interest on ₦20,000 at 5% per annum for 3 years.", "grade": { "type": "number", "answer": 3000 } },
+    { "id": "waec-06", "prompt": "A car starts from rest and accelerates uniformly at 2 m/s² for 5 s. What is its final velocity in m/s?", "grade": { "type": "number", "answer": 10 } },
+    { "id": "waec-07", "prompt": "What is the atomic number of sodium?", "grade": { "type": "number", "answer": 11 } },
+    { "id": "waec-08", "prompt": "Which organelle is known as the powerhouse of the cell?\nA. Nucleus\nB. Ribosome\nC. Mitochondrion\nD. Golgi body", "grade": { "type": "mc", "answer": "C" } },
+    { "id": "waec-09", "prompt": "Which gas do green plants take in from the air for photosynthesis?\nA. Oxygen\nB. Nitrogen\nC. Carbon dioxide\nD. Hydrogen", "grade": { "type": "mc", "answer": "C" } },
+    { "id": "waec-10", "prompt": "Choose the option that is most nearly OPPOSITE in meaning to the word in capitals: Water was SCARCE during the dry season.\nA. rare\nB. plentiful\nC. scanty\nD. costly", "grade": { "type": "mc", "answer": "B" } },
+    { "id": "waec-11", "prompt": "If the demand for a commodity increases while its supply remains unchanged, its price will most likely\nA. fall\nB. remain constant\nC. rise\nD. become zero", "grade": { "type": "mc", "answer": "C" } },
+    { "id": "waec-12", "prompt": "The arm of government responsible for interpreting the law is the\nA. legislature\nB. executive\nC. judiciary\nD. civil service", "grade": { "type": "mc", "answer": "C" } },
+    { "id": "waec-13", "prompt": "Which of these crops is a legume?\nA. Maize\nB. Cowpea\nC. Cassava\nD. Yam", "grade": { "type": "mc", "answer": "B" } },
+    { "id": "waec-14", "prompt": "The pH of pure water at 25 °C is\nA. 0\nB. 5\nC. 7\nD. 14", "grade": { "type": "mc", "answer": "C" } }
+  ]
+}

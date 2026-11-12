@@ -1,0 +1,20 @@
+{
+  "set": "igbo",
+  "title": "Igbo",
+  "mode": "general",
+  "language": "ig",
+  "judge": "Igbo",
+  "items": [
+    { "id": "ig-01", "prompt": "Translate into Igbo: \"I want water.\"", "grade": { "type": "keywords", "all": ["mmiri"] } },
+    { "id": "ig-02", "prompt": "Translate into Igbo: \"Good morning, my friend.\"", "grade": { "type": "keywords", "any": ["ututu oma", "i bola chi", "ibola chi", "ibolachi", "i boola chi", "iboola chi"] } },
+    { "id": "ig-03", "prompt": "Translate into Igbo: \"Thank you very much.\"", "grade": { "type": "keywords", "any": ["daalu", "dalu", "imeela", "i meela"] } },
+    { "id": "ig-04", "prompt": "Count from one to five in Igbo.", "grade": { "type": "keywords", "all": ["otu", "abuo", "ato", "ano", "ise"] } },
+    { "id": "ig-05", "prompt": "Gịnị bụ isi obodo Naịjirịa? Zaa n'asụsụ Igbo.", "grade": { "type": "all", "of": [ { "type": "lang", "lang": "ig" }, { "type": "keywords", "all": ["Abuja"] } ] } },
+    { "id": "ig-06", "prompt": "Translate into Igbo: \"The child is going to school.\"", "grade": { "type": "keywords", "all": ["nwa"], "any": ["akwukwo"] } },
+    { "id": "ig-07", "prompt": "Translate into Igbo: \"Tomorrow we will go to the market.\"", "grade": { "type": "keywords", "all": ["echi", "ahia"] } },
+    { "id": "ig-08", "prompt": "In Igbo only, explain in two or three sentences why drinking clean water is important.", "grade": { "type": "all", "of": [ { "type": "lang", "lang": "ig" }, { "type": "keywords", "all": ["mmiri"] } ] } },
+    { "id": "ig-09", "prompt": "How many fingers are on two hands? Answer in a full Igbo sentence.", "grade": { "type": "all", "of": [ { "type": "lang", "lang": "ig" }, { "type": "keywords", "any": ["10", "iri"] } ] } },
+    { "id": "ig-10", "prompt": "Translate into Igbo: \"My father bought a book.\"", "grade": { "type": "keywords", "all": ["nna", "akwukwo"] } },
+    { "id": "ig-11", "prompt": "In Igbo only, give two pieces of advice to a student preparing for WAEC.", "grade": { "type": "lang", "lang": "ig" } }
+  ]
+}

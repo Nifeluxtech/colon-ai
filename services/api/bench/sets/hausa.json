@@ -1,0 +1,20 @@
+{
+  "set": "hausa",
+  "title": "Hausa",
+  "mode": "general",
+  "language": "ha",
+  "judge": "Hausa",
+  "items": [
+    { "id": "ha-01", "prompt": "Translate into Hausa: \"I want water.\"", "grade": { "type": "keywords", "all": ["ruwa"], "any": ["ina son", "ina so", "ina bukatar", "ina bukata"] } },
+    { "id": "ha-02", "prompt": "Translate into Hausa: \"Good morning, my friend.\"", "grade": { "type": "keywords", "any": ["ina kwana", "barka da safiya", "barka da safe"] } },
+    { "id": "ha-03", "prompt": "Translate into Hausa: \"Thank you very much.\"", "grade": { "type": "keywords", "any": ["nagode", "na gode", "godiya"] } },
+    { "id": "ha-04", "prompt": "Count from one to five in Hausa.", "grade": { "type": "keywords", "all": ["daya", "biyu", "uku", "hudu", "biyar"] } },
+    { "id": "ha-05", "prompt": "Mene ne babban birnin Najeriya? Ka amsa da Hausa.", "grade": { "type": "all", "of": [ { "type": "lang", "lang": "ha" }, { "type": "keywords", "all": ["Abuja"] } ] } },
+    { "id": "ha-06", "prompt": "Translate into Hausa: \"The boy is going to school.\"", "grade": { "type": "keywords", "all": ["makaranta"], "any": ["yaro", "yaron"] } },
+    { "id": "ha-07", "prompt": "Translate into Hausa: \"Tomorrow we will go to the market.\"", "grade": { "type": "keywords", "all": ["gobe", "kasuwa"] } },
+    { "id": "ha-08", "prompt": "In Hausa only, explain in two or three sentences why children should go to school.", "grade": { "type": "all", "of": [ { "type": "lang", "lang": "ha" }, { "type": "keywords", "any": ["makaranta", "ilimi", "karatu"] } ] } },
+    { "id": "ha-09", "prompt": "How many fingers are on two hands? Answer in a full Hausa sentence.", "grade": { "type": "all", "of": [ { "type": "lang", "lang": "ha" }, { "type": "keywords", "any": ["10", "goma"] } ] } },
+    { "id": "ha-10", "prompt": "Translate into Hausa: \"My mother is cooking food.\"", "grade": { "type": "keywords", "all": ["abinci"] } },
+    { "id": "ha-11", "prompt": "In Hausa only, give two pieces of advice to a student preparing for WAEC.", "grade": { "type": "lang", "lang": "ha" } }
+  ]
+}

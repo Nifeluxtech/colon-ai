@@ -1,0 +1,20 @@
+{
+  "set": "pidgin",
+  "title": "Nigerian Pidgin (Naijá)",
+  "mode": "general",
+  "language": "pcm",
+  "judge": "Nigerian Pidgin (Naijá)",
+  "items": [
+    { "id": "pcm-01", "prompt": "Abeg, wetin be di capital city of Nigeria? Answer for Pidgin.", "grade": { "type": "all", "of": [ { "type": "lang", "lang": "pcm" }, { "type": "keywords", "all": ["Abuja"] } ] } },
+    { "id": "pcm-02", "prompt": "How many states dey Nigeria, if you no count FCT? Answer for Pidgin.", "grade": { "type": "all", "of": [ { "type": "lang", "lang": "pcm" }, { "type": "keywords", "any": ["36", "thirty-six", "thirty six"] } ] } },
+    { "id": "pcm-03", "prompt": "Translate dis one go Nigerian Pidgin: \"I am going to the market.\"", "grade": { "type": "keywords", "all": ["dey"], "any": ["market", "markit"] } },
+    { "id": "pcm-04", "prompt": "Translate dis one go Nigerian Pidgin: \"What are you doing?\"", "grade": { "type": "keywords", "all": ["wetin", "dey"] } },
+    { "id": "pcm-05", "prompt": "Translate dis one go Nigerian Pidgin: \"Please give me water.\"", "grade": { "type": "keywords", "all": ["abeg"], "any": ["water", "wata"] } },
+    { "id": "pcm-06", "prompt": "Translate dis one go Nigerian Pidgin: \"The child is sleeping.\"", "grade": { "type": "keywords", "all": ["pikin"], "any": ["sleep", "sleeping"] } },
+    { "id": "pcm-07", "prompt": "If I buy two plate of rice for ₦1,500 each, how much I go pay? Answer for Pidgin.", "grade": { "type": "all", "of": [ { "type": "lang", "lang": "pcm" }, { "type": "regex", "pattern": "3,?000" } ] } },
+    { "id": "pcm-08", "prompt": "Explain for Pidgin why person suppose wash hand before e chop. Two or three sentences.", "grade": { "type": "all", "of": [ { "type": "lang", "lang": "pcm" }, { "type": "keywords", "any": ["germ", "germs", "sick", "sickness", "disease", "bacteria", "dirt", "dirty", "infection"] } ] } },
+    { "id": "pcm-09", "prompt": "Wetin \"wahala\" mean for English? Explain am for Pidgin.", "grade": { "type": "all", "of": [ { "type": "lang", "lang": "pcm" }, { "type": "keywords", "any": ["trouble", "problem", "problems", "wahala"] } ] } },
+    { "id": "pcm-10", "prompt": "Give me three tips wey go help me save data for my phone. Talk am for Pidgin.", "grade": { "type": "all", "of": [ { "type": "lang", "lang": "pcm" }, { "type": "keywords", "any": ["wifi", "wi-fi", "background", "update", "updates", "video", "videos", "saver", "data saver", "lite"] } ] } },
+    { "id": "pcm-11", "prompt": "Na which river join River Niger for Lokoja? Answer for Pidgin.", "grade": { "type": "all", "of": [ { "type": "lang", "lang": "pcm" }, { "type": "keywords", "all": ["Benue"] } ] } }
+  ]
+}

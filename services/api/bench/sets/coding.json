@@ -1,0 +1,31 @@
+{
+  "set": "coding",
+  "title": "Coding (JavaScript, graded by unit tests in a sandbox)",
+  "mode": "developer",
+  "items": [
+    { "id": "code-01", "prompt": "Write a JavaScript function isPalindrome(s) that returns true if the string s reads the same forwards and backwards, ignoring case and any character that is not a letter or digit.",
+      "grade": { "type": "code", "fn": "isPalindrome", "tests": [ { "args": ["Racecar"], "expect": true }, { "args": ["A man, a plan, a canal: Panama"], "expect": true }, { "args": ["Lagos"], "expect": false }, { "args": [""], "expect": true }, { "args": ["ab2a"], "expect": false } ] } },
+    { "id": "code-02", "prompt": "Write a JavaScript function sumEven(numbers) that returns the sum of the even integers in the array numbers (0 for an empty array).",
+      "grade": { "type": "code", "fn": "sumEven", "tests": [ { "args": [[1, 2, 3, 4]], "expect": 6 }, { "args": [[]], "expect": 0 }, { "args": [[-2, 5, 7]], "expect": -2 }, { "args": [[10, 10, 1]], "expect": 20 } ] } },
+    { "id": "code-03", "prompt": "Write a JavaScript function fizzBuzz(n) that returns an array of strings for 1..n: \"FizzBuzz\" for multiples of 15, \"Fizz\" for multiples of 3, \"Buzz\" for multiples of 5, otherwise the number as a string.",
+      "grade": { "type": "code", "fn": "fizzBuzz", "tests": [ { "args": [5], "expect": ["1", "2", "Fizz", "4", "Buzz"] }, { "args": [15], "expect": ["1", "2", "Fizz", "4", "Buzz", "Fizz", "7", "8", "Fizz", "Buzz", "11", "Fizz", "13", "14", "FizzBuzz"] }, { "args": [0], "expect": [] } ] } },
+    { "id": "code-04", "prompt": "Write a JavaScript function formatNaira(amount) that formats a non-negative number as Nigerian naira with the ₦ sign, comma thousands separators and exactly two decimal places. Examples: formatNaira(1234567.5) returns \"₦1,234,567.50\"; formatNaira(0) returns \"₦0.00\".",
+      "grade": { "type": "code", "fn": "formatNaira", "tests": [ { "args": [1234567.5], "expect": "₦1,234,567.50" }, { "args": [0], "expect": "₦0.00" }, { "args": [999.999], "expect": "₦1,000.00" }, { "args": [50], "expect": "₦50.00" } ] } },
+    { "id": "code-05", "prompt": "Write a JavaScript function isNigerianMobile(s) that returns true only for these two formats: (1) \"0\" followed by 7, 8 or 9, then 0 or 1, then exactly 8 more digits (11 digits in total, e.g. \"08031234567\"); (2) \"+234\" followed by 7, 8 or 9, then 0 or 1, then exactly 8 more digits (e.g. \"+2348031234567\"). No spaces or other characters are allowed.",
+      "grade": { "type": "code", "fn": "isNigerianMobile", "tests": [ { "args": ["08031234567"], "expect": true }, { "args": ["+2349011112222"], "expect": true }, { "args": ["0803123456"], "expect": false }, { "args": ["06031234567"], "expect": false }, { "args": ["0803 123 4567"], "expect": false }, { "args": ["2348031234567"], "expect": false }, { "args": ["07221234567"], "expect": false }, { "args": ["070112345678"], "expect": false } ] } },
+    { "id": "code-06", "prompt": "Write a JavaScript function wordCount(text) that returns an object mapping each word (lower-cased) to how many times it appears. Words are runs of the letters a–z (after lower-casing); everything else separates words.",
+      "grade": { "type": "code", "fn": "wordCount", "tests": [ { "args": ["Jollof, jollof and RICE!"], "expect": { "jollof": 2, "and": 1, "rice": 1 } }, { "args": [""], "expect": {} }, { "args": ["a-b a"], "expect": { "a": 2, "b": 1 } } ] } },
+    { "id": "code-07", "prompt": "Write a JavaScript function fib(n) that returns the nth Fibonacci number, with fib(0) = 0 and fib(1) = 1. It must be fast for n up to 70.",
+      "grade": { "type": "code", "fn": "fib", "tests": [ { "args": [0], "expect": 0 }, { "args": [1], "expect": 1 }, { "args": [10], "expect": 55 }, { "args": [50], "expect": 12586269025 } ] } },
+    { "id": "code-08", "prompt": "Write a JavaScript function chunk(array, size) that splits the array into consecutive groups of length size (the last group may be shorter).",
+      "grade": { "type": "code", "fn": "chunk", "tests": [ { "args": [[1, 2, 3, 4, 5], 2], "expect": [[1, 2], [3, 4], [5]] }, { "args": [[], 3], "expect": [] }, { "args": [[1, 2, 3], 3], "expect": [[1, 2, 3]] } ] } },
+    { "id": "code-09", "prompt": "Write a JavaScript function flatten(value) that flattens arbitrarily nested arrays into a single flat array, keeping the order.",
+      "grade": { "type": "code", "fn": "flatten", "tests": [ { "args": [[1, [2, [3, [4]], 5]]], "expect": [1, 2, 3, 4, 5] }, { "args": [[]], "expect": [] }, { "args": [[[["a"]], "b"]], "expect": ["a", "b"] } ] } },
+    { "id": "code-10", "prompt": "Write a JavaScript function romanToInt(s) that converts a valid Roman numeral string (I, V, X, L, C, D, M, including subtractive forms like IV and CM) to an integer.",
+      "grade": { "type": "code", "fn": "romanToInt", "tests": [ { "args": ["III"], "expect": 3 }, { "args": ["IV"], "expect": 4 }, { "args": ["MCMXCIV"], "expect": 1994 }, { "args": ["LVIII"], "expect": 58 } ] } },
+    { "id": "code-11", "prompt": "Write a JavaScript function gcd(a, b) that returns the greatest common divisor of two non-negative integers (gcd(0, 0) is 0).",
+      "grade": { "type": "code", "fn": "gcd", "tests": [ { "args": [12, 18], "expect": 6 }, { "args": [17, 5], "expect": 1 }, { "args": [0, 9], "expect": 9 }, { "args": [0, 0], "expect": 0 } ] } },
+    { "id": "code-12", "prompt": "This JavaScript function should return the average of an array of numbers (0 for an empty array), but it has bugs. Fix it and return the corrected function with the same name.\n\n```javascript\nfunction average(nums) {\n  let total = 0;\n  for (let i = 1; i <= nums.length; i++) total += nums[i];\n  return total / (nums.length - 1);\n}\n```",
+      "grade": { "type": "code", "fn": "average", "tests": [ { "args": [[2, 4, 6]], "expect": 4 }, { "args": [[5]], "expect": 5 }, { "args": [[]], "expect": 0 }, { "args": [[1, 2]], "expect": 1.5 } ] } }
+  ]
+}

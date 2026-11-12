@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.5.2] — 2026-11-12 · Phase 5: the Colon benchmark
+Saga's default is now chosen by benchmark score, and a model can only go into routing after a fresh benchmark. Details and the score formula: `docs/phase-5-benchmark.md`. First live run: `services/api/bench/results/2026-11-12.md`.
+### Added
+- **The Colon benchmark** (`services/api/bench/sets/*.json`, suite `colon-bench-1`, 135 original items): Nigerian everyday questions, WAEC-style, JAMB-style, university study, coding, reasoning, tool use (tool calls and structured JSON), and Naijá, Yorùbá, Hausa and Igbo. Everything is graded automatically: multiple-choice letters, numbers (`Answer:` line, ₦, commas, fractions), accent-insensitive keywords and regex, JSON parsed and checked against a schema subset and expected values, JavaScript run against unit tests in a **sandboxed child process** (fresh `vm` context, no `require`/`process`/network, CPU and wall-clock timeouts), and a target-language check (function words vs English, plus subdots/tone marks/hooked letters). Optional LLM judge for the language sets (`--judge`).
+- **Runner** `npm run bench` (`services/api/scripts/bench.js`, core in `src/bench/`): asks every candidate through the app's own provider client with Saga's real system prompt per mode and language, and records per item the score, first-token and total time and errors. Polite to free tiers: one or two requests at a time per model (per provider with `--concurrency-<provider>`), a gap between items, two retries with back-off on 5xx/timeouts, and longer waits on 429 that don't count as failures. A model with more than 50 % errors after 20 items is stopped as **unreliable**. Resumable (`--run`, `--retry-errors`), re-gradable from saved replies (`--report --regrade`). Writes `bench/results/<run>.md` (scoreboard and every failure), `.json` and `.eval.json`.
+- **Score**: `100 × (0.60 accuracy + 0.15 language quality + 0.10 speed + 0.15 reliability)`; cost is recorded ($0 on the free tiers) and breaks ties.
+- **Admin › Evaluation** shows benchmark runs: `--save` writes them to `eval_runs`, or post `bench/results/<run>.eval.json` to the new `POST /admin/evaluation/bench`. `GET /admin/models` shows each model's latest benchmark score.
+- **The model-change gate** (`src/bench/gate.js`): adding a model, changing a model's id or host, switching one back on, or giving a mode a new first choice in Routing is refused with `409 needs_benchmark` unless a finished benchmark of exactly that provider + model is newer than `BENCH_MAX_AGE_DAYS` (default 30). A Super Admin can skip it once with a written reason (audited); `BENCH_GATE=off` turns it off. CLI: `npm run bench -- --gate provider:model`.
+- Migration `0005_bench`: new `eval_runs` columns (`kind`, `provider`, `suite`, `items`, `error_rate`, `first_token_ms`, `details`) and an index.
+- Tests: `services/api/test/bench.test.js` (graders, sandbox, every coding item solvable by a reference solution, aggregation and the score, the runner against a mock provider including retries, 429 waits and the unreliable stop, the report, the gate and its wiring into the admin routes).
+### Changed
+- Version 0.5.2 across `package.json`, `services/api/package.json`, every `?v=` asset reference and `Colon.version`.
+
 ## [0.5.1] — 2026-11-12 · Fix: Delete account tap
 ### Fixed
 - The decorative COLON intro wordmark could sit over Settings › Account › **Delete account** and swallow taps on the middle of the row. The intro artwork now has `pointer-events:none`, the faded intro drops behind the page (`visibility:hidden`, `z-index:-1`) and is removed after a tap-to-skip, and the decorative brand marks (`.logo-mark`, `.auth-mark`, `.cw-hero-mark`) never take a tap.
