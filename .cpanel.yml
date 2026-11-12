@@ -2,24 +2,20 @@
 # Nifelux · Colon AI — cPanel Git deployment ("Deploy HEAD Commit")
 # Repo clone path: /home/apparatu/repositories/colon-ai
 # API Node app root: repositories/colon-ai/services/api (runs in place)
+# Each web app's document root is built by scripts/deploy/build-docroot.sh (POSIX sh, no node needed):
+#   apps/<app>/public/.                        -> <docroot>/            (index.html, assets/)
+#   apps/<app>/src, packages/ui/{js,css,fonts},
+#   packages/brand/{css,js,assets}             -> <docroot>/v<version>/... (version from package.json)
+#   packages/brand/{css,js,assets}, ui fonts   -> <docroot>/brand/, <docroot>/ui/fonts/ (older URLs)
+# The script never writes .htaccess (server-only: no-cache for index.html). See docs/runbooks/deploy.md.
 deployment:
   tasks:
     - export HOMEDIR=/home/apparatu
     - export REPO=$HOMEDIR/repositories/colon-ai
-    # Static web apps -> subdomain document roots
-    - /bin/cp -R $REPO/apps/chat/public/. $HOMEDIR/chat.apparatus.name.ng/
-    - /bin/cp -R $REPO/apps/browser/public/. $HOMEDIR/browser.apparatus.name.ng/
-    - /bin/cp -R $REPO/apps/admin/public/. $HOMEDIR/admin.apparatus.name.ng/
-    # Shared brand assets -> /brand on every app
-    - /bin/mkdir -p $HOMEDIR/chat.apparatus.name.ng/brand $HOMEDIR/browser.apparatus.name.ng/brand $HOMEDIR/admin.apparatus.name.ng/brand
-    - /bin/cp -R $REPO/packages/brand/assets/. $HOMEDIR/chat.apparatus.name.ng/brand/
-    - /bin/cp -R $REPO/packages/brand/assets/. $HOMEDIR/browser.apparatus.name.ng/brand/
-    - /bin/cp -R $REPO/packages/brand/assets/. $HOMEDIR/admin.apparatus.name.ng/brand/
-    # Shared UI kit (design system + app core) -> /ui on every app
-    - /bin/mkdir -p $HOMEDIR/chat.apparatus.name.ng/ui $HOMEDIR/browser.apparatus.name.ng/ui $HOMEDIR/admin.apparatus.name.ng/ui
-    - /bin/cp -R $REPO/packages/ui/assets/. $HOMEDIR/chat.apparatus.name.ng/ui/
-    - /bin/cp -R $REPO/packages/ui/assets/. $HOMEDIR/browser.apparatus.name.ng/ui/
-    - /bin/cp -R $REPO/packages/ui/assets/. $HOMEDIR/admin.apparatus.name.ng/ui/
+    # Static web apps -> subdomain document roots (versioned modules first, index.html last)
+    - /bin/sh $REPO/scripts/deploy/build-docroot.sh $REPO chat $HOMEDIR/chat.apparatus.name.ng
+    - /bin/sh $REPO/scripts/deploy/build-docroot.sh $REPO browser $HOMEDIR/browser.apparatus.name.ng
+    - /bin/sh $REPO/scripts/deploy/build-docroot.sh $REPO admin $HOMEDIR/admin.apparatus.name.ng
     # Restart hint for the API (also press Restart in Setup Node.js App)
     - /bin/mkdir -p $REPO/services/api/tmp
     - /bin/touch $REPO/services/api/tmp/restart.txt
