@@ -145,7 +145,7 @@ async function sendAndWait(p, text, n) {
     }, [API, code])) === 200);
     let i = 20;
     for (const r of ['/', '/users', '/moderation', '/models', '/routing', '/limits', '/evaluation', '/registry',
-      '/voice', '/browser', '/system', '/security', '/security?tab=audit', '/more']) {
+      '/voice', '/browser', '/system', '/safety', '/security', '/security?tab=audit', '/more']) {
       await p.goto(`http://localhost:${ap}/#${r}`); if (r === '/') await p.reload();
       await p.waitForTimeout(1500);
       await shot(p, `${i++}-admin${r.replace(/[/?=]/g, '-')}`);

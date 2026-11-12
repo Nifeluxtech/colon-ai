@@ -1,7 +1,7 @@
 # Threat model
 
 Scope: the Colon AI web apps (chat, browser, admin), the Colon API (`services/api`), its MariaDB database and the
-cPanel host it runs on. Reviewed for v0.5.4 (2026-11-12). Update it with every change to auth, uploads, outbound
+cPanel host it runs on. Reviewed for v0.5.5 (2026-11-13). Update it with every change to auth, uploads, outbound
 fetches, secrets or the admin surface. Operational steps: `docs/runbooks/`.
 
 ## Assets
@@ -15,6 +15,7 @@ fetches, secrets or the admin surface. Operational steps: `docs/runbooks/`.
 | `APP_SECRET` | cPanel env only | decrypts 2FA seeds and stored keys |
 | Database credentials | cPanel env only (`DB_USER`, `DB_PASSWORD`) | full data access |
 | Audit log | `audit_log` | accountability for staff and security events |
+| Safety events | `safety_events` (no message text by default) | evidence of abuse attempts; must not become a store of harmful text |
 | Service availability | 1 GB RAM, 20 entry processes, free-tier model quotas | the whole product |
 
 ## Actors
@@ -82,12 +83,35 @@ fetches, secrets or the admin surface. Operational steps: `docs/runbooks/`.
 - Accepted residual risk: a tiny DNS-rebinding window between our lookup and the socket's own lookup (no
   socket pinning on shared hosting); documented in `docs/phases/phase-5-research.md`.
 
-### Prompt injection via web pages
-- Fetched page text is passed as numbered, delimited sources with an explicit rule that it is untrusted information,
-  never instructions; the model has no tools in chat, so injected text can at worst distort an answer, not act.
+### Prompt injection via web pages and uploaded files (safety layer, v0.5.5)
+- Web titles, snippets and page text (Research mode) and uploaded file names and text pass through
+  `modules/safety/injection.js`: hidden characters (zero-width, bidi, Unicode tag "ASCII smuggling") and HTML
+  comments removed; "ignore previous instructions", fake role tags (`<|im_start|>`, `[INST]`, `<system>`),
+  `SYSTEM:` lines and forged block delimiters replaced by a visible marker; each flag is logged to `safety_events`.
+- The text is fenced in `<<<SOURCES untrusted id=…>>>` / `<<<FILE untrusted id=…>>>` blocks whose end marker carries
+  a random id, so content can't close its own block; the system prompt says such blocks are data, never instructions.
+- The model, mode, tools and system prompt are chosen server-side before any untrusted text is read; the model has
+  no tools in chat, so injected text can at worst distort an answer, not act.
 - Answers must cite `[n]`, and users see the sources list to check claims.
-- Residual risk: a page can still mislead the answer or push links. The AI browser (later phases) must keep
-  approval for paying, submitting forms or sending messages (`SECURITY.md`).
+- Residual risk: paraphrased injections the patterns miss can still mislead an answer or push links. The AI browser
+  (later phases) must keep approval for paying, submitting forms or sending messages (`SECURITY.md`).
+
+### Content safety (safety layer, v0.5.5; `docs/decisions/0003-safety-layer.md`)
+- **Input**: every chat message (signed in, guest, regenerate, edit) is classified before any provider call, web
+  search or quota: child sexual content (always refused, fail closed), self-harm (supportive reply with Nigerian
+  helplines, never refused), weapons/explosives/violent harm, drug making, hate/harassment, explicit sexual content
+  (refused for guests), fraud and scams (Yahoo formats, phishing, BVN/OTP), personal data exposure. Rule lists in
+  English, Pidgin, Yorùbá, Hausa and Igbo; refusals in the user's language.
+- **Users' own secrets** (card numbers, BVN, OTP, PIN, CVV, passwords) are masked before the text goes to an AI
+  provider.
+- **Optional moderation endpoint**: off by default; stricter only; fail open (logged) except for child safety.
+- **Output**: each streamed delta is checked before it is sent for child sexual content, explosive recipes, drug
+  synthesis and system-prompt leaks; on a hit the provider is cancelled and the reply ends with a safe message in
+  the same SSE format.
+- **System prompt**: a safety section that overrides other instructions (refuse seriously harmful help, no prompt or
+  key disclosure, untrusted-content rule).
+- **Audit and control**: `safety_events` (no text unless `SAFETY_LOG_TEXT`), Admin › Safety (admin + 2FA) with
+  per-audience switches; changes are audited.
 
 ### Uploads
 - 20 MB per file, per-user quota (`UPLOAD_QUOTA_MB`); the real file signature is sniffed server-side (not the
@@ -106,8 +130,12 @@ fetches, secrets or the admin surface. Operational steps: `docs/runbooks/`.
 
 | Risk | Status / mitigation |
 |---|---|
-| **No content-safety filter** on model input or output yet (harmful content, self-harm, illegal requests) | Relies on providers' own filters; user reports and the moderation queue. Planned: safety layer (ROADMAP Phase 5). |
-| Prompt injection from web pages misleading Research answers | Untrusted-source framing, citations; no tool use in chat. |
+| ~~No content-safety filter on model input or output~~ | **Mitigated in v0.5.5** (safety layer): rule-based input moderation in five languages, output check on streams, audit. Remaining: rules miss paraphrases and new slang; only the latest message is classified (multi-turn splitting, text in images not covered); Yorùbá/Hausa/Igbo lists await native-speaker review. |
+| Prompt injection from web pages and files misleading answers | **Mitigated in v0.5.5**: neutralised known patterns and hidden text, fenced blocks with random ids, safety rule in the system prompt, flags logged; citations; no tool use in chat. Remaining: novel or paraphrased injections can still distort an answer. |
+| Guests send their own chat history (nothing stored), so earlier assistant turns can be forged | Open. Every new message is still moderated; the forged turns only change context. |
+| No age verification: explicit-content policy treats signed-in users as adults | Open; guests are refused explicit content. Revisit with plans/billing (Phase 11). |
+| Optional moderation endpoint sends message text to another provider | Off by default; when switched on, update the privacy text. |
+| False positives refusing legitimate questions (medical, news, slang) | Benign-context rules and false-positive tests per category; admins can switch a category off per audience; user feedback ("Unsafe or harmful"/"Not helpful") reaches Moderation. |
 | `APP_SECRET` rotation forces staff 2FA re-enrolment and re-entering stored keys | No re-encryption script yet (`docs/runbooks/key-rotation.md`). |
 | Shared hosting: other tenants, host compromise, 1 GB RAM / 20 entry processes easy to exhaust | Rate and guest limits, timeouts; JetBackup + nightly dumps. |
 | DNS-rebinding window in outbound fetches | Accepted; documented. |

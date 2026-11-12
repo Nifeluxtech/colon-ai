@@ -1,5 +1,7 @@
 // System prompts: one assistant (Colon Saga), four modes, plus the "African layer"
 // (Nigerian context, local examples, replies in the user's chosen language including Naijá).
+// Every prompt carries the safety section from modules/safety (refusals, no prompt leaks, untrusted-content rule).
+const { SYSTEM: SAFETY } = require('../safety');
 const LANGUAGE_NAMES = { en: 'English', pcm: 'Nigerian Pidgin (Naijá)', yo: 'Yorùbá', ha: 'Hausa', ig: 'Igbo' };
 
 const BASE = [
@@ -73,8 +75,8 @@ function languageRule(lang) {
 function systemPrompt({ mode = 'general', language = 'en', name = '', web = false, context = '' } = {}) {
   const modeText = mode === 'research' ? `${MODES.research}\n${web ? RESEARCH_WEB : RESEARCH_NO_WEB}` : (MODES[mode]
     || MODES.general);
-  return [BASE, modeText, languageRule(language), name ? `The user's name is ${String(name).slice(0, 80)}.` : '',
-    context]
+  return [BASE, SAFETY, modeText, languageRule(language),
+    name ? `The user's name is ${String(name).replace(/[\r\n<>]+/g, ' ').slice(0, 80)}.` : '', context]
     .filter(Boolean).join('\n\n');
 }
 

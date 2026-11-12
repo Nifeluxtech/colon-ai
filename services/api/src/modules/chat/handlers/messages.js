@@ -9,6 +9,7 @@ const store = require('../store');
 const files = require('../files');
 const { buildMessages } = require('../context');
 const { respond, stopLocal } = require('../reply');
+const safety = require('../../safety');
 const { MAX_CONTENT, wantsWeb, previousUserText, loadSettings } = require('./chat-common');
 
 /* ---------- Replies ---------- */
@@ -60,12 +61,13 @@ async function seqOf(id) {
   return row ? row.seq : null;
 }
 
-async function streamFor(req, res, conv, userMsg, { version = 1, onOpen } = {}) {
+async function streamFor(req, res, conv, userMsg, { version = 1, onOpen, route = 'chat.send' } = {}) {
   const counters = await limits.resolveCounters(req, conv.mode);
+  const guard = safety.collector();   // injection flags found in attached files (logged as safety events)
   return historyFor(req, conv, userMsg.id).then(history => respond({
     req, res, mode: conv.mode, model: conv.model, language: replyLanguage(req.user.language, userMsg.content),
-      name: req.user.name,
-    history: buildMessages(history), counters, store: persistedStore(conv, { version }), onOpen,
+      name: req.user.name, route, guard, userText: userMsg.content,
+    history: buildMessages(history, { guard }), counters, store: persistedStore(conv, { version }), onOpen,
     webSearch: wantsWeb(conv.mode), searchText: userMsg.content, searchPrevious: previousUserText(history),
   }));
 }
@@ -107,7 +109,7 @@ const postConversationsByIdMessagesByMidRegenerate = async (req, res) => {
   if (!userMsg) v.fail('message', 'There’s nothing to regenerate yet.');
   const version = idx > -1 ? (all[idx].version || 1) + 1 : 1;
   await db.query('DELETE FROM chat_messages WHERE conversation_id = ? AND seq > ?', [conv.id, await seqOf(userMsg.id)]);
-  await streamFor(req, res, conv, userMsg, { version });
+  await streamFor(req, res, conv, userMsg, { version, route: 'chat.regenerate' });
 };
 
 // POST /conversations/:id/messages/:mid/edit
@@ -121,8 +123,8 @@ const postConversationsByIdMessagesByMidEdit = async (req, res) => {
   await db.query('DELETE FROM chat_messages WHERE conversation_id = ? AND seq > ?', [conv.id, await seqOf(msg.id)]);
   await store.touch(conv, { preview: content });
   const userMsg = await store.getMessage(conv.id, msg.id);
-  await streamFor(req, res, conv, userMsg, { onOpen: (sse) => sse.send('user', { message: userMsg,
-    conversation: store.convOut(conv) }) });
+  await streamFor(req, res, conv, userMsg, { route: 'chat.edit', onOpen: (sse) => sse.send('user', {
+    message: userMsg, conversation: store.convOut(conv) }) });
 };
 
 // POST /conversations/:id/messages/:mid/stop

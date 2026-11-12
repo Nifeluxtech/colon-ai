@@ -51,6 +51,16 @@ module.exports = {
     maxReplyMs: Number(env('AI_MAX_REPLY_MS', 180000)),
     maxTokens: Number(env('AI_MAX_TOKENS', 4096)),
   },
+  // Safety layer (modules/safety, ADR 0003). Admin › Safety can switch provider moderation and categories live.
+  safety: {
+    enabled: env('SAFETY') !== 'off',
+    logText: env('SAFETY_LOG_TEXT'),                 // off | hash | excerpt
+    providerModeration: env('SAFETY_PROVIDER_MODERATION') === 'on',
+    moderationUrl: env('SAFETY_MODERATION_URL'),
+    moderationKey: env('SAFETY_MODERATION_API_KEY'),
+    moderationModel: env('SAFETY_MODERATION_MODEL'),
+    moderationTimeoutMs: Number(env('SAFETY_MODERATION_TIMEOUT_MS')),
+  },
   // Throws a ConfigError listing every problem; http/server.js calls it before anything else starts.
   assertValid(envVars = process.env) {
     const problems = validate(SCHEMA, envVars);

@@ -8,6 +8,7 @@ const store = require('../store');
 const files = require('../files');
 const { buildMessages } = require('../context');
 const { respond } = require('../reply');
+const safety = require('../../safety');
 const { MAX_CONTENT, wantsWeb, previousUserText } = require('./chat-common');
 
 /* ---------- Guest (and temporary) chat: streams a reply, saves nothing ---------- */
@@ -58,9 +59,11 @@ const postChatGuest = async (req, res) => {
   const chosen = req.user ? req.user.language : (v.LANGS.includes(req.body.language) ? req.body.language : 'en');
   const model = req.body.model ? String(req.body.model).slice(0, 64) : null;
   let msg = null;
+  const guard = safety.collector();
   await respond({
     req, res, mode, model, language: replyLanguage(chosen, last.content), name: req.user ? req.user.name : '',
-    history: buildMessages(history), counters: await limits.resolveCounters(req, mode),
+    route: 'chat.guest', guard, userText: last.content,
+    history: buildMessages(history, { guard }), counters: await limits.resolveCounters(req, mode),
     webSearch: wantsWeb(mode), searchText: last.content, searchPrevious: previousUserText(history),
     store: {
       async start() {

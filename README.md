@@ -42,11 +42,12 @@ colon-ai/
 └── CHANGELOG.md
 ```
 
-## What's live (v0.5.4)
+## What's live (v0.5.5)
 - **Colon AI**: chat with Colon Saga **without an account** (guest chats aren't saved), or log in to sync history, Saved, settings and files across devices. Streaming replies with stop, regenerate, edit and copy; Markdown, code, tables and maths; General / Study / Developer / Research modes; uploads (images, PDF, documents, text) with text extraction; feedback on every answer; share links; voice input; and Colon Browser inside the chat (embedded or split screen).
 - **Colon Saga backend**: model router over free hosted models (Gemma 4 26B on Google AI Studio first, then MiniMax M3.1 Flash, Gemma 4 31B, Qwen, DeepSeek and GLM across NVIDIA, Groq and OpenRouter; N-ATLaS optional for African languages), chosen by benchmark score, with hedged racing and automatic fallback, Naijá / Yorùbá / Hausa / Igbo routing, the African layer in every prompt, and per-user daily limits. Add provider keys in cPanel: [docs/deployment.md](docs/deployment.md#phase-3-v040-ai-providers-limits-and-uploads).
 - **Research mode**: web search with cited sources ([1], [2] chips and a Sources list): [docs/phases/phase-5-research.md](docs/phases/phase-5-research.md).
-- **Admin Dashboard**: models and providers, live routing, users, moderation, limits, evaluation and security: [docs/phases/phase-4.md](docs/phases/phase-4.md).
+- **Safety layer**: every message is checked before the model (child safety, self-harm with Nigerian helplines, weapons, drugs, hate, explicit content for guests, Yahoo-yahoo and BVN/OTP scams, personal data) in English, Pidgin, Yorùbá, Hausa and Igbo; untrusted web pages and files are fenced against prompt injection; streamed replies are checked as they arrive: [docs/decisions/0003-safety-layer.md](docs/decisions/0003-safety-layer.md).
+- **Admin Dashboard**: models and providers, live routing, users, moderation, limits, evaluation, safety events and settings, and security: [docs/phases/phase-4.md](docs/phases/phase-4.md).
 - **Colon Browser**: tabs, bookmarks, history, downloads, settings, and AI / Manual / Shared control with an observable AI Browse panel. On the web it is an honest reader preview; the full engine is the Android app ([docs/decisions/0002](docs/decisions/0002-webview-browser-engine.md)).
 - **Accounts**: ChatGPT-style sign in (Continue with Google, or email then password), verification, reset, 2FA, devices. The Admin Dashboard requires sign-in and 2FA.
 - Light and dark themes, mobile-first from small Android screens. If the API can't be reached, Colon AI falls back to an on-device Preview: [docs/frontend-data-adapters.md](docs/frontend-data-adapters.md).

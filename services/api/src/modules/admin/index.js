@@ -1,5 +1,5 @@
 // Admin module: the Admin Dashboard API (users, moderation, AI providers/models/routing, limits,
-// evaluation, African AI registry, voice, system and web search settings, audit).
+// evaluation, African AI registry, voice, system and web search settings, safety events and settings, audit).
 module.exports = {
   handlers: {
     overview: require('./handlers/overview'),
@@ -12,5 +12,6 @@ module.exports = {
     evaluation: require('./handlers/evaluation'),
     platform: require('./handlers/platform'),
     webSearch: require('./handlers/web-search'),
+    safety: require('./handlers/safety'),
   },
 };

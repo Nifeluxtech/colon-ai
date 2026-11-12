@@ -1,5 +1,5 @@
 /* Colon Admin (Phase 4): overview, users, moderation, models and providers, routing, usage limits,
-   evaluation, African AI registry, voice, browser, system settings and security.
+   evaluation, African AI registry, voice, browser, system settings, safety (Phase 5) and security.
    The API enforces every permission; the menu only hides what a role can't open.
      moderator    moderation + read-only users
      admin        everything except admin roles, provider keys and system settings
@@ -18,6 +18,7 @@ import { moderation } from '../pages/moderation.js';
 import { overview } from '../pages/overview.js';
 import { registry } from '../pages/registry.js';
 import { routing } from '../pages/routing.js';
+import { safety } from '../pages/safety.js';
 import { security } from '../pages/security.js';
 import { system } from '../pages/settings.js';
 import { userPage, users } from '../pages/users.js';
@@ -38,6 +39,7 @@ var SECTIONS = [
   ['/voice', 'mic', 'Voice', 'STT and TTS engines', 'admin'],
   ['/browser', 'compass', 'Browser', 'Live sessions (coming)', 'admin'],
   ['/system', 'settings', 'System settings', 'Branding, flags, maintenance, banner, web search', 'super_admin'],
+  ['/safety', 'alert', 'Safety', 'Refusals, stopped replies, injection attempts', 'admin'],
   ['/security', 'shield', 'Security', 'Staff 2FA, sign-ins, audit trail', 'admin'],
   ['/account', 'user', 'Your account', 'Profile, password, two-factor', 'user']
 ];
@@ -71,6 +73,7 @@ A.start = function () {
         registry, 'African AI', 'admin'),
       r('/voice', voice, 'Voice', 'admin'), r('/browser', browser, 'Browser', 'admin'), r('/system', system, 'System',
         'super_admin'),
+      r('/safety', safety, 'Safety', 'admin'),
       r('/security', security, 'Security', 'admin'), r('/audit', function (v) { C.go('/security?tab=audit', true);
         }, 'Audit', 'admin'), r('/more', more, 'Admin', 'admin')
     ]
