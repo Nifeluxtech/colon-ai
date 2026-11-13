@@ -145,6 +145,23 @@ search adapter and a search cache; rerun DeepSeek/GLM when NVIDIA's free tier an
 - Session manager in the backend: active tabs, URLs, history and control owner per user and device.
 **Release standard:** the major sites (Google, YouTube, news, social, banks' public pages) work in the app, and tabs and history survive app restarts.
 
+**Progress (v0.8.0, 13 Nov 2026), client side:**
+- [x] Colon Browser is its own app (`ng.nifelux.colonbrowser`, own name, icon and splash) from the same Android
+  project as Colon AI (product flavors, shared code); CI builds, tests, signs and publishes both APKs
+- [x] Colon AI browses in a native WebView panel beside the chat (embedded, split, full screen) with "Open in Colon
+  Browser"; no standalone browser screen in Colon AI
+- [x] Full engine: address/search bar, back, forward, refresh, home, tabs, history, bookmarks, downloads (with an
+  in-app list), file upload, full-screen video, private tabs, clear browsing data screen, desktop site
+- [x] Tabs and history survive app restarts (private tabs never do); cookies and logins stay on the phone
+- [x] Google and bank sign-in open in a Chrome Custom Tab and return
+- [x] Web light mode: reader UI with "Open in the app for full browsing", server-reader adapter with fallback and a
+  labelled Preview mock
+- [x] Each app checks its own update (`version.json` `browser` entry, backward compatible)
+- [ ] Server-side reader/proxy on cPanel (`GET /browser/fetch`, contract in `docs/phase8-backend-contract.md`)
+- [ ] Backend session manager: tabs, URLs, history and control owner per user and device (same contract)
+- [ ] Release standard on real phones: major sites (Google, YouTube, news, social, banks' public pages) work, and
+  tabs and history survive restarts
+
 ## Phase 9 — Saga browser automation
 - Saga controls the phone's WebView through the bridge, using a controlled tool set: openUrl, getPageContent, getLinks, click, fill, scroll, screenshot, back, forward, refresh, tabs. Actions run as injected JavaScript and native calls.
 - Action, then observation, then decision loop with step limits and timeouts.
@@ -161,6 +178,12 @@ search adapter and a search cache; rerun DeepSeek/GLM when NVIDIA's free tier an
 - Control modes: **AI, Manual, Shared**, with Take control and Return to AI buttons, plus a live AI activity indicator. Pending AI actions pause the instant the user takes over.
 - Open a page in Colon Browser, then ask Saga about it in Colon AI. Both use the same session.
 **Release standard:** mode and layout switching are tested across devices with no lost state.
+
+**Early progress (v0.8.0, from Phase 8):** in the Colon AI Android app the in-chat browser is a native WebView panel
+with embedded (collapsible), split (stacked with a draggable divider on phones, side by side on wide screens) and
+full-screen layouts that switch without reloading, plus AI / Manual / Shared control with Take control, Return to
+AI, Pause and Stop. Still to do: the panel opening automatically when Saga browses (needs Phase 9), and one shared
+session between Colon Browser and Colon AI (needs the backend session manager).
 
 ## Phase 11 — Launch readiness
 - Plans and billing: free tier plus paid plans through a Nigerian gateway (Paystack or AfrStar), with limits enforced per plan.

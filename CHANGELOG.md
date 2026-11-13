@@ -1,5 +1,58 @@
 # Changelog
 
+## [0.8.0] — 2026-11-13 · Colon Browser becomes its own app (Phase 8, client side)
+Two Android apps from one project: **Colon AI** (chat, with a real browser panel beside it) and **Colon Browser**
+(the full standalone browser). Web light mode gets its "open in the app" prompt and a server-reader adapter. The
+server pieces of Phase 8 are not built yet; their contract is `docs/phase8-backend-contract.md`. Decision:
+`docs/decisions/0004-two-android-apps.md`.
+### Added
+- **Two APKs, one Gradle project** (`apps/android`): product flavors `colonai` (`ng.nifelux.colonai`) and
+  `colonbrowser` (`ng.nifelux.colonbrowser`), all code shared in `src/main`; per-flavor manifests, name, launcher
+  icon (a cyan globe around the flame for Colon Browser), splash and update texts. versionCode 800.
+- **Colon AI: in-chat browser panel** (`ChatBrowserPanel`, `PanelLayout`): pages from the chat open in a native
+  WebView beside the chat instead of a separate screen. Embedded (collapsible), split (draggable divider; side by
+  side on wide landscape screens) and full screen, switched without reloading. Address bar, back, forward,
+  reload/stop, tabs (6), desktop site, share, downloads list, clear data, close; **Open in Colon Browser** (or its
+  download page when not installed). Saga's AI / Manual / Shared control, consent and shield work in the panel.
+  Bridge: `ColonNative.browser(action, …)` and the `browser` event (`docs/android-bridge.md`); the chat's Browser
+  button and links drive it (`apps/chat/src/components/browser-panel.js`). On the web the reader panel stays.
+- **Colon Browser app** (`BrowserActivity`, `BrowserMenu`): opens straight into the browser; **private tabs**
+  (violet bar, no history or cache, never saved or seen by Saga, own cookies and storage in a throwaway WebView
+  profile deleted when the last one closes; an honest warning on WebViews without profiles), **tabs and history
+  that survive restarts** (`TabSnapshot`, saved as they change), **clear browsing data screen**
+  (`ClearDataActivity`: history, cookies, cache, site storage, downloads list; Colon AI sign-in kept), **downloads
+  list**, **desktop site** per tab, full-screen video (shared `Fullscreen`), web searches from other apps, "Ask
+  Colon AI about this page" and "Open Colon AI" handoffs (`Handoff`).
+- **Google and bank sign-in in a Chrome Custom Tab** (`SignInTabs`, `androidx.browser` 1.8.0):
+  `accounts.google.com`, `accounts.youtube.com` and the internet-banking hosts of GTBank, Access, Zenith, UBA and
+  First Bank (`UrlRules.CUSTOM_TAB_HOSTS`, extendable with `-Pcolon.customTabHosts=`); the tab reloads on return.
+- **Per-app updates:** `version.json` gains a `browser` entry; each app reads only its own entry and accepts only
+  an APK named for itself (`VersionManifest.forApp`). The top-level fields are unchanged, so v0.7.x keeps updating.
+- **CI** (`.github/workflows/android.yml`): tests and lint for both flavors; builds, signs (same key) and
+  publishes `colon-ai-<v>.apk`, `colon-ai.apk`, `colon-browser-<v>.apk`, `colon-browser.apk` and a `.sha256` for each.
+- **Web light mode** (`packages/ui/js/browser/app-prompt.js`, `reader-proxy.js`): "Light mode … Open in the app for
+  full browsing" above reader pages and the new tab page (Colon Browser's APK on Android, the release page
+  elsewhere), a stronger prompt on sites that need the full browser; a server-reader adapter for
+  `GET /browser/fetch` with graceful fallback, and a labelled **Preview** mock (`localStorage['colon.reader'] =
+  'mock'`). Settings › App and Help list both apps; Colon Browser web Help explains light mode.
+- Docs: `docs/phase8-backend-contract.md` (reader proxy, session manager REST and WebSocket messages, control
+  owner rules), ADR 0004, `apps/android/README.md` rewritten for two apps.
+- Tests: `BrowserPhase8Test.kt` (20 JVM tests: tab persistence, private-tab rules, Custom Tab hosts, desktop user
+  agent, panel layouts, clear-data rules, downloads list, per-app update manifest, handoff), run for both flavors;
+  `packages/ui/test/light-mode.test.js` (7); `scripts/deploy/android-version.test.js` checks both apps.
+### Changed
+- The browser engine is one module for both screens: `BrowserHost` (implemented by `BrowserActivity` and
+  `ChatBrowserPanel`), `BrowserWeb`, `BrowserSaga`, `TabManager`. Saga can't read or drive private tabs
+  (`private_tab` error; left out of `get_tabs` and `page_state`).
+- Colon AI no longer contains a standalone browser screen; `openTab` and links open the in-chat panel.
+### Not yet (stubbed)
+- **Server-side reader** (`GET /browser/fetch`) and the **browser session manager** (tabs, URLs, history and control
+  owner per user and device): not in `services/api`; clients fall back (contract in
+  `docs/phase8-backend-contract.md`).
+- Saga driving the native panel (Phase 9): the chat's AI Browse still runs in the web reader panel.
+- Real-device testing of both apps (private tabs on old WebViews, Custom Tab round trips, split divider), push
+  notifications, App Links, crash reporting.
+
 ## [0.7.1] — 2026-11-13 · Android app (Phase 7 begins)
 Colon AI in a native Android shell, with Colon Browser built on Android System WebView. Built in the cloud by GitHub
 Actions. Details: `apps/android/README.md`, `docs/android-bridge.md`.
