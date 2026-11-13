@@ -36,12 +36,19 @@ function viewOf(scroller, win) {
 
 /**
  * opts: { el (the body box), scroller (the thread), watch (more elements whose size moves the box), send(payload),
- * collapsed() -> bool, win (window), raf, caf }. Returns { update(), stop(), last() }.
+ * collapsed() -> bool, onKeyboard() (the keyboard opened: the visual viewport lost more than KEYBOARD_PX), win
+ * (window), raf, caf }. Returns { update(), stop(), last() }.
  */
+var KEYBOARD_PX = 120;
 function createAnchor(opts) {
   var win = opts.win || window, raf = opts.raf || win.requestAnimationFrame.bind(win);
   var caf = opts.caf || (win.cancelAnimationFrame ? win.cancelAnimationFrame.bind(win) : function () {});
-  var frame = null, last = null, stopped = false, ro = null, vv = win.visualViewport;
+  var frame = null, last = null, stopped = false, ro = null, vv = win.visualViewport, vvh = vv ? vv.height : 0;
+  function onViewport() {
+    if (vv && opts.onKeyboard && vvh - vv.height > KEYBOARD_PX) opts.onKeyboard();
+    if (vv) vvh = vv.height;
+    update();
+  }
   function measure() {
     frame = null;
     if (stopped) return;
@@ -56,7 +63,7 @@ function createAnchor(opts) {
   var on = { passive: true };
   opts.scroller.addEventListener('scroll', update, on);
   win.addEventListener('resize', update, on);
-  if (vv) { vv.addEventListener('resize', update, on); vv.addEventListener('scroll', update, on); }
+  if (vv) { vv.addEventListener('resize', onViewport, on); vv.addEventListener('scroll', update, on); }
   if (typeof win.ResizeObserver === 'function') {
     ro = new win.ResizeObserver(update);
     [opts.el, opts.scroller].concat(opts.watch || []).forEach(function (e) { if (e) ro.observe(e); });
@@ -72,7 +79,7 @@ function createAnchor(opts) {
       frame = null;
       opts.scroller.removeEventListener('scroll', update, on);
       win.removeEventListener('resize', update, on);
-      if (vv) { vv.removeEventListener('resize', update, on); vv.removeEventListener('scroll', update, on); }
+      if (vv) { vv.removeEventListener('resize', onViewport, on); vv.removeEventListener('scroll', update, on); }
       if (ro) ro.disconnect();
       if (last && last.visible) opts.send({ visible: false });
     }

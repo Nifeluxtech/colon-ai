@@ -106,3 +106,16 @@ test('stop() removes every listener, cancels the frame and hides the panel once'
   const n = r.sent.length; r.a.stop(); r.a.update(); r.flush();
   assert.equal(r.sent.length, n);
 });
+
+test('a keyboard opening (visual viewport loses > 120 px) is reported once; small changes are not', () => {
+  let kb = 0;
+  const frames = [], sent = [];
+  const win = Object.assign(target(), { innerHeight: 800, devicePixelRatio: 2, ResizeObserver: undefined,
+    visualViewport: Object.assign(target(), { height: 800, offsetTop: 0 }) });
+  createAnchor({ el: el({ left: 0, top: 100, width: 300, height: 300 }), scroller: el({ left: 0, top: 0,
+    width: 300, height: 800 }), win, send: (p) => sent.push(p), onKeyboard: () => kb++, raf: (f) => frames.push(f) });
+  win.visualViewport.height = 760; win.visualViewport.fire('resize'); assert.equal(kb, 0);
+  win.visualViewport.height = 400; win.visualViewport.fire('resize'); assert.equal(kb, 1);
+  win.visualViewport.height = 800; win.visualViewport.fire('resize'); assert.equal(kb, 1);  // closing: no
+  assert.equal(frames.length, 1);                                                               // one frame queued
+});

@@ -180,7 +180,12 @@ function renderNativeInline(st) {
     S.browser.anchor = createAnchor({ el: card.querySelector('.cw-native-body'), scroller: $('#cw-scroll'),
       watch: [$('#cw-page')], collapsed: function () { return !!(S.browser.nativeState
         && S.browser.nativeState.collapsed); },
-      send: function (p) { C.native.browser('anchor', p).catch(function () {}); } });
+      send: function (p) { C.native.browser('anchor', p).catch(function () {}); },
+      // The keyboard opened while the chat's own fields aren't focused: it is for the page in the panel, so keep
+      // the card's box on screen (the thread shrank and could have hidden what is typed).
+      onKeyboard: function () { var f = document.activeElement;
+        if (!f || !/^(INPUT|TEXTAREA|SELECT)$/.test(f.tagName)) {
+          card.querySelector('.cw-native-body').scrollIntoView({ block: 'nearest' }); } } });
   } else S.browser.anchor.update();
   if (fresh) setTimeout(function () { card.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); }, 50);
 }
