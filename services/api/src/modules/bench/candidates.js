@@ -23,7 +23,8 @@ const CANDIDATES = [
   { provider: 'nvidia', model: 'nvidia/nemotron-3.5-lightning-30b-a3b', body: { reasoning_budget: 1024 },
     opts: { maxTokens: 4096, firstTokenTimeoutMs: 120000 } },
   // NVIDIA serves an omitted reasoning_effort as "none"; say so explicitly so the run doesn't depend on that default.
-  { provider: 'nvidia', model: 'mistralai/mistral-large-4-1t-a52b', body: { reasoning_effort: 'none' }, opts: SLOW },
+  // Mistral Large 4 on NVIDIA rejects reasoning_effort (400 on 2026-11-13), so it gets no body.
+  { provider: 'nvidia', model: 'mistralai/mistral-large-4-1t-a52b', opts: SLOW },
 ];
 
 /** The body Saga's routing sends for this provider + model (null when routing has none or doesn't use it). */

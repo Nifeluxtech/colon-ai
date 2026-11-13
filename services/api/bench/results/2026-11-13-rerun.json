@@ -1,0 +1,663 @@
+{
+  "run": "2026-11-13-rerun",
+  "suite": "colon-bench-1",
+  "started": "2026-11-13T05:09:03.192Z",
+  "finished": "2026-11-13T05:49:37.658Z",
+  "settings": {
+    "max_tokens": 2048,
+    "first_token_timeout_ms": 60000,
+    "concurrency_per_model": 1,
+    "gap_ms": 1500,
+    "retries": 2,
+    "temperature": "provider default",
+    "limit_per_set": null,
+    "provider_limits": {
+      "nvidia": {
+        "rpm": 30,
+        "inflight": 4
+      }
+    },
+    "per_model": {
+      "nvidia:nvidia/nemotron-3.5-lightning-30b-a3b": {
+        "body": {
+          "reasoning_budget": 1024
+        },
+        "maxTokens": 4096,
+        "firstTokenTimeoutMs": 120000,
+        "cfg": "03eb8e43a8"
+      },
+      "nvidia:mistralai/mistral-large-4-1t-a52b": {
+        "body": null,
+        "firstTokenTimeoutMs": 180000,
+        "maxMs": 300000,
+        "cfg": "f962ef5175"
+      }
+    },
+    "judge": null
+  },
+  "ranking": [
+    "nvidia:nvidia/nemotron-3.5-lightning-30b-a3b",
+    "nvidia:mistralai/mistral-large-4-1t-a52b"
+  ],
+  "models": [
+    {
+      "key": "nvidia:nvidia/nemotron-3.5-lightning-30b-a3b",
+      "provider": "nvidia",
+      "model": "nvidia/nemotron-3.5-lightning-30b-a3b",
+      "note": "",
+      "status": "done",
+      "errors_by_reason": {},
+      "items": 135,
+      "expected": 135,
+      "score": 85.1,
+      "components": {
+        "accuracy": 0.891,
+        "language": 0.955,
+        "speed": 0.235,
+        "reliability": 1
+      },
+      "overall": {
+        "n": 135,
+        "accuracy": 0.901,
+        "correct": 114,
+        "errors": 0,
+        "error_rate": 0,
+        "language": 0.962,
+        "first_token_ms": {
+          "median": 9896,
+          "p90": 15626
+        },
+        "total_ms": {
+          "median": 10828,
+          "p90": 17753
+        },
+        "tokens": 0,
+        "cost_usd": 0
+      },
+      "sets": {
+        "coding": {
+          "n": 12,
+          "accuracy": 1,
+          "correct": 12,
+          "errors": 0,
+          "error_rate": 0,
+          "language": null,
+          "first_token_ms": {
+            "median": 10385,
+            "p90": 18214
+          },
+          "total_ms": {
+            "median": 11021,
+            "p90": 19386
+          },
+          "tokens": 0,
+          "cost_usd": 0
+        },
+        "everyday": {
+          "n": 13,
+          "accuracy": 0.923,
+          "correct": 12,
+          "errors": 0,
+          "error_rate": 0,
+          "language": null,
+          "first_token_ms": {
+            "median": 6747,
+            "p90": 12531
+          },
+          "total_ms": {
+            "median": 7421,
+            "p90": 13931
+          },
+          "tokens": 0,
+          "cost_usd": 0
+        },
+        "hausa": {
+          "n": 11,
+          "accuracy": 0.536,
+          "correct": 4,
+          "errors": 0,
+          "error_rate": 0,
+          "language": 0.842,
+          "first_token_ms": {
+            "median": 12139,
+            "p90": 21238
+          },
+          "total_ms": {
+            "median": 12903,
+            "p90": 21513
+          },
+          "tokens": 0,
+          "cost_usd": 0
+        },
+        "igbo": {
+          "n": 11,
+          "accuracy": 0.731,
+          "correct": 5,
+          "errors": 0,
+          "error_rate": 0,
+          "language": 0.979,
+          "first_token_ms": {
+            "median": 11419,
+            "p90": 18954
+          },
+          "total_ms": {
+            "median": 12038,
+            "p90": 20774
+          },
+          "tokens": 0,
+          "cost_usd": 0
+        },
+        "jamb": {
+          "n": 14,
+          "accuracy": 1,
+          "correct": 14,
+          "errors": 0,
+          "error_rate": 0,
+          "language": null,
+          "first_token_ms": {
+            "median": 7361,
+            "p90": 17962
+          },
+          "total_ms": {
+            "median": 7371,
+            "p90": 19057
+          },
+          "tokens": 0,
+          "cost_usd": 0
+        },
+        "pidgin": {
+          "n": 11,
+          "accuracy": 1,
+          "correct": 11,
+          "errors": 0,
+          "error_rate": 0,
+          "language": 1,
+          "first_token_ms": {
+            "median": 11163,
+            "p90": 17143
+          },
+          "total_ms": {
+            "median": 12174,
+            "p90": 17528
+          },
+          "tokens": 0,
+          "cost_usd": 0
+        },
+        "reasoning": {
+          "n": 13,
+          "accuracy": 1,
+          "correct": 13,
+          "errors": 0,
+          "error_rate": 0,
+          "language": null,
+          "first_token_ms": {
+            "median": 6195,
+            "p90": 11661
+          },
+          "total_ms": {
+            "median": 6275,
+            "p90": 12796
+          },
+          "tokens": 0,
+          "cost_usd": 0
+        },
+        "tooluse": {
+          "n": 12,
+          "accuracy": 1,
+          "correct": 12,
+          "errors": 0,
+          "error_rate": 0,
+          "language": null,
+          "first_token_ms": {
+            "median": 5641,
+            "p90": 8425
+          },
+          "total_ms": {
+            "median": 6084,
+            "p90": 8738
+          },
+          "tokens": 0,
+          "cost_usd": 0
+        },
+        "university": {
+          "n": 13,
+          "accuracy": 1,
+          "correct": 13,
+          "errors": 0,
+          "error_rate": 0,
+          "language": null,
+          "first_token_ms": {
+            "median": 7981,
+            "p90": 13579
+          },
+          "total_ms": {
+            "median": 8890,
+            "p90": 15470
+          },
+          "tokens": 0,
+          "cost_usd": 0
+        },
+        "waec": {
+          "n": 14,
+          "accuracy": 1,
+          "correct": 14,
+          "errors": 0,
+          "error_rate": 0,
+          "language": null,
+          "first_token_ms": {
+            "median": 7437,
+            "p90": 11625
+          },
+          "total_ms": {
+            "median": 7775,
+            "p90": 13109
+          },
+          "tokens": 0,
+          "cost_usd": 0
+        },
+        "yoruba": {
+          "n": 11,
+          "accuracy": 0.609,
+          "correct": 4,
+          "errors": 0,
+          "error_rate": 0,
+          "language": 1,
+          "first_token_ms": {
+            "median": 11973,
+            "p90": 13543
+          },
+          "total_ms": {
+            "median": 14038,
+            "p90": 24900
+          },
+          "tokens": 0,
+          "cost_usd": 0
+        }
+      },
+      "failures": [
+        {
+          "id": "ha-01",
+          "set": "hausa",
+          "detail": "missing one of ina son/ina so/ina bukatar/ina bukata"
+        },
+        {
+          "id": "ig-02",
+          "set": "igbo",
+          "detail": "missing one of ututu oma/i bola chi/ibola chi/ibolachi/i boola chi/iboola chi"
+        },
+        {
+          "id": "yo-03",
+          "set": "yoruba",
+          "detail": "cut off at max_tokens (4096) | ok | missing one of ore/ore mi"
+        },
+        {
+          "id": "ha-04",
+          "set": "hausa",
+          "detail": "missing daya, uku, biyar"
+        },
+        {
+          "id": "ig-04",
+          "set": "igbo",
+          "detail": "missing otu, ise"
+        },
+        {
+          "id": "yo-04",
+          "set": "yoruba",
+          "detail": "missing one of ile iwe/ileewe/ile-iwe/ile eko/ile-eko"
+        },
+        {
+          "id": "ha-05",
+          "set": "hausa",
+          "detail": "ha 100%, orthography 91% | missing Abuja"
+        },
+        {
+          "id": "yo-05",
+          "set": "yoruba",
+          "detail": "missing one of okan/ookan/eni/kan | missing one of meji/eji/eeji | ok | missing one of merin/erin/eerin | missing one of marun/arun/aarun"
+        },
+        {
+          "id": "everyday-06",
+          "set": "everyday",
+          "detail": "got 199, expected 112"
+        },
+        {
+          "id": "ha-06",
+          "set": "hausa",
+          "detail": "missing makaranta, one of yaro/yaron"
+        },
+        {
+          "id": "ig-06",
+          "set": "igbo",
+          "detail": "missing one of akwukwo"
+        },
+        {
+          "id": "yo-06",
+          "set": "yoruba",
+          "detail": "yo 100%, orthography 100% | missing Abuja"
+        },
+        {
+          "id": "ig-07",
+          "set": "igbo",
+          "detail": "missing echi"
+        },
+        {
+          "id": "ha-07",
+          "set": "hausa",
+          "detail": "missing gobe, kasuwa"
+        },
+        {
+          "id": "yo-07",
+          "set": "yoruba",
+          "detail": "yo 100%, orthography 100% | missing omi"
+        },
+        {
+          "id": "ha-08",
+          "set": "hausa",
+          "detail": "ha 100%, orthography 23% | missing one of makaranta/ilimi/karatu"
+        },
+        {
+          "id": "yo-08",
+          "set": "yoruba",
+          "detail": "missing ola, oja"
+        },
+        {
+          "id": "ig-09",
+          "set": "igbo",
+          "detail": "ig 89%, orthography 100% | ok"
+        },
+        {
+          "id": "ha-10",
+          "set": "hausa",
+          "detail": "missing abinci"
+        },
+        {
+          "id": "ig-10",
+          "set": "igbo",
+          "detail": "missing akwukwo"
+        },
+        {
+          "id": "yo-10",
+          "set": "yoruba",
+          "detail": "missing iwe"
+        }
+      ]
+    },
+    {
+      "key": "nvidia:mistralai/mistral-large-4-1t-a52b",
+      "provider": "nvidia",
+      "model": "mistralai/mistral-large-4-1t-a52b",
+      "note": "",
+      "status": "done",
+      "errors_by_reason": {},
+      "items": 135,
+      "expected": 135,
+      "score": 84.4,
+      "components": {
+        "accuracy": 0.938,
+        "language": 0.754,
+        "speed": 0.18,
+        "reliability": 1
+      },
+      "overall": {
+        "n": 135,
+        "accuracy": 0.944,
+        "correct": 127,
+        "errors": 0,
+        "error_rate": 0,
+        "language": 0.793,
+        "first_token_ms": {
+          "median": 11657,
+          "p90": 67819
+        },
+        "total_ms": {
+          "median": 17044,
+          "p90": 89375
+        },
+        "tokens": 0,
+        "cost_usd": 0
+      },
+      "sets": {
+        "coding": {
+          "n": 12,
+          "accuracy": 1,
+          "correct": 12,
+          "errors": 0,
+          "error_rate": 0,
+          "language": null,
+          "first_token_ms": {
+            "median": 24209,
+            "p90": 80727
+          },
+          "total_ms": {
+            "median": 26098,
+            "p90": 82412
+          },
+          "tokens": 0,
+          "cost_usd": 0
+        },
+        "everyday": {
+          "n": 13,
+          "accuracy": 1,
+          "correct": 13,
+          "errors": 0,
+          "error_rate": 0,
+          "language": null,
+          "first_token_ms": {
+            "median": 10570,
+            "p90": 54695
+          },
+          "total_ms": {
+            "median": 10901,
+            "p90": 55806
+          },
+          "tokens": 0,
+          "cost_usd": 0
+        },
+        "hausa": {
+          "n": 11,
+          "accuracy": 0.909,
+          "correct": 10,
+          "errors": 0,
+          "error_rate": 0,
+          "language": 0.766,
+          "first_token_ms": {
+            "median": 36646,
+            "p90": 99384
+          },
+          "total_ms": {
+            "median": 56947,
+            "p90": 102637
+          },
+          "tokens": 0,
+          "cost_usd": 0
+        },
+        "igbo": {
+          "n": 11,
+          "accuracy": 0.636,
+          "correct": 7,
+          "errors": 0,
+          "error_rate": 0,
+          "language": 0.5,
+          "first_token_ms": {
+            "median": 34629,
+            "p90": 143669
+          },
+          "total_ms": {
+            "median": 77687,
+            "p90": 107741
+          },
+          "tokens": 0,
+          "cost_usd": 0
+        },
+        "jamb": {
+          "n": 14,
+          "accuracy": 1,
+          "correct": 14,
+          "errors": 0,
+          "error_rate": 0,
+          "language": null,
+          "first_token_ms": {
+            "median": 6437,
+            "p90": 23153
+          },
+          "total_ms": {
+            "median": 6680,
+            "p90": 25836
+          },
+          "tokens": 0,
+          "cost_usd": 0
+        },
+        "pidgin": {
+          "n": 11,
+          "accuracy": 1,
+          "correct": 11,
+          "errors": 0,
+          "error_rate": 0,
+          "language": 1,
+          "first_token_ms": {
+            "median": 12516,
+            "p90": 25158
+          },
+          "total_ms": {
+            "median": 14030,
+            "p90": 38710
+          },
+          "tokens": 0,
+          "cost_usd": 0
+        },
+        "reasoning": {
+          "n": 13,
+          "accuracy": 1,
+          "correct": 13,
+          "errors": 0,
+          "error_rate": 0,
+          "language": null,
+          "first_token_ms": {
+            "median": 8201,
+            "p90": 54727
+          },
+          "total_ms": {
+            "median": 8248,
+            "p90": 55025
+          },
+          "tokens": 0,
+          "cost_usd": 0
+        },
+        "tooluse": {
+          "n": 12,
+          "accuracy": 1,
+          "correct": 12,
+          "errors": 0,
+          "error_rate": 0,
+          "language": null,
+          "first_token_ms": {
+            "median": 7285,
+            "p90": 36652
+          },
+          "total_ms": {
+            "median": 7602,
+            "p90": 37195
+          },
+          "tokens": 0,
+          "cost_usd": 0
+        },
+        "university": {
+          "n": 13,
+          "accuracy": 1,
+          "correct": 13,
+          "errors": 0,
+          "error_rate": 0,
+          "language": null,
+          "first_token_ms": {
+            "median": 8249,
+            "p90": 18205
+          },
+          "total_ms": {
+            "median": 11458,
+            "p90": 19874
+          },
+          "tokens": 0,
+          "cost_usd": 0
+        },
+        "waec": {
+          "n": 14,
+          "accuracy": 1,
+          "correct": 14,
+          "errors": 0,
+          "error_rate": 0,
+          "language": null,
+          "first_token_ms": {
+            "median": 6433,
+            "p90": 22387
+          },
+          "total_ms": {
+            "median": 7398,
+            "p90": 25824
+          },
+          "tokens": 0,
+          "cost_usd": 0
+        },
+        "yoruba": {
+          "n": 11,
+          "accuracy": 0.773,
+          "correct": 8,
+          "errors": 0,
+          "error_rate": 0,
+          "language": 0.75,
+          "first_token_ms": {
+            "median": 32159,
+            "p90": 197231
+          },
+          "total_ms": {
+            "median": 60923,
+            "p90": 189457
+          },
+          "tokens": 0,
+          "cost_usd": 0
+        }
+      },
+      "failures": [
+        {
+          "id": "ig-02",
+          "set": "igbo",
+          "detail": "missing one of ututu oma/i bola chi/ibola chi/ibolachi/i boola chi/iboola chi"
+        },
+        {
+          "id": "yo-04",
+          "set": "yoruba",
+          "detail": "missing omo"
+        },
+        {
+          "id": "ha-06",
+          "set": "hausa",
+          "detail": "cut off at max_tokens (2048) | missing makaranta, one of yaro/yaron"
+        },
+        {
+          "id": "yo-07",
+          "set": "yoruba",
+          "detail": "cut off at max_tokens (2048) | yo 0%, orthography 0% | missing omi"
+        },
+        {
+          "id": "ig-08",
+          "set": "igbo",
+          "detail": "cut off at max_tokens (2048) | ig 0%, orthography 0% | missing mmiri"
+        },
+        {
+          "id": "yo-08",
+          "set": "yoruba",
+          "detail": "cut off at max_tokens (2048) | missing ola, oja"
+        },
+        {
+          "id": "ig-10",
+          "set": "igbo",
+          "detail": "cut off at max_tokens (2048) | missing nna, akwukwo"
+        },
+        {
+          "id": "ig-11",
+          "set": "igbo",
+          "detail": "cut off at max_tokens (2048) | ig 0%, orthography 0%"
+        }
+      ]
+    }
+  ]
+}

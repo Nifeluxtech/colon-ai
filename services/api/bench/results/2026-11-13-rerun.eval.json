@@ -1,0 +1,272 @@
+{
+  "runs": [
+    {
+      "name": "Colon benchmark 2026-11-13-rerun",
+      "model": "nvidia/nemotron-3.5-lightning-30b-a3b",
+      "provider": "nvidia",
+      "kind": "bench",
+      "suite": "colon-bench-1",
+      "status": "done",
+      "score": 85.1,
+      "items": 135,
+      "error_rate": 0,
+      "first_token_ms": 9896,
+      "notes": "done; accuracy 89%, language 96%, median first token 9.9 s, errors 0%",
+      "details": {
+        "components": {
+          "accuracy": 0.891,
+          "language": 0.955,
+          "speed": 0.235,
+          "reliability": 1
+        },
+        "sets": {
+          "coding": {
+            "n": 12,
+            "accuracy": 1,
+            "language": null,
+            "error_rate": 0,
+            "first_token_ms": {
+              "median": 10385,
+              "p90": 18214
+            }
+          },
+          "everyday": {
+            "n": 13,
+            "accuracy": 0.923,
+            "language": null,
+            "error_rate": 0,
+            "first_token_ms": {
+              "median": 6747,
+              "p90": 12531
+            }
+          },
+          "hausa": {
+            "n": 11,
+            "accuracy": 0.536,
+            "language": 0.842,
+            "error_rate": 0,
+            "first_token_ms": {
+              "median": 12139,
+              "p90": 21238
+            }
+          },
+          "igbo": {
+            "n": 11,
+            "accuracy": 0.731,
+            "language": 0.979,
+            "error_rate": 0,
+            "first_token_ms": {
+              "median": 11419,
+              "p90": 18954
+            }
+          },
+          "jamb": {
+            "n": 14,
+            "accuracy": 1,
+            "language": null,
+            "error_rate": 0,
+            "first_token_ms": {
+              "median": 7361,
+              "p90": 17962
+            }
+          },
+          "pidgin": {
+            "n": 11,
+            "accuracy": 1,
+            "language": 1,
+            "error_rate": 0,
+            "first_token_ms": {
+              "median": 11163,
+              "p90": 17143
+            }
+          },
+          "reasoning": {
+            "n": 13,
+            "accuracy": 1,
+            "language": null,
+            "error_rate": 0,
+            "first_token_ms": {
+              "median": 6195,
+              "p90": 11661
+            }
+          },
+          "tooluse": {
+            "n": 12,
+            "accuracy": 1,
+            "language": null,
+            "error_rate": 0,
+            "first_token_ms": {
+              "median": 5641,
+              "p90": 8425
+            }
+          },
+          "university": {
+            "n": 13,
+            "accuracy": 1,
+            "language": null,
+            "error_rate": 0,
+            "first_token_ms": {
+              "median": 7981,
+              "p90": 13579
+            }
+          },
+          "waec": {
+            "n": 14,
+            "accuracy": 1,
+            "language": null,
+            "error_rate": 0,
+            "first_token_ms": {
+              "median": 7437,
+              "p90": 11625
+            }
+          },
+          "yoruba": {
+            "n": 11,
+            "accuracy": 0.609,
+            "language": 1,
+            "error_rate": 0,
+            "first_token_ms": {
+              "median": 11973,
+              "p90": 13543
+            }
+          }
+        }
+      },
+      "created_at": "2026-11-13T05:49:37.658Z"
+    },
+    {
+      "name": "Colon benchmark 2026-11-13-rerun",
+      "model": "mistralai/mistral-large-4-1t-a52b",
+      "provider": "nvidia",
+      "kind": "bench",
+      "suite": "colon-bench-1",
+      "status": "done",
+      "score": 84.4,
+      "items": 135,
+      "error_rate": 0,
+      "first_token_ms": 11657,
+      "notes": "done; accuracy 94%, language 75%, median first token 11.7 s, errors 0%",
+      "details": {
+        "components": {
+          "accuracy": 0.938,
+          "language": 0.754,
+          "speed": 0.18,
+          "reliability": 1
+        },
+        "sets": {
+          "coding": {
+            "n": 12,
+            "accuracy": 1,
+            "language": null,
+            "error_rate": 0,
+            "first_token_ms": {
+              "median": 24209,
+              "p90": 80727
+            }
+          },
+          "everyday": {
+            "n": 13,
+            "accuracy": 1,
+            "language": null,
+            "error_rate": 0,
+            "first_token_ms": {
+              "median": 10570,
+              "p90": 54695
+            }
+          },
+          "hausa": {
+            "n": 11,
+            "accuracy": 0.909,
+            "language": 0.766,
+            "error_rate": 0,
+            "first_token_ms": {
+              "median": 36646,
+              "p90": 99384
+            }
+          },
+          "igbo": {
+            "n": 11,
+            "accuracy": 0.636,
+            "language": 0.5,
+            "error_rate": 0,
+            "first_token_ms": {
+              "median": 34629,
+              "p90": 143669
+            }
+          },
+          "jamb": {
+            "n": 14,
+            "accuracy": 1,
+            "language": null,
+            "error_rate": 0,
+            "first_token_ms": {
+              "median": 6437,
+              "p90": 23153
+            }
+          },
+          "pidgin": {
+            "n": 11,
+            "accuracy": 1,
+            "language": 1,
+            "error_rate": 0,
+            "first_token_ms": {
+              "median": 12516,
+              "p90": 25158
+            }
+          },
+          "reasoning": {
+            "n": 13,
+            "accuracy": 1,
+            "language": null,
+            "error_rate": 0,
+            "first_token_ms": {
+              "median": 8201,
+              "p90": 54727
+            }
+          },
+          "tooluse": {
+            "n": 12,
+            "accuracy": 1,
+            "language": null,
+            "error_rate": 0,
+            "first_token_ms": {
+              "median": 7285,
+              "p90": 36652
+            }
+          },
+          "university": {
+            "n": 13,
+            "accuracy": 1,
+            "language": null,
+            "error_rate": 0,
+            "first_token_ms": {
+              "median": 8249,
+              "p90": 18205
+            }
+          },
+          "waec": {
+            "n": 14,
+            "accuracy": 1,
+            "language": null,
+            "error_rate": 0,
+            "first_token_ms": {
+              "median": 6433,
+              "p90": 22387
+            }
+          },
+          "yoruba": {
+            "n": 11,
+            "accuracy": 0.773,
+            "language": 0.75,
+            "error_rate": 0,
+            "first_token_ms": {
+              "median": 32159,
+              "p90": 197231
+            }
+          }
+        }
+      },
+      "created_at": "2026-11-13T05:49:37.658Z"
+    }
+  ]
+}
