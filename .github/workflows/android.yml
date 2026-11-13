@@ -1,0 +1,153 @@
+# Colon AI for Android (Phase 7): builds the APK in the cloud, so no Android Studio or PC is needed.
+#   push to main (Android files) -> test, lint, build an APK and keep it as a downloadable artifact
+#   tag v*, or "Run workflow" with "Publish a release" ticked
+#                                -> the same, plus a GitHub Release v<version> with the APK (the app's updates use it)
+# Signing: with the four ANDROID_* repository secrets the APK is signed with the release key (apps/android/README.md).
+# Without them it is signed with a throwaway debug key: fine for testing, but each build then needs an uninstall
+# before the next one installs, and the release notes say so.
+name: Android
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+    paths: ['apps/android/**', '.github/workflows/android.yml', 'package.json']
+  pull_request:
+    paths: ['apps/android/**', '.github/workflows/android.yml']
+  workflow_dispatch:
+    inputs:
+      release:
+        description: Publish a GitHub Release v<package.json version> with this APK
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: android-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    defaults:
+      run:
+        working-directory: apps/android
+    outputs:
+      version: ${{ steps.meta.outputs.version }}
+      signed: ${{ steps.key.outputs.signed }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      # Caches Gradle and checks that gradle-wrapper.jar is the genuine one.
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: Version from package.json
+        id: meta
+        run: |
+          VERSION=$(node -p "require('../../package.json').version")
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "VERSION=$VERSION" >> "$GITHUB_ENV"
+          if [ "${GITHUB_REF_TYPE}" = "tag" ] && [ "${GITHUB_REF_NAME}" != "v$VERSION" ]; then
+            echo "::error::Tag ${GITHUB_REF_NAME} does not match package.json version $VERSION"; exit 1
+          fi
+
+      # The keystore is written to the runner's temp folder only; nothing secret is printed.
+      - name: Signing key
+        id: key
+        env:
+          KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          if [ -n "$KEYSTORE_BASE64" ] && [ -n "$KEYSTORE_PASSWORD" ] && [ -n "$KEY_ALIAS" ] && [ -n "$KEY_PASSWORD" ]
+          then
+            printf '%s' "$KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/colon-release.jks"
+            echo "ANDROID_KEYSTORE_FILE=$RUNNER_TEMP/colon-release.jks" >> "$GITHUB_ENV"
+            echo "signed=release" >> "$GITHUB_OUTPUT"
+            echo "Release key found: the APK will be signed with it."
+          else
+            echo "signed=debug" >> "$GITHUB_OUTPUT"
+            echo "::warning::No signing secrets set, so this APK is debug-signed (see apps/android/README.md)."
+          fi
+
+      - name: Unit tests
+        run: chmod +x gradlew && ./gradlew --no-daemon testDebugUnitTest
+
+      - name: Lint
+        run: ./gradlew --no-daemon lintDebug
+
+      - name: Build the APK
+        env:
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: ./gradlew --no-daemon assembleRelease
+
+      - name: Name the APK
+        run: |
+          mkdir -p "$RUNNER_TEMP/out"
+          cp app/build/outputs/apk/release/app-release.apk "$RUNNER_TEMP/out/colon-ai-${VERSION}.apk"
+          cp app/build/outputs/apk/release/app-release.apk "$RUNNER_TEMP/out/colon-ai.apk"
+          cd "$RUNNER_TEMP/out" && sha256sum colon-ai-${VERSION}.apk > colon-ai-${VERSION}.apk.sha256
+          rm -f "$RUNNER_TEMP/colon-release.jks"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: colon-ai-${{ steps.meta.outputs.version }}-${{ steps.key.outputs.signed }}
+          path: ${{ runner.temp }}/out/
+          retention-days: 30
+
+      - name: Reports when something fails
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-reports
+          path: apps/android/app/build/reports/
+          retention-days: 7
+
+  release:
+    if: startsWith(github.ref, 'refs/tags/v') || (github.event_name == 'workflow_dispatch' && inputs.release)
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    env:
+      VERSION: ${{ needs.build.outputs.version }}
+      SIGNED: ${{ needs.build.outputs.signed }}
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: colon-ai-${{ needs.build.outputs.version }}-${{ needs.build.outputs.signed }}
+          path: out
+
+      - name: Release notes
+        run: |
+          {
+            echo "Colon AI for Android $VERSION. Install **colon-ai-$VERSION.apk** (Android 7 or newer)."
+            echo "\`colon-ai.apk\` is the same file under a fixed name. What changed: CHANGELOG.md."
+            if [ "$SIGNED" != "release" ]; then
+              echo ""
+              echo "**Testing build:** signed with a temporary debug key. Uninstall the old app before installing."
+            fi
+          } > notes.md
+
+      - name: Publish the GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ needs.build.outputs.version }}
+          target_commitish: ${{ github.sha }}
+          name: Colon AI ${{ needs.build.outputs.version }}
+          body_path: notes.md
+          files: |
+            out/colon-ai-${{ needs.build.outputs.version }}.apk
+            out/colon-ai-${{ needs.build.outputs.version }}.apk.sha256
+            out/colon-ai.apk
