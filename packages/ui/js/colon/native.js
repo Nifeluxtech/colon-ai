@@ -1,16 +1,21 @@
-/* Colon App core · the Android app shell (v0.7.1). Detects the Colon AI Android app (user-agent token
+/* Colon App core · the Android app shell (v0.8.0). Detects the Colon AI Android app (user-agent token
    "ColonAndroid/<version>" and window.ColonNative, docs/android-bridge.md) and wraps its bridge so screens can
-   open native browser tabs, save files, share and buzz without caring where they run. On the web every call
-   resolves to a safe fallback, so callers never need two code paths. */
+   drive the native in-chat browser panel, save files, share and buzz without caring where they run. On the web
+   every call resolves to a safe fallback, so callers never need two code paths. Since v0.8.0 there are two apps:
+   Colon AI (colon-ai.apk, chat + in-chat browser) and Colon Browser (colon-browser.apk, the full browser). */
 
 var UA_RE = /\bColonAndroid\/(\d+\.\d+\.\d+)/;
 var RELEASES = 'https://github.com/Nifeluxtech/colon-ai/releases/latest';
 var APK = RELEASES + '/download/colon-ai.apk';
+var BROWSER_APK = RELEASES + '/download/colon-browser.apk';
 
 /* Pure helpers (unit-tested in packages/ui/test/native.test.js). */
 function shellVersion(ua) { var m = UA_RE.exec(ua || ''); return m ? m[1] : null; }
 // "Get the Android app" is offered to Android phones in a normal browser, never inside the app itself.
 function offerApp(ua, inShell) { return !inShell && /\bAndroid\b/i.test(ua || '') && !shellVersion(ua); }
+// Where "Open in the app for full browsing" points: Android phones get Colon Browser's APK directly, everyone
+// else the release page (which explains both apps).
+function browserAppLink(ua) { return /\bAndroid\b/i.test(ua || '') ? BROWSER_APK : RELEASES; }
 // Data URL -> just the base64 part, as the bridge's saveFile expects.
 function base64Of(dataUrl) {
   var s = String(dataUrl || ''), i = s.indexOf('base64,');
@@ -38,8 +43,8 @@ function noNative() { var e = new Error('Not running in the Colon Android app.')
   return Promise.reject(e); }
 
 var native = {
-  RELEASES: RELEASES, APK: APK, shellVersion: shellVersion, offerApp: offerApp, base64Of: base64Of,
-  shareText: shareText, fileOf: fileOf,
+  RELEASES: RELEASES, APK: APK, BROWSER_APK: BROWSER_APK, shellVersion: shellVersion, offerApp: offerApp,
+  browserAppLink: browserAppLink, base64Of: base64Of, shareText: shareText, fileOf: fileOf,
   /** True inside the Colon AI Android app (even before the bridge script has run). */
   isShell: function () { return !!bridge() || !!shellVersion(nav()); },
   /** True once window.ColonNative is there (the bridge only exists on Colon's own pages). */
@@ -59,9 +64,15 @@ var native = {
   },
   call: function (cmd, args) { var b = bridge(); return b ? b.call(cmd, args) : noNative(); },
   on: function (ev, f) { var b = bridge(); return b ? b.on(ev, f) : function () {}; },
-  /** Opens a link in a native Colon Browser tab. Returns false on the web (caller falls back). */
+  /** Opens a link in the app's native browser panel. Returns false on the web (caller falls back). */
   openTab: function (url) { var b = bridge(); if (!b) return false; b.openTab(url || '').catch(function () {});
     return true; },
+  /** True when the app has the native in-chat browser panel (Colon AI 0.8.0+). */
+  hasPanel: function () { return native.can('browserPanel'); },
+  /** Drives the native panel: action open|navigate|layout|collapse|close|back|forward|reload|handoff|state.
+      Resolves with the panel state { open, layout, collapsed, url, title, loading, control, ... }. */
+  browser: function (action, o) { var a = Object.assign({}, o || {}, { action: action });
+    return native.hasPanel() ? native.call('browser', a) : noNative(); },
   haptic: function (kind) { var b = bridge(); if (b) b.haptic(kind || 'tap').catch(function () {}); },
   share: function (o) { var b = bridge(); if (b) return b.share(o);
     if (typeof navigator !== 'undefined' && navigator.share) return navigator.share(o); return noNative(); },
