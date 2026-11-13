@@ -104,6 +104,7 @@ async function respond(o) {
       result = await ai.generate({
         mode: o.mode, language: o.language, model: o.model, name: o.name, signal: ctl.signal, routing: cfg,
         messages: safety.redactMessages(o.history).messages, fetch: o.fetch,
+        taskText: o.userText != null ? o.userText : o.searchText, attachments: o.attachments,
         web: Boolean(web && web.ok),
         context: [verdict.guidance, webContext, o.project && o.project.block].filter(Boolean).join('\n\n'),
         timeouts: cfg.hedge ? { ...(o.timeouts || {}), hedge: cfg.hedge } : o.timeouts,

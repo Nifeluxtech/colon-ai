@@ -97,9 +97,9 @@ test('routing: load() caches ~30 s and falls back to defaults when the database 
   assert.equal(a.source, 'default');
   assert.deepEqual(a.routes, routingDefault.routes);
   await dynamic.load(broken, 1000 + 10000);
-  assert.equal(n, 2);                         // second call served from cache (2 = the first build's two queries)
+  assert.equal(n, 3);         // second call served from cache (3 = the first build's queries, incl. the bench rows)
   await dynamic.load(broken, 1000 + 31000);
-  assert.ok(n > 2);                           // cache expired
+  assert.ok(n > 3);                           // cache expired
   dynamic.clear();
 });
 /* ---------- Settings ---------- */

@@ -9,7 +9,7 @@ const files = require('../files');
 const { forMode } = require('../context');
 const { respond } = require('../reply');
 const safety = require('../../safety');
-const { MAX_CONTENT, wantsWeb, previousUserText } = require('./chat-common');
+const { MAX_CONTENT, wantsWeb, previousUserText, fileNames } = require('./chat-common');
 
 /* ---------- Guest (and temporary) chat: streams a reply, saves nothing ---------- */
 // Signed-out visitors chat here with a lower daily limit. Signed-in users with "Save chat history"
@@ -63,7 +63,7 @@ const postChatGuest = async (req, res) => {
   const built = forMode(history, { mode, guard, message: last.content });   // Developer mode: project context
   await respond({
     req, res, mode, model, language: replyLanguage(chosen, last.content), name: req.user ? req.user.name : '',
-    route: 'chat.guest', guard, userText: last.content, project: built.project,
+    route: 'chat.guest', guard, userText: last.content, project: built.project, attachments: fileNames(last.files),
     history: built.messages, counters: await limits.resolveCounters(req, mode),
     webSearch: wantsWeb(mode), searchText: last.content, searchPrevious: previousUserText(history),
     store: {

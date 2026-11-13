@@ -1,6 +1,6 @@
 {
   "name": "@nifelux/colon-api",
-  "version": "0.5.9",
+  "version": "0.5.10",
   "private": true,
   "description": "Colon AI API service (REST + WebSocket)",
   "main": "app.js",

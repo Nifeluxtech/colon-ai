@@ -4,7 +4,7 @@ const db = require('../../../db');
 const audit = require('../../../shared/audit');
 const v = require('../../../shared/validate');
 const { deny } = require('../../auth').guards;
-const { ID_RE } = require('./ai-common');
+const { ID_RE, changed } = require('./ai-common');
 
 /* ---------- Evaluation (stub runs; full benchmarks are Phase 5) + feedback per model ---------- */
 // GET /admin/evaluation
@@ -58,6 +58,17 @@ const postAdminEvaluationRuns = async (req) => {
   return [201, { ok: true, id: res.insertId }];
 };
 
+// When a run finished: ISO, or the report's local form "Thu 2026-11-12 1:52 PM WAT (UTC+01:00)" (2026-11-12 file).
+function parseWhen(v) {
+  const d = new Date(v);
+  if (!Number.isNaN(d.getTime())) return d;
+  const m = /(\d{4}-\d{2}-\d{2})\s+(\d{1,2}):(\d{2})\s*(AM|PM)?.*?UTC([+-]\d{2}):?(\d{2})/i.exec(String(v || ''));
+  if (!m) return d;
+  let h = Number(m[2]) % (m[4] ? 12 : 24);
+  if (m[4] && m[4].toUpperCase() === 'PM') h += 12;
+  return new Date(`${m[1]}T${String(h).padStart(2, '0')}:${m[3]}:00${m[5]}:${m[6]}`);
+}
+
 // Imports a Colon benchmark run (bench/results/<run>.eval.json from scripts/bench.js): one eval_runs row per model.
 // POST /admin/evaluation/bench
 const postAdminEvaluationBench = async (req) => {
@@ -65,7 +76,7 @@ const postAdminEvaluationBench = async (req) => {
   if (!list || !list.length) v.fail('runs', 'Send the runs from bench/results/<run>.eval.json.');
   const rows = list.map((x, i) => {
     if (!x || typeof x !== 'object') v.fail(`runs.${i}`, 'Each run needs a provider and a model.');
-    const at = new Date(x.created_at);
+    const at = parseWhen(x.created_at);
     const score = Number(x.score);
     if (!x || typeof x.model !== 'string' || !x.model || typeof x.provider !== 'string' || !ID_RE.test(
       x.provider)) v.fail(`runs.${i}`, 'Each run needs a provider and a model.');
@@ -91,6 +102,7 @@ const postAdminEvaluationBench = async (req) => {
         r.notes, r.details, req.user.id, r.created_at]);
     ids.push(res.insertId);
   }
+  changed();   // specialist routing is re-derived from the newest import straight away
   await audit(req, 'admin.bench_imported', { actorId: req.user.id, targetType: 'eval_run', targetId: ids[0],
     meta: { runs: rows.length, name: rows[0].name } });
   return [201, { ok: true, ids }];
@@ -100,9 +112,10 @@ const postAdminEvaluationBench = async (req) => {
 const deleteAdminEvaluationRunsById = async (req) => {
   const res = await db.query('DELETE FROM eval_runs WHERE id = ?', [Number(req.params.id)]);
   if (!res.affectedRows) deny(404, 'not_found', 'Run not found.');
+  changed();
   await audit(req, 'admin.eval_run_deleted', { actorId: req.user.id, targetType: 'eval_run', targetId: req.params.id });
   return [200, { ok: true }];
 };
 
-module.exports = { getAdminEvaluation, postAdminEvaluationRuns, postAdminEvaluationBench,
+module.exports = { parseWhen, getAdminEvaluation, postAdminEvaluationRuns, postAdminEvaluationBench,
   deleteAdminEvaluationRunsById };

@@ -1,5 +1,38 @@
 # Changelog
 
+## [0.5.10] — 2026-11-13 · Specialist routing
+Phase 5 specialist routing: where a model clearly beats Saga's default on a kind of request, it leads the chain for
+those requests. Details: `docs/phases/phase-5-specialist-routing.md`.
+### Added
+- **Task classifier** (`ai/classify.js`, rule-based, no model call): category = the African reply language (Naijá,
+  Yorùbá, Hausa, Igbo; reuses `prompts.detectLanguage`), else code / reasoning / exam / research / everyday from the
+  mode, the message and attachment names.
+- **Specialist derivation** (`ai/specialists.js`, pure): from the newest imported benchmark, per category; a model
+  leads only when complete in the benchmark and ≥5 points better than the default plus 0.5 point per second of
+  slower first token, with a median first token ≤15 s. Complete models under 70 in a category, and MiniMax for
+  Yorùbá/Hausa/Igbo, go last. Built-in table (bench 2026-11-12) when no benchmark is imported. Re-derived on import.
+- From bench 2026-11-12: Everyday → MiniMax M3.1 Flash; every other category keeps Gemma 4 26B; MiniMax goes last
+  for Yorùbá, Hausa and Igbo (Gemma 4 31B wins Hausa on score but is ~18 s to first token, so it stays second).
+- **Admin › Routing**: Specialist routing card (per-category head, reason, demoted models, rule, source) and an
+  On/Off switch saved with the routing setting; `GET /admin/routing` returns `specialists`, `PATCH` accepts
+  `specialists: true|false`. New optional env **`AI_SPECIALIST_ROUTING`** (on|off, default on) when the switch was
+  never saved.
+- **Admin › Evaluation › Import benchmark** button (posts a `bench/results/<run>.eval.json` to
+  `POST /admin/evaluation/bench`).
+- `ai_reply_ok` in stderr.log carries `route=specialist:<category>` / `default:<category>` / `default`.
+- Tests (11 new): classifier, derivation (margin, latency, incomplete exclusion, demotion, no-eval fallback, static
+  table = committed bench), chain reordering, hedge waves, settings switch, import time parsing; integration with
+  the mock provider and the admin routing handlers.
+### Changed
+- Specialists only reorder the head of the chain (and push weak models last); fallback, resting and hedging are
+  unchanged, except that a hedged wave no longer pulls a demoted model forward to mix providers.
+- Benchmark import accepts the report's local "finished" time (`Thu 2026-11-12 1:52 PM WAT (UTC+01:00)`), so the
+  committed 2026-11-12 file imports as is; importing or deleting a run clears the routing cache.
+- The routing loader reads the newest benchmark rows from `eval_runs` (one extra query per 30 s per worker).
+- Version 0.5.10 everywhere.
+### Not changed
+- No migration, no new route, no new dependency; the configured routing order is the fallback order.
+
 ## [0.5.9] — 2026-11-13 · Developer mode
 Phase 5 Developer mode: code explain, fix, generate and review, and a project-files context. Details:
 `docs/phases/phase-5-developer.md`.

@@ -15,6 +15,7 @@ function routing(view) {
       + skel(4) + '</div>';
     C.api('/admin/routing').then(function (d) {
       var routes = JSON.parse(JSON.stringify(d.routes)), hedge = d.hedge, slots = Object.keys(d.targets);
+      var sp = d.specialists || null, spec = sp ? sp.enabled : true;
       var order = ['general', 'study', 'developer', 'research', 'african'];
       function slotInfo(n) { var t = d.targets[n] || []; return t.length ? t.map(function (x) { return (x.live
         ? '' : '⚠ ') + x.model; }).join(', ') : 'no models'; }
@@ -44,7 +45,7 @@ function routing(view) {
             + 'muted">Saga asks this many models together and streams the first to answer. 1 = one after '
             + 'another.</p><div class="seg block">') +
           [1, 2, 3, 4].map(function (n) { return '<button type="button" data-h="' + n + '" aria-pressed="'
-            + (n === hedge) + '">' + n + '</button>'; }).join('') + '</div></div>' +
+            + (n === hedge) + '">' + n + '</button>'; }).join('') + '</div></div>' + specialistCard() +
           '<button class="btn primary block" data-save>Save routing</button>' + (d.saved
             ? '<button class="btn ghost block" data-reset>Reset to server defaults</button>' : '');
         function at(attr, fn) { $$('[' + attr + ']', view).forEach(function (b) { b.addEventListener('click',
@@ -56,9 +57,12 @@ function routing(view) {
           s.getAttribute('data-add')].push(s.value); draw(); } }); });
         $$('[data-h]', view).forEach(function (b) { b.addEventListener('click', function () { hedge = Number(
           b.getAttribute('data-h')); draw(); }); });
+        $$('[data-sp]', view).forEach(function (b) { b.addEventListener('click', function () { spec = b.getAttribute(
+          'data-sp') === 'on'; draw(); }); });
         $('[data-save]', view).addEventListener('click', function (e) {
           var b = e.currentTarget; b.disabled = true;
-          act(C.api('/admin/routing', { method: 'PATCH', body: { routes: routes, hedge: hedge } }), function () {
+          act(C.api('/admin/routing', { method: 'PATCH', body: { routes: routes, hedge: hedge,
+            specialists: spec } }), function () {
             C.toast('Routing saved. Live within 30 s.', 'ok'); routing(view); }).catch(function () { b.disabled =
             false; });
         });
@@ -67,6 +71,25 @@ function routing(view) {
           body: 'Every mode goes back to the order built into the server.', confirm: 'Reset' }).then(function (ok) {
           if (ok) act(C.api('/admin/routing', { method: 'DELETE' }), function () { C.toast('Routing reset.');
           routing(view); }); }); });
+      }
+      // Specialist routing (v0.5.10): read-only table of who leads each task category, plus the on/off switch.
+      function specialistCard() {
+        if (!sp) return '';
+        var cats = Object.keys(sp.categories);
+        return '<div class="card"><div class="adm-slot-h"><b>Specialist routing</b></div><p class="small muted">'
+          + 'Per kind of request, the model that clearly beat the default in the last imported benchmark ('
+          + esc(sp.bench) + ') leads the chain; weak models go last. Fallback and hedging stay the same.</p>'
+          + '<div class="seg block">' + ['on', 'off'].map(function (k) { return '<button type="button" data-sp="' + k
+            + '" aria-pressed="' + ((k === 'on') === spec) + '">' + (k === 'on' ? 'On' : 'Off') + '</button>';
+          }).join('') + '</div>' + cats.map(function (c) {
+            var x = sp.categories[c];
+            return '<div class="adm-rrow"><span class="body"><b>' + esc(sp.labels[c] || c) + '</b> → ' + esc(x.head
+              || '-') + (x.specialist ? ' <span class="badge">specialist</span>' : '') + '<div class="tiny muted">'
+              + esc(x.reason) + (x.demoted.length ? ' · last: ' + esc(x.demoted.join(', ')) : '') + '</div></span>'
+              + '</div>';
+          }).join('') + '<p class="tiny muted">Rule: beat the default by ' + sp.rule.margin + '+ points (+'
+          + sp.rule.latency_points_per_s + ' per second slower), first token under ' + (sp.rule.max_first_token_ms
+          / 1000) + ' s, complete in the benchmark. Source: ' + esc(sp.source) + '.</p></div>';
       }
       draw();
     }).catch(function (e) { fail($('#rt', view), e); });

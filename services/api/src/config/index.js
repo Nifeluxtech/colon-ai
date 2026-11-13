@@ -47,6 +47,7 @@ module.exports = {
     uploadQuotaMb: Number(env('UPLOAD_QUOTA_MB', 200)),       // per user, across all their files
     firstTokenTimeoutMs: Number(env('AI_FIRST_TOKEN_TIMEOUT_MS', 25000)),
     hedge: Number(env('AI_HEDGE', 2)),   // models asked at once per wave (1 = one after another)
+    specialistRouting: env('AI_SPECIALIST_ROUTING', 'on') !== 'off',   // read live by modules/ai/specialists.js
     idleTimeoutMs: Number(env('AI_IDLE_TIMEOUT_MS', 30000)),
     maxReplyMs: Number(env('AI_MAX_REPLY_MS', 180000)),
     maxTokens: Number(env('AI_MAX_TOKENS', 4096)),

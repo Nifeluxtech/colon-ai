@@ -26,4 +26,7 @@ async function loadSettings(userId) {
   return { ...DEFAULT_SETTINGS, ...s, voice: { ...DEFAULT_SETTINGS.voice, ...(s.voice || {}) } };
 }
 
-module.exports = { MAX_CONTENT, wantsWeb, previousUserText, DEFAULT_SETTINGS, loadSettings };
+// File names of a message's attachments (the specialist classifier treats code files as a code task).
+const fileNames = (list) => (Array.isArray(list) ? list.map(f => f && f.name).filter(Boolean).map(String) : []);
+
+module.exports = { fileNames, MAX_CONTENT, wantsWeb, previousUserText, DEFAULT_SETTINGS, loadSettings };

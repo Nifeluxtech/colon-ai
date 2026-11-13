@@ -120,6 +120,12 @@ The safety layer (below) runs first and keeps this format for refusals and stopp
   DeepSeek → GLM. When the reply language is Naijá, Yorùbá, Hausa or Igbo: Gemma 4 26B → Gemma 4 31B → N-ATLaS →
   MiniMax → Qwen → DeepSeek → GLM. A provider is on only when its key is set (environment, or stored encrypted in
   Admin › Models). A model enters routing only after a fresh benchmark (`BENCH_GATE`).
+- **Specialist routing** (v0.5.10, `modules/ai/classify.js` + `modules/ai/specialists.js`): a rule-based classifier
+  (no model call) gives each request a category: the African language, else code / reasoning / exam / research /
+  everyday. The category's specialist, derived from the newest imported benchmark (static table without one), moves
+  to the head of the chain and weak slots move to the tail; nothing is removed, so fallback and hedging are as
+  before, and hedged waves never pull a demoted slot forward. `ai_reply_ok` logs `route=specialist:<category>` or
+  `default:<category>`. Switch: Admin › Routing, else `AI_SPECIALIST_ROUTING`.
 - **Hedging** (`modules/ai/hedge.js`): up to `AI_HEDGE` (default 2) models are asked at once, mixed across providers;
   the first to send real text wins and the others are cancelled. A target that fails starts the next one at once and
   "rests" (is tried last) for 30 s–10 min depending on the failure; a quick 5xx is retried once. Timeouts:

@@ -5,6 +5,8 @@ const routingDefault = require('./routing');
 const { ProviderError } = require('./client');
 const { orderForHedge, race, resting, keyOf } = require('./hedge');
 const { systemPrompt } = require('./prompts');
+const { classify } = require('./classify');
+const specialists = require('./specialists');
 const config = require('../../config');
 
 function enabledProviders(cfg = routingDefault) {
@@ -16,13 +18,25 @@ function enabledProviders(cfg = routingDefault) {
   return out;
 }
 
-function chainFor({ mode = 'general', language = 'en', model = null, needsVision = false } = {}, cfg = routingDefault,
-  now = Date.now()) {
+// category (from classify.js): when specialist routing is on, the category's specialist leads the chain and weak
+// slots go last (specialists.js); the chain carries .route ('specialist:<category>' | 'default:<category>' |
+// 'default') and .demoted for the log line and hedging. Without a category the chain is the plain route.
+function chainFor({ mode = 'general', language = 'en', model = null, needsVision = false, category = null } = {},
+  cfg = routingDefault, now = Date.now()) {
   const providers = enabledProviders(cfg);
   const targets = cfg.targets();
   const african = cfg.africanLanguages.includes(language);
   const def = cfg.models.find(m => m.id === model);
-  const names = african ? cfg.routes.african : (def && def.route) || cfg.routes[mode] || cfg.routes.general;
+  let names = african ? cfg.routes.african : (def && def.route) || cfg.routes[mode] || cfg.routes.general;
+  let route = 'default', demoted = [];
+  if (category && specialists.enabledFor(cfg)) {
+    const decision = specialists.tableFor(cfg).categories[category];
+    const ordered = specialists.apply(names, decision);
+    route = `${decision && ordered[0] !== names[0] && ordered[0] === decision.specialist ? 'specialist'
+      : 'default'}:${category}`;
+    demoted = decision ? (decision.demoted || []).filter(n => ordered.includes(n)) : [];
+    names = ordered;
+  }
   const seen = new Set();
   const chain = [];
   for (const name of names) {
@@ -31,7 +45,7 @@ function chainFor({ mode = 'general', language = 'en', model = null, needsVision
       if (!p || !t.model) continue;
       if (needsVision && !t.vision) continue;
       const c = { target: name, providerId: t.provider, providerName: p.name, provider: p, model: t.model,
-        vision: Boolean(t.vision), body: t.body || null };
+        vision: Boolean(t.vision), body: t.body || null, ...(demoted.includes(name) ? { demoted: true } : {}) };
       if (seen.has(keyOf(c))) continue;
       seen.add(keyOf(c));
       chain.push(c);
@@ -39,7 +53,7 @@ function chainFor({ mode = 'general', language = 'en', model = null, needsVision
   }
   const awake = chain.filter(c => !(resting.get(keyOf(c)) > now));
   const asleep = chain.filter(c => resting.get(keyOf(c)) > now);
-  return awake.concat(asleep);
+  return Object.assign(awake.concat(asleep), { route });
 }
 
 function isConfigured(cfg = routingDefault) {
@@ -74,7 +88,8 @@ const needsVisionFor = (messages) => messages.some(m => Array.isArray(m.content)
  * generate({ mode, language, model, name, messages, signal, onDelta, onAttempt, web, context })
  *   messages: OpenAI-style history WITHOUT the system prompt (added here).
  *   web/context: Research mode web search — numbered sources appended to the system prompt (src/modules/search).
- *   -> { text, providerId, providerName, model, target, attempts }
+ *   taskText/attachments/category: what the specialist classifier reads (default: the last user message)
+ *   -> { text, providerId, providerName, model, target, attempts, route, category }
  * Errors carry .code: 'no_provider' | 'no_vision' | 'provider_down' (after fallback) | AbortError (Stop).
  */
 async function generate(o) {
@@ -87,7 +102,11 @@ async function generate(o) {
       code: 'no_provider' });
   }
   const needsVision = needsVisionFor(o.messages);
-  const chain = chainFor({ mode: o.mode, language: o.language, model: o.model, needsVision }, cfg);
+  // Specialist routing: a cheap rule-based look at the message picks the category (no model call).
+  const task = o.category ? { category: o.category } : classify({ mode: o.mode, language: o.language,
+    messages: o.messages, text: o.taskText, attachments: o.attachments, web: o.web });
+  const chain = chainFor({ mode: o.mode, language: o.language, model: o.model, needsVision, category: task.category },
+    cfg);
   if (!chain.length) {
     throw Object.assign(new Error(needsVision
       ? ('Image reading isn’t switched on yet: no vision-capable model is configured. Describe the image in words, '
@@ -102,8 +121,8 @@ async function generate(o) {
   // (different providers first) and keeps whichever starts answering first; the others are cancelled.
   // If every model in a wave fails before its first token, the next wave starts. AI_HEDGE=1 = one at a time.
   const hedge = Math.max(1, Number(timeouts.hedge || 1));
-  const won = await race(orderForHedge(chain, hedge), hedge, { o, messages, timeouts, attempts });
-  if (won) return won;
+  const won = await race(orderForHedge(chain, hedge), hedge, { o, messages, timeouts, attempts, route: chain.route });
+  if (won) return { ...won, route: chain.route, category: task.category };
   if (o.signal && o.signal.aborted) { const a = new Error('aborted'); a.name = 'AbortError'; a.partialText = '';
     a.attempts = attempts; throw a; }
   throw Object.assign(new ProviderError(

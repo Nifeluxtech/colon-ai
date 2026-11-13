@@ -12,7 +12,9 @@ function evaluation(view) {
   gate(view, function () {
     view.innerHTML = head('Evaluation',
       ('Colon benchmark runs (npm run bench) and what people think of each model. A model goes into routing only '
-      + 'after a fresh benchmark.'), '<button class="btn sm" data-add>' + icon('plus') + 'Add run</button>')
+      + 'after a fresh benchmark.'), '<button class="btn sm" data-import>' + icon('upload')
+      + 'Import benchmark</button> <button class="btn sm" data-add>' + icon('plus') + 'Add run</button>'
+      + '<input type="file" accept=".json,application/json" data-file hidden>')
       + '<div id="ev">' + skel(3) + '</div>';
     function load() {
       C.api('/admin/evaluation').then(function (d) {
@@ -42,6 +44,22 @@ function evaluation(view) {
           '/admin/evaluation/runs/' + b.getAttribute('data-del'), { method: 'DELETE' }), load); }); }); });
       }).catch(function (e) { fail($('#ev', view), e); });
     }
+    // Import benchmark: bench/results/<run>.eval.json -> POST /admin/evaluation/bench (also re-derives specialists).
+    var file = $('[data-file]', view);
+    $('[data-import]', view).addEventListener('click', function () { file.value = ''; file.click(); });
+    file.addEventListener('change', function () {
+      var f = file.files && file.files[0];
+      if (!f) return;
+      f.text().then(function (t) {
+        var runs = null;
+        try { var j = JSON.parse(t); runs = Array.isArray(j) ? j : j.runs; } catch (e) { runs = null; }
+        if (!Array.isArray(runs) || !runs.length) { C.toast('Pick a bench/results/<run>.eval.json file.', 'bad');
+          return; }
+        act(C.api('/admin/evaluation/bench', { method: 'POST', body: { runs: runs } }), function (r) {
+          C.toast('Imported ' + r.ids.length + ' benchmark runs. Routing updates within 30 s.', 'ok'); load();
+        }).catch(function () {});
+      });
+    });
     $('[data-add]', view).addEventListener('click', function () {
       C.sheet('<div class="h2">Log a benchmark run</div><form class="form" novalidate>' + C.field({ name: 'name',
         label: 'Name', placeholder: 'e.g. WAEC maths set v1' }) + opt('model', 'Model', '', 'e.g. gemma-4-26b-a4b-it') +

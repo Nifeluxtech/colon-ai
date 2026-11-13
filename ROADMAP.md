@@ -70,7 +70,12 @@ Each phase ships only when it meets its release standard: tested, secured, deplo
 ## Phase 5 — Intelligence & evaluation (Colon Saga)
 - The Colon benchmark: Nigerian everyday questions, WAEC, JAMB and university study, coding, reasoning, and tool use, plus Pidgin, Yorùbá, Hausa and Igbo sets.
 - Test the free candidates (Qwen, Gemma 4, GLM, DeepSeek and newer ones) on accuracy, speed, language quality and cost. The winner becomes Saga's default.
-- Specialist routing, where a model clearly beats Saga on a task, such as code or a particular language.
+- Specialist routing, where a model clearly beats Saga on a task, such as code or a particular language. **Done in v0.5.10**
+  (`docs/phases/phase-5-specialist-routing.md`): a rule-based classifier (language + code / reasoning / exam /
+  research / everyday) picks a category; the category's specialist is derived from the last imported benchmark
+  (complete models only, ≥5 points better plus a latency penalty, first token ≤15 s) and only reorders the head of
+  the chain; weak models (and MiniMax for Yorùbá/Hausa/Igbo) go last. Admin › Routing shows the table and an on/off
+  switch (`AI_SPECIALIST_ROUTING`); Admin › Evaluation imports a benchmark file.
 - Integrate Nigerian language models (for example N-ATLaS) where their licences allow.
 - Web search with cited sources for Research mode. **Done in v0.5.3** (`docs/phases/phase-5-research.md`).
 - Study mode: step-by-step explanations, quizzes, flashcards, past-question practice and a timed CBT practice test (10 questions, 5 minutes). **Done in v0.5.7**

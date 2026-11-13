@@ -84,6 +84,7 @@ committed: this repository is public.
 |---|---|---|---|---|
 | `AI_FIRST_TOKEN_TIMEOUT_MS` | number | no | `25000` | give up on a model that has not started answering |
 | `AI_HEDGE` | number | no | `2` | models asked at once per wave (1 = one after another) |
+| `AI_SPECIALIST_ROUTING` | on/off | no | `on` | specialist routing: the benchmark winner per task category leads the chain (Admin › Routing overrides) |
 | `AI_IDLE_TIMEOUT_MS` | number | no | `30000` | give up on a stream that went quiet |
 | `AI_MAX_REPLY_MS` | number | no | `180000` | hard cap on one reply |
 | `AI_MAX_TOKENS` | number | no | `4096` | max tokens per reply |

@@ -10,7 +10,7 @@ const files = require('../files');
 const { forMode } = require('../context');
 const { respond, stopLocal } = require('../reply');
 const safety = require('../../safety');
-const { MAX_CONTENT, wantsWeb, previousUserText, loadSettings } = require('./chat-common');
+const { MAX_CONTENT, wantsWeb, previousUserText, loadSettings, fileNames } = require('./chat-common');
 
 /* ---------- Replies ---------- */
 function persistedStore(conv, { version = 1 } = {}) {
@@ -70,6 +70,7 @@ async function streamFor(req, res, conv, userMsg, { version = 1, onOpen, route =
     return respond({
       req, res, mode: conv.mode, model: conv.model, language: replyLanguage(req.user.language, userMsg.content),
         name: req.user.name, route, guard, userText: userMsg.content, project: built.project,
+      attachments: fileNames((history[history.length - 1] || {}).files),
       history: built.messages, counters, store: persistedStore(conv, { version }), onOpen,
       webSearch: wantsWeb(conv.mode), searchText: userMsg.content, searchPrevious: previousUserText(history),
     });

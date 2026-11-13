@@ -9,6 +9,30 @@ const dynamic = require('../../ai').dynamic;
 const ai = require('../../ai');
 const { changed, gateModel } = require('./ai-common');
 
+// Specialist routing (v0.5.10), read-only view: which slot leads each task category and why.
+const CATEGORY_LABELS = { everyday: 'Everyday', exam: 'Exam study (WAEC, JAMB, university)', code: 'Code',
+  reasoning: 'Maths and reasoning', research: 'Tools and research', pidgin: 'Naijá (Pidgin)', yoruba: 'Yorùbá',
+  hausa: 'Hausa', igbo: 'Igbo' };
+function specialistView(cfg, saved) {
+  const sp = ai.specialists;
+  const table = sp.tableFor(cfg);
+  return {
+    enabled: sp.enabledFor(cfg), setting: saved && typeof saved.specialists === 'boolean' ? saved.specialists : null,
+    env: String(process.env.AI_SPECIALIST_ROUTING || 'on').toLowerCase() === 'off' ? 'off' : 'on',
+    source: table.source, bench: table.bench, labels: CATEGORY_LABELS,
+    rule: { margin: sp.MARGIN, latency_points_per_s: sp.LATENCY_POINTS_PER_S, max_first_token_ms: sp.MAX_FIRST_TOKEN_MS,
+      weak_floor: sp.WEAK_FLOOR },
+    categories: Object.fromEntries(sp.CATEGORIES.map(c => {
+      const d = table.categories[c] || {};
+      const route = d.route || sp.REFERENCE_ROUTE[c];
+      const base = cfg.routes[route] || [];
+      return [c, { route, default: d.default || base[0] || null, specialist: d.specialist || null,
+        demoted: d.demoted || [], head: sp.apply(base, d)[0] || null, reason: d.reason || 'built-in table',
+        scores: d.scores || null }];
+    })),
+  };
+}
+
 /* ---------- Routing: ordered model slots per mode + hedge ---------- */
 const ROUTE_LABELS = { general: 'General (Saga)', study: 'Study', developer: 'Developer', research: 'Research',
   african: 'African languages (Naijá, Yorùbá, Hausa, Igbo)' };
@@ -23,7 +47,7 @@ const getAdminRouting = async () => {
   return [200, {
     routes: cfg.routes, hedge: cfg.hedge || config.chat.hedge, labels: ROUTE_LABELS, targets,
     defaults: { routes: routingDefault.routes, hedge: config.chat.hedge }, saved: Boolean(saved), source: cfg.source,
-      cache_seconds: dynamic.TTL_MS / 1000,
+      cache_seconds: dynamic.TTL_MS / 1000, specialists: specialistView(cfg, saved),
   }];
 };
 
@@ -51,10 +75,18 @@ const patchAdminRouting = async (req) => {
   }
   let hedge = req.body.hedge === undefined ? (cfg.hedge || config.chat.hedge) : Number(req.body.hedge);
   if (!Number.isInteger(hedge) || hedge < 1 || hedge > 4) v.fail('hedge', 'Use 1 to 4 models at once.');
-  await settings.set('routing', { routes, hedge }, req.user.id);
+  // Specialist routing on/off (kept when not sent). Specialists come from the imported benchmark: no gate here.
+  const saved = (await settings.get('routing')) || {};
+  let specialists = typeof saved.specialists === 'boolean' ? saved.specialists : undefined;
+  if (req.body.specialists !== undefined) {
+    if (typeof req.body.specialists !== 'boolean') v.fail('specialists', 'Send true or false.');
+    specialists = req.body.specialists;
+  }
+  const value = { routes, hedge, ...(specialists === undefined ? {} : { specialists }) };
+  await settings.set('routing', value, req.user.id);
   changed();
   await audit(req, 'admin.routing_updated', { actorId: req.user.id, targetType: 'setting', targetId: 'routing',
-    meta: { routes, hedge } });
+    meta: value });
   return [200, { ok: true }];
 };
 

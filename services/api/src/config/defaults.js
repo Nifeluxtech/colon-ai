@@ -43,6 +43,8 @@ const SCHEMA = [
   // Model router tuning
   num('AI_FIRST_TOKEN_TIMEOUT_MS', 25000, 'give up on a model that has not started answering'),
   num('AI_HEDGE', 2, 'models asked at once per wave (1 = one after another)'),
+  oneOf('AI_SPECIALIST_ROUTING', ['on', 'off'], 'on',
+    'specialist routing: the benchmark winner per task category leads the chain (Admin › Routing overrides)'),
   num('AI_IDLE_TIMEOUT_MS', 30000, 'give up on a stream that went quiet'),
   num('AI_MAX_REPLY_MS', 180000, 'hard cap on one reply'),
   num('AI_MAX_TOKENS', 4096, 'max tokens per reply'),

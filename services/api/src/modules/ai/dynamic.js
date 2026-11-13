@@ -5,6 +5,7 @@
 // Never breaks chat: an empty or broken database, an unreadable key, or a config that leaves no usable
 // provider all fall back to routing.js (environment keys) for that part, or entirely.
 const routingDefault = require('./routing');
+const specialists = require('./specialists');
 const log = require('../../shared/logger');
 
 const TTL_MS = 30 * 1000;
@@ -23,11 +24,21 @@ function usable(cfg) {
   return Object.values(cfg.targets()).some(list => list.some(t => ok(t.provider) && t.model));
 }
 
+// The rows of the newest imported Colon benchmark (one import = one run name), newest first.
+function latestBench(rows) {
+  const list = (rows || []).filter(r => r && r.kind === 'bench');
+  if (!list.length) return [];
+  const name = list[0].name;
+  return list.filter(r => r.name === name);
+}
+
 /**
- * compose({ providerRows, modelRows, routing, decrypt }, base) -> routing config (same shape as routing.js,
- * plus .hedge and .source). Pure: no database, so it is unit-tested directly.
+ * compose({ providerRows, modelRows, routing, decrypt, benchRows }, base) -> routing config (same shape as
+ * routing.js, plus .hedge, .source, .specialists (derived from benchRows, the newest imported benchmark) and
+ * .specialistRouting (the admin on/off, undefined = AI_SPECIALIST_ROUTING)). Pure: no database, so it is unit-tested.
  */
-function compose({ providerRows = [], modelRows = [], routing = null, decrypt = null } = {}, base = routingDefault) {
+function compose({ providerRows = [], modelRows = [], routing = null, decrypt = null, benchRows = [] } = {},
+  base = routingDefault) {
   const envProviders = base.providers();
   const providers = { ...envProviders };
   for (const row of providerRows) {
@@ -70,12 +81,17 @@ function compose({ providerRows = [], modelRows = [], routing = null, decrypt = 
     ? m.route : routes.general } : m));
 
   const h = routing && Number(routing.hedge);
+  const extra = (rts, tgs) => ({
+    specialists: specialists.derive(latestBench(benchRows), { routes: rts, targets: tgs }) || undefined,
+    specialistRouting: routing && typeof routing.specialists === 'boolean' ? routing.specialists : undefined,
+  });
   const cfg = {
     providers: () => providers, targets: () => targets, routes, africanLanguages: base.africanLanguages, models,
     hedge: h >= 1 && h <= 4 ? Math.round(h) : undefined,
     source: providerRows.length || modelRows.length || routing ? 'database' : 'default',
+    ...extra(routes, targets),
   };
-  if (!usable(cfg) && usable(base)) return { ...base, hedge: cfg.hedge,
+  if (!usable(cfg) && usable(base)) return { ...base, hedge: cfg.hedge, ...extra(base.routes, base.targets()),
     source: 'default (database config had no usable model)' };
   return cfg;
 }
@@ -83,12 +99,16 @@ function compose({ providerRows = [], modelRows = [], routing = null, decrypt = 
 async function build(db) {
   const settings = require('../../shared/settings');
   const { decrypt } = require('../../shared/crypto');
-  const [providerRows, modelRows, routing] = await Promise.all([
+  const [providerRows, modelRows, routing, benchRows] = await Promise.all([
     db.query('SELECT id, name, base_url, native, api_key_enc, enabled FROM ai_providers'),
     db.query('SELECT id, target, provider_id, model, vision, body, enabled, priority FROM ai_models'),
     settings.get('routing', db),
+    // Specialist routing reads the newest benchmark import; before migration 0005 there is none (static table).
+    Promise.resolve().then(() => db.query(("SELECT name, provider, model, kind, status, score, first_token_ms, "
+      + "details, created_at FROM eval_runs WHERE kind = 'bench' ORDER BY created_at DESC, id DESC LIMIT 60")))
+      .catch(() => []),
   ]);
-  return compose({ providerRows, modelRows, routing, decrypt });
+  return compose({ providerRows, modelRows, routing, decrypt, benchRows });
 }
 
 // The current routing config. Never throws.
@@ -106,4 +126,4 @@ async function load(db, now = Date.now()) {
 
 const clear = () => { cache = null; at = 0; };
 
-module.exports = { load, compose, clear, MODES, TTL_MS };
+module.exports = { load, compose, clear, latestBench, MODES, TTL_MS };

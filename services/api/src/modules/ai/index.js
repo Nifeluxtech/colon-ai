@@ -11,4 +11,6 @@ module.exports = {
   client: require('./client'),
   sse: require('./sse'),
   calls: require('./calls'),
+  specialists: require('./specialists'),
+  classify: require('./classify'),
 };

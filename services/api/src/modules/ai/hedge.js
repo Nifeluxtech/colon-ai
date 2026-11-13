@@ -11,12 +11,14 @@ const REST_MS = { rate_limited: 60e3, model_not_found: 10 * 60e3, auth: 10 * 60e
 const keyOf = (c) => `${c.providerId}|${c.model}`;
 
 // Puts targets from different providers into the same wave, so one busy host doesn't sink a whole wave.
+// Demoted targets (weak in this request's category, see specialists.js) are never pulled forward to fill a wave.
 function orderForHedge(chain, hedge) {
   if (hedge < 2) return chain.slice();
   const rest = chain.slice(), out = [];
   while (rest.length) {
     const wave = [], used = new Set();
     for (let i = 0; i < rest.length && wave.length < hedge; i++) {
+      if (rest[i].demoted && wave.length) continue;
       if (!used.has(rest[i].providerId)) { used.add(rest[i].providerId); wave.push(rest.splice(i, 1)[0]); i--; }
     }
     while (wave.length < hedge && rest.length) wave.push(rest.shift());
@@ -30,7 +32,7 @@ function orderForHedge(chain, hedge) {
 // A quick 5xx (Google's free tier throws these at random) is retried once on the same model.
 // Resolves with the winner's result, or null when every target failed before answering.
 // Rejects when the user stopped, or when the winning model broke mid-answer.
-function race(queue, hedge, { o, messages, timeouts, attempts }) {
+function race(queue, hedge, { o, messages, timeouts, attempts, route }) {
   queue = queue.slice();
   return new Promise((resolve, reject) => {
     let winner = null, settled = false, running = 0;
@@ -76,7 +78,7 @@ function race(queue, hedge, { o, messages, timeouts, attempts }) {
         attempts.push({ provider: c.providerId, model: c.model, ok: true, ms: Date.now() - started });
         resting.delete(keyOf(c));
         log.warn('ai_reply_ok', { provider: c.providerId, model: c.model, ms: Date.now() - started,
-          tried: attempts.length });
+          tried: attempts.length, ...(route ? { route } : {}) });
         finish(resolve, { text, providerId: c.providerId, providerName: c.providerName, model: c.model,
           target: c.target, attempts });
       }, (e) => {
