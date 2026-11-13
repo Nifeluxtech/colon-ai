@@ -89,6 +89,10 @@ const SCHEMA = [
   str('VOICE_GEMINI_MODEL', 'gemini-3.5-flash-lite', 'Gemini model that transcribes audio ("off" to skip)'),
   num('VOICE_MAX_SECONDS', 300, 'longest recording accepted for transcription'),
   num('VOICE_TTS_PER_MINUTE', 7, 'read-aloud requests a minute to Naija Speech (key allows 10 in total)'),
+  // Colon Browser server pieces (modules/browser; Phase 8, docs/phase8-backend-contract.md)
+  oneOf('BROWSER_READER', ['on', 'off'], 'on', '"off" switches the server reader off (GET /browser/fetch -> 501)'),
+  oneOf('BROWSER_READER_GUESTS', ['on', 'off'], 'on', '"off" keeps the server reader for signed-in users only'),
+  str('BROWSER_READER_BLOCKLIST', '', 'extra hosts the reader refuses, comma-separated (subdomains included)'),
   // Safety layer (modules/safety; ADR 0003)
   oneOf('SAFETY', ['on', 'off'], 'on', '"off" switches the rule filters off (child-safety rules always stay on)'),
   oneOf('SAFETY_LOG_TEXT', ['off', 'hash', 'excerpt'], 'off',

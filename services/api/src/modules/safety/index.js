@@ -11,6 +11,7 @@ const events = require('./events');
 const injection = require('./injection');
 const redactLib = require('./redact');
 const output = require('./output');
+const hosts = require('./hosts');
 const { classify, decide } = require('./classify');
 
 // The safety section of every system prompt (ai/prompts.js).
@@ -78,5 +79,6 @@ module.exports = {
   checkInput, recordInjection, classify, SYSTEM,
   record: events.record, events, policy, messages, care, provider, injection, output,
   redact: redactLib.redact, redactMessages: redactLib.redactMessages,
+  blockedHost: hosts.blockedHost, hosts,
   streamGuard: output.streamGuard, neutralize: injection.neutralize, collector: injection.collector,
 };
