@@ -74,19 +74,24 @@ class ChatBrowserPanel(private val a: MainActivity) : BrowserHost, TabManager.Ho
 
     var isOpen = false
         private set
-    /** The layout asked for (saved under "layout" since 0.9.1, so phones start in the thread once); what is shown is
-     *  [effectiveMode] (inline needs a chat page that draws the card). */
-    var mode: PanelLayout.Mode = PanelLayout.Mode.from(prefs.getString(PREF_LAYOUT, null))
-        ?: PanelLayout.defaultMode(a.resources.configuration.screenWidthDp)
+    /** The layout asked for (saved under "layout"; on phones every open from closed starts inline since 0.9.2,
+     *  PanelLayout.openMode); what is shown is [effectiveMode] (inline needs a chat page that draws the card). */
+    var mode: PanelLayout.Mode = PanelLayout.openMode(PanelLayout.Mode.from(prefs.getString(PREF_LAYOUT, null)),
+        a.resources.configuration.screenWidthDp)
         private set
     private var beforeFull = PanelLayout.defaultMode(a.resources.configuration.screenWidthDp)
-    /** The chat page can draw the inline card: true, false (an older page), null (the page is reloading). */
-    private var webInline: Boolean? = false
+    /** The chat page can draw the inline card: true (it said so), false (it didn't say within [INLINE_GRACE_MS] of
+     *  the panel opening or the page loading: an older page, or not the chat), null (not known yet: inline, hidden
+     *  until the page reports the card). Before 0.9.2 this started false, so an open the app made by itself (Saga's
+     *  auto-open, a link the shell routed, openTab) before the page's first browser call showed embedded. */
+    private var webInline: Boolean? = null
+    private var graceArmed = false
     /** The page's last report of the card's body box (inline); null until it reports after the panel docks. */
     private var anchor: InlineGeometry.Anchor? = null
     /** True while the panel lives in [layer] (inline) rather than in the stacked box. */
     private var docked = false
     private val inlineGrace = Runnable {
+        graceArmed = false
         if (webInline == null) { webInline = false; if (isOpen) applyLayout(); changed() }
     }
     var collapsed = false
@@ -125,11 +130,19 @@ class ChatBrowserPanel(private val a: MainActivity) : BrowserHost, TabManager.Ho
     /** Opens the panel (in [layout] when given) and loads [url] in a new tab, or shows the current tab. */
     fun open(url: String?, layout: String? = null) {
         if (!restored) { restored = true; tabs.restore(store.tabsJson)?.let { if (url == null) tabs.switchTo(it) } }
-        PanelLayout.Mode.from(layout)?.let {
-            if (it == PanelLayout.Mode.FULL && mode != PanelLayout.Mode.FULL) beforeFull = mode
-            mode = it
+        val asked = PanelLayout.Mode.from(layout)
+        if (asked != null) {
+            if (asked == PanelLayout.Mode.FULL && mode != PanelLayout.Mode.FULL) beforeFull = mode
+            mode = asked
+        } else if (!isOpen) {
+            // Every open from closed, whoever asks (Browser button, AI Browse, Saga, a routed link), starts in the
+            // phone's thread; a layout left from last time (full screen, a menu choice) doesn't stick.
+            mode = PanelLayout.openMode(PanelLayout.Mode.from(prefs.getString(PREF_LAYOUT, null)),
+                a.resources.configuration.screenWidthDp)
+            beforeFull = PanelLayout.defaultMode(a.resources.configuration.screenWidthDp)
         }
         if (!isOpen) { isOpen = true; saga.attach() }
+        armGrace()
         collapsed = false
         applyLayout()
         when {
@@ -174,8 +187,10 @@ class ChatBrowserPanel(private val a: MainActivity) : BrowserHost, TabManager.Ho
 
     fun setCollapsed(c: Boolean) {
         val m = effectiveMode()
+        // The layout asked for, never the fallback shown now: 0.9.1 saved "embedded" here whenever the page hadn't
+        // said yet that it draws the card, and every later open then stayed above the chat.
         if (c && m != PanelLayout.Mode.EMBEDDED && m != PanelLayout.Mode.INLINE) {
-            setMode(PanelLayout.effective(PanelLayout.collapseTarget(m, beforeFull), webInline))
+            setMode(PanelLayout.collapseTarget(mode, beforeFull))
         }
         collapsed = c
         applyLayout()
@@ -188,6 +203,7 @@ class ChatBrowserPanel(private val a: MainActivity) : BrowserHost, TabManager.Ho
     /** The chat page said it draws the inline card ({inline: true} on its browser calls). */
     fun setWebInline() {
         main.removeCallbacks(inlineGrace)
+        graceArmed = false
         if (webInline == true) return
         webInline = true
         if (isOpen) { applyLayout(); changed() }
@@ -204,12 +220,18 @@ class ChatBrowserPanel(private val a: MainActivity) : BrowserHost, TabManager.Ho
      *  if the new page never says it can draw the card, the panel falls back to embedded. */
     fun onShellPageStarted() {
         anchor = null
-        if (webInline == true) {
-            webInline = null
-            main.removeCallbacks(inlineGrace)
-            main.postDelayed(inlineGrace, INLINE_GRACE_MS)
-        }
-        placeInline()
+        // Whatever the old page said (or didn't), the new page answers for itself.
+        webInline = null
+        main.removeCallbacks(inlineGrace)
+        graceArmed = false
+        if (isOpen) { armGrace(); applyLayout(); changed() } else placeInline()
+    }
+
+    /** The page has [INLINE_GRACE_MS] to say it draws the card (any browser call with inline: true, or an anchor). */
+    private fun armGrace() {
+        if (webInline != null || graceArmed) return
+        graceArmed = true
+        main.postDelayed(inlineGrace, INLINE_GRACE_MS)
     }
 
     fun goBack(): Boolean = tabs.active?.webView?.takeIf { it.canGoBack() }?.let { it.goBack(); true } ?: false
@@ -231,6 +253,8 @@ class ChatBrowserPanel(private val a: MainActivity) : BrowserHost, TabManager.Ho
         return JSONObject()
             .put("open", isOpen)
             .put("layout", effectiveMode().wire)
+            // v0.9.2: false/null tells a page that draws the card to say so (browser call with inline: true).
+            .put("inlineReady", webInline == true)
             .put("collapsed", collapsed)
             .put("url", t?.url?.takeIf { UrlRules.isWebUrl(it) } ?: "")
             .put("title", t?.title ?: "")
@@ -526,7 +550,8 @@ class ChatBrowserPanel(private val a: MainActivity) : BrowserHost, TabManager.Ho
     companion object {
         const val MAX_TABS = 6
         private const val PREF_LAYOUT = "layout"
-        /** How long a reloading chat page has to say it draws the inline card before the panel goes embedded. */
-        private const val INLINE_GRACE_MS = 4000L
+        /** How long the chat page (loading, or slow on a cheap phone) has to say it draws the inline card before
+         *  the panel shows embedded; a later browser call from the page still moves it into the thread. */
+        private const val INLINE_GRACE_MS = 6000L
     }
 }

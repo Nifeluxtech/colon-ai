@@ -28,6 +28,16 @@ object PanelLayout {
     /** Phones open in the thread (inline); tablets and wide landscape screens open split. */
     fun defaultMode(widthDp: Int): Mode = if (widthDp >= WIDE_DP) Mode.SPLIT else Mode.INLINE
 
+    /** The layout a panel opening from closed starts in (v0.9.2). Phones always start in the thread: a saved
+     *  "embedded" or "split" (a menu choice, or 0.9.1 saving the embedded fallback when the page hadn't said yet
+     *  that it draws the card) no longer pins every later open above the chat. Wide screens keep the saved
+     *  layout (never full screen), split by default. [effective] still shows embedded with a page that can't. */
+    fun openMode(saved: Mode?, widthDp: Int): Mode = when {
+        widthDp < WIDE_DP -> Mode.INLINE
+        saved == null || saved == Mode.FULL -> defaultMode(widthDp)
+        else -> saved
+    }
+
     /** The layout actually used. [webInline]: the chat page can draw the inline card (true), can't (false: an
      *  older page, so embedded as before), or is loading and hasn't said yet (null: stay inline, hidden). */
     fun effective(mode: Mode, webInline: Boolean?): Mode =

@@ -155,9 +155,14 @@ function mount(view, ctx) {
       }),
     data.listModels().then(function (m) { S.models = m; }).catch(function () { S.models = [];
       C.toast('Couldn’t load the model list. Using Colon Saga.', 'bad'); })
-  ]).then(function () { refreshConvs(); route(ctx); S.nativeStop = startNativeShell();
-    C.native.ready().then(function () { if (!S.nativeBrowserStop) S.nativeBrowserStop = startNativeBrowser(); }); });
+  ]).then(function () { refreshConvs(); route(ctx); S.nativeStop = startNativeShell(); });
+  // The app's browser panel is followed (and told this page draws its in-thread card) as soon as the bridge is
+  // there, not after settings and models load: on a slow phone that took longer than the app waits (v0.9.2).
+  var mounted = true;
+  C.native.ready().then(function () { if (mounted && !S.nativeBrowserStop) S.nativeBrowserStop = startNativeBrowser();
+  });
   return function unmount() {
+    mounted = false;
     if (S.nativeStop) S.nativeStop();
     if (S.nativeBrowserStop) { S.nativeBrowserStop(); S.nativeBrowserStop = null; }
     if (S.hf) S.hf.stop(); if (S.streaming) S.streaming.ctl.abort(); if (S.media) S.media.destroy();

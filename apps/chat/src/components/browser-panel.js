@@ -6,6 +6,7 @@ import { renderThread } from './message.js';
 import { updateHeader } from './model-picker.js';
 import { refreshConvs } from './sidebar.js';
 import { createAnchor } from '../lib/native-anchor.js';
+import { needsAnnounce, showsCard, withInline } from '../lib/native-panel.js';
 import { ColonBrowser } from '../../../../packages/ui/js/browser/index.js';
 import { Colon } from '../../../../packages/ui/js/colon.js';
 import { ColonURL } from '../../../../packages/ui/js/url.js';
@@ -121,10 +122,22 @@ function addBrowseNote(md, sources, goal) {
 // The app's panel state -> the Browser button (pressed while open; dot while loading or while Saga has control).
 function syncNative(st) {
   if (!st || typeof st !== 'object') return; S.browser.nativeState = st;
-  var btn = $('[data-a=browser]'); if (!btn) return; btn.setAttribute('aria-pressed', !!st.open);
-  var dot = btn.querySelector('.dot'); if (dot) dot.hidden = !(st.open && (st.loading || st.control !== 'manual'));
-  S.el.setAttribute('data-native-browser', st.open ? st.layout + (st.collapsed ? '-collapsed' : '') : 'none');
+  var btn = $('[data-a=browser]');
+  if (btn) { btn.setAttribute('aria-pressed', !!st.open); var dot = btn.querySelector('.dot');
+    if (dot) dot.hidden = !(st.open && (st.loading || st.control !== 'manual')); }
+  if (S.el) S.el.setAttribute('data-native-browser', st.open ? st.layout + (st.collapsed ? '-collapsed' : '')
+    : 'none');
   renderNativeInline(st);
+  announceInline(st);
+}
+// The app hasn't heard (or lost track, after a reload or its fallback) that this page draws the card: say so, and
+// the app moves the panel into the thread (v0.9.2, lib/native-panel.js).
+function announceInline(st) {
+  if (!needsAnnounce(st, { canInline: inlineOk(), pending: S.browser.announcing,
+    announced: S.browser.announced })) return;
+  S.browser.announcing = true; S.browser.announced = true;
+  nativeBrowser('state').then(function (s2) { S.browser.announcing = false; syncNative(s2); },
+    function () { S.browser.announcing = false; });
 }
 function nativeFailed() { C.toast('The browser panel didn’t open. Try again.', 'bad'); }
 // The Browser button: opens or closes the native panel in the app, the web panel elsewhere.
@@ -136,9 +149,12 @@ function toggleBrowser() {
 // Follows the panel while the chat is mounted; returns the function that stops following.
 function startNativeBrowser() {
   if (!C.native.hasPanel()) return function () {};
+  // The first call says at once that this page draws the inline card (every call does, v0.9.1); the state of a
+  // panel the app opened by itself meanwhile comes back with it.
   nativeBrowser('state').then(syncNative, function () {});
   var off = C.native.on('browser', syncNative);
-  return function () { off(); stopAnchor(); var h = $('.cw-native-host'); if (h) h.innerHTML = ''; };
+  var offResume = C.native.on('resume', function () { nativeBrowser('state').then(syncNative, function () {}); });
+  return function () { off(); offResume(); stopAnchor(); var h = $('.cw-native-host'); if (h) h.innerHTML = ''; };
 }
 /* ---------- Native panel inside the thread (v0.9.1, layout "inline") ---------- */
 // Since Colon AI 0.9.1 (feature "browserInline") the phone's panel can sit in the thread where the web card sits:
@@ -146,9 +162,7 @@ function startNativeBrowser() {
 // (lib/native-anchor.js reports where it is). Every call says this page can draw the card ({ inline: true }), so
 // the app uses "inline" only with a page that can; older pages and older apps keep the panel above the chat.
 function inlineOk() { return C.native.can('browserInline'); }
-function nativeBrowser(action, o) {
-  return C.native.browser(action, inlineOk() ? Object.assign({ inline: true }, o || {}) : o);
-}
+function nativeBrowser(action, o) { return C.native.browser(action, withInline(o, inlineOk())); }
 function stopAnchor() { if (S.browser.anchor) { S.browser.anchor.stop(); S.browser.anchor = null; } }
 function inlineHtml() {
   return '<div class="cw-embed cw-native-card" role="region" aria-label="Colon Browser (in the chat)">'
@@ -164,7 +178,7 @@ function inlineHtml() {
 }
 function renderNativeInline(st) {
   var host = $('.cw-native-host'); if (!host) return;
-  if (!(st.open && st.layout === 'inline' && inlineOk())) { stopAnchor(); host.innerHTML = ''; return; }
+  if (!showsCard(st, inlineOk())) { stopAnchor(); host.innerHTML = ''; return; }
   var card = host.querySelector('.cw-native-card'), fresh = !card;
   if (fresh) { host.innerHTML = inlineHtml(); card = host.querySelector('.cw-native-card'); }
   card.classList.toggle('collapsed', !!st.collapsed);
@@ -180,7 +194,7 @@ function renderNativeInline(st) {
     S.browser.anchor = createAnchor({ el: card.querySelector('.cw-native-body'), scroller: $('#cw-scroll'),
       watch: [$('#cw-page')], collapsed: function () { return !!(S.browser.nativeState
         && S.browser.nativeState.collapsed); },
-      send: function (p) { C.native.browser('anchor', p).catch(function () {}); },
+      send: function (p) { nativeBrowser('anchor', p).catch(function () {}); },
       // The keyboard opened while the chat's own fields aren't focused: it is for the page in the panel, so keep
       // the card's box on screen (the thread shrank and could have hidden what is typed).
       onKeyboard: function () { var f = document.activeElement;
