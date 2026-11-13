@@ -50,6 +50,7 @@ module.exports = {
     idleTimeoutMs: Number(env('AI_IDLE_TIMEOUT_MS', 30000)),
     maxReplyMs: Number(env('AI_MAX_REPLY_MS', 180000)),
     maxTokens: Number(env('AI_MAX_TOKENS', 4096)),
+    developerMaxTokens: Number(env('AI_DEVELOPER_MAX_TOKENS', 8192)),  // Developer mode replies (full files)
   },
   // Safety layer (modules/safety, ADR 0003). Admin › Safety can switch provider moderation and categories live.
   safety: {

@@ -46,6 +46,7 @@ const SCHEMA = [
   num('AI_IDLE_TIMEOUT_MS', 30000, 'give up on a stream that went quiet'),
   num('AI_MAX_REPLY_MS', 180000, 'hard cap on one reply'),
   num('AI_MAX_TOKENS', 4096, 'max tokens per reply'),
+  num('AI_DEVELOPER_MAX_TOKENS', 8192, 'max tokens per Developer-mode reply (whole files of code)'),
   // AI providers (read live by modules/ai/providers/*.js; a provider is on only when its key is set)
   secret('GROQ_API_KEY', 'Groq key'), url('GROQ_BASE_URL', 'https://api.groq.com/openai/v1', 'Groq base URL'),
   str('GROQ_MODEL', 'qwen/qwen3.8-27b', 'Groq model id'), str('GROQ_VISION', '0', '1 if the Groq model reads images'),

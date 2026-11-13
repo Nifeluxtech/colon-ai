@@ -87,6 +87,7 @@ committed: this repository is public.
 | `AI_IDLE_TIMEOUT_MS` | number | no | `30000` | give up on a stream that went quiet |
 | `AI_MAX_REPLY_MS` | number | no | `180000` | hard cap on one reply |
 | `AI_MAX_TOKENS` | number | no | `4096` | max tokens per reply |
+| `AI_DEVELOPER_MAX_TOKENS` | number | no | `8192` | max tokens per Developer-mode reply (whole files of code) |
 
 ### AI providers
 

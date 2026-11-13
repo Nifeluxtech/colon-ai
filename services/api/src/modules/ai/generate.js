@@ -79,7 +79,9 @@ const needsVisionFor = (messages) => messages.some(m => Array.isArray(m.content)
  */
 async function generate(o) {
   const cfg = o.routing || routingDefault;
-  const timeouts = { ...config.chat, ...(o.timeouts || {}) };
+  // Developer mode gets a larger output cap (whole files of code); explicit o.timeouts.maxTokens still wins.
+  const timeouts = { ...config.chat, ...(o.mode === 'developer' && config.chat.developerMaxTokens
+    ? { maxTokens: config.chat.developerMaxTokens } : {}), ...(o.timeouts || {}) };
   if (!isConfigured(cfg)) {
     throw Object.assign(new Error('Colon Saga isn’t connected to an AI provider yet.'), { status: 503,
       code: 'no_provider' });
