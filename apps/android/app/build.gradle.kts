@@ -6,7 +6,7 @@ plugins {
 }
 
 // The version is set in one place: the monorepo's root package.json (scripts/check.js keeps every copy in step).
-// versionCode = major * 10000 + minor * 100 + patch, so 0.7.1 -> 701 and 1.0.0 -> 10000 (minor and patch < 100).
+// versionCode = major * 10000 + minor * 100 + patch, so 0.8.0 -> 800 and 1.0.0 -> 10000 (minor and patch < 100).
 val rootPackageJson = rootProject.file("../../package.json")
 val appVersion: String = Regex("\"version\"\\s*:\\s*\"(\\d+\\.\\d+\\.\\d+)\"")
     .find(rootPackageJson.readText())?.groupValues?.get(1)
@@ -26,6 +26,11 @@ val hasReleaseKey = keystoreFile != null && file(keystoreFile).exists() &&
 // Optional override for the bridge WebSocket (gradle -Pcolon.bridgeUrl=wss://...).
 val bridgeUrl: String = (findProperty("colon.bridgeUrl") as String?) ?: "wss://api.apparatus.name.ng/ws"
 
+// Extra sign-in hosts that open in a Chrome Custom Tab (banks that block WebView sign-in), added to the list in
+// UrlRules.CUSTOM_TAB_HOSTS without a code change: gradle -Pcolon.customTabHosts=ibank.example.com,.bank.example
+val customTabHosts: String = ((findProperty("colon.customTabHosts") as String?) ?: "")
+    .split(',').map { it.trim().lowercase() }.filter { Regex("^\\.?[a-z0-9.-]+$").matches(it) }.joinToString(",")
+
 android {
     namespace = "ng.nifelux.colonai"
     compileSdk = 36
@@ -42,6 +47,29 @@ android {
         buildConfigField("String", "UPDATE_URL", "\"https://chat.apparatus.name.ng/android/version.json\"")
         buildConfigField("String", "RELEASES_URL", "\"https://github.com/Nifeluxtech/colon-ai/releases/latest\"")
         buildConfigField("boolean", "RELEASE_SIGNED", hasReleaseKey.toString())
+        buildConfigField("String", "EXTRA_CUSTOM_TAB_HOSTS", "\"$customTabHosts\"")
+    }
+
+    // Two apps from one project (Phase 8): Colon AI (chat with the in-chat browser panel) and Colon Browser (the
+    // standalone browser). Code lives in src/main; each flavor has its own manifest (activities), name and icon.
+    flavorDimensions += "app"
+    productFlavors {
+        create("colonai") {
+            dimension = "app"
+            applicationId = "ng.nifelux.colonai"
+            buildConfigField("String", "APP_KEY", "\"colonai\"")
+            buildConfigField("String", "APK_NAME", "\"colon-ai\"")
+            buildConfigField("String", "PARTNER_PACKAGE", "\"ng.nifelux.colonbrowser\"")
+            buildConfigField("boolean", "IS_BROWSER_APP", "false")
+        }
+        create("colonbrowser") {
+            dimension = "app"
+            applicationId = "ng.nifelux.colonbrowser"
+            buildConfigField("String", "APP_KEY", "\"colonbrowser\"")
+            buildConfigField("String", "APK_NAME", "\"colon-browser\"")
+            buildConfigField("String", "PARTNER_PACKAGE", "\"ng.nifelux.colonai\"")
+            buildConfigField("boolean", "IS_BROWSER_APP", "true")
+        }
     }
 
     signingConfigs {
@@ -105,6 +133,7 @@ dependencies {
     implementation(libs.androidx.activity)
     implementation(libs.androidx.webkit)
     implementation(libs.androidx.splashscreen)
+    implementation(libs.androidx.browser) // Chrome Custom Tabs for Google and bank sign-in
     implementation(libs.material)
     implementation(libs.okhttp)
 
