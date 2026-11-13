@@ -3,12 +3,14 @@
 // Phase 8: the socket is tied to the signed-in user (the colon_sid cookie, loaded like the HTTP routes do) and
 // each socket gets a browser bridge (modules/browser/bridge.js): hello with `session: 1`, session_sync,
 // session_request and the control-owner rules. Signed-out sockets keep the plain hello / ping-pong.
+// Phase 9: this worker also picks up Saga tasks queued for the phones connected to it (modules/saga runner).
 const { WebSocketServer } = require('ws');
 const config = require('../config');
 const audit = require('../shared/audit');
 const log = require('../shared/logger');
 const { sessions } = require('../modules/auth');
 const browser = require('../modules/browser');
+const saga = require('../modules/saga');
 const { clientIp, parseCookies } = require('../http/middleware/request');
 
 const HARD_MAX_PAYLOAD = 1024 * 1024;   // above this ws closes the socket; 64 KB+ frames get an error reply instead
@@ -21,6 +23,7 @@ async function authenticate(req) {
 
 function attach(server) {
   const wss = new WebSocketServer({ noServer: true, maxPayload: HARD_MAX_PAYLOAD });
+  saga.runner.watch();
 
   server.on('upgrade', (req, socket, head) => {
     const path = new URL(req.url, 'http://local').pathname;

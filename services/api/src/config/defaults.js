@@ -93,6 +93,14 @@ const SCHEMA = [
   oneOf('BROWSER_READER', ['on', 'off'], 'on', '"off" switches the server reader off (GET /browser/fetch -> 501)'),
   oneOf('BROWSER_READER_GUESTS', ['on', 'off'], 'on', '"off" keeps the server reader for signed-in users only'),
   str('BROWSER_READER_BLOCKLIST', '', 'extra hosts the reader refuses, comma-separated (subdomains included)'),
+  // Saga browser automation (modules/saga; Phase 9): Saga drives the phone's browser panel through the bridge
+  oneOf('SAGA_BROWSE', ['on', 'off'], 'on', '"off" switches Saga browsing off (POST /browser/agent -> 501)'),
+  num('SAGA_MAX_STEPS', 15, 'most actions Saga takes for one browsing task'),
+  num('SAGA_TASK_TIMEOUT_MS', 300000, 'hard cap on one browsing task'),
+  num('SAGA_MODEL_TIMEOUT_MS', 60000, 'give up on one Saga decision (model call) after this long'),
+  num('SAGA_STEP_TIMEOUT_MS', 20000, 'wait this long for the phone to answer one browser command'),
+  num('SAGA_APPROVAL_TIMEOUT_MS', 120000, 'wait this long for the user to tap consent or an approval on the phone'),
+  num('SAGA_TASKS_PER_HOUR', 20, 'browsing tasks a user may start per hour'),
   // Safety layer (modules/safety; ADR 0003)
   oneOf('SAFETY', ['on', 'off'], 'on', '"off" switches the rule filters off (child-safety rules always stay on)'),
   oneOf('SAFETY_LOG_TEXT', ['off', 'hash', 'excerpt'], 'off',

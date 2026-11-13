@@ -3,11 +3,13 @@
 // Reader: switch and guest gate first (501 not_enabled / 401), then rate limits: signed in 30 a minute and 500 a
 // day per user; guests (BROWSER_READER_GUESTS=on) 60 a minute per IP and only from the Colon apps' own origins.
 // A 429 carries retry_after (seconds) and Retry-After. Session and history need a signed-in user.
+// /browser/agent (Phase 9): Saga's browsing tasks on the phone (modules/saga).
 const Router = require('../router');
 const { requireUser } = require('../../modules/auth').guards;
 const { hit, perUser } = require('../middleware/ratelimit');
 const { guestOrigin } = require('../middleware/origin');
 const h = require('../../modules/browser').handlers;
+const saga = require('../../modules/saga');
 
 // hit() with the contract's 429 shape: { error: 'rate_limited', message, retry_after }.
 async function limited(bucket, max, windowSec) {
@@ -41,5 +43,13 @@ r.get('/browser/history', requireUser, perUser('browser-history-read', 600, 3600
 r.post('/browser/history', requireUser, perUser('browser-history', 2000, 3600), h.history.addHistory);
 r.delete('/browser/history/:id', requireUser, perUser('browser-history', 2000, 3600), h.history.removeHistory);
 r.delete('/browser/history', requireUser, perUser('browser-history', 2000, 3600), h.history.clearHistory);
+
+// Saga browser automation (Phase 9): tasks run on the user's phone; starting one is limited per hour.
+const t = saga.handlers.tasks;
+const perTask = perUser('saga-task', saga.runner.settings().tasksPerHour, 3600);
+r.post('/browser/agent', requireUser, t.gate, perTask, t.postTask);
+r.get('/browser/agent', requireUser, t.listTasks);
+r.get('/browser/agent/:id', requireUser, perUser('saga-read', 3600, 3600), t.getTask);
+r.post('/browser/agent/:id/stop', requireUser, t.stopTask);
 
 module.exports = r;
