@@ -1,5 +1,55 @@
 # Changelog
 
+## [0.7.1] — 2026-11-13 · Android app (Phase 7 begins)
+Colon AI in a native Android shell, with Colon Browser built on Android System WebView. Built in the cloud by GitHub
+Actions. Details: `apps/android/README.md`, `docs/android-bridge.md`.
+### Added
+- **Android app** (`apps/android`, `ng.nifelux.colonai`, Android 7.0+ / minSdk 24, targets API 36, about 2 MB
+  shrunk with R8): loads `chat.apparatus.name.ng` with file picker, microphone, back button, offline screen with
+  retry, downloads, edge-to-edge insets, system bars that follow the chat theme, and recovery when a low-memory
+  phone kills the WebView renderer. Splash (SplashScreen API, backported) and adaptive/themed launcher icons.
+  versionCode = major × 10000 + minor × 100 + patch (0.7.1 → 701).
+- **Native Colon Browser** (`BrowserActivity`, `TabManager`, `BrowserWeb`): address bar (URL or search), back /
+  forward / reload, home page with bookmarks, tabs (10 on low-RAM phones, 30 otherwise) with only 2–5 live WebViews
+  (older background tabs are discarded and reload when opened), history and bookmarks on the phone only,
+  DownloadManager downloads, full-screen video, uploads, per-site camera/microphone, "Clear browsing data" that
+  keeps the Colon AI sign-in. Listed in Android's "Open with" for web links. Saga control indicator (AI / Manual /
+  Shared) with Take control, Return to AI, Pause, Stop and a consent prompt.
+- **`window.ColonNative` bridge** (`NativeBridge.kt`): origin-restricted to Colon's own pages (WebView
+  `addWebMessageListener` / document-start script, with a checked fallback on old WebViews): `info`, `openTab`,
+  `share`, `download`, `saveFile`, `haptic`, `requestPermission`, `checkUpdate`, `setTheme`, `setSession`,
+  `takeShare`, `bridgeStatus`, plus `share` / `bridge` / `resume` events. User agent ends with `ColonAndroid/<ver>`.
+- **Backend bridge client** (`BridgeClient`, `BridgeProtocol`, `Backoff`): WebSocket to `wss://api.apparatus.name.ng/ws`
+  with reconnect backoff, heartbeats and network awareness; protocol in `docs/android-bridge.md`.
+- **Share to Colon** (`ShareReceiverActivity`, `ShareIntake`): text, links or up to 5 images from any app land in
+  the message box and upload tray.
+- **In-app updates** (`UpdateChecker`, `VersionManifest`): reads `apps/chat/public/android/version.json` every
+  12 hours; downloads the APK, checks package, version and signing key, then opens Android's installer.
+- **CI:** `.github/workflows/android.yml` (unit tests, lint, release APK artifact; "Publish a release" or a `v*` tag
+  creates the GitHub Release with `colon-ai-<version>.apk`, `.sha256` and `colon-ai.apk`; tag must match
+  `package.json`). `.github/workflows/android-keystore.yml` creates the release signing key into repository secrets
+  from a phone (modes `create` / `backup`, optional encrypted backup artifact).
+- **Web native-shell integration:** `Colon.native` (`packages/ui/js/colon/native.js`) detects the app and sets
+  `html[data-shell="android"]`; `apps/chat/src/lib/native-shell.js` syncs theme and session and drops shared content
+  into the composer; links and "Open browser" open native tabs (AI Browse stays in the panel); blob exports save
+  through the app; voice uses Colon speech in the app. Settings › App and Help show a "Get the Android app" row on
+  the web (APK on GitHub Releases) and the installed version with "Check for updates" inside the app
+  (`apps/chat/src/components/app-row.js`); Colon Browser web Help has the same row.
+- **Polish** (`packages/ui/css/polish.css`): Android shell safe-area handling, no long-press callouts on controls,
+  and refined states, spacing and motion of existing components (no layout changes).
+- Tests: 17 JVM unit tests (`LogicTest.kt`, `UrlRulesTest.kt`), `packages/ui/test/native.test.js` (6),
+  `scripts/deploy/android-version.test.js` (2).
+### Fixed
+- **Settings opened scrolled to the bottom** on phones (scrollTop ≈ 3450 at 360 px): hiding the composer on a page
+  resized it, and the "follow the latest message" handler pulled the shared scroll area down. Pages now always open
+  at the top; returning to a conversation still opens at the latest message.
+### Not yet (stubbed)
+- **Push notifications (FCM):** channels and the Android 13 permission only; needs a Firebase project.
+- **Backend bridge server:** today's API only says hello on `/ws`; no Saga commands yet (the app shows this and
+  keeps working).
+- Native SpeechRecognizer dictation, Google sign-in inside the app (Custom Tab), App Links (`assetlinks.json`),
+  crash reporting, and testing on real low/mid/high-end phones.
+
 ## [0.6.5] — 2026-11-13 · Hands-free conversation
 ### Added
 - **Hands-free mode** (`apps/chat/src/lib/hands-free.js`): pick "Hands-free conversation" at the bottom of the mic's

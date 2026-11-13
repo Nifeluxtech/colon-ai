@@ -121,6 +121,22 @@ search adapter and a search cache; rerun DeepSeek/GLM when NVIDIA's free tier an
 - Signed APK for direct install and testing, with an in-app update prompt.
 **Release standard:** installs and runs on low, mid and high-end Android phones, the bridge stays connected on mobile data, and the crash-free rate is above 99%.
 
+**Progress (v0.7.1, 13 Nov 2026):**
+- [x] App built in the cloud with GitHub Actions (tests, lint, release APK artifact, GitHub Release publishing)
+- [x] Release signing key created from a phone into repository secrets (`android-keystore.yml`), with backup
+- [x] Colon AI shell: file picker, microphone, downloads, back button, offline screen, theme-synced system bars
+- [x] Native browser on System WebView: one WebView per tab, tab memory policy, history, bookmarks, downloads
+- [x] `window.ColonNative` JavaScript bridge (origin-restricted) and web integration (`Colon.native`)
+- [x] Backend bridge client: WebSocket with reconnect, heartbeats, network awareness
+- [x] Share-to-Colon, splash with logo animation, adaptive icons, notification channels and permission
+- [x] Signed APK with in-app update prompt (`version.json`)
+- [ ] Push notifications (FCM: Firebase project, token registration endpoint, messaging service)
+- [ ] Backend bridge server on `/ws` (sessions, page state, commands) and Saga commands (Phase 9)
+- [ ] Release signing key actually set up in the repository and first published release
+- [ ] Real-device testing on low, mid and high-end phones, including the bridge on mobile data
+- [ ] Crash reporting and crash-free rate measurement (target above 99%)
+- [ ] Native SpeechRecognizer dictation, Google sign-in via Custom Tab, App Links (`assetlinks.json`)
+
 ## Phase 8 — Colon Browser (standalone)
 - **Android (full engine):** address and search bar, back, forward, refresh, home, tabs, history, bookmarks, downloads, file upload, full-screen, incognito tab, and clear data.
 - Each user's cookies and logins stay on their own phone, never on our server.
