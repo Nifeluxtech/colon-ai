@@ -25,6 +25,15 @@
             <action android:name="android.intent.action.VIEW" />
             <data android:scheme="https" />
         </intent>
+        <!-- Chrome Custom Tabs (Google and bank sign-in). -->
+        <intent>
+            <action android:name="android.support.customtabs.action.CustomTabsService" />
+        </intent>
+        <!-- The other Colon app, for "Open in Colon Browser" / "Ask Colon AI" handoffs. -->
+        <package android:name="ng.nifelux.colonai" />
+        <package android:name="ng.nifelux.colonbrowser" />
+        <package android:name="ng.nifelux.colonai.debug" />
+        <package android:name="ng.nifelux.colonbrowser.debug" />
     </queries>
 
     <application
@@ -44,69 +53,15 @@
         <meta-data android:name="android.webkit.WebView.EnableSafeBrowsing" android:value="true" />
         <meta-data android:name="android.webkit.WebView.MetricsOptOut" android:value="true" />
 
-        <!-- Colon AI: the chat shell. -->
-        <activity
-            android:name=".MainActivity"
-            android:configChanges="orientation|screenSize|smallestScreenSize|screenLayout|keyboard|keyboardHidden|uiMode|density"
-            android:exported="true"
-            android:launchMode="singleTop"
-            android:theme="@style/Theme.Colon.Splash"
-            android:windowSoftInputMode="adjustResize">
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="android.intent.category.LAUNCHER" />
-            </intent-filter>
-        </activity>
+        <!-- Activities are declared per app: src/colonai/AndroidManifest.xml (Colon AI: chat shell with the in-chat
+             browser panel, share target) and src/colonbrowser/AndroidManifest.xml (Colon Browser: the standalone
+             browser). The code is shared from src/main. -->
 
-        <!-- Share-to-Colon (text, links, images) and chat links from other apps; forwards to MainActivity. -->
+        <!-- Clear browsing data (Colon Browser's menu and the in-chat browser panel's). -->
         <activity
-            android:name=".ShareReceiverActivity"
-            android:excludeFromRecents="true"
-            android:exported="true"
-            android:label="@string/share_label"
-            android:noHistory="true"
-            android:taskAffinity=""
-            android:theme="@style/Theme.Colon.Invisible">
-            <intent-filter>
-                <action android:name="android.intent.action.SEND" />
-                <category android:name="android.intent.category.DEFAULT" />
-                <data android:mimeType="text/plain" />
-            </intent-filter>
-            <intent-filter>
-                <action android:name="android.intent.action.SEND" />
-                <action android:name="android.intent.action.SEND_MULTIPLE" />
-                <category android:name="android.intent.category.DEFAULT" />
-                <data android:mimeType="image/*" />
-            </intent-filter>
-            <!-- Not an auto-verified App Link yet: that needs /.well-known/assetlinks.json with the release key. -->
-            <intent-filter android:autoVerify="false">
-                <action android:name="android.intent.action.VIEW" />
-                <category android:name="android.intent.category.DEFAULT" />
-                <category android:name="android.intent.category.BROWSABLE" />
-                <data android:scheme="https" android:host="chat.apparatus.name.ng" />
-            </intent-filter>
-        </activity>
-
-        <!-- Colon Browser: native tabs on Android System WebView. Also offered for web links from other apps. -->
-        <activity
-            android:name=".BrowserActivity"
-            android:configChanges="orientation|screenSize|smallestScreenSize|screenLayout|keyboard|keyboardHidden|density"
-            android:exported="true"
-            android:label="@string/browser_name"
-            android:launchMode="singleTop"
-            android:windowSoftInputMode="adjustResize">
-            <intent-filter>
-                <action android:name="ng.nifelux.colonai.OPEN_TAB" />
-                <category android:name="android.intent.category.DEFAULT" />
-            </intent-filter>
-            <intent-filter>
-                <action android:name="android.intent.action.VIEW" />
-                <category android:name="android.intent.category.DEFAULT" />
-                <category android:name="android.intent.category.BROWSABLE" />
-                <data android:scheme="http" />
-                <data android:scheme="https" />
-            </intent-filter>
-        </activity>
+            android:name=".ClearDataActivity"
+            android:exported="false"
+            android:label="@string/clear_data" />
 
         <provider
             android:name="androidx.core.content.FileProvider"
