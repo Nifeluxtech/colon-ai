@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Colon AI only: the share target's label and its invisible theme (ShareReceiverActivity). -->
+<resources>
+    <string name="share_label">Ask Colon AI</string>
+
+    <style name="Theme.Colon.Invisible" parent="Theme.Colon">
+        <item name="android:windowIsTranslucent">true</item>
+        <item name="android:windowBackground">@android:color/transparent</item>
+        <item name="android:windowNoTitle">true</item>
+        <item name="android:windowAnimationStyle">@null</item>
+        <item name="android:backgroundDimEnabled">false</item>
+    </style>
+</resources>
