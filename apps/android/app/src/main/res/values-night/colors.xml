@@ -10,4 +10,6 @@
     <color name="colon_chip">#1B2B5E</color>
     <color name="colon_banner">#16245A</color>
     <color name="colon_shield">#40080F24</color>
+    <color name="colon_private">#241A4A</color>
+    <color name="colon_private_field">#33266A</color>
 </resources>
