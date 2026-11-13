@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.5.7] — 2026-11-13 · Study mode tools
+### Added
+- **Quizzes** in Study mode: Colon Saga settles the subject and level, asks one WAEC/JAMB-style A–D question at a
+  time (5 by default), waits for the answer, marks it with a short explanation and a running score, and ends with the
+  score, weak topics and what to revise.
+- **Flashcards**: 10 by default, as a Markdown table (#, Front, Back), basic to harder, with an offer to quiz on them.
+- **Past-question practice**: never presents a made-up question as a real WAEC, NECO, JAMB or university past
+  question; generated ones are labelled "WAEC-style"/"JAMB-style". Pasted past questions are solved step by step,
+  with the option letter, marking-scheme-style working for theory, and one similar practice question.
+- Help page mentions the Study tools. Unit test for the Study prompt.
+
 ## [0.5.6] — 2026-11-13 · Benchmark rerun fixes
 Gets the four models that failed or stopped in the first benchmark (`services/api/bench/results/2026-11-12.md`)
 ready for a rerun: DeepSeek V4.1 Flash and GLM-5.3 Flash (100 % first-token timeouts on NVIDIA), Nemotron 3.5

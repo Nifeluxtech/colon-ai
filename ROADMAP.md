@@ -73,7 +73,9 @@ Each phase ships only when it meets its release standard: tested, secured, deplo
 - Specialist routing, where a model clearly beats Saga on a task, such as code or a particular language.
 - Integrate Nigerian language models (for example N-ATLaS) where their licences allow.
 - Web search with cited sources for Research mode. **Done in v0.5.3** (`docs/phases/phase-5-research.md`).
-- Study mode: step-by-step explanations, quizzes, flashcards and past-question practice.
+- Study mode: step-by-step explanations, quizzes, flashcards and past-question practice. **Done in v0.5.7**
+  (prompt only): quizzes one question at a time with A–D options, feedback and a score; flashcards as a table;
+  WAEC/JAMB-style practice, and real past questions only when the student supplies them.
 - Developer mode: code explain, fix, generate, and a project-files context.
 - Safety layer: harmful-content filtering and prompt-injection guards. **Done in v0.5.5**
   (`docs/decisions/0003-safety-layer.md`): rule-based input moderation in English, Pidgin, Yorùbá, Hausa and Igbo

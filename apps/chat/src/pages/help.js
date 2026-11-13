@@ -7,7 +7,8 @@ var C = Colon, icon = C.icon, esc = C.esc;
 
 var FAQ = [
   ['What can Colon Saga do?',
-    ('Explain topics step by step (Study), write and fix code (Developer), and research with sources (Research). '
+    ('Explain topics step by step, quiz you and make flashcards (Study), write and fix code (Developer), and '
+    + 'research with sources (Research). '
     + 'General mode is for everything else.')],
   ['Do I need an account?',
     ('No. You can chat with Colon Saga without logging in, but guest chats aren’t saved: they disappear when you '
