@@ -7,7 +7,8 @@ const { loadSettings } = require('./chat-common');
 
 const BOOLS = ['enterToSend', 'showMeta', 'linksInPanel', 'streaming', 'saveHistory', 'shareFeedback'];
 
-const ENUMS = { defaultMode: store.MODES, browserLayout: ['split', 'embedded'], textSize: ['sm', 'md', 'lg'] };
+const ENUMS = { defaultMode: store.MODES, browserLayout: ['split', 'embedded'], textSize: ['sm', 'md', 'lg'],
+  browserMode: ['ai', 'shared'] };
 
 const VOICE = { lang: ['en-NG', 'en-GB', 'en-US', 'pcm-NG', 'yo-NG', 'ha-NG', 'ig-NG', 'auto'], method: ['auto',
   'colon', 'dictation', 'recorder'], readAloudRate: [0.8, 1, 1.25], readAloudVoice: ['auto', 'colon', 'device'],

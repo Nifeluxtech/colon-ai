@@ -123,11 +123,11 @@
 
     <!-- Saga control -->
     <string name="mode_manual">Manual</string>
-    <string name="mode_ai">AI</string>
-    <string name="mode_shared">Shared</string>
+    <string name="mode_ai">AI only</string>
+    <string name="mode_shared">AI + me</string>
     <string name="mode_description">Control mode: %1$s. Tap for details.</string>
     <string name="saga_status">Saga and this browser</string>
-    <string name="saga_status_text">Mode: %1$s\n\nManual: you browse; nothing about your browsing leaves the phone.\nAI: Saga browses for you and you watch. Take control at any time.\nShared: you both browse; Saga asks before each step.\n\nLink to Colon: %2$s</string>
+    <string name="saga_status_text">Mode: %1$s\n\nManual: you browse; nothing about your browsing leaves the phone.\nAI only: Saga browses for you and you watch. Take control at any time.\nAI + me: you both browse the same page; Saga sees what you change and asks before each step.\n\nSaga never types passwords, codes, card details or PINs: it hands those to you.\n\nLink to Colon: %2$s</string>
     <string name="link_ready">connected</string>
     <string name="link_basic">connected (the server hasn\'t switched on Saga commands yet)</string>
     <string name="link_connecting">connecting…</string>
@@ -139,10 +139,19 @@
     <string name="saga_consent_shared">Saga wants to browse with you to: %1$s\n\nSaga will ask before each step.</string>
     <string name="saga_task_unknown">help with your request</string>
     <string name="saga_browsing">Saga is browsing %1$s</string>
-    <string name="saga_shared">Shared: Saga asks before each step</string>
+    <string name="saga_shared">AI + me: Saga asks before each step</string>
     <string name="saga_paused">Saga is paused</string>
     <string name="saga_you_control">You\'re in control</string>
     <string name="take_control">Take control</string>
+    <string name="mode_switch_shared">Let me help (AI + me)</string>
+    <string name="mode_switch_ai">AI only</string>
+    <string name="handoff_password">Enter your password here, then tap Return to AI.</string>
+    <string name="handoff_code">Enter the code you received here, then tap Return to AI.</string>
+    <string name="handoff_card">Enter your card details here, then tap Return to AI.</string>
+    <string name="handoff_pin">Enter your PIN here, then tap Return to AI.</string>
+    <string name="handoff_sign_in">Sign in here yourself, then tap Return to AI.</string>
+    <string name="handoff_payment">Enter the payment details here yourself, then tap Return to AI.</string>
+    <string name="chat_profiles_shared">This phone\'s Android System WebView can\'t keep a separate browser for each chat, so site sign-ins are cleared when you switch chats. Update Android System WebView to keep them.</string>
     <string name="return_to_ai">Return to AI</string>
     <string name="pause">Pause</string>
     <string name="resume">Resume</string>

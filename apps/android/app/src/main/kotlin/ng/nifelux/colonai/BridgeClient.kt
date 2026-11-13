@@ -34,6 +34,8 @@ class BridgeClient(private val context: Context, val http: OkHttpClient) {
     interface Listener {
         fun onStatus(status: Status) {}
         fun onControlRequest(request: BridgeProtocol.Incoming.Control) {}
+        /** Phase 10: Saga hands a secret field to the user (password, code, card, PIN, sign-in, payment). */
+        fun onHandoff(request: BridgeProtocol.Incoming.Handoff) {}
     }
 
     /** Runs Saga's commands. Set by the open Colon Browser screen; null when no browser is open. */
@@ -63,6 +65,17 @@ class BridgeClient(private val context: Context, val http: OkHttpClient) {
     var commandHandler: CommandHandler? = null
     /** Current control mode, reported in hello so the backend knows whether Saga may send commands. */
     var controlMode: ControlState.Mode = ControlState.Mode.MANUAL
+    /** Phase 10: the conversation whose browser the in-chat panel shows (sent in hello and as `chat`); null in
+     *  Colon Browser (its device-wide session). */
+    var conversationId: String? = null
+        private set
+
+    /** The panel switched chats: the server keeps that chat's session and asks it for consent again. */
+    fun setConversation(id: String?) {
+        if (id == conversationId) return
+        conversationId = id
+        send(BridgeProtocol.chat(id))
+    }
 
     private val reconnect = Runnable { connect() }
     private val idleClose = Runnable { if (refs == 0) disconnect(Status.OFF) }
@@ -190,7 +203,7 @@ class BridgeClient(private val context: Context, val http: OkHttpClient) {
             backoff.reset()
             setStatus(Status.CONNECTED)
             webSocket.send(BridgeProtocol.hello(BuildConfig.VERSION_NAME, BuildConfig.VERSION_CODE, deviceId,
-                Build.VERSION.SDK_INT, lowRam(), controlMode))
+                Build.VERSION.SDK_INT, lowRam(), controlMode, conversationId))
             main.removeCallbacks(heartbeat)
             main.postDelayed(heartbeat, 25_000)
         } }
@@ -202,6 +215,7 @@ class BridgeClient(private val context: Context, val http: OkHttpClient) {
                 is BridgeProtocol.Incoming.Hello -> setStatus(if (msg.bridge) Status.BRIDGE_READY else Status.CONNECTED)
                 is BridgeProtocol.Incoming.Command -> runCommand(webSocket, msg)
                 is BridgeProtocol.Incoming.Control -> listeners.toList().forEach { it.onControlRequest(msg) }
+                is BridgeProtocol.Incoming.Handoff -> listeners.toList().forEach { it.onHandoff(msg) }
                 is BridgeProtocol.Incoming.Error -> Log.w(TAG, "bridge error ${msg.code}")
                 else -> Unit
             }

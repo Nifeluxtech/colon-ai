@@ -83,8 +83,8 @@ function GuestChatData(opts) {
     updateConversation: function (id, patch) {
       return Promise.resolve().then(function () {
         var c = get(id);
-        ['title', 'pinned', 'archived', 'mode', 'model'].forEach(function (k) { if (patch[k] !== undefined) c[
-          k] = patch[k]; });
+        ['title', 'pinned', 'archived', 'mode', 'model', 'browser_mode'].forEach(function (k) {
+          if (patch[k] !== undefined) c[k] = patch[k]; });
         if (patch.mode && c.messages.length) c.messages.push({ id: C.uid('e'), role: 'event', content: 'Switched to '
           + patch.mode + ' mode', created_at: now() });
         c.updated_at = now(); return summary(c);
@@ -135,7 +135,9 @@ function GuestChatData(opts) {
     addNote: function (cid, note) {
       return Promise.resolve().then(function () {
         var c = get(cid);
-        var msg = { id: C.uid('m'), role: 'assistant', content: note.content, sources: note.sources || [],
+        // Phase 10: a browser instruction the user typed is kept as their own message (role user, origin browse).
+        var msg = { id: C.uid('m'), role: note.role === 'user' ? 'user' : 'assistant', content: note.content,
+          sources: note.role === 'user' ? [] : note.sources || [],
           status: 'complete', model: c.model, mode: c.mode, created_at: now(), origin: note.origin || 'note' };
         c.messages.push(msg); if (c.title === 'New chat' && note.title) c.title = ColonResponder.titleFrom(note.title);
         c.updated_at = now(); return msg;

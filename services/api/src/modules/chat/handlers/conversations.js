@@ -11,6 +11,8 @@ const limits = require('../../ai').limits;
 const dynamic = require('../../ai').dynamic;
 const store = require('../store');
 const files = require('../files');
+const browser = require('../../browser');
+const saga = require('../../saga');
 
 /* ---------- Share links (read-only, anyone with the link) ---------- */
 const shareUrl = (token) => `${config.urls.chat}/#/share/${token}`;
@@ -44,9 +46,22 @@ const postConversations = async (req) => {
   return [201, { conversation: store.convOut(conv) }];
 };
 
+// Phase 10: a chat's browser goes with it: its browser sessions on every device and Saga's tasks (with their action
+// logs) in it. conversationId null: every chat's (the device-wide sessions of Colon Browser stay).
+async function forgetBrowser(userId, conversationId) {
+  if (conversationId) {
+    await browser.store.removeConversation(userId, conversationId);
+    await saga.store.removeConversation(userId, conversationId);
+    return;
+  }
+  await browser.store.removeAllConversations(userId);
+  await saga.store.removeConversation(userId, '*');
+}
+
 // DELETE /conversations
 const deleteConversations = async (req) => {
   await db.query('DELETE FROM chat_conversations WHERE user_id = ?', [req.user.id]);
+  await forgetBrowser(req.user.id, null);
   await files.deleteWhere(req.user.id);
   await audit(req, 'chat.deleted_all', { actorId: req.user.id });
   return [200, { ok: true }];
@@ -81,6 +96,13 @@ const patchConversationsById = async (req) => {
   if (b.pinned !== undefined) { sets.push('pinned = ?'); params.push(b.pinned ? 1 : 0); }
   if (b.archived !== undefined) { sets.push('archived = ?'); params.push(b.archived ? 1 : 0); }
   if (b.model !== undefined) { sets.push('model = ?'); params.push(b.model ? String(b.model).slice(0, 64) : null); }
+  // Phase 10: this chat's browser mode ("ai" = AI only, "shared" = AI + me; null = the settings default).
+  if (b.browser_mode !== undefined) {
+    if (b.browser_mode !== null && b.browser_mode !== 'ai' && b.browser_mode !== 'shared') {
+      v.fail('browser_mode', 'Choose AI only (ai) or AI + me (shared).');
+    }
+    sets.push('browser_mode = ?'); params.push(b.browser_mode);
+  }
   let modeChanged = false;
   if (b.mode !== undefined) {
     if (!store.MODES.includes(b.mode)) v.fail('mode', 'Choose General, Study, Developer or Research.');
@@ -104,6 +126,7 @@ const deleteConversationsById = async (req) => {
   const conv = await store.getConv(req.user.id, req.params.id);
   await files.deleteWhere(req.user.id, 'conversation_id = ?', [conv.id]);
   await db.query('DELETE FROM chat_conversations WHERE id = ? AND user_id = ?', [conv.id, req.user.id]);
+  await forgetBrowser(req.user.id, conv.id);
   return [200, { ok: true }];
 };
 

@@ -5,8 +5,18 @@ const db = require('../../db');
 
 const IDLE_DAYS = 30;
 const HISTORY_KEEP = 2000;
-const SESSION_COLS = 'id, user_id, device_ref, active_tab_id, control, control_owner, paused, task, version, '
-  + 'updated_at';
+const SESSION_COLS = 'id, user_id, device_ref, conversation_id, active_tab_id, control, control_owner, paused, '
+  + 'task, version, updated_at';
+const CONV = /^[\w-]{1,64}$/;
+
+/** A session's key: the device row and the conversation (Phase 10; '' is the device-wide session). A bare device
+ *  ref (a number) is the device-wide session, as before. */
+function key(k) {
+  if (k && typeof k === 'object') return { ref: k.ref, conv: convId(k.conv) };
+  return { ref: k, conv: '' };
+}
+/** A conversation id as stored: letters, digits, _ or - (≤ 64), anything else is the device-wide session ''. */
+const convId = (v) => (CONV.test(String(v == null ? '' : v)) ? String(v) : '');
 
 // Runs fn(q) in a transaction when a real pool exists; q(sql, params) -> rows (like db.query).
 async function tx(fn) {
@@ -43,10 +53,11 @@ async function findDevice(userId, deviceId, app, q = q0) {
   return rows[0] ? rows[0].id : null;
 }
 
-/** load(userId, deviceRef) -> { row, tabs } or null */
-async function load(userId, deviceRef, q = q0, lock = false) {
-  const rows = await q(`SELECT ${SESSION_COLS} FROM browser_sessions WHERE user_id = ? AND device_ref = ?`
-    + (lock ? ' FOR UPDATE' : ''), [userId, deviceRef]);
+/** load(userId, key) -> { row, tabs } or null. key: a device ref, or { ref, conv } for a chat's session. */
+async function load(userId, k, q = q0, lock = false) {
+  const { ref, conv } = key(k);
+  const rows = await q(`SELECT ${SESSION_COLS} FROM browser_sessions WHERE user_id = ? AND device_ref = ? AND `
+    + 'conversation_id = ?' + (lock ? ' FOR UPDATE' : ''), [userId, ref, conv]);
   if (!rows[0]) return null;
   const tabs = await q('SELECT tab_id, url, title, position, nav FROM browser_tabs WHERE session_id = ? '
     + 'ORDER BY position', [rows[0].id]);
@@ -64,13 +75,14 @@ async function writeTabs(q, sessionId, tabs) {
 }
 
 /**
- * save(userId, deviceRef, state, { version, control_owner }) -> { conflict: false, session } or
+ * save(userId, key, state, { version, control_owner }) -> { conflict: false, session } or
  * { conflict: true, session (current, may be null) }. state comes from session.normalize(). version: the version
  * the writer last saw (null/undefined = unconditional write, used by the phone's own sync).
  */
-async function save(userId, deviceRef, state, o = {}) {
+async function save(userId, k, state, o = {}) {
+  const { ref, conv } = key(k);
   return tx(async (q) => {
-    const cur = await load(userId, deviceRef, q, true);
+    const cur = await load(userId, { ref, conv }, q, true);
     const want = o.version == null || o.version === '' ? null : Number(o.version);
     if (cur && want != null && want !== Number(cur.row.version)) return { conflict: true, session: cur };
     if (!cur && want != null && want !== 0) return { conflict: true, session: null };
@@ -82,36 +94,51 @@ async function save(userId, deviceRef, state, o = {}) {
          version = version + 1, updated_at = UTC_TIMESTAMP(3) WHERE id = ?`,
       [state.active_tab_id, state.control, owner, state.paused ? 1 : 0, state.task, id]);
     } else {
-      const r = await q(`INSERT INTO browser_sessions (user_id, device_ref, active_tab_id, control, control_owner,
-         paused, task, version, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, 1, UTC_TIMESTAMP(3))`,
-      [userId, deviceRef, state.active_tab_id, state.control, owner, state.paused ? 1 : 0, state.task]);
+      const r = await q(`INSERT INTO browser_sessions (user_id, device_ref, conversation_id, active_tab_id, control,
+         control_owner, paused, task, version, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, UTC_TIMESTAMP(3))`,
+      [userId, ref, conv, state.active_tab_id, state.control, owner, state.paused ? 1 : 0, state.task]);
       id = r.insertId;
     }
     await writeTabs(q, id, state.tabs);
-    return { conflict: false, session: await load(userId, deviceRef, q) };
+    return { conflict: false, session: await load(userId, { ref, conv }, q) };
   });
 }
 
-/** setControl(userId, deviceRef, { control, control_owner, paused, task? }) -> the session after the change. */
-async function setControl(userId, deviceRef, c) {
-  const cur = await load(userId, deviceRef);
+/** setControl(userId, key, { control, control_owner, paused, task? }) -> the session after the change. */
+async function setControl(userId, k, c) {
+  const cur = await load(userId, k);
   if (!cur) {
-    return save(userId, deviceRef, { tabs: [], active_tab_id: null, control: c.control, paused: c.paused,
+    return save(userId, k, { tabs: [], active_tab_id: null, control: c.control, paused: c.paused,
       task: c.task || '' }, { control_owner: c.control_owner }).then((r) => r.session);
   }
   await db.query(`UPDATE browser_sessions SET control = ?, control_owner = ?, paused = ?,
      task = COALESCE(?, task), version = version + 1, updated_at = UTC_TIMESTAMP(3) WHERE id = ?`,
   [c.control, c.control_owner, c.paused ? 1 : 0, c.task == null ? null : c.task, cur.row.id]);
-  return load(userId, deviceRef);
+  return load(userId, k);
 }
 
-const remove = (userId, deviceRef) => db.query('DELETE FROM browser_sessions WHERE user_id = ? AND device_ref = ?',
-  [userId, deviceRef]);
+function remove(userId, k) {
+  const { ref, conv } = key(k);
+  return db.query('DELETE FROM browser_sessions WHERE user_id = ? AND device_ref = ? AND conversation_id = ?',
+    [userId, ref, conv]);
+}
+
+/** A conversation was deleted: every device's session for it goes (Phase 10, "deleting a chat deletes its
+ *  browser"). The device-wide sessions ('') are never touched here. */
+function removeConversation(userId, conv) {
+  const c = convId(conv);
+  if (!c) return Promise.resolve({ affectedRows: 0 });
+  return db.query('DELETE FROM browser_sessions WHERE user_id = ? AND conversation_id = ?', [userId, c]);
+}
+
+/** Every chat's session of the user (deleting all conversations); device-wide sessions ('') stay. */
+const removeAllConversations = (userId) => db.query(
+  "DELETE FROM browser_sessions WHERE user_id = ? AND conversation_id <> ''", [userId]);
 
 /** list(userId) -> every session of the user with its device, active tab and tab count (newest first). */
 function list(userId) {
   return db.query(
-    `SELECT d.device_id, d.app, d.app_version, d.last_seen_at, s.control, s.updated_at,
+    `SELECT d.device_id, d.app, d.app_version, d.last_seen_at, s.conversation_id, s.control, s.updated_at,
             (SELECT COUNT(*) FROM browser_tabs t WHERE t.session_id = s.id) AS tab_count,
             a.url AS active_url, a.title AS active_title
        FROM browser_sessions s JOIN browser_devices d ON d.id = s.device_ref
@@ -154,5 +181,6 @@ const removeHistory = (userId, id) => db.query('DELETE FROM browser_history WHER
   [userId, id]);
 const clearHistory = (userId) => db.query('DELETE FROM browser_history WHERE user_id = ?', [userId]);
 
-module.exports = { tx, touchDevice, findDevice, load, save, setControl, remove, list, prune, ownerOf,
+module.exports = { tx, touchDevice, findDevice, load, save, setControl, remove, removeConversation, key, convId,
+  removeAllConversations, list, prune, ownerOf,
   listHistory, addHistory, removeHistory, clearHistory, IDLE_DAYS, _resetPrune: () => { lastPrune = 0; } };

@@ -101,6 +101,8 @@ const SCHEMA = [
   num('SAGA_STEP_TIMEOUT_MS', 20000, 'wait this long for the phone to answer one browser command'),
   num('SAGA_APPROVAL_TIMEOUT_MS', 120000, 'wait this long for the user to tap consent or an approval on the phone'),
   num('SAGA_TASKS_PER_HOUR', 20, 'browsing tasks a user may start per hour'),
+  num('SAGA_HANDOFF_TIMEOUT_MS', 600000,
+    'wait this long for the user to type a password, code or card details and tap Return to AI (Phase 10)'),
   // Safety layer (modules/safety; ADR 0003)
   oneOf('SAFETY', ['on', 'off'], 'on', '"off" switches the rule filters off (child-safety rules always stay on)'),
   oneOf('SAFETY_LOG_TEXT', ['off', 'hash', 'excerpt'], 'off',

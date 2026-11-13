@@ -24,6 +24,11 @@ private typealias Reply = (ok: Boolean, result: JSONObject?, error: String?) -> 
  * Payments, purchases, form submissions, messages and personal data wait for the user's tap (SagaApproval: the
  * server's request or the phone's own check of the real element, whichever is stronger); in Shared mode every step
  * that changes the page asks first. A declined step is answered with ack error "approval_denied".
+ * Phase 10: Saga never fills secret forms (SecretFields: passwords, codes, cards, PINs, sign-in and payment pages).
+ * A step that targets one is not run: the panel switches to Manual with the prompt ("Enter your password here, then
+ * tap Return to AI"), answers ack error "secret_field", and Return to AI resumes the task. The server sends the same
+ * request as a `handoff` frame when its own check finds it first. Commands and control requests for another chat
+ * than the one the panel shows are refused ("other_chat"); "AI only" / "AI + me" switch with [switchMode].
  */
 class BrowserSaga(private val a: BrowserHost, private val bridge: BridgeClient) :
     BridgeClient.Listener, BridgeClient.CommandHandler {
@@ -40,6 +45,11 @@ class BrowserSaga(private val a: BrowserHost, private val bridge: BridgeClient) 
     private lateinit var btnControl: Button
     private lateinit var btnStop: Button
     private lateinit var shield: View
+    /** Phase 10: the chat whose browser the user last allowed Saga in, and when (ChatSessionRules.consentStands). */
+    private var allowedChat: String? = null
+    private var allowedAt = 0L
+
+    private fun forgetConsent() { allowedChat = null; allowedAt = 0L }
 
     fun bind(root: View) {
         chip = root.findViewById(R.id.mode_chip)
@@ -54,7 +64,7 @@ class BrowserSaga(private val a: BrowserHost, private val bridge: BridgeClient) 
         btnControl.setOnClickListener {
             apply(if (control.mode == ControlState.Mode.MANUAL) control.returnToAi() else control.takeControl())
         }
-        btnStop.setOnClickListener { apply(control.stop()) }
+        btnStop.setOnClickListener { forgetConsent(); apply(control.stop()) }
         root.findViewById<View>(R.id.btn_take_control).setOnClickListener { apply(control.takeControl()) }
         render()
     }
@@ -78,15 +88,31 @@ class BrowserSaga(private val a: BrowserHost, private val bridge: BridgeClient) 
 
     /** The backend asks for control. Saga never takes over without the user's yes on the phone. */
     override fun onControlRequest(request: BridgeProtocol.Incoming.Control) {
+        if (otherChat(request.conversationId)) {
+            if (request.mode != ControlState.Mode.MANUAL) bridge.reportControl(control.mode, control.paused, "declined")
+            return
+        }
         if (request.mode == ControlState.Mode.MANUAL) { apply(control.stop()); return }
+        // The user allowed Saga in this chat's browser a moment ago and is giving it the next instruction in the chat.
+        val chat = bridge.conversationId
+        val now = System.currentTimeMillis()
+        if (ChatSessionRules.consentStands(allowedChat, allowedAt, chat, now)) {
+            allowedAt = now
+            apply(control.grant(request.mode, request.task) ?: "consent")
+            return
+        }
         val label = request.task ?: a.activity.getString(R.string.saga_task_unknown)
         MaterialAlertDialogBuilder(a.activity)
             .setTitle(R.string.saga_consent_title)
             .setMessage(a.activity.getString(if (request.mode == ControlState.Mode.AI) R.string.saga_consent_ai
                 else R.string.saga_consent_shared, label))
             // Already in that mode (nothing changes on the phone): still tell the server the user said yes.
-            .setPositiveButton(R.string.allow) { _, _ -> apply(control.grant(request.mode, request.task) ?: "consent") }
+            .setPositiveButton(R.string.allow) { _, _ ->
+                bridge.conversationId?.let { allowedChat = it; allowedAt = System.currentTimeMillis() }
+                apply(control.grant(request.mode, request.task) ?: "consent")
+            }
             .setNegativeButton(R.string.not_now) { _, _ ->
+                forgetConsent()
                 bridge.reportControl(control.mode, control.paused, "declined")
             }
             .setCancelable(false)
@@ -99,6 +125,58 @@ class BrowserSaga(private val a: BrowserHost, private val bridge: BridgeClient) 
         bridge.reportControl(control.mode, control.paused, reason)
         render()
         reportState()
+        a.onControlChanged()
+    }
+
+    /* ---------- Phase 10: chats, modes and secret fields ---------- */
+
+    private fun otherChat(conversationId: String?): Boolean =
+        conversationId != null && conversationId != bridge.conversationId
+
+    /** The server found a secret field first: the user takes over to type it. */
+    override fun onHandoff(request: BridgeProtocol.Incoming.Handoff) {
+        if (otherChat(request.conversationId)) return
+        handOff(request.kind, request.message.ifBlank { null })
+    }
+
+    /** Hands the page to the user for a secret ([kind]); the prompt shows in the panel and (via state) the chat. */
+    fun handOff(kind: String, message: String? = null) {
+        val text = message ?: a.activity.getString(when (kind) {
+            SecretFields.ONE_TIME_CODE -> R.string.handoff_code
+            SecretFields.CARD -> R.string.handoff_card
+            SecretFields.PIN -> R.string.handoff_pin
+            SecretFields.SIGN_IN -> R.string.handoff_sign_in
+            SecretFields.PAYMENT -> R.string.handoff_payment
+            else -> R.string.handoff_password
+        })
+        apply(control.handOff(kind, text))
+    }
+
+    /** "AI only" (AI) or "AI + me" (SHARED), from the chat, the inline card or the status dialog. */
+    fun switchMode(next: ControlState.Mode) { apply(control.switchMode(next)) }
+
+    /** The user's Take control / Return to AI from the chat page (the inline card or a chat message). */
+    fun userControl(op: String): Boolean {
+        val reason = when (op) {
+            "take_control" -> control.takeControl()
+            "return_to_ai" -> control.returnToAi()
+            "pause" -> control.pause()
+            "resume" -> control.resume()
+            "stop" -> { forgetConsent(); control.stop() }
+            else -> null
+        }
+        apply(reason)
+        return reason != null
+    }
+
+    /** The panel is about to show another chat: Saga's task in this one ends (its browser is put away). */
+    fun endForChatSwitch() { approvalDialog?.dismiss(); forgetConsent(); apply(control.stop()) }
+
+    /** The ack goes first: the server must read "secret_field" (wait for the user), not the control change that
+     *  follows (which would read as the user taking over and end the task). */
+    private fun refuseSecret(kind: String, reply: Reply) {
+        reply(false, JSONObject().put("kind", kind), "secret_field")
+        handOff(kind)
     }
 
     private fun render() {
@@ -119,6 +197,7 @@ class BrowserSaga(private val a: BrowserHost, private val bridge: BridgeClient) 
         val showBanner = mode != ControlState.Mode.MANUAL || control.resumable != null
         banner.visibility = if (showBanner) View.VISIBLE else View.GONE
         bannerText.text = when {
+            control.handoff != null -> control.handoff?.message
             mode == ControlState.Mode.MANUAL -> a.activity.getString(R.string.saga_you_control)
             control.paused -> a.activity.getString(R.string.saga_paused)
             mode == ControlState.Mode.AI -> a.activity.getString(R.string.saga_browsing, control.task ?: "")
@@ -131,6 +210,7 @@ class BrowserSaga(private val a: BrowserHost, private val bridge: BridgeClient) 
     }
 
     fun showStatus() {
+        val canSwitch = control.mode != ControlState.Mode.MANUAL || control.resumable != null
         val link = a.activity.getString(when (status) {
             BridgeClient.Status.BRIDGE_READY -> R.string.link_ready
             BridgeClient.Status.CONNECTED -> R.string.link_basic
@@ -143,6 +223,15 @@ class BrowserSaga(private val a: BrowserHost, private val bridge: BridgeClient) 
             .setTitle(R.string.saga_status)
             .setMessage(a.activity.getString(R.string.saga_status_text, chip.text, link))
             .setPositiveButton(R.string.close, null)
+            .apply {
+                // Phase 10: switch this task between "AI only" and "AI + me" without stopping it.
+                if (canSwitch) {
+                    val toShared = (control.resumable ?: control.mode) != ControlState.Mode.SHARED
+                    setNeutralButton(if (toShared) R.string.mode_switch_shared else R.string.mode_switch_ai) { _, _ ->
+                        switchMode(if (toShared) ControlState.Mode.SHARED else ControlState.Mode.AI)
+                    }
+                }
+            }
             .show()
     }
 
@@ -172,10 +261,12 @@ class BrowserSaga(private val a: BrowserHost, private val bridge: BridgeClient) 
             .put("tabs", a.tabs.tabs.count { !it.incognito })
             .put("mode", control.mode.wire)
             .put("paused", control.paused)
+            .apply { bridge.conversationId?.let { put("conversation_id", it) } }
     }
 
     override fun handle(command: BridgeProtocol.Incoming.Command,
                         reply: (ok: Boolean, result: JSONObject?, error: String?) -> Unit) {
+        if (otherChat(command.conversationId)) { reply(false, null, "other_chat"); return }
         if (!control.canRunCommands()) {
             reply(false, null, if (control.paused) "paused" else "manual_control"); return
         }
@@ -185,6 +276,10 @@ class BrowserSaga(private val a: BrowserHost, private val bridge: BridgeClient) 
             reply(false, null, "private_tab"); return
         }
         if (command.name == "click" || command.name == "fill") { act(command, tab, reply); return }
+        if (command.name == "open_url" || command.name == "new_tab") {
+            SecretFields.forStep(command.name, null, null, null, args.optString("url"), BuildConfig.EXTRA_CUSTOM_TAB_HOSTS)
+                ?.let { refuseSecret(it, reply); return }
+        }
         val kind = SagaApproval.decide(SagaApproval.serverKind(args), null, control.mode, command.name)
         if (kind == null) { execute(command, tab, reply); return }
         val reason = args.optJSONObject("approval")?.optString("reason")?.ifEmpty { null } ?: stepLabel(command)
@@ -265,11 +360,28 @@ class BrowserSaga(private val a: BrowserHost, private val bridge: BridgeClient) 
             if (r == null || r.has("error")) {
                 reply(false, null, r?.optString("error")?.ifEmpty { null } ?: "no_element"); return@exec
             }
+            // Phase 10: the real element (and its form, and the page) decide whether this is the user's to type.
+            val d = r.optJSONObject("descriptor") ?: JSONObject()
+            val field = SecretFields.Field(tag = d.optString("tag"), type = d.optString("type"),
+                autocomplete = d.optString("autocomplete"), name = d.optString("name"), id = d.optString("id"),
+                label = d.optString("label"), placeholder = d.optString("placeholder"),
+                inputmode = d.optString("inputmode"), maxlength = d.optInt("maxlength"),
+                contenteditable = d.optBoolean("contenteditable"))
+            val secret = r.optString("secret").takeIf { it.isNotBlank() && it != "null" }
+                ?: SecretFields.forStep(command.name, field, d.optString("form_secret").ifBlank { null }, tab?.url,
+                    null, BuildConfig.EXTRA_CUSTOM_TAB_HOSTS)
+            if (secret != null) { refuseSecret(secret, reply); return@exec }
             val risk = r.optJSONObject("risk")
             val kind = SagaApproval.decide(SagaApproval.serverKind(args), risk?.optString("kind"), control.mode,
                 command.name)
             val perform: (Reply) -> Unit = { done ->
-                tools.exec(wv, command.name, probe) { res -> pageResult(res, done); reportState() }
+                tools.exec(wv, command.name, probe) { res ->
+                    // tools.js refuses a secret field itself (the page may have changed since inspect).
+                    val refused = res?.takeIf { it.optString("error") == "secret_field" }
+                    if (refused != null) refuseSecret(refused.optString("kind").ifBlank { SecretFields.PASSWORD }, done)
+                    else pageResult(res, done)
+                    reportState()
+                }
             }
             if (kind == null) { perform(reply); return@exec }
             val reason = risk?.optString("reason")?.ifEmpty { null }

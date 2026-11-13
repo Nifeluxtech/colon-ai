@@ -31,6 +31,10 @@ val bridgeUrl: String = (findProperty("colon.bridgeUrl") as String?) ?: "wss://a
 val customTabHosts: String = ((findProperty("colon.customTabHosts") as String?) ?: "")
     .split(',').map { it.trim().lowercase() }.filter { Regex("^\\.?[a-z0-9.-]+$").matches(it) }.joinToString(",")
 
+// Phase 10: how many chats keep their own in-chat browser (WebView profile, tabs, history); the least recently used
+// beyond it are deleted. gradle -Pcolon.chatProfiles=30 (1..100, default 20).
+val chatProfilesMax: Int = ((findProperty("colon.chatProfiles") as String?)?.toIntOrNull() ?: 20).coerceIn(1, 100)
+
 android {
     namespace = "ng.nifelux.colonai"
     compileSdk = 36
@@ -48,6 +52,7 @@ android {
         buildConfigField("String", "RELEASES_URL", "\"https://github.com/Nifeluxtech/colon-ai/releases/latest\"")
         buildConfigField("boolean", "RELEASE_SIGNED", hasReleaseKey.toString())
         buildConfigField("String", "EXTRA_CUSTOM_TAB_HOSTS", "\"$customTabHosts\"")
+        buildConfigField("int", "CHAT_PROFILES_MAX", chatProfilesMax.toString())
     }
 
     // Two apps from one project (Phase 8): Colon AI (chat with the in-chat browser panel) and Colon Browser (the

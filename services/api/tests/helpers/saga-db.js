@@ -17,7 +17,7 @@ function create() {
     if (/^INSERT INTO saga_tasks/.test(s)) {
       const row = { id: ++ids, user_id: p[0], goal: p[1], language: p[2], conversation_id: p[3], status: p[4],
         created_at: p[5], updated_at: p[6], steps: 0, stop_requested: 0, error: null, answer: null, sources: null,
-        worker: null, device_ref: null, finished_at: null };
+        worker: null, device_ref: null, finished_at: null, mode: p[7] || 'ai' };
       t.tasks.push(row);
       return { insertId: row.id };
     }
@@ -35,6 +35,17 @@ function create() {
       Object.assign(task(p[7]), { status: p[0], error: p[1], steps: p[2], answer: p[3], sources: p[4],
         updated_at: p[5], finished_at: p[6] });
       return { affectedRows: 1 };
+    }
+    if (/^UPDATE saga_tasks SET status = \?, updated_at = \? WHERE id = \? AND status IN/.test(s)) {
+      const x = task(p[2]);
+      if (x && ['consent', 'running', 'handoff'].includes(x.status)) { x.status = p[0]; x.updated_at = p[1]; }
+      return {};
+    }
+    if (/^DELETE FROM saga_tasks WHERE user_id = \? AND conversation_id = \?/.test(s)) {
+      const gone = t.tasks.filter((x) => x.user_id === p[0] && x.conversation_id === p[1]).map((x) => x.id);
+      t.tasks = t.tasks.filter((x) => !gone.includes(x.id));
+      t.actions = t.actions.filter((a) => !gone.includes(a.task_id));
+      return { affectedRows: gone.length };
     }
     if (/^UPDATE saga_tasks SET stop_requested = 1/.test(s)) {
       const x = task(p[1]); if (x && x.user_id === p[2]) x.stop_requested = 1; return {};
@@ -64,7 +75,7 @@ function create() {
     if (/^SELECT id, goal, status, error, steps, created_at, finished_at FROM saga_tasks WHERE user_id/.test(s)) {
       return t.tasks.filter((x) => x.user_id === p[0]).sort((a, b) => b.id - a.id).slice(0, p[1]);
     }
-    if (/^SELECT id, user_id, goal, language FROM saga_tasks WHERE status = 'queued'/.test(s)) {
+    if (/^SELECT id, user_id, goal, language, conversation_id, mode FROM saga_tasks WHERE status = 'queued'/.test(s)) {
       return t.tasks.filter((x) => x.status === 'queued' && p[0].includes(x.user_id) && x.created_at > p[1]);
     }
     if (/^SELECT t\.id, t\.user_id, u\.email/.test(s)) {

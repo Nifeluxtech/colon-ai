@@ -4,6 +4,9 @@
 // ~2 s (watch(), started by the WebSocket gateway). Then: ask the phone for control (the user taps Allow), run the
 // loop, store the result, hand control back. Stop works from any worker (a flag the loop reads before every step;
 // on the worker running the task it also cancels the command in flight).
+// Phase 10: a task belongs to its conversation's browser (commands carry it; the phone refuses them while its panel
+// shows another chat) and runs in the chat's mode: 'ai' (AI only) or 'shared' (AI + me). When Saga reaches a secret
+// field the task waits (status handoff) for the user's Return to AI, up to SAGA_HANDOFF_TIMEOUT_MS.
 const os = require('os');
 const ai = require('../ai');
 const browser = require('../browser');
@@ -24,7 +27,7 @@ function settings() {
   return { enabled: env('SAGA_BROWSE', 'on') !== 'off', maxSteps: n('SAGA_MAX_STEPS', 15),
     taskTimeoutMs: n('SAGA_TASK_TIMEOUT_MS', 300000), modelTimeoutMs: n('SAGA_MODEL_TIMEOUT_MS', 60000),
     stepTimeoutMs: n('SAGA_STEP_TIMEOUT_MS', 20000), approvalTimeoutMs: n('SAGA_APPROVAL_TIMEOUT_MS', 120000),
-    tasksPerHour: n('SAGA_TASKS_PER_HOUR', 20) };
+    tasksPerHour: n('SAGA_TASKS_PER_HOUR', 20), handoffTimeoutMs: n('SAGA_HANDOFF_TIMEOUT_MS', 600000) };
 }
 
 // The user's phone on this worker: Colon AI first (the chat and its panel), then Colon Browser; newest hello first.
@@ -34,7 +37,28 @@ function pickBridge(userId) {
 }
 
 const STATUS_FOR = { declined: ['stopped', 'declined'], stop: ['stopped', 'declined'], timeout: ['failed',
-  'no_consent'], disconnected: ['interrupted', 'disconnected'] };
+  'no_consent'], disconnected: ['interrupted', 'disconnected'], other_chat: ['interrupted', 'other_chat'] };
+// Control reasons that leave a handoff waiting (the user is still typing, or only changed the mode).
+const STILL_WAITING = ['handoff', 'take_control', 'pause', 'resume', 'mode'];
+const SLICE_MS = 3000;                      // a Stop pressed on another worker is noticed within this
+
+/** Saga waits while the user types a secret in the panel: resolves 'return_to_ai' or why it ended. */
+async function waitHandoff(task, bridge, info, o, L) {
+  const conversation = task.conversation_id || null;
+  const until = Date.now() + L.handoffTimeoutMs;
+  let w = bridge.waitControl(Math.min(SLICE_MS, L.handoffTimeoutMs));
+  if (!o.phoneStarted && !bridge.handoff(info, { conversation })) return 'other_chat';
+  await store.setPhase(task.id, 'handoff');
+  for (;;) {
+    const reason = await w;
+    if (reason === 'return_to_ai') { await store.setPhase(task.id, 'running'); return reason; }
+    if (reason !== 'timeout' && !STILL_WAITING.includes(reason)) return reason;
+    if (Date.now() >= until) return 'timeout';
+    // Re-armed before anything else is awaited, so a Return to AI tapped meanwhile is never missed.
+    w = bridge.waitControl(Math.min(SLICE_MS, until - Date.now()));
+    if (await store.isStopped(task.id)) return 'stop';
+  }
+}
 
 /** execute(task, bridge, deps) runs one claimed task to its end. deps: { generate, req } (tests inject them). */
 async function execute(task, bridge, deps = {}) {
@@ -47,9 +71,14 @@ async function execute(task, bridge, deps = {}) {
     await add({ kind: 'end', status: 'failed', error: 'app_update_needed' });
     return finish(task, { status: 'failed', error: 'app_update_needed', steps: 0 }, req);
   }
+  const mode = store.MODES.includes(task.mode) ? task.mode : 'ai';
+  const conversation = task.conversation_id || null;
   if (!(await bridge.hasControl())) {
     const answered = bridge.waitControl(L.approvalTimeoutMs);
-    await bridge.askControl('ai', task.goal);
+    if (!(await bridge.askControl(mode, task.goal, { conversation }))) {
+      await add({ kind: 'control', error: 'other_chat' });
+      return finish(task, { status: 'interrupted', error: 'other_chat', steps: 0 }, req);
+    }
     const reason = await answered;
     await add({ kind: 'control', error: reason });
     if (reason !== 'consent' && reason !== 'return_to_ai') {
@@ -59,12 +88,14 @@ async function execute(task, bridge, deps = {}) {
   }
   await store.setStatus(task.id, 'running');
   const generate = deps.generate || ai.generate;
-  const context = prompt.system({ maxSteps: L.maxSteps });
+  const context = prompt.system({ maxSteps: L.maxSteps, mode });
   const r = await loop.run({
-    goal: task.goal, limits: L, log: add, isStopped: () => store.isStopped(task.id),
+    goal: task.goal, limits: L, log: add, isStopped: () => store.isStopped(task.id), mode,
+    pageState: () => bridge.pageState && bridge.pageState(),
+    handoff: (info, o) => waitHandoff(task, bridge, info, o, L),
     decide: (messages, signal) => generate({ mode: 'general', language: task.language || 'en', messages, context,
       category: 'reasoning', signal, temperature: 0.2, timeouts: { maxTokens: 800 } }).then((x) => x.text),
-    command: (name, args, o) => bridge.command(name, args, undefined, o),
+    command: (name, args, o) => bridge.command(name, args, undefined, { ...o, conversation }),
   });
   // A Stop pressed in the chat cancels the command in flight, which reads as "interrupted": it was the user's Stop.
   if (r.status === 'interrupted' && await store.isStopped(task.id)) { r.status = 'stopped'; r.error = null; }
@@ -77,7 +108,9 @@ async function finish(task, r, req, bridge) {
   await audit(req, 'saga.task_finished', { actorId: task.user_id, targetType: 'saga_task', targetId: task.id,
     meta: { status: r.status, error: r.error || null, steps: r.steps || 0, sources: (r.sources || []).length } });
   // Saga hands the browser back: the phone leaves AI mode and its shield goes.
-  if (bridge && r.status !== 'interrupted') await bridge.askControl('manual').catch(() => {});
+  if (bridge && r.status !== 'interrupted') {
+    await bridge.askControl('manual', '', { conversation: task.conversation_id || null }).catch(() => {});
+  }
   return r;
 }
 
@@ -91,14 +124,16 @@ async function launch(task, bridge, deps) {
   } finally { running.delete(task.id); }
 }
 
-/** start(req, { goal, language, conversationId }) -> { id, local } (local: this worker has the phone). */
+/** start(req, { goal, language, conversationId, mode }) -> { id, local } (local: this worker has the phone). */
 async function start(req, o, deps = {}) {
+  const mode = store.MODES.includes(o.mode) ? o.mode : 'ai';
   const id = await store.create({ userId: req.user.id, goal: o.goal, language: o.language,
-    conversationId: o.conversationId });
+    conversationId: o.conversationId, mode });
   await audit(req, 'saga.task_created', { actorId: req.user.id, targetType: 'saga_task', targetId: id,
     meta: { length: o.goal.length } });
   const b = pickBridge(req.user.id);
-  const task = { id, user_id: req.user.id, goal: o.goal, language: o.language };
+  const task = { id, user_id: req.user.id, goal: o.goal, language: o.language,
+    conversation_id: o.conversationId || null, mode };
   const done = b ? launch(task, b, { ...deps, req: { ip: req.ip } }) : null;
   return { id, local: Boolean(b), done };
 }

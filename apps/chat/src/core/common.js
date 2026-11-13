@@ -38,7 +38,7 @@ function classify(file, opts) {
 
 var DEFAULT_SETTINGS = {
   enterToSend: true, defaultMode: 'general', defaultModel: null, showMeta: true, linksInPanel: true,
-    browserLayout: 'split',
+    browserLayout: 'split', browserMode: 'ai',
   streaming: true, textSize: 'md', saveHistory: true, shareFeedback: true,
   voice: { lang: 'en-NG', method: 'auto', autoSend: false, readAloudRate: 1, readAloudVoice: 'auto',
     speaker: 'female' }
@@ -50,6 +50,6 @@ function sleep(ms, signal) { return new Promise(function (res, rej) { var t = se
   { name: 'AbortError' })); }); }); }
 function summary(c) { return { id: c.id, title: c.title, mode: c.mode, model: c.model, pinned: !!c.pinned,
   archived: !!c.archived, preview: c.preview || '', created_at: c.created_at, updated_at: c.updated_at,
-  temporary: !!c.temporary }; }
+  temporary: !!c.temporary, browser_mode: c.browser_mode || null }; }
 
 export { DEFAULT_SETTINGS, LIMITS, classify, now, sleep, summary };

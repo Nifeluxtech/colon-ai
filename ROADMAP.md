@@ -193,23 +193,31 @@ search adapter and a search cache; rerun DeepSeek/GLM when NVIDIA's free tier an
 - [ ] Release standard on real phones: multi-step tasks on real sites, injection pages and approvals checked on a
   device (the Android code is not compiled or run in CI here yet for this release)
 
-## Phase 10 — Browser inside chat & control modes
+## Phase 10 — Browser inside chat & control modes ✅ (v0.10.0, 13 Nov 2026)
 - The browser appears automatically in the conversation when Saga browses.
 - Embedded layout (expandable) and split-screen layout (stacked with a resizable divider on phones).
 - Switching layouts never restarts or loses the session.
-- Control modes: **AI, Manual, Shared**, with Take control and Return to AI buttons, plus a live AI activity indicator. Pending AI actions pause the instant the user takes over.
-- Open a page in Colon Browser, then ask Saga about it in Colon AI. Both use the same session.
+- Control modes with Take control and Return to AI buttons, plus a live AI activity indicator. Pending AI actions pause the instant the user takes over.
+- ~~Open a page in Colon Browser, then ask Saga about it in Colon AI. Both use the same session.~~ Replaced by the
+  owner's design: **one browser per chat** (below).
 **Release standard:** mode and layout switching are tested across devices with no lost state.
 
-**Early progress (v0.8.0, from Phase 8):** in the Colon AI Android app the in-chat browser is a native WebView panel
-with embedded (collapsible), split (stacked with a draggable divider on phones, side by side on wide screens) and
-full-screen layouts that switch without reloading, plus AI / Manual / Shared control with Take control, Return to
-AI, Pause and Stop. Since v0.9.0 the panel opens automatically when Saga browses (AI Browse in the app, or any Saga
-control request while the panel is closed). Since v0.9.1 phones show the panel inside the conversation by default
-(layout "inline": the chat draws the Colon Browser card and the native WebView is laid over it, scrolling with the
-thread). Still to do: one shared session between Colon Browser and Colon AI (the
-backend session manager exists since v0.8.1; the apps' "Sync my tabs" setting and Saga's use of it are still to
-do).
+**The owner's design (v0.10.0):** each chat has its own browser, and the user drives it from the chat. Per-chat
+sessions replace sharing Colon Browser's tabs with Colon AI (Colon Browser keeps its own device-wide session).
+- [x] One browser per conversation: sessions keyed by device and conversation on the server (migration 0010); a
+  WebView profile per chat in the Android app (own cookies, storage, tabs, history; LRU beyond
+  `-Pcolon.chatProfiles`, default 20; shared-profile fallback); the browser is forgotten with its chat
+- [x] Chat-driven browsing: "open the browser", "open google.com", "scroll down" in the chat run on that chat's
+  browser; anything else asked of it becomes a Saga task in the chat
+- [x] Two modes per chat: **AI only** (Saga drives, the user watches) and **AI + me** (both act; Saga sees the
+  user's changes), with Take control, Return to AI, Pause and Stop; the default in Settings, a mode chip on the card
+- [x] Saga never fills passwords, codes, card numbers, PINs, or sign-in and payment pages: the page is handed to
+  the user ("Your turn") and Saga resumes on Return to AI (`SAGA_HANDOFF_TIMEOUT_MS`)
+- [x] Embedded, split, full-screen and inline layouts switch without reloading (since v0.8.0–v0.9.2); the panel
+  opens in the conversation when Saga browses (since v0.9.0)
+- [x] Tests: control rules, per-chat sessions, handoff ordering, secret-field refusals, chat intents and modes
+- [ ] Release standard on real phones: mode, layout and chat switching checked across devices with no lost state
+  (the Android code is not compiled or run in CI here yet for this release)
 
 ## Phase 11 — Launch readiness
 - Plans and billing: free tier plus paid plans through a Nigerian gateway (Paystack or AfrStar), with limits enforced per plan.

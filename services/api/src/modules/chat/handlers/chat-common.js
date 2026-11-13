@@ -16,6 +16,7 @@ const previousUserText = (history) => {
 const DEFAULT_SETTINGS = {
   enterToSend: true, defaultMode: 'general', defaultModel: null, showMeta: true, linksInPanel: true,
     browserLayout: 'split',
+    browserMode: 'ai',          // Phase 10: a new chat's browser mode, ai (AI only) or shared (AI + me)
   streaming: true, textSize: 'md', saveHistory: true, shareFeedback: true,
   voice: { lang: 'en-NG', method: 'auto', autoSend: false, readAloudRate: 1 },
 };

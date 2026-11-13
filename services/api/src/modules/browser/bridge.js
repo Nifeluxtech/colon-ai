@@ -8,8 +8,14 @@
 // Phase 9 (Saga, modules/saga): command(name, args, tabId, { timeoutMs }) waits longer for commands that need an
 // approval tap on the phone; waitControl() resolves when the phone answers Saga's control request; the phone's
 // hello `capabilities` are kept so Saga can tell an app without the Phase 9 commands (`supports(name)`).
+// Phase 10: one browser per chat. The phone says which conversation its panel shows (hello / `chat` /
+// session_sync `conversation_id`); sessions and control are kept per device AND conversation, Saga's commands carry
+// the task's conversation and are refused (`other_chat`) while the panel shows another chat. `handoff` asks the
+// phone to give the page to the user for a secret field; the latest `page_state` is kept (memory only) so Saga in
+// "AI + me" sees what the user changed. Control rules: control.js.
 const store = require('./store');
 const S = require('./session');
+const C = require('./control');
 
 const MAX_FRAME = 64 * 1024;
 const PHONE_APPS = ['colonai', 'colonbrowser'];
@@ -30,9 +36,10 @@ function createBridge(o) {
   const audit = o.audit || (async () => {});
   const st = { ref: null, deviceId: null, app: null, maxTabs: S.MAX_TABS, consented: false, lastSync: 0,
     queued: null, timer: null, pending: new Map(), seq: 0, writing: Promise.resolve(), capabilities: [],
-    watchers: new Set(), seen: 0 };
-  const api = { handle, requestSession, command, askControl, waitControl, hasControl, supports, close, state: st,
-    user };
+    watchers: new Set(), seen: 0, conv: '', page: null };
+  const api = { handle, requestSession, command, askControl, waitControl, hasControl, supports, close, handoff,
+    pageState: () => st.page, state: st, user };
+  const sk = () => ({ ref: st.ref, conv: st.conv });
 
   const error = (code, message, extra = {}) => send({ type: 'error', code, message, ...extra });
 
@@ -52,12 +59,13 @@ function createBridge(o) {
     st.capabilities = Array.isArray(m.capabilities) ? m.capabilities.filter((c) => typeof c === 'string'
       && c.length <= 40).slice(0, 40) : [];
     st.seen = now();
+    st.conv = store.convId(m.conversation_id);
     st.ref = await store.touchDevice(user.id, deviceId, st.app, m.app_version);
-    const cur = await store.load(user.id, st.ref);
+    const cur = await store.load(user.id, sk());
     const said = S.CONTROLS.includes(m.control) ? m.control : 'manual';
     if (cur && cur.row.control !== 'manual' && (said === 'manual' || said !== cur.row.control)) {
       // The phone is back in manual (or in another mode we never saw consent for): the user wins.
-      await record('hello', (await store.setControl(user.id, st.ref, { control: 'manual', control_owner: 'user',
+      await record('hello', (await store.setControl(user.id, sk(), { control: 'manual', control_owner: 'user',
         paused: false })).row);
     } else if (cur && said !== 'manual' && cur.row.control === said) st.consented = true;
     if (!live.has(user.id)) live.set(user.id, new Set());
@@ -70,12 +78,12 @@ function createBridge(o) {
   // count when they are more restrictive than what is stored.
   async function write(m) {
     const state = S.normalize(m, { from: 'device', maxTabs: st.maxTabs });
-    const cur = await store.load(user.id, st.ref);
+    const cur = await store.load(user.id, sk());
     const stored = cur ? cur.row : { control: 'manual', paused: 0, task: '' };
     state.control = m.control === 'manual' ? 'manual' : stored.control;
     state.paused = Boolean(stored.paused) || Boolean(m.paused);
     state.task = state.control === 'manual' ? '' : stored.task || '';
-    const r = await store.save(user.id, st.ref, state, { control_owner: store.ownerOf(state.control) });
+    const r = await store.save(user.id, sk(), state, { control_owner: store.ownerOf(state.control) });
     if (stored.control !== 'manual' && state.control === 'manual') {
       cancelPending();
       await record('sync', r.session.row);
@@ -94,8 +102,12 @@ function createBridge(o) {
     return st.writing;
   }
 
-  function onSync(m) {
+  async function onSync(m) {
     if (!st.ref) return error('no_hello', 'Send hello first.');
+    if (m.conversation_id !== undefined && store.convId(m.conversation_id) !== st.conv) {
+      await flush();                               // the old chat's snapshot is written under the old chat
+      switchChat(m.conversation_id);
+    }
     st.queued = m;                                 // latest wins inside the throttle window
     const wait = st.lastSync + throttleMs - now();
     if (wait <= 0 && !st.timer) return flush();
@@ -113,30 +125,33 @@ function createBridge(o) {
 
   async function onControl(m) {
     if (!st.ref) return error('no_hello', 'Send hello first.');
-    const cur = await store.load(user.id, st.ref);
-    const row = cur ? cur.row : { control: 'manual', paused: 0 };
-    let next = null;
-    const mode = S.CONTROLS.includes(m.mode) && m.mode !== 'manual' ? m.mode : 'ai';
-    switch (m.reason) {
-      case 'consent': st.consented = true; next = { control: mode, control_owner: 'saga', paused: false }; break;
-      case 'return_to_ai':
-        if (!st.consented) return error('needs_consent', 'Saga needs the user\'s consent first.');
-        next = { control: mode, control_owner: 'saga', paused: false }; break;
-      case 'declined': case 'stop':
-        st.consented = false; cancelPending();
-        next = { control: 'manual', control_owner: 'user', paused: false, task: '' }; break;
-      case 'take_control':
-        cancelPending(); next = { control: 'manual', control_owner: 'user', paused: Boolean(row.paused) }; break;
-      case 'pause':
-        cancelPending();
-        next = { control: row.control, control_owner: store.ownerOf(row.control), paused: true }; break;
-      case 'resume':
-        next = { control: row.control, control_owner: store.ownerOf(row.control), paused: false }; break;
-      default: return error('bad_control', 'Unknown control reason.');
-    }
-    const after = await store.setControl(user.id, st.ref, next);
+    const cur = await store.load(user.id, sk());
+    const d = C.next(m.reason, cur ? cur.row : null, { mode: m.mode, consented: st.consented });
+    if (d.error === 'needs_consent') return error('needs_consent', 'Saga needs the user\'s consent first.');
+    if (d.error) return error('bad_control', 'Unknown control reason.');
+    st.consented = d.consented;
+    if (d.cancel) cancelPending();
+    const after = d.next ? await store.setControl(user.id, sk(), d.next) : cur;
     await record(m.reason, after && after.row);
     for (const w of [...st.watchers]) w(m.reason);
+  }
+
+  // The phone's panel now shows another chat (Phase 10): its own session; Saga must ask that chat for consent.
+  function switchChat(conv) {
+    const next = store.convId(conv);
+    if (next === st.conv) return;
+    cancelPending();
+    st.conv = next; st.consented = false; st.page = null;
+    for (const w of [...st.watchers]) w('other_chat');
+  }
+
+  // Saga's view of the page while it has control (memory only; manual browsing is never reported by the phone).
+  function onPageState(m) {
+    if (!st.ref) return undefined;
+    if (m.conversation_id !== undefined && store.convId(m.conversation_id) !== st.conv) return undefined;
+    st.page = { url: S.okUrl(m.url) || '', title: String(m.title || '').slice(0, 200), tab_id: String(m.tab_id || '')
+      .slice(0, 40), at: now() };
+    return undefined;
   }
 
   /** Resolves with the phone's next control reason (consent, declined, stop, ...) or 'timeout' / 'disconnected'. */
@@ -153,6 +168,11 @@ function createBridge(o) {
     if (!user || !st.ref || !st.consented) return false;
     const c = await currentControl();
     return c.control !== 'manual' && c.control_owner === 'saga' && !c.paused;
+  }
+
+  /** Phase 10: is the phone's panel on this conversation now? ('' = any: a task without a conversation). */
+  function onChat(conv) {
+    return !conv || store.convId(conv) === st.conv;
   }
 
   function supports(name) { return st.capabilities.includes(name); }
@@ -189,30 +209,44 @@ function createBridge(o) {
    *  how long to wait for the ack (longer when the phone must ask the user to approve). Resolves with the ack. */
   async function command(name, args = {}, tabId, o = {}) {
     if (!user || !st.ref) return { ok: false, error: 'not_ready' };
-    const cur = await store.load(user.id, st.ref);
+    if (!onChat(o.conversation)) return { ok: false, error: 'other_chat' };
+    const cur = await store.load(user.id, sk());
     if (!cur || cur.row.control === 'manual' || cur.row.control_owner !== 'saga') return { ok: false,
       error: 'manual_control' };
     if (cur.row.paused) return { ok: false, error: 'paused' };
-    return pend('command', { type: 'command', name, args, ...(tabId ? { tab_id: tabId } : {}) },
-      o.timeoutMs || ackTimeoutMs);
+    return pend('command', { type: 'command', name, args, ...(tabId ? { tab_id: tabId } : {}),
+      ...(o.conversation ? { conversation_id: store.convId(o.conversation) } : {}) }, o.timeoutMs || ackTimeoutMs);
+  }
+
+  /** Phase 10: Saga hands the page to the user for a secret field (password, code, card, PIN, sign-in, payment).
+   *  The phone switches to Manual, shows the prompt and answers control `handoff`; Return to AI resumes. */
+  function handoff(info = {}, o = {}) {
+    if (!user || !st.ref) return false;
+    if (!onChat(o.conversation)) return false;
+    cancelPending();
+    send({ type: 'handoff', kind: String(info.kind || 'secret').slice(0, 20), message: String(info.message || '')
+      .slice(0, 200), ...(o.conversation ? { conversation_id: store.convId(o.conversation) } : {}) });
+    return true;
   }
 
   /** Saga asks for control; nothing changes on the server until the phone answers with consent. */
-  async function askControl(mode, task = '') {
+  async function askControl(mode, task = '', o = {}) {
     if (!user || !st.ref) return false;
+    if (!onChat(o.conversation)) return false;
     const t = String(task || '').slice(0, 200);
     if (mode === 'manual') {
       cancelPending();
-      await record('saga_release', (await store.setControl(user.id, st.ref, { control: 'manual',
+      await record('saga_release', (await store.setControl(user.id, sk(), { control: 'manual',
         control_owner: 'user', paused: false, task: '' })).row);
     } else if (!S.CONTROLS.includes(mode)) return false;
-    else await store.setControl(user.id, st.ref, { ...(await currentControl()), task: t });
-    send({ type: 'control', mode, task: t });
+    else await store.setControl(user.id, sk(), { ...(await currentControl()), task: t });
+    send({ type: 'control', mode, task: t, ...(o.conversation ? { conversation_id: store.convId(o.conversation) }
+      : {}) });
     return true;
   }
 
   async function currentControl() {
-    const cur = await store.load(user.id, st.ref);
+    const cur = await store.load(user.id, sk());
     const r = cur ? cur.row : { control: 'manual', control_owner: 'user', paused: 0 };
     return { control: r.control, control_owner: r.control_owner, paused: Boolean(r.paused) };
   }
@@ -226,10 +260,16 @@ function createBridge(o) {
     if (!m || typeof m !== 'object') return undefined;
     if (m.type === 'ping') return send({ type: 'pong' });
     if (m.type === 'hello') return onHello(m);
-    if (!['session_sync', 'control', 'ack'].includes(m.type)) return undefined;
+    if (!['session_sync', 'control', 'ack', 'chat', 'page_state'].includes(m.type)) return undefined;
     if (!user) return error('unauthenticated', 'Sign in to sync the browser session.');
     if (m.type === 'session_sync') return onSync(m);
     if (m.type === 'control') return onControl(m);
+    if (m.type === 'page_state') return onPageState(m);
+    if (m.type === 'chat') {
+      if (!st.ref) return error('no_hello', 'Send hello first.');
+      await flush();
+      return switchChat(m.conversation_id);
+    }
     return onAck(m);
   }
 

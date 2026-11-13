@@ -121,6 +121,14 @@ class TabManager(private val host: Host, private val maxLive: Int, val maxTabs: 
         host.onTabsChanged()
     }
 
+    /** Phase 10: puts every tab away without any callback (the panel is switching to another chat's browser): their
+     *  WebViews are destroyed so the old chat's profile is free, and nothing is opened in its place. */
+    fun clearSilently() {
+        tabs.toList().forEach { discard(it, keepState = false) }
+        tabs.clear()
+        active = null
+    }
+
     /** Closes every private tab (their profile is then deleted). */
     fun closePrivate() {
         tabs.filter { it.incognito }.forEach { close(it) }

@@ -1,5 +1,43 @@
 # Changelog
 
+## [0.10.0] — 2026-11-13 · One browser per chat
+Phase 10, the owner's design: every conversation has its own in-chat browser, driven from the chat, instead of the
+chat sharing Colon Browser's tabs. Every version number moves to 0.10.0 (apps, `Colon.version`, `version.json` for
+both APKs, versionCode 1000). Migration `0010_chat_browser_sessions.sql` runs on API start.
+### Added
+- **One browser per chat (API, migration 0010).** Browser sessions are kept per device **and** conversation
+  (`browser_sessions.conversation_id`; `''` stays the device-wide session of Colon Browser and older apps).
+  `GET/PUT/DELETE /browser/session` take `conversation_id`; `GET /browser/sessions` lists it. Deleting a chat (or
+  all chats) deletes its browser sessions and Saga tasks.
+- **Modes per chat: AI only and AI + me.** "AI only" (`ai`): Saga drives, you watch. "AI + me" (`shared`): you both
+  act and Saga sees what you changed (the latest `page_state`, memory only). Default in Settings (`browserMode`),
+  per chat with `PATCH /conversations/:id { browser_mode }` (`chat_conversations.browser_mode`) and the mode chip on
+  the card; `POST /browser/agent` takes `mode` (`saga_tasks.mode`). Control rules in `modules/browser/control.js`.
+- **Saga never fills secret forms.** Passwords, one-time codes, card numbers, PINs, and sign-in and payment pages go
+  to the user: the server (`modules/saga/secrets.js`) and the phone (`SecretFields.kt`, `tools.js`) both check, the
+  page is handed over ("Your turn" on the card) and Saga waits up to `SAGA_HANDOFF_TIMEOUT_MS` (default 600000) for
+  Return to AI. Snapshots sent to the model and the logs are redacted.
+- **Chat-driven browsing.** Tell Saga in the chat to open the browser and what to do: "open the browser", "open
+  google.com", "scroll down" run on this chat's own browser (`lib/browser-intent.js`); anything else becomes a Saga
+  task in this chat. On the web the chat's reader session is per chat too.
+- **Android: one in-chat browser per conversation** (WebView profiles: own cookies, storage, tabs and history; the
+  least recently used beyond `-Pcolon.chatProfiles`, default 20, are deleted; one shared profile, cleared on chat
+  change, on WebViews without profiles). Consent lasts 10 minutes for the same chat's next instructions; Stop,
+  declining or another chat ends it. Deleting a chat forgets its browser.
+- **Bridge:** `browser` actions `chat`, `forget`, `mode`, `control` (feature `browserChats`); WebSocket frames
+  `chat` (app → server) and `handoff` (server → app); `conversation_id` on `hello`, `session_sync`, `page_state`,
+  `control` and `command`; control reasons `handoff` and `mode`; ack error `secret_field`; server error `other_chat`
+  (a command for a chat the panel isn't showing). See `docs/android-bridge.md`.
+### Fixed
+- **Handoff ordering.** The phone sends the `secret_field` ack before its `handoff` control report, and a handoff
+  report no longer cancels pending commands, so the server waits for the user instead of reading a takeover.
+- **Handoff wait re-arm.** Saga re-arms its wait for the phone before checking for Stop, so a Return to AI tapped in
+  between is never missed.
+### Tests
+- `services/api/tests/unit/browser-chat-sessions.test.js`, `saga-handoff.test.js`,
+  `tests/security/saga-secrets.test.js`, `packages/ui/test/browser-intent.test.js`, `browser-modes.test.js`,
+  `scripts/deploy/android-version.test.js` (two-digit minor); Kotlin `ChatSessionsTest`.
+
 ## [0.9.2] — 2026-11-13 · The browser panel stays inside the conversation
 Fix for 0.9.1 on real phones: the in-chat browser panel could still open pinned above the chat (embedded, with its
 own header) instead of inside the thread. Every version number moves to 0.9.2 (apps, `Colon.version`,

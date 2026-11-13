@@ -6,6 +6,7 @@
 module.exports = {
   tools: require('./tools'),
   policy: require('./policy'),
+  secrets: require('./secrets'),
   prompt: require('./prompt'),
   parse: require('./parse'),
   loop: require('./loop'),

@@ -26,6 +26,7 @@ function convOut(c) {
   return {
     id: c.id, title: c.title, mode: c.mode, model: c.model, pinned: Boolean(c.pinned), archived: Boolean(c.archived),
     preview: c.preview || '', shared: Boolean(c.share_token), created_at: c.created_at, updated_at: c.updated_at,
+    browser_mode: c.browser_mode === 'ai' || c.browser_mode === 'shared' ? c.browser_mode : null,
   };
 }
 

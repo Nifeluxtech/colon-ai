@@ -5,11 +5,13 @@ import { autoGrow, scrollBottom, syncComposer } from './composer.js';
 import { renderThread } from './message.js';
 import { updateHeader } from './model-picker.js';
 import { refreshConvs } from './sidebar.js';
+import { chatCall, chatMode, chip, menu, sessionKey } from '../lib/browser-modes.js';
 import { createAnchor } from '../lib/native-anchor.js';
 import { needsAnnounce, showsCard, withInline } from '../lib/native-panel.js';
 import { ColonBrowser } from '../../../../packages/ui/js/browser/index.js';
 import { Colon } from '../../../../packages/ui/js/colon.js';
 import { ColonURL } from '../../../../packages/ui/js/url.js';
+import { CW } from '../core/cw.js';
 import { $, S, data, defaultModel, isMobile } from '../core/state.js';
 import { setView } from '../pages/chat.js';
 
@@ -19,8 +21,10 @@ var C = Colon, icon = C.icon;
 function ensureBrowser() {
   if (S.browser.inst) return S.browser.inst;
   var holder = document.createElement('div'); holder.className = 'cw-browser-holder';
+  // Phase 10: one browser per chat; on the web the reader keeps this conversation's own session.
+  S.browser.instKey = sessionKey(S.current);
   S.browser.inst = ColonBrowser.create(holder, {
-    variant: 'panel',
+    variant: 'panel', sessionKey: S.browser.instKey,
     onSummary: function (md, sources, goal) { addBrowseNote(md, sources, goal); },
     onAsk: function (url) { var ta = $('#cw-input'); ta.value = 'Summarise this page for me: ' + url; autoGrow();
       syncComposer(); setMobileTab('chat'); ta.focus(); },
@@ -108,14 +112,24 @@ function applySplitWidth() {
     || 1000) * 0.45);
   S.browser.width = w; $('.cw-split').style.width = w + 'px';
 }
-function addBrowseNote(md, sources, goal) {
-  var c = S.current && !S.loadingConv ? Promise.resolve(S.current) : data.createConversation({ mode: 'research',
-    model: S.draftModel || defaultModel() }).then(function (c) { S.current = c; S.messages = []; history.replaceState(
-    null, '', '#/c/' + encodeURIComponent(c.id)); setView('chat'); return c; });
-  c.then(function (conv) { return data.addNote(conv.id, { content: md, sources: sources, origin: 'browse',
-    title: goal }); })
+// The conversation this browsing belongs to (a new chat gets one now; its browser is adopted, not replaced).
+function ensureConv(mode) {
+  if (S.current && !S.loadingConv) return Promise.resolve(S.current);
+  return data.createConversation({ mode: mode || S.draftMode || 'research', model: S.draftModel || defaultModel() })
+    .then(function (c) { S.current = c; S.messages = []; S.browser.createdId = c.id; history.replaceState(null, '',
+      '#/c/' + encodeURIComponent(c.id)); setView('chat'); return c; });
+}
+// A message in the thread from browsing: Saga's note, or (Phase 10) the user's own browser instruction.
+function addThreadNote(content, o) {
+  o = o || {};
+  return ensureConv(o.mode).then(function (conv) { return data.addNote(conv.id, { content: content, role: o.role,
+    sources: o.sources || [], origin: 'browse', title: o.title }); })
     .then(function (m) { S.messages.push(m); renderThread(); scrollBottom(true); refreshConvs(); updateHeader();
-      C.toast('AI Browse summary added to the chat.', 'ok'); setMobileTab('chat'); })
+      return m; });
+}
+function addBrowseNote(md, sources, goal, o) {
+  addThreadNote(md, { sources: sources, title: goal, mode: 'research' }).then(function () {
+    if (!(o && o.quiet)) C.toast('AI Browse summary added to the chat.', 'ok'); setMobileTab('chat'); })
     .catch(function (e) { C.toast(e.message, 'bad'); });
 }
 /* ---------- Native panel (Android app) ---------- */
@@ -152,6 +166,7 @@ function startNativeBrowser() {
   // The first call says at once that this page draws the inline card (every call does, v0.9.1); the state of a
   // panel the app opened by itself meanwhile comes back with it.
   nativeBrowser('state').then(syncNative, function () {});
+  syncChat();                         // Phase 10: the app shows this chat's own browser from the start
   var off = C.native.on('browser', syncNative);
   var offResume = C.native.on('resume', function () { nativeBrowser('state').then(syncNative, function () {}); });
   return function () { off(); offResume(); stopAnchor(); var h = $('.cw-native-host'); if (h) h.innerHTML = ''; };
@@ -168,12 +183,15 @@ function inlineHtml() {
   return '<div class="cw-embed cw-native-card" role="region" aria-label="Colon Browser (in the chat)">'
     + '<div class="cw-embed-head"><span class="status-dot" data-ndot></span><b>Colon Browser</b>'
     + '<span class="tiny muted cw-ellipsis" data-nurl></span>'
+    + '<button class="chip sm cw-mode-chip" data-a="native-mode" aria-haspopup="menu"></button>'
     + '<button class="icon-btn sm" data-a="native-collapse" aria-label="Collapse browser" aria-expanded="true" '
     + 'data-tip="Collapse">' + icon('chevDown') + '</button>'
     + '<button class="icon-btn sm" data-a="native-full" aria-label="Expand to full screen" data-tip="Full screen">'
     + icon('expand') + '</button>'
     + '<button class="icon-btn sm" data-a="native-close" aria-label="Close browser" data-tip="Close">' + icon('x')
-    + '</button></div><div class="cw-embed-body cw-native-body"><span class="tiny muted">Loading the page…</span>'
+    + '</button></div><div class="cw-native-prompt" role="alert" hidden><span data-nprompt></span>'
+    + '<button class="btn sm primary" data-a="native-return">Return to AI</button></div>'
+    + '<div class="cw-embed-body cw-native-body"><span class="tiny muted">Loading the page…</span>'
     + '</div></div>';
 }
 function renderNativeInline(st) {
@@ -187,6 +205,12 @@ function renderNativeInline(st) {
     + (st.paused ? ' warn' : '');
   card.querySelector('[data-nurl]').textContent = (saga ? 'Saga · ' : '') + (st.url ? ColonURL.displayUrl(st.url)
     : 'New tab');
+  // Phase 10: who drives this chat's browser, and Saga's request to type a password or code here.
+  var c = chip(st, chatMode(S.current, S.settings)), mc = card.querySelector('[data-a=native-mode]');
+  mc.textContent = c.label; mc.setAttribute('data-state', c.state);
+  mc.setAttribute('aria-label', 'Browser mode: ' + c.label + '. Change it');
+  var pr = card.querySelector('.cw-native-prompt');
+  pr.hidden = !c.canReturn; card.querySelector('[data-nprompt]').textContent = c.prompt || 'You’re in control.';
   var cb = card.querySelector('[data-a=native-collapse]');
   cb.setAttribute('aria-expanded', !st.collapsed);
   cb.setAttribute('aria-label', st.collapsed ? 'Expand browser' : 'Collapse browser');
@@ -204,14 +228,60 @@ function renderNativeInline(st) {
   if (fresh) setTimeout(function () { card.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); }, 50);
 }
 // The card's header buttons: collapse / expand, full screen (the app's own header there), close.
-function nativeInlineAction(act) {
+function nativeInlineAction(act, el) {
   var st = S.browser.nativeState || {};
+  if (act === 'native-mode') return modeMenu(el, st);
+  if (act === 'native-return') return nativeBrowser('control', { op: 'return_to_ai' }).then(syncNative, nativeFailed);
   var call = act === 'native-collapse' ? nativeBrowser('collapse', { collapsed: !st.collapsed })
     : act === 'native-full' ? nativeBrowser('layout', { layout: 'full' }) : nativeBrowser('close');
   call.then(syncNative, nativeFailed);
 }
+/* ---------- Phase 10: one browser per chat, and its mode ---------- */
+function modeMenu(anchor, st) {
+  C.menu(anchor, [{ head: 'This chat’s browser' }].concat(menu(st, chatMode(S.current, S.settings)).map(function (i) {
+    return { label: i.label, checked: i.checked, onClick: function () { if (i.op === 'mode') setChatMode(i.mode);
+      else nativeBrowser('control', { op: i.op }).then(syncNative, nativeFailed); } };
+  })), { label: 'Browser mode', align: 'right' });
+}
+// The chat's mode: saved on the conversation and, in the app, applied to its browser (and Saga's running task).
+function setChatMode(mode) {
+  if (S.current && !S.loadingConv) {
+    S.current.browser_mode = mode;
+    data.updateConversation(S.current.id, { browser_mode: mode }).catch(function () {});
+  }
+  if (C.native.can('browserChats')) return nativeBrowser('mode', { mode: mode }).then(syncNative, function () {});
+  return Promise.resolve();
+}
+// The chat on screen changed (updateHeader runs on every change): the app shows that chat's browser, a new chat
+// gets a clean one (or keeps its draft when its conversation was just created), and the web reader its session.
+function syncChat() {
+  if (!S.el || (S.view !== 'chat' && S.view !== 'welcome')) return;
+  var key = sessionKey(S.current);
+  if (S.browser.inst && S.browser.instKey !== key) {
+    if (S.browser.layout !== 'none') setLayout('none');
+    S.browser.inst.destroy(); S.browser.inst = null;
+  }
+  if (!C.native.can('browserChats')) return;
+  var call = chatCall(S.browser.chatSent, key, { created: !!key && key === S.browser.createdId });
+  var mode = chatMode(S.current, S.settings);
+  if (call) { S.browser.chatSent = key; S.browser.modeSent = null; nativeBrowser('chat', call).then(syncNative,
+    function () {}); }
+  if (S.browser.modeSent !== key + ':' + mode) { S.browser.modeSent = key + ':' + mode;
+    nativeBrowser('mode', { mode: mode }).then(syncNative, function () {}); }
+}
+CW.syncChat = syncChat;
+// A deleted chat's browser goes with it: the app's profile and tabs, the web reader's session on this device.
+function forgetChat(id) {
+  if (C.native.can('browserChats')) nativeBrowser('forget', { conversation_id: id }).catch(function () {});
+  var d = window.ColonBrowserData && window.ColonBrowserData.get();
+  if (d && d.kind === 'local' && d.removeSession) d.removeSession(id).catch(function () {});
+}
+CW.forgetAllChats = function () {
+  if (C.native.can('browserChats')) nativeBrowser('forget', { all: true }).catch(function () {});
+};
 function applyTextSize() { document.documentElement.setAttribute('data-text', (S.settings && S.settings.textSize)
   || 'md'); }
 
-export { addBrowseNote, applySplitWidth, applyTextSize, nativeBrowser, nativeFailed, nativeInlineAction, openBrowser,
-  renderEmbed, setLayout, setMobileTab, startNativeBrowser, syncNative, toggleBrowser };
+export { addBrowseNote, addThreadNote, applySplitWidth, applyTextSize, ensureConv, forgetChat, nativeBrowser,
+  nativeFailed, nativeInlineAction, openBrowser, renderEmbed, setChatMode, setLayout, setMobileTab, startNativeBrowser,
+  syncChat, syncNative, toggleBrowser };

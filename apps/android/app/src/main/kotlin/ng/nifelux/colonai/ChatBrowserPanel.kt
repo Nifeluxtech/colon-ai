@@ -32,12 +32,25 @@ import org.json.JSONObject
  * (PanelLayout); switching moves or resizes the same views, so the page never reloads. Back / forward / reload /
  * close; "Open in Colon Browser" hands the page to the standalone app (or offers its download). Saga's AI / Manual /
  * Shared control and consent work here exactly as in Colon Browser (BrowserSaga). Every change is sent to the page as the "browser" event (state()).
+ *
+ * Phase 10: one browser per chat. The chat page says which conversation it shows (browser('chat')); the panel then
+ * shows that chat's browser: its own tabs and history (ChatSessionStore) and, where the WebView supports profiles,
+ * its own cookies, site storage and logins (WebView profile "colon-chat-<id>", ChatProfiles). A new chat starts
+ * with a clean browser (a draft that the conversation adopts once it exists); deleting a chat deletes its browser
+ * (browser('forget')); at most BuildConfig.CHAT_PROFILES_MAX chats keep one (least recently used go first). Without
+ * MULTI_PROFILE every chat shares one cookie jar, cleared (except Colon's own cookies) when the chat changes.
  */
 class ChatBrowserPanel(private val a: MainActivity) : BrowserHost, TabManager.Host {
     override val activity: AppCompatActivity get() = a
     override val fileChooser: FileChooser get() = a.fileChooser
-    override val store = BrowserStore(a, BrowserStore.PANEL)
+    private val chats = ChatSessionStore(a)
+    /** The chat whose browser the panel shows: a conversation id, or a draft key for a new chat. */
+    private var chatKey: String = chats.current?.takeIf { it.isNotBlank() }
+        ?: ChatSessionRules.draftKey(System.currentTimeMillis())
+    private var chatStore = BrowserStore(a, BrowserStore.PANEL, chats.historyName(chatKey))
+    override val store: BrowserStore get() = chatStore
     override val tabs = TabManager(this, 2, MAX_TABS)
+    private var sharedNoticeShown = false
     val saga = BrowserSaga(this, ColonApplication.of(a).bridge)
 
     private val box: LinearLayout = a.findViewById(R.id.split_box)
@@ -67,6 +80,11 @@ class ChatBrowserPanel(private val a: MainActivity) : BrowserHost, TabManager.Ho
     private val opener = object : BridgeClient.Listener {
         override fun onControlRequest(request: BridgeProtocol.Incoming.Control) {
             if (isOpen || request.mode == ControlState.Mode.MANUAL) return
+            // Saga asked for another chat's browser than the one shown: no.
+            val wanted = request.conversationId
+            if (wanted != null && wanted != conversationOf(chatKey)) {
+                bridge.reportControl(saga.control.mode, saga.control.paused, "declined"); return
+            }
             open(null)
             saga.onControlRequest(request)
         }
@@ -101,6 +119,10 @@ class ChatBrowserPanel(private val a: MainActivity) : BrowserHost, TabManager.Ho
     private var restored = false
 
     init {
+        chats.current = chatKey
+        // Chat profiles no kept chat uses (an app killed mid-delete, chats deleted elsewhere) go at launch.
+        ChatProfiles.deleteStale(chats.profiles(), null)
+        bridge.setConversation(conversationOf(chatKey))
         saga.bind(panel)
         address.setOnEditorActionListener { _, id, e ->
             val go = id == EditorInfo.IME_ACTION_GO || (e?.keyCode == KeyEvent.KEYCODE_ENTER &&
@@ -129,7 +151,7 @@ class ChatBrowserPanel(private val a: MainActivity) : BrowserHost, TabManager.Ho
 
     /** Opens the panel (in [layout] when given) and loads [url] in a new tab, or shows the current tab. */
     fun open(url: String?, layout: String? = null) {
-        if (!restored) { restored = true; tabs.restore(store.tabsJson)?.let { if (url == null) tabs.switchTo(it) } }
+        if (!restored) { restored = true; tabs.restore(chats.tabs(chatKey))?.let { if (url == null) tabs.switchTo(it) } }
         val asked = PanelLayout.Mode.from(layout)
         if (asked != null) {
             if (asked == PanelLayout.Mode.FULL && mode != PanelLayout.Mode.FULL) beforeFull = mode
@@ -171,7 +193,7 @@ class ChatBrowserPanel(private val a: MainActivity) : BrowserHost, TabManager.Ho
         tabs.trim(1)
         hideKeyboard()
         saga.detach()
-        store.tabsJson = tabs.toJson()
+        chats.setTabs(chatKey, tabs.toJson())
         applyLayout()
         changed()
     }
@@ -267,6 +289,117 @@ class ChatBrowserPanel(private val a: MainActivity) : BrowserHost, TabManager.Ho
             .put("paused", saga.control.paused)
             .put("task", saga.control.task ?: JSONObject.NULL)
             .put("browserApp", Handoff.installedPartner(a) != null)
+            // Phase 10: whose browser this is, its mode, and Saga's request to the user for a secret field.
+            .put("chat", conversationOf(chatKey) ?: JSONObject.NULL)
+            .put("chatMode", ChatSessionRules.mode(chats.mode(chatKey)))
+            .put("resumable", saga.control.resumable?.wire ?: JSONObject.NULL)
+            .put("handoff", saga.control.handoff?.let { JSONObject().put("kind", it.kind).put("message", it.message) }
+                ?: JSONObject.NULL)
+            .put("profiles", if (ChatProfiles.supported()) "separate" else "shared")
+    }
+
+    /* ---------- Phase 10: one browser per chat ---------- */
+
+    private fun conversationOf(key: String): String? = key.takeIf { !ChatSessionRules.isDraft(it) }
+
+    override fun tabProfile(): String? = if (ChatProfiles.supported()) chats.profileOf(chatKey) else null
+
+    override fun onControlChanged() = changed()
+
+    /** browser('chat'): the chat page now shows [conversationId] (null: a new chat). [adopt]: the new chat just got
+     *  its id, so the browser it already has becomes the conversation's (nothing reloads). */
+    fun showChat(conversationId: String?, adopt: Boolean) {
+        val key = ChatSessionRules.keyOf(conversationId)
+        if (key == chatKey) { bridge.setConversation(key); return }
+        if (key != null && adopt && ChatSessionRules.isDraft(chatKey)) {
+            val draft = chatKey
+            chats.setTabs(draft, if (restored) tabs.toJson() else chats.tabs(draft))
+            chats.adopt(draft, key)
+            chatKey = key
+            chats.current = key
+            chatStore = BrowserStore(a, BrowserStore.PANEL, chats.historyName(key))
+            touch(key)
+            bridge.setConversation(key)
+            changed()
+            return
+        }
+        // A new chat keeps a draft nobody used yet; otherwise it gets a clean one.
+        if (key == null && ChatSessionRules.isDraft(chatKey) && tabs.tabs.none { UrlRules.isWebUrl(it.url) }
+            && chats.tabs(chatKey).isNullOrBlank()) { bridge.setConversation(null); return }
+        switchTo(key ?: ChatSessionRules.draftKey(System.currentTimeMillis()))
+    }
+
+    /** browser('forget'): the conversation was deleted; its browser (profile, tabs, history) goes too. */
+    fun forgetChat(conversationId: String?) {
+        val key = ChatSessionRules.keyOf(conversationId) ?: return
+        if (key == chatKey) switchTo(ChatSessionRules.draftKey(System.currentTimeMillis()))
+        val profile = chats.forget(key)
+        // Its WebViews were just destroyed; the profile is deleted once WebView lets go of it (else at next launch).
+        main.postDelayed({ ChatProfiles.delete(profile) }, 1500)
+    }
+
+    /** browser('forget', {all: true}): every conversation was deleted; so is every chat's browser. */
+    fun forgetAllChats() {
+        if (!ChatSessionRules.isDraft(chatKey)) switchTo(ChatSessionRules.draftKey(System.currentTimeMillis()))
+        val profiles = chats.order().filter { it != chatKey }.mapNotNull { chats.forget(it) }
+        main.postDelayed({ profiles.forEach { ChatProfiles.delete(it) } }, 1500)
+    }
+
+    /** browser('mode'): this chat's "AI only" (ai) or "AI + me" (shared); a running Saga task switches too. */
+    fun setChatMode(mode: String) {
+        val m = ChatSessionRules.mode(mode)
+        chats.setMode(chatKey, m)
+        saga.switchMode(if (m == "shared") ControlState.Mode.SHARED else ControlState.Mode.AI)
+        changed()
+    }
+
+    /** browser('control'): Take control / Return to AI / Pause / Resume / Stop from the chat page. */
+    fun userControl(op: String): Boolean = saga.userControl(op).also { changed() }
+
+    private fun touch(key: String) {
+        val (order, evicted) = ChatSessionRules.touch(chats.order(), key,
+            BuildConfig.CHAT_PROFILES_MAX.takeIf { it > 0 } ?: ChatSessionRules.DEFAULT_MAX)
+        chats.setOrder(order)
+        evicted.filter { it != chatKey }.forEach { ChatProfiles.delete(chats.forget(it)) }
+    }
+
+    /** Puts the current chat's browser away and shows [next]'s: same panel and layout, other tabs and profile. */
+    private fun switchTo(next: String) {
+        val old = chatKey
+        saga.endForChatSwitch()
+        val visited = store.history().map { it.url } + tabs.tabs.map { it.url }
+        if (restored) chats.setTabs(old, tabs.toJson())
+        fullscreen.exit()
+        hideKeyboard()
+        for (i in content.childCount - 1 downTo 0) if (content.getChildAt(i) is WebView) content.removeViewAt(i)
+        tabs.clearSilently()
+        // A new chat left behind without a conversation is gone for good.
+        if (ChatSessionRules.isDraft(old)) { val p = chats.forget(old); main.postDelayed({ ChatProfiles.delete(p) }, 1500) }
+        chatKey = next
+        chats.current = next
+        chatStore = BrowserStore(a, BrowserStore.PANEL, chats.historyName(next))
+        touch(next)
+        restored = false
+        bridge.setConversation(conversationOf(next))
+        val show = Runnable {
+            if (chatKey != next) return@Runnable
+            if (isOpen) {
+                restored = true
+                tabs.restore(chats.tabs(next))?.let { tabs.switchTo(it) } ?: tabs.open(UrlRules.HOME)
+            }
+            refresh()
+            changed()
+        }
+        if (ChatProfiles.supported()) show.run()
+        else {
+            // One shared cookie jar: the old chat's sign-ins go before the next chat's pages load.
+            if (!sharedNoticeShown && visited.any { UrlRules.isWebUrl(it) }) {
+                sharedNoticeShown = true
+                Toast.makeText(a, R.string.chat_profiles_shared, Toast.LENGTH_LONG).show()
+            }
+            ChatProfiles.clearShared(visited) { main.post(show) }
+        }
+        changed()
     }
 
     /* ---------- MainActivity hooks ---------- */
@@ -294,7 +427,7 @@ class ChatBrowserPanel(private val a: MainActivity) : BrowserHost, TabManager.Ho
         if (reloadOnReturn) { reloadOnReturn = false; tabs.active?.webView?.reload() }
     }
 
-    fun onPause() { tabs.active?.webView?.onPause(); if (restored) store.tabsJson = tabs.toJson() }
+    fun onPause() { tabs.active?.webView?.onPause(); if (restored) chats.setTabs(chatKey, tabs.toJson()) }
     fun onConfigurationChanged() { if (isOpen) applyLayout() }
     fun onTrimMemory() { tabs.trim(1) }
 

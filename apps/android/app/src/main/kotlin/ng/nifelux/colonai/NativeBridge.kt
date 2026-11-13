@@ -168,6 +168,9 @@ class NativeBridge(private val host: MainActivity, private val webView: WebView)
      * reload|handoff|state|anchor, url?, layout?, collapsed?, inline?}. Every action answers with the panel's state,
      * except anchor (sent up to once a frame while the thread scrolls), which answers null. inline: true says the
      * page draws the in-thread card, so the "inline" layout may be used (feature "browserInline", v0.9.1).
+     * Phase 10 (feature "browserChats"): chat {conversation_id, adopt?} shows that chat's own browser, forget
+     * {conversation_id} deletes a deleted chat's browser ({all: true}: every chat's), mode {mode: ai|shared} sets the chat's "AI only" / "AI + me",
+     * control {op: take_control|return_to_ai|pause|resume|stop} is the user's control from the chat page.
      */
     private fun browser(a: JSONObject, done: (Boolean, Any?, String?) -> Unit) {
         val p = host.browserPanel
@@ -190,6 +193,15 @@ class NativeBridge(private val host: MainActivity, private val webView: WebView)
             "reload" -> p.reloadPage()
             "handoff" -> { done(true, JSONObject().put("handedOff", p.handoff()), null); return }
             "state" -> Unit
+            "chat" -> p.showChat(a.optString("conversation_id").ifBlank { null }, a.optBoolean("adopt", false))
+            "forget" -> if (a.optBoolean("all", false)) p.forgetAllChats()
+                else p.forgetChat(a.optString("conversation_id").ifBlank { null })
+            "mode" -> {
+                val m = a.optString("mode")
+                if (m != "ai" && m != "shared") { done(false, null, "bad_mode"); return }
+                p.setChatMode(m)
+            }
+            "control" -> if (!p.userControl(a.optString("op"))) { done(false, null, "no_change"); return }
             else -> { done(false, null, "unknown_action"); return }
         }
         done(true, p.state(), null)
@@ -236,7 +248,7 @@ class NativeBridge(private val host: MainActivity, private val webView: WebView)
         private const val MAX_SAVE_B64 = 34 * 1024 * 1024 // about 25 MB of file
         val FEATURES = listOf("share", "download", "saveFile", "openTab", "openExternal", "haptic",
             "requestPermission", "checkUpdate", "setTheme", "setSession", "takeShare", "fileInput", "mic", "browserPanel",
-            "browserInline")
+            "browserInline", "browserChats")
 
         /** Defines window.ColonNative (promise API) on top of the channel. Runs once per page, before page scripts. */
         private val SHIM = """

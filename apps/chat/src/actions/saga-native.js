@@ -4,11 +4,16 @@
    and every risky step asks for approval on the phone. This module follows the task (GET /browser/agent/:id with
    the action log since the last step), shows Saga's explanation of each step, and adds the answer with its steps
    and cited pages to the chat. On the web, or when the server or the phone can't do it, AI Browse falls back to
-   the web reader panel (ColonSagaBrowse), as before. */
+   the web reader panel (ColonSagaBrowse), as before.
+   Phase 10: the task runs on this chat's own browser in the chat's mode (AI only / AI + me), and when Saga reaches
+   a password, code, card or PIN it hands the page to the user: the step's prompt ("Enter your password here, then
+   tap Return to AI") is added to the thread and shown on the browser card until the user returns control. */
 
-import { addBrowseNote, nativeBrowser, nativeFailed, openBrowser, syncNative } from '../components/browser-panel.js';
+import { addBrowseNote, addThreadNote, nativeBrowser, nativeFailed, openBrowser, syncNative }
+  from '../components/browser-panel.js';
 import { Colon } from '../../../../packages/ui/js/colon.js';
 import { S, data, signedIn } from '../core/state.js';
+import { chatMode } from '../lib/browser-modes.js';
 
 var C = Colon, POLL_MS = 1500, active = null;
 var TERMINAL = ['done', 'step_limit', 'timeout', 'stopped', 'interrupted', 'failed'];
@@ -22,7 +27,8 @@ var ENDED = {
 var ERRORS = { declined: 'You didn’t allow Saga to browse.', no_consent: 'Nobody answered “Let Saga browse?” on the '
   + 'phone.', approval_missing: 'A step needed your approval and didn’t get it, so Saga stopped.', phone_timeout:
   'The browser panel stopped answering.', model_timeout: 'Colon Saga took too long to decide.', bad_reply: 'Colon '
-  + 'Saga’s replies couldn’t be understood.' };
+  + 'Saga’s replies couldn’t be understood.', handoff_timeout: 'Saga waited for you to type your details, then '
+  + 'stopped.', other_chat: 'The browser was showing another chat.', stop: 'You stopped Saga.' };
 
 function webFallback(goal, why) {
   if (why) C.toast(why);
@@ -58,6 +64,9 @@ function poll(t) {
       (d.actions || []).forEach(function (a) {
         t.seq = Math.max(t.seq, a.seq); t.steps.push(a);
         if (a.kind === 'action' && a.say && a.say !== t.lastSay) { t.lastSay = a.say; C.toast('Saga: ' + a.say); }
+        // Saga needs the user for a secret: the prompt goes in the thread (the card shows it too).
+        if (a.kind === 'handoff' && a.say) { C.toast(a.say); addThreadNote('**Your turn:** ' + line(a.say)
+          + ' Saga never sees what you type there. You can also say “done” here.', {}).catch(function () {}); }
       });
       if (TERMINAL.indexOf(d.task.status) < 0) return poll(t);
       active = null;
@@ -66,7 +75,7 @@ function poll(t) {
           + 'browser panel. Using the web reader for now.' : 'Saga couldn’t reach the browser panel. Using the web '
           + 'reader instead.');
       }
-      addBrowseNote(noteFor(d.task, t.steps), d.task.sources || [], t.goal);
+      addBrowseNote(noteFor(d.task, t.steps), d.task.sources || [], t.goal, { quiet: t.chat });
     }, function () {
       if (++t.errors < 6) return poll(t);
       active = null; C.toast('Lost track of Saga’s task. Check your connection.', 'bad');
@@ -76,7 +85,8 @@ function poll(t) {
 
 /** AI Browse in the app: opens the native panel (in the thread on phones since 0.9.1) and, with a goal, has Saga
     browse there. */
-function browseNative(goal) {
+function browseNative(goal, o) {
+  o = o || {};
   nativeBrowser('open', {}).then(syncNative, nativeFailed);
   if (!goal) return;
   // Saga's tasks belong to an account; signed-out (guest) chats keep the web reader.
@@ -85,9 +95,10 @@ function browseNative(goal) {
   if (active) { C.toast('Saga is already browsing. Stop it in the panel first.', 'bad'); return; }
   var conv = S.current && !S.current.temporary ? S.current.id : null;
   C.api('/browser/agent', { method: 'POST', body: { goal: goal, conversation_id: conv,
-    language: (C.user && C.user.language) || 'en' } }).then(function (d) {
-    active = { id: d.task.id, goal: goal, seq: 0, steps: [], errors: 0, lastSay: '' };
-    C.toast('Saga is browsing in the panel. Tap Allow on your phone to let it start.');
+    mode: chatMode(S.current, S.settings), language: (C.user && C.user.language) || 'en' } }).then(function (d) {
+    active = { id: d.task.id, goal: goal, seq: 0, steps: [], errors: 0, lastSay: '', chat: !!o.chat };
+    C.toast(o.chat ? 'Saga is on it in this chat’s browser.' : 'Saga is browsing in the panel. Tap Allow on your '
+      + 'phone to let it start.');
     poll(active);
   }, function (e) {
     if (e.code === 'refused') { C.toast(e.message, 'bad'); return; }
@@ -96,4 +107,7 @@ function browseNative(goal) {
   });
 }
 
-export { browseNative };
+/** True while a Saga task started from this page is running. */
+function sagaActive() { return !!active; }
+
+export { browseNative, sagaActive };
