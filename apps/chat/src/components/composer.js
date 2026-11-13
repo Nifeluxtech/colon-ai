@@ -106,8 +106,10 @@ function syncComposer() {
   S.el.classList.toggle('has-text', !!ta.value.trim());
 }
 // Follow the stream only while the reader is at the bottom; once they scroll up, stay put and offer "Latest".
+// Pages (Settings, Help, ...) share #cw-scroll: never pull them to the bottom (e.g. the composer hiding on mobile).
 function scrollBottom(force) {
   var sc = $('#cw-scroll'); if (!sc) return;
+  if (S.view !== 'chat' && S.view !== 'welcome') { syncJump(); return; }
   if (force) S.stick = true;
   if (S.stick) { sc.scrollTop = sc.scrollHeight; S.lastTop = sc.scrollTop; }
   syncJump();

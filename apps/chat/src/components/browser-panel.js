@@ -22,8 +22,8 @@ function ensureBrowser() {
     onSummary: function (md, sources, goal) { addBrowseNote(md, sources, goal); },
     onAsk: function (url) { var ta = $('#cw-input'); ta.value = 'Summarise this page for me: ' + url; autoGrow();
       syncComposer(); setMobileTab('chat'); ta.focus(); },
-    onNavigateApp: function (section) { window.open('https://browser.apparatus.name.ng/#/' + section, '_blank',
-      'noopener'); }
+    onNavigateApp: function (section) { if (C.native.openTab('')) return;
+      window.open('https://browser.apparatus.name.ng/#/' + section, '_blank', 'noopener'); }
   });
   S.browser.inst.on('change', browserIndicator);
   return S.browser.inst;
@@ -38,7 +38,10 @@ function browserIndicator() {
   S.el.querySelectorAll('[data-burl]').forEach(function (u) { u.textContent = (activeTask ? 'Saga: ' + (st.task.site
     || 'working') + ' · ' : '') + label; });
 }
-function openBrowser(url) {
+// In the Android app (v0.7.1) pages open in a native Colon Browser tab (full Chromium, logins, downloads) instead of
+// the web reader preview. AI Browse ({ panel: true }) still runs in the panel until Saga drives native tabs (Phase 9).
+function openBrowser(url, opts) {
+  if (!(opts && opts.panel) && C.native.openTab(url || '')) return null;
   var b = ensureBrowser();
   if (S.browser.layout === 'none') setLayout(isMobile() ? 'embedded' : (S.settings.browserLayout || 'split'));
   else if (S.browser.layout === 'embedded' && S.browser.collapsed) { S.browser.collapsed = false; renderEmbed(); }
