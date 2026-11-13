@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- App theme: Material 3 with Colon tokens. DayNight follows the phone; the chat page sets its own theme. -->
+    <style name="Theme.Colon" parent="Theme.Material3.DayNight.NoActionBar">
+        <item name="colorPrimary">@color/colon_primary</item>
+        <item name="colorOnPrimary">@android:color/white</item>
+        <item name="colorSecondary">@color/colon_cyan</item>
+        <item name="colorSurface">@color/colon_surface</item>
+        <item name="colorOnSurface">@color/colon_text</item>
+        <item name="android:colorBackground">@color/colon_bg</item>
+        <item name="android:windowBackground">@color/colon_bg</item>
+        <item name="android:textColorPrimary">@color/colon_text</item>
+        <item name="android:textColorSecondary">@color/colon_muted</item>
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
+    </style>
+
+    <!-- The shell always opens on Colon navy, like the web app's dark default, so there is no white flash. -->
+    <style name="Theme.Colon.Shell">
+        <item name="android:windowBackground">@color/colon_dark</item>
+    </style>
+
+    <!-- Splash: Android 12+ SplashScreen API, backported to Android 7-11 by androidx.core:core-splashscreen. -->
+    <style name="Theme.Colon.Splash" parent="Theme.SplashScreen">
+        <item name="windowSplashScreenBackground">@color/colon_dark</item>
+        <item name="windowSplashScreenAnimatedIcon">@drawable/splash_icon</item>
+        <item name="windowSplashScreenAnimationDuration">900</item>
+        <item name="postSplashScreenTheme">@style/Theme.Colon.Shell</item>
+    </style>
+
+    <style name="Theme.Colon.Invisible" parent="Theme.Colon">
+        <item name="android:windowIsTranslucent">true</item>
+        <item name="android:windowBackground">@android:color/transparent</item>
+        <item name="android:windowNoTitle">true</item>
+        <item name="android:windowAnimationStyle">@null</item>
+        <item name="android:backgroundDimEnabled">false</item>
+    </style>
+
+    <style name="Colon.BarButton" parent="Widget.Material3.Button.TextButton">
+        <item name="android:minWidth">0dp</item>
+        <item name="android:paddingStart">10dp</item>
+        <item name="android:paddingEnd">10dp</item>
+        <item name="android:textAllCaps">false</item>
+    </style>
+
+    <style name="Colon.IconButton" parent="">
+        <item name="android:layout_width">0dp</item>
+        <item name="android:layout_height">match_parent</item>
+        <item name="android:layout_weight">1</item>
+        <item name="android:background">?attr/selectableItemBackgroundBorderless</item>
+        <item name="android:scaleType">center</item>
+        <item name="tint">@color/colon_text</item>
+    </style>
+</resources>

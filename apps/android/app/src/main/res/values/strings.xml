@@ -1,0 +1,111 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Colon AI</string>
+    <string name="browser_name">Colon Browser</string>
+    <string name="share_label">Ask Colon AI</string>
+    <string name="logo_description">Colon AI</string>
+
+    <!-- Shell -->
+    <string name="offline_title">You\'re offline</string>
+    <string name="offline_text">Colon AI can\'t be reached right now. Check your data or Wi-Fi, then try again.</string>
+    <string name="webview_missing">Android System WebView is missing or updating. Update it from the Play Store, then open Colon AI again.</string>
+    <string name="retry">Try again</string>
+    <string name="share_nothing">There was nothing Colon AI could read in what you shared.</string>
+    <string name="saved_to">Saved to %1$s</string>
+    <string name="downloading">Downloading %1$s</string>
+    <string name="download_failed">That download couldn\'t start.</string>
+    <string name="download_unsupported">This download can\'t be saved from here yet.</string>
+    <string name="no_app_to_open">No app on this phone can open that.</string>
+
+    <!-- Notifications -->
+    <string name="channel_updates">App updates</string>
+    <string name="channel_saga">Saga browsing</string>
+    <string name="channel_general">General</string>
+
+    <!-- Updates -->
+    <string name="update_title">Update available</string>
+    <string name="update_message">Colon AI %1$s is ready. You have %2$s.</string>
+    <string name="update_download">Download</string>
+    <string name="update_later">Later</string>
+    <string name="update_release_page">Release notes</string>
+    <string name="update_downloading">Colon AI %1$s</string>
+    <string name="update_started">Downloading the update…</string>
+    <string name="update_failed">The update didn\'t download. Try again later.</string>
+    <string name="update_invalid">That file isn\'t a valid Colon AI update, so it was deleted.</string>
+    <string name="update_other_key">This update is signed with a different key. Uninstall Colon AI, then install the new APK from the release page.</string>
+    <string name="update_allow_installs">Allow Colon AI to install updates, then tap the update notification.</string>
+    <string name="update_ready_title">Colon AI %1$s downloaded</string>
+    <string name="update_ready_text">Tap to install the update.</string>
+
+    <!-- Browser -->
+    <string name="address_hint">Search or type a web address</string>
+    <string name="back">Back</string>
+    <string name="forward">Forward</string>
+    <string name="home">Home</string>
+    <string name="menu">More options</string>
+    <string name="reload">Reload</string>
+    <string name="stop_loading">Stop loading</string>
+    <string name="tabs_open">Tabs open: %1$d</string>
+    <string name="tabs_title">Tabs (%1$d)</string>
+    <string name="no_tabs">No tabs open.</string>
+    <string name="new_tab">New tab</string>
+    <string name="tab_crashed">This tab stopped working and was reloaded.</string>
+    <string name="tab_limit">Tab limit reached (%1$d). Close a tab to open another.</string>
+    <string name="add_bookmark">Bookmark this page</string>
+    <string name="remove_bookmark">Remove bookmark</string>
+    <string name="bookmarked">Bookmarked</string>
+    <string name="bookmark_removed">Bookmark removed</string>
+    <string name="bookmarks">Bookmarks</string>
+    <string name="no_bookmarks">No bookmarks yet.</string>
+    <string name="history">History</string>
+    <string name="no_history">No history yet.</string>
+    <string name="downloads">Downloads</string>
+    <string name="share_page">Share page</string>
+    <string name="open_in_app">Open in another app</string>
+    <string name="back_to_chat">Back to Colon AI</string>
+    <string name="remove_item">Remove %1$s</string>
+    <string name="ssl_blocked">Blocked: this site\'s security certificate isn\'t valid.</string>
+    <string name="clear_data">Clear browsing data</string>
+    <string name="clear_history">History</string>
+    <string name="clear_sites">Cookies and site data (you stay signed in to Colon AI)</string>
+    <string name="clear_cache">Cached images and files</string>
+    <string name="clear">Clear</string>
+    <string name="cleared">Cleared</string>
+    <string name="cancel">Cancel</string>
+    <string name="close">Close</string>
+    <string name="allow">Allow</string>
+    <string name="block">Block</string>
+    <string name="not_now">Not now</string>
+    <string name="perm_site_title">Allow %1$s?</string>
+    <string name="perm_site_text">%1$s wants to use your %2$s.</string>
+    <string name="perm_mic">microphone</string>
+    <string name="perm_cam">camera</string>
+    <string name="perm_cam_mic">camera and microphone</string>
+
+    <!-- Saga control -->
+    <string name="mode_manual">Manual</string>
+    <string name="mode_ai">AI</string>
+    <string name="mode_shared">Shared</string>
+    <string name="mode_description">Control mode: %1$s. Tap for details.</string>
+    <string name="saga_status">Saga and this browser</string>
+    <string name="saga_status_text">Mode: %1$s\n\nManual: you browse; nothing about your browsing leaves the phone.\nAI: Saga browses for you and you watch. Take control at any time.\nShared: you both browse; Saga asks before each step.\n\nLink to Colon: %2$s</string>
+    <string name="link_ready">connected</string>
+    <string name="link_basic">connected (the server hasn\'t switched on Saga commands yet)</string>
+    <string name="link_connecting">connecting…</string>
+    <string name="link_offline">offline, reconnects when you\'re back online</string>
+    <string name="link_unavailable">not available yet, retrying every few minutes</string>
+    <string name="link_off">off</string>
+    <string name="saga_consent_title">Let Saga browse?</string>
+    <string name="saga_consent_ai">Saga wants to control Colon Browser to: %1$s\n\nYou can take control or stop at any time.</string>
+    <string name="saga_consent_shared">Saga wants to browse with you to: %1$s\n\nSaga will ask before each step.</string>
+    <string name="saga_task_unknown">help with your request</string>
+    <string name="saga_browsing">Saga is browsing %1$s</string>
+    <string name="saga_shared">Shared: Saga asks before each step</string>
+    <string name="saga_paused">Saga is paused</string>
+    <string name="saga_you_control">You\'re in control</string>
+    <string name="take_control">Take control</string>
+    <string name="return_to_ai">Return to AI</string>
+    <string name="pause">Pause</string>
+    <string name="resume">Resume</string>
+    <string name="stop">Stop</string>
+</resources>
