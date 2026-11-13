@@ -157,8 +157,10 @@ search adapter and a search cache; rerun DeepSeek/GLM when NVIDIA's free tier an
 - [x] Web light mode: reader UI with "Open in the app for full browsing", server-reader adapter with fallback and a
   labelled Preview mock
 - [x] Each app checks its own update (`version.json` `browser` entry, backward compatible)
-- [ ] Server-side reader/proxy on cPanel (`GET /browser/fetch`, contract in `docs/phase8-backend-contract.md`)
-- [ ] Backend session manager: tabs, URLs, history and control owner per user and device (same contract)
+- [x] Server-side reader/proxy on cPanel (`GET /browser/fetch`, contract in `docs/phase8-backend-contract.md`)
+  (v0.8.1, server side)
+- [x] Backend session manager: tabs, URLs, history and control owner per user and device (same contract; REST for
+  the web, `session_sync` / `session_request` on the WebSocket bridge) (v0.8.1, server side)
 - [ ] Release standard on real phones: major sites (Google, YouTube, news, social, banks' public pages) work, and
   tabs and history survive restarts
 
@@ -183,7 +185,8 @@ search adapter and a search cache; rerun DeepSeek/GLM when NVIDIA's free tier an
 with embedded (collapsible), split (stacked with a draggable divider on phones, side by side on wide screens) and
 full-screen layouts that switch without reloading, plus AI / Manual / Shared control with Take control, Return to
 AI, Pause and Stop. Still to do: the panel opening automatically when Saga browses (needs Phase 9), and one shared
-session between Colon Browser and Colon AI (needs the backend session manager).
+session between Colon Browser and Colon AI (the backend session manager exists since v0.8.1; the apps'
+"Sync my tabs" setting and Saga's use of it are still to do).
 
 ## Phase 11 — Launch readiness
 - Plans and billing: free tier plus paid plans through a Nigerian gateway (Paystack or AfrStar), with limits enforced per plan.

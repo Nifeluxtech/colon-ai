@@ -116,10 +116,13 @@ Colon Browser on its tabs. Phase 9 adds `get_page_content`, `get_links`, `click`
 **Control on the phone:** AI mode puts a shield over the page with **Take control**; the bar under the address
 shows Pause/Resume, Take control / Return to AI and Stop. Commands run only in AI or Shared mode and not paused.
 
-### What the backend must add (not in v0.7.1 or v0.8.0: `services/api` was not changed)
+### What the backend must add
 
-Phase 8's session manager adds `session_sync` / `session_request` frames and `hello.app`: see
-`docs/phase8-backend-contract.md`.
+**Status (v0.8.1):** items 1 (cookie only; signed-out sockets still connect but get no session features), 2, 3, 6
+(control changes) and the 64 KB frame limit of 7 are built, together with Phase 8's `session_sync` /
+`session_request` frames and `hello.app` (`services/api/src/modules/browser/bridge.js`; details and choices in
+`docs/phase8-backend-contract.md`, "Server notes"). Still open: bearer tokens, routing (4), storing `page_state`
+(5), command audit (6), sockets per user (7) and push (8).
 
 1. **Authenticate the socket:** in the `upgrade` handler, load the session from the `colon_sid` cookie (the same
    `sessions.load(req)` the HTTP routes use; `req.cookies` must be parsed for upgrade requests) or from

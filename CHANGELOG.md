@@ -1,5 +1,42 @@
 # Changelog
 
+## [0.8.1] — 2026-11-13 · Phase 8 server pieces: reader and session manager
+The two server pieces Phase 8 left open, built to `docs/phase8-backend-contract.md`. API only: the web clients
+already call these endpoints, so no client change was needed. (Version numbers in `package.json` and the apps stay
+at 0.8.0 until the release is cut.)
+### Added
+- **Server reader `GET /browser/fetch`** (`services/api/src/modules/browser`): reads one public page on the server
+  for web light mode. SSRF guard: http/https on ports 80/443 only, DNS resolved on the server and every address
+  checked (private, loopback, link-local, CGNAT, multicast, IPv6 ULA/link-local, cloud metadata), the socket pinned
+  to the checked address, every redirect checked again (at most 5). 10 s, 2 MB, HTML and plain text only, no
+  cookies or auth headers, `ColonReader/1.0` user agent. Regex sanitiser with the client's tag allow-list
+  (scripts, styles, frames, forms, media, nav/aside and every `on*` attribute removed; links and images made
+  absolute; small `data:image` only), plus title, byline, lang and text (≤ 200 000 characters). `robots.txt`
+  honoured; host block list in the safety layer (`modules/safety/hosts.js`: adult and malware hosts plus
+  `BROWSER_READER_BLOCKLIST`). Contract error codes (`bad_url`, `blocked_private`, `too_large`, `not_html`,
+  `needs_login`, `rate_limited` with `retry_after`, `upstream_error` with `upstream_status`, `timeout`,
+  `not_enabled`). 30 a minute and 500 a day per user, 60 a minute per IP for guests. 10-minute cache, shared
+  between users only when the site sent no cookie and allows shared caching. Logs only user id, host, status,
+  bytes and time.
+- **Browser session manager**: migration `0008_browser_sessions.sql` (`browser_devices`, `browser_sessions`,
+  `browser_tabs`, `browser_history`); `GET`/`PUT`/`DELETE /browser/session` per user and device with optimistic
+  `version` (`409 conflict` with the current session), `GET /browser/sessions`, and opt-in `/browser/history`.
+  Private tabs are never stored, URLs over 2048 characters are dropped, at most 30 tabs, idle sessions deleted
+  after 30 days.
+- **WebSocket bridge** (`ws/index.js`, `modules/browser/bridge.js`): sockets are tied to the signed-in user (the
+  `colon_sid` cookie); `hello` with `app` registers the device and is answered with `bridge: 1, session: 1`;
+  `session_sync` (one write per 2 s, latest wins; 64 KB frames; 10 tabs on low-RAM phones) and `session_request`
+  (answered by `ack`); control owner rules (AI/Shared only after consent; Take control, Pause, Stop and Declined win
+  at once and cancel pending Saga commands with `manual_control`), every change in the audit log.
+- Config: `BROWSER_READER`, `BROWSER_READER_GUESTS`, `BROWSER_READER_BLOCKLIST`. The router gains `PUT` (CORS
+  allows it). API errors can carry contract fields beside `error` and `message`.
+- Tests: `tests/security/browser-reader.test.js`, `tests/unit/browser-html.test.js`,
+  `tests/unit/browser-session.test.js`, `tests/unit/browser-bridge.test.js` (29 tests).
+### Not yet
+- Saga routing on the bridge (choosing a phone, sending commands, per-command rate limits) is Phase 9; the bridge
+  already exposes `command`, `askControl` and `requestSession` for it.
+- The "Sync my tabs with Colon" setting on the phones; `page_state` is not stored yet.
+
 ## [0.8.0] — 2026-11-13 · Colon Browser becomes its own app (Phase 8, client side)
 Two Android apps from one project: **Colon AI** (chat, with a real browser panel beside it) and **Colon Browser**
 (the full standalone browser). Web light mode gets its "open in the app" prompt and a server-reader adapter. The

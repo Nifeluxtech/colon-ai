@@ -43,10 +43,10 @@ colon-ai/
 │       ├── src/
 │       │   ├── config/          defaults.js (THE schema), env.js (read + validate), index.js (config object)
 │       │   ├── http/            server.js (middleware), router.js, middleware/, routes/{health,auth,account,
-│       │   │                    admin,chat}/ and routes/study.js (wiring only)
-│       │   ├── ws/              WebSocket gateway (/ws)
-│       │   ├── modules/         account, admin, ai, auth, bench, chat, developer, extract, health, safety,
-│       │   │                    search, study; each has an index.js facade and its handlers/ where it serves
+│       │   │                    admin,chat}/ and routes/{study,voice,browser}.js (wiring only)
+│       │   ├── ws/              WebSocket gateway (/ws; signed-in sockets get the browser session bridge)
+│       │   ├── modules/         account, admin, ai, auth, bench, browser, chat, developer, extract, health,
+│       │   │                    safety, search, study, voice; each has an index.js facade and its handlers/ where it serves
 │       │   │                    routes (developer: project-files context; extract/zip.js: the one ZIP reader)
 │       │   ├── shared/          logger, request-context, crypto, audit, settings, mailer, validate,
 │       │   │                    ratelimit, security-headers, multipart
@@ -212,6 +212,19 @@ Before the model answers in Research mode (`modules/search`):
 3. **Cited answer** (`prompt.js`): the app receives `status` and `sources` events; the model gets the numbered
    sources with strict citation rules and answers with `[n]` chips. When search fails the reply says so in one line
    and chat continues without sources. Details: `docs/phases/phase-5-research.md`.
+
+### Colon Browser server pieces (Phase 8)
+
+`modules/browser` (contract and server notes: `docs/phase8-backend-contract.md`):
+
+1. **Server reader** (`reader.js`, `net.js`, `html.js`, `robots.js`): `GET /browser/fetch` for web light mode.
+   SSRF-guarded fetch pinned to the address it checked (every redirect re-checked, at most 5), 10 s / 2 MB, HTML and
+   plain text only, robots.txt and the safety layer's host block list honoured, regex sanitiser with the web
+   client's tag allow-list, 10-minute per-worker cache, rate limits in MySQL.
+2. **Session manager** (`session.js`, `store.js`, migration `0008`): one session per user and device (tabs, active
+   tab, control and its owner, optimistic `version`), REST for the web apps and opt-in web history.
+3. **Bridge** (`bridge.js`, wired in `ws/index.js`): `hello` with `app` -> `session: 1`, throttled `session_sync`,
+   `session_request`, and the control-owner rules (consent first; the user always wins), audited.
 
 ### Configuration validated at boot
 

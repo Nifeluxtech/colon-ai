@@ -153,3 +153,14 @@ committed: this repository is public.
 
 The rule filters (`services/api/src/modules/safety`) need no key, no model and no network. The child-safety rules
 run whatever `SAFETY` or the admin settings say, and whether or not the moderation endpoint answers (fail closed).
+
+### Colon Browser server reader (Phase 8)
+
+| Variable | Type | Required | Default | Purpose |
+|---|---|---|---|---|
+| `BROWSER_READER` | on/off | no | `on` | "off" switches `GET /browser/fetch` off (answers `501 not_enabled`; the web apps fall back to the "open in the app" prompt) |
+| `BROWSER_READER_GUESTS` | on/off | no | `on` | "off" keeps the server reader for signed-in users only (guests get `401`) |
+| `BROWSER_READER_BLOCKLIST` | string | no | (empty) | extra hosts the reader refuses, comma-separated; a host covers its subdomains |
+
+The session manager (`/browser/session`, `/browser/sessions`, `/browser/history`, `session_sync` on `/ws`) needs no
+setting: it uses the database and the signed-in session. Contract: `docs/phase8-backend-contract.md`.
