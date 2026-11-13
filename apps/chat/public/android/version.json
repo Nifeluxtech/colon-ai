@@ -1,17 +1,17 @@
 {
-  "versionName": "0.10.0",
-  "versionCode": 1000,
-  "apkUrl": "https://github.com/Nifeluxtech/colon-ai/releases/download/v0.10.0/colon-ai-0.10.0.apk",
-  "releaseUrl": "https://github.com/Nifeluxtech/colon-ai/releases/tag/v0.10.0",
-  "notes": "Each chat now has its own browser. Tell Saga in the chat to open the browser and what to do there. Saga stops at passwords, codes and card fields and hands the page to you. Choose a mode per chat: AI only, or AI + me.",
+  "versionName": "0.10.1",
+  "versionCode": 1001,
+  "apkUrl": "https://github.com/Nifeluxtech/colon-ai/releases/download/v0.10.1/colon-ai-0.10.1.apk",
+  "releaseUrl": "https://github.com/Nifeluxtech/colon-ai/releases/tag/v0.10.1",
+  "notes": "Fix: the message box and its Synced line stay at the bottom of the screen while the in-chat browser is open. Only the chat scrolls, and the browser no longer covers the message box.",
   "minSupportedVersionCode": 0,
   "publishedAt": "2026-11-13",
   "browser": {
-    "versionName": "0.10.0",
-    "versionCode": 1000,
-    "apkUrl": "https://github.com/Nifeluxtech/colon-ai/releases/download/v0.10.0/colon-browser-0.10.0.apk",
-    "releaseUrl": "https://github.com/Nifeluxtech/colon-ai/releases/tag/v0.10.0",
-    "notes": "Released alongside Colon AI 0.10.0, where each chat has its own browser. Saga stops at passwords, codes and card fields for you, and each chat runs in AI only or AI + me mode.",
+    "versionName": "0.10.1",
+    "versionCode": 1001,
+    "apkUrl": "https://github.com/Nifeluxtech/colon-ai/releases/download/v0.10.1/colon-browser-0.10.1.apk",
+    "releaseUrl": "https://github.com/Nifeluxtech/colon-ai/releases/tag/v0.10.1",
+    "notes": "Released alongside Colon AI 0.10.1 (a fix for the chat's message box staying at the bottom of the screen). No changes to Colon Browser itself.",
     "minSupportedVersionCode": 0
   }
 }
