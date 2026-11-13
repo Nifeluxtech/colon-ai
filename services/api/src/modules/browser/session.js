@@ -63,7 +63,8 @@ function toClient(row, tabs) {
   return {
     tabs: tabs.map((t) => ({ id: t.tab_id, url: t.url, title: t.title || '', back: parseStack(t.nav, 'back'),
       fwd: parseStack(t.nav, 'fwd') })),
-    active_id: row.active_tab_id || null, control: row.control, control_owner: row.control_owner,
+    active_id: row.active_tab_id || null, conversation_id: row.conversation_id || null, control: row.control,
+    control_owner: row.control_owner,
     paused: Boolean(row.paused), task: row.task || '', version: Number(row.version),
     updated_at: row.updated_at ? new Date(row.updated_at).toISOString() : null,
   };

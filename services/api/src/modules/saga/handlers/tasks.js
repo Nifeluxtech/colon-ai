@@ -24,11 +24,13 @@ async function postTask(req) {
   if (!goal || goal.length > 1000) throw fail(422, 'invalid', 'Say what Saga should do (up to 1000 characters).');
   const language = ['en', 'pcm', 'yo', 'ha', 'ig'].includes(b.language) ? b.language : 'en';
   const conv = b.conversation_id == null ? null : String(b.conversation_id).slice(0, 64);
+  // Phase 10: the chat's browser mode, "ai" (AI only) or "shared" (AI + me); anything else is "ai".
+  const mode = store.MODES.includes(b.mode) ? b.mode : 'ai';
   const check = await safety.checkInput({ text: goal, req, mode: 'general', route: 'saga', language });
   if (check.action === 'refuse') {
     throw Object.assign(fail(422, 'refused', check.refusal), { extra: { refusal: check.refusal } });
   }
-  const r = await runner.start(req, { goal, language, conversationId: conv });
+  const r = await runner.start(req, { goal, language, conversationId: conv, mode });
   return [202, { task: store.view(await store.getFor(req.user.id, r.id)), phone: r.local ? 'this_server' : 'queued' }];
 }
 

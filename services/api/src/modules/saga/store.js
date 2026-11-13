@@ -4,7 +4,9 @@
 const db = require('../../db');
 
 const TERMINAL = ['done', 'step_limit', 'timeout', 'stopped', 'interrupted', 'failed'];
-const STATUSES = ['queued', 'consent', 'running', ...TERMINAL];
+// handoff (Phase 10): Saga is waiting for the user to type a secret (password, code, card, PIN) and tap Return to AI.
+const STATUSES = ['queued', 'consent', 'running', 'handoff', ...TERMINAL];
+const MODES = ['ai', 'shared'];
 
 const json = (v) => (v == null ? null : JSON.stringify(v));
 function parse(v) {
@@ -13,11 +15,12 @@ function parse(v) {
   try { return JSON.parse(v); } catch { return null; }
 }
 
-async function create({ userId, goal, language = 'en', conversationId = null }) {
+async function create({ userId, goal, language = 'en', conversationId = null, mode = 'ai' }) {
   const at = new Date();
   const r = await db.query(
-    `INSERT INTO saga_tasks (user_id, goal, language, conversation_id, status, created_at, updated_at)
-     VALUES (?,?,?,?,?,?,?)`, [userId, goal, language, conversationId, 'queued', at, at]);
+    `INSERT INTO saga_tasks (user_id, goal, language, conversation_id, status, created_at, updated_at, mode)
+     VALUES (?,?,?,?,?,?,?,?)`, [userId, goal, language, conversationId, 'queued', at, at,
+      MODES.includes(mode) ? mode : 'ai']);
   return r.insertId;
 }
 
@@ -40,6 +43,21 @@ async function setStatus(id, status, o = {}) {
        finished_at = ? WHERE id = ?`,
     [status, o.error || null, o.steps || 0, o.answer == null ? null : String(o.answer), json(o.sources),
       new Date(), fin ? new Date() : null, id]);
+}
+
+/** Only the status (running <-> handoff), keeping steps and everything else. */
+const setPhase = (id, status) => db.query(
+  "UPDATE saga_tasks SET status = ?, updated_at = ? WHERE id = ? AND status IN ('consent', 'running', 'handoff')",
+  [status, new Date(), id]);
+
+/** A deleted conversation takes its Saga tasks and their action logs (saga_actions cascade) with it (Phase 10). */
+// conv '*': every task that belongs to a conversation (all conversations were deleted).
+function removeConversation(userId, conv) {
+  if (!conv) return Promise.resolve();
+  if (conv === '*') {
+    return db.query('DELETE FROM saga_tasks WHERE user_id = ? AND conversation_id IS NOT NULL', [userId]);
+  }
+  return db.query('DELETE FROM saga_tasks WHERE user_id = ? AND conversation_id = ?', [userId, String(conv)]);
 }
 
 // Stop from any worker: the loop reads the flag before every step. A task still waiting for a phone ends now.
@@ -81,8 +99,8 @@ const list = (userId, limit = 20) => db.query(
 async function queuedFor(userIds, since) {
   if (!userIds.length) return [];
   return db.query(
-    `SELECT id, user_id, goal, language FROM saga_tasks WHERE status = 'queued' AND user_id IN (?) AND created_at > ?
-      ORDER BY id LIMIT 10`, [userIds, since]);
+    `SELECT id, user_id, goal, language, conversation_id, mode FROM saga_tasks
+      WHERE status = 'queued' AND user_id IN (?) AND created_at > ? ORDER BY id LIMIT 10`, [userIds, since]);
 }
 
 // Tasks nobody picked up: no phone with Colon AI open was connected.
@@ -108,8 +126,9 @@ function view(row) {
   const iso = (v) => (v ? new Date(v).toISOString() : null);
   return { id: Number(row.id), goal: row.goal, status: row.status, error: row.error || null, steps: Number(row.steps)
     || 0, answer: row.answer || '', sources: parse(row.sources) || [], conversation_id: row.conversation_id || null,
+  mode: MODES.includes(row.mode) ? row.mode : 'ai',
   created_at: iso(row.created_at), finished_at: iso(row.finished_at) };
 }
 
-module.exports = { create, get, getFor, claim, setStatus, requestStop, isStopped, addAction, actions, list,
-  queuedFor, expireQueued, adminList, view, TERMINAL, STATUSES };
+module.exports = { create, get, getFor, claim, setStatus, setPhase, removeConversation, requestStop, isStopped,
+  addAction, actions, list, queuedFor, expireQueued, adminList, view, TERMINAL, STATUSES, MODES };

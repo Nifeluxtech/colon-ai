@@ -145,7 +145,7 @@ const postConversationsByIdMessagesByMidStop = async (req) => {
   return [200, { ok: true }];
 };
 
-// AI Browse summaries and other assistant notes written by the app.
+// AI Browse summaries and other assistant notes written by the app (and, Phase 10, the user's browser instructions).
 // POST /conversations/:id/notes
 const postConversationsByIdNotes = async (req) => {
   const conv = await store.getConv(req.user.id, req.params.id);
@@ -156,7 +156,11 @@ const postConversationsByIdNotes = async (req) => {
       ? String(s.url).slice(0, 2000) : '', snippet: String(s.snippet || '').slice(0, 500),
   })).filter(s => s.url);
   const origin = req.body.origin === 'browse' ? 'browse' : 'note';
-  const msg = await store.insertMessage(conv, { role: 'assistant', content, sources, status: 'complete', origin });
+  // Phase 10: an instruction the user typed for the chat's browser ("open google.com", "scroll down") is kept in the
+  // thread as the user's own message (origin browse) before Saga's reply note.
+  const role = req.body.role === 'user' && origin === 'browse' ? 'user' : 'assistant';
+  const msg = await store.insertMessage(conv, { role, content, sources: role === 'user' ? [] : sources,
+    status: 'complete', origin });
   await store.touch(conv, { preview: content, title: conv.title === 'New chat' && req.body.title ? store.titleFrom(
     req.body.title) : null });
   return [201, { message: msg }];

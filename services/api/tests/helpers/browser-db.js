@@ -27,8 +27,10 @@ function create() {
       return t.devices.filter((x) => x.user_id === p[0] && x.device_id === p[1] && x.app === p[2]).map((x) => ({
         id: x.id }));
     }
-    if (/FROM browser_sessions WHERE user_id = \? AND device_ref = \?/.test(s) && /^SELECT/.test(s)) {
-      return t.sessions.filter((x) => x.user_id === p[0] && x.device_ref === p[1]).map((x) => ({ ...x }));
+    if (/FROM browser_sessions WHERE user_id = \? AND device_ref = \? AND conversation_id = \?/.test(s)
+      && /^SELECT/.test(s)) {
+      return t.sessions.filter((x) => x.user_id === p[0] && x.device_ref === p[1] && x.conversation_id === p[2])
+        .map((x) => ({ ...x }));
     }
     if (/^SELECT tab_id, url, title, position, nav FROM browser_tabs/.test(s)) {
       return t.tabs.filter((x) => x.session_id === p[0]).sort((a, b) => a.position - b.position).map((x) => ({ ...x }));
@@ -47,11 +49,11 @@ function create() {
       return { affectedRows: 1 };
     }
     if (/^INSERT INTO browser_sessions/.test(s)) {
-      if (t.sessions.some((x) => x.device_ref === p[1])) {
+      if (t.sessions.some((x) => x.device_ref === p[1] && x.conversation_id === p[2])) {
         throw Object.assign(new Error('dup'), { code: 'ER_DUP_ENTRY' });
       }
-      const row = { id: ++ids.sessions, user_id: p[0], device_ref: p[1], active_tab_id: p[2], control: p[3],
-        control_owner: p[4], paused: p[5], task: p[6], version: 1, updated_at: new Date() };
+      const row = { id: ++ids.sessions, user_id: p[0], device_ref: p[1], conversation_id: p[2], active_tab_id: p[3],
+        control: p[4], control_owner: p[5], paused: p[6], task: p[7], version: 1, updated_at: new Date() };
       t.sessions.push(row);
       return { insertId: row.id };
     }
@@ -63,8 +65,21 @@ function create() {
         position: r[4], nav: r[5], updated_at: r[6] });
       return {};
     }
+    if (/^DELETE FROM browser_sessions WHERE user_id = \? AND conversation_id <> ''/.test(s)) {
+      const gone = t.sessions.filter((x) => x.user_id === p[0] && x.conversation_id !== '').map((x) => x.id);
+      t.sessions = t.sessions.filter((x) => !gone.includes(x.id));
+      t.tabs = t.tabs.filter((x) => !gone.includes(x.session_id));
+      return { affectedRows: gone.length };
+    }
+    if (/^DELETE FROM browser_sessions WHERE user_id = \? AND conversation_id = \?/.test(s)) {
+      const gone = t.sessions.filter((x) => x.user_id === p[0] && x.conversation_id === p[1]).map((x) => x.id);
+      t.sessions = t.sessions.filter((x) => !gone.includes(x.id));
+      t.tabs = t.tabs.filter((x) => !gone.includes(x.session_id));
+      return { affectedRows: gone.length };
+    }
     if (/^DELETE FROM browser_sessions WHERE user_id/.test(s)) {
-      const gone = t.sessions.filter((x) => x.user_id === p[0] && x.device_ref === p[1]).map((x) => x.id);
+      const gone = t.sessions.filter((x) => x.user_id === p[0] && x.device_ref === p[1]
+        && x.conversation_id === p[2]).map((x) => x.id);
       t.sessions = t.sessions.filter((x) => !gone.includes(x.id));
       t.tabs = t.tabs.filter((x) => !gone.includes(x.session_id));
       return {};
@@ -76,8 +91,8 @@ function create() {
         const tabs = t.tabs.filter((y) => y.session_id === x.id);
         const a = tabs.find((y) => y.tab_id === x.active_tab_id);
         return { device_id: d.device_id, app: d.app, app_version: d.app_version, last_seen_at: d.last_seen_at,
-          control: x.control, updated_at: x.updated_at, tab_count: tabs.length, active_url: a ? a.url : null,
-          active_title: a ? a.title : null };
+          conversation_id: x.conversation_id, control: x.control, updated_at: x.updated_at, tab_count: tabs.length,
+          active_url: a ? a.url : null, active_title: a ? a.title : null };
       });
     }
     if (/^INSERT INTO browser_history/.test(s)) {
