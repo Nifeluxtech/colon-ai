@@ -4,7 +4,7 @@ import { renderThread } from './message.js';
 import { updateHeader } from './model-picker.js';
 import { refreshConvs } from './sidebar.js';
 import { Colon } from '../../../../packages/ui/js/colon.js';
-import { $, MODES, S, data, isMobile, mode } from '../core/state.js';
+import { $, DEV_ACTIONS, MODES, S, data, isMobile, mode } from '../core/state.js';
 import { disclaimer } from '../pages/chat.js';
 
 var C = Colon, icon = C.icon;
@@ -14,6 +14,7 @@ function composerHtml() {
   return ('<div class="cw-composer"><button type="button" class="cw-jump btn sm" data-a="jump" hidden '
     + 'aria-label="Jump to latest message">') + icon('chevDown') + 'Latest</button><div class="cw-composer-in">' +
     '<div class="att-tray" hidden aria-label="Attachments"></div>' +
+    '<div class="cw-dev-chips" role="group" aria-label="Developer quick actions" hidden></div>' +
     '<div class="cv-voice" hidden></div>' +
     '<form class="cw-input" id="cw-form" novalidate>' +
       '<button type="button" class="icon-btn" data-a="attach" aria-label="Attach files" data-tip="Attach files">'
@@ -41,6 +42,30 @@ function renderModeChips() {
     return '<button type="button" class="chip" role="radio" aria-checked="' + (m === k) + '" data-mode="' + k + '">'
       + icon(MODES[k].icon) + MODES[k].label + '</button>';
   }).join('');
+}
+// Developer mode: Explain / Fix a bug / Generate / Review fill the composer with a template; Attach project opens
+// the file picker (code files or a .zip of the project).
+function renderDevChips() {
+  var box = $('.cw-dev-chips');
+  if (!box) return;
+  var on = mode() === 'developer';
+  box.hidden = !on;
+  if (!on || box.childElementCount) return;
+  box.innerHTML = DEV_ACTIONS.map(function (a) {
+    return '<button type="button" class="chip sm" data-dev-chip="' + a.key + '">' + icon(a.icon) + a.label
+      + '</button>';
+  }).join('') + '<button type="button" class="chip sm" data-a="attach" aria-label="Attach code files or a .zip '
+    + 'project">' + icon('clip') + 'Attach project</button>';
+}
+function devTemplate(key) {
+  var a = DEV_ACTIONS.filter(function (x) { return x.key === key; })[0], ta = $('#cw-input');
+  if (!a || !ta) return;
+  var at = a.text.indexOf('|'), text = a.text.replace('|', '');
+  // Code already typed or pasted goes under the template; another chip's untouched template is replaced.
+  var keep = ta.value.trim();
+  DEV_ACTIONS.forEach(function (x) { if (keep === x.text.replace('|', '').trim()) keep = ''; });
+  ta.value = keep ? text + (/\n$/.test(text) ? '' : '\n\n') + keep : text;
+  autoGrow(); syncComposer(); ta.focus(); ta.setSelectionRange(at, at);
 }
 function setMode(k) {
   var next = mode() === k ? 'general' : k;
@@ -104,5 +129,5 @@ function trackComposerHeight() {
   upd();
 }
 
-export { autoGrow, composerHtml, modeMenu, onThreadScroll, renderModeChips, scrollBottom, setMode, syncComposer,
-  syncJump, trackComposerHeight };
+export { autoGrow, composerHtml, devTemplate, modeMenu, onThreadScroll, renderDevChips, renderModeChips, scrollBottom,
+  setMode, syncComposer, syncJump, trackComposerHeight };

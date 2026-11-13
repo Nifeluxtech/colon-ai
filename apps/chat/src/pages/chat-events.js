@@ -5,7 +5,7 @@ import { Colon } from '../../../../packages/ui/js/colon.js';
 import { renameConv } from '../actions/rename.js';
 import { send, stopStreaming } from '../actions/send-message.js';
 import { applySplitWidth, openBrowser, renderEmbed, setLayout, setMobileTab } from '../components/browser-panel.js';
-import { autoGrow, modeMenu, onThreadScroll, scrollBottom, setMode, syncComposer,
+import { autoGrow, devTemplate, modeMenu, onThreadScroll, scrollBottom, setMode, syncComposer,
   trackComposerHeight } from '../components/composer.js';
 import { msgAction } from '../components/message.js';
 import { modelMenu, updateHeader } from '../components/model-picker.js';
@@ -61,6 +61,7 @@ function bind() {
     if (pr) { var p = PROMPTS[Number(pr.getAttribute('data-prompt'))]; S.draftMode = p.mode; updateHeader();
       ta.value = p.prompt; autoGrow(); syncComposer(); ta.focus(); ta.setSelectionRange(ta.value.length,
       ta.value.length); return; }
+    var dev = t.closest('[data-dev-chip]'); if (dev) { devTemplate(dev.getAttribute('data-dev-chip')); return; }
     var md = t.closest('[data-mode]'); if (md && md.closest('.cw-welcome-modes')) { setMode(md.getAttribute(
       'data-mode')); return; }
     var cm = t.closest('[data-conv-menu]');

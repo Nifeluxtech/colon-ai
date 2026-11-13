@@ -30,8 +30,13 @@ var FAQ = [
     ('Yes, a generous free daily limit of replies, and a smaller one for guests. It resets at midnight (UTC). '
     + 'Logging in gives you the higher limit.')],
   ['Which files can I attach?',
-    ('Images (PNG, JPG, WebP, GIF) up to 10 MB, PDFs and documents up to 20 MB, and text or code files up to 2 MB. '
-    + 'Up to 5 files per message.')],
+    ('Images (PNG, JPG, WebP, GIF) up to 10 MB, PDFs and documents up to 20 MB, text or code files up to 2 MB, '
+    + 'and a .zip of a code project up to 20 MB. Up to 5 files per message.')],
+  ['How do I get help with my code?',
+    ('Pick Developer mode, then tap Explain, Fix a bug, Generate or Review for a ready-made request. Attach your '
+    + 'code files or a .zip of the project: Colon reads the file tree and the files that matter (node_modules, '
+    + 'build folders, images and .env files are skipped) and remembers them for the rest of the chat, so you can '
+    + 'keep asking follow-up questions. Name a file (for example “fix src/app.js”) to make sure it is read first.')],
   ['How does voice input work?',
     ('Tap the microphone. Where your browser supports it, Colon types what you say. Otherwise it records a voice '
     + 'note. If the microphone is blocked, allow it in your browser’s site settings.')],

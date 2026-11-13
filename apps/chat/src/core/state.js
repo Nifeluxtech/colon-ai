@@ -27,6 +27,17 @@ var PROMPTS = [
   { icon: 'bulb', title: 'Get help with code', text: 'Debug, explain or write code',
     prompt: 'Help me fix a bug in my Node.js code', mode: 'developer' }
 ];
+// Developer mode quick actions: each chip fills the composer with a short template (the cursor lands at `|`).
+var DEV_ACTIONS = [
+  { key: 'explain', label: 'Explain', icon: 'bulb',
+    text: 'Explain this code step by step: what it does, its complexity and any pitfalls.\n\n|' },
+  { key: 'fix', label: 'Fix a bug', icon: 'code',
+    text: 'Fix this bug.\nWhat I expected: |\nWhat happens instead (error message): \nCode:\n' },
+  { key: 'generate', label: 'Generate', icon: 'sparkle',
+    text: 'Write complete, runnable code for: |\nLanguage / framework: \nWhere it will run: ' },
+  { key: 'review', label: 'Review', icon: 'search',
+    text: 'Review this code for bugs, security and readability, and suggest improvements.\n\n|' }
+];
 var CAPS = { text: 'Text', reasoning: 'Reasoning', code: 'Code', vision: 'Images', web: 'Web', citations: 'Citations',
   voice: 'Voice' };
 
@@ -64,5 +75,5 @@ var STAGES = {
 function rafThrottle(fn) { var q = false; return function () { if (q) return; q = true; requestAnimationFrame(function (
   ) { q = false; fn(); }); }; }
 
-export { $, CAPS, MODES, PROMPTS, S, STAGES, brandName, data, defaultModel, ephemeral, isMobile, mode, modelId,
-  modelName, rafThrottle, setData, signedIn };
+export { $, CAPS, DEV_ACTIONS, MODES, PROMPTS, S, STAGES, brandName, data, defaultModel, ephemeral, isMobile, mode,
+  modelId, modelName, rafThrottle, setData, signedIn };

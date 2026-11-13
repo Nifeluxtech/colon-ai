@@ -77,7 +77,7 @@
 .md code{font:500 .88em/1.4 var(--mono);padding:.12em .4em;border-radius:6px;background:var(--glass-2);
   border:1px solid var(--line)}
 .md-code{margin:0 0 14px;border-radius:var(--r);overflow:hidden;border:1px solid var(--line-2);
-  background:var(--code-bg)}
+  background:var(--code-bg);max-width:100%;min-width:0}
 .md-code-head{display:flex;align-items:center;justify-content:space-between;padding:6px 8px 6px 14px;
   background:rgba(255,255,255,.04);border-bottom:1px solid rgba(255,255,255,.07);font:600 12px var(--mono);
   color:#94A3C8;text-transform:lowercase}
@@ -85,7 +85,8 @@
   255,255,.05);color:#CBD5F0;font:600 12px var(--font)}
 .md-copy:hover{background:rgba(255,255,255,.12)}
 .md-copy.done{color:#4ADE80;border-color:rgba(74,222,128,.4)}
-.md-code pre{margin:0;padding:14px;overflow:auto;-webkit-overflow-scrolling:touch;max-height:520px}
+.md-code pre{margin:0;padding:14px;overflow:auto;-webkit-overflow-scrolling:touch;max-height:520px;max-width:100%;
+  overscroll-behavior-x:contain;touch-action:pan-x pan-y}
 .md-code code{display:block;padding:0;border:0;background:none;font:400 13.5px/1.6 var(--mono);color:#E2E8F8;
   white-space:pre;tab-size:2}
 .md-code.streaming .md-code-head span::after{content:" · writing…";color:var(--cyan)}

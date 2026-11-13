@@ -9,14 +9,18 @@ var LIMITS = {
   kinds: {
     image: { max: 10, types: /^image\/(png|jpe?g|webp|gif)$/, ext: /\.(png|jpe?g|webp|gif)$/i, label: 'Image' },
     pdf: { max: 20, types: /^application\/pdf$/, ext: /\.pdf$/i, label: 'PDF' },
-    doc: { max: 20, types: /(msword|officedocument|opendocument|rtf)/, ext: /\.(docx?|odt|rtf|pptx?|xlsx?)$/i,
-      label: 'Document' },
-    text: { max: 2, types: /^(text\/|application\/(json|xml|x-yaml|javascript|x-sh|sql))/,
-      ext: /\.(txt|md|csv|json|xml|ya?ml|js|ts|py|java|c|cpp|cs|go|rs|php|sql|html|css|sh|log)$/i, label: 'Text file' },
+    // .zip = a code project for Developer mode (stored as a document; the server unpacks it safely).
+    doc: { max: 20, types: /(msword|officedocument|opendocument|rtf|^application\/(x-)?zip(-compressed)?$)/,
+      ext: /\.(docx?|odt|rtf|pptx?|xlsx?|zip)$/i, label: 'Document' },
+    text: { max: 2, types: /^(text\/|application\/(json|xml|x-yaml|javascript|x-sh|sql))/, ext: new RegExp(
+      '\\.(txt|md|csv|json|xml|ya?ml|js|ts|py|java|c|cpp|cs|go|rs|php|sql|html|css|sh|log|jsx|tsx|mjs|cjs|vue|svelte|'
+      + 'scss|less|h|hpp|kt|kts|swift|rb|dart|lua|r|pl|toml|ini|cfg|conf|env\\.example|gradle|properties|bat|ps1|'
+      + 'graphql|gql|prisma|twig|ejs|hbs)$', 'i'), label: 'Text file' },
     audio: { max: 10, types: /^audio\//, ext: /\.(webm|ogg|m4a|mp3|wav)$/i, label: 'Voice note', recorderOnly: true }
   },
   accept: ('image/png,image/jpeg,image/webp,image/gif,application/pdf,.doc,.docx,.odt,.rtf,.ppt,.pptx,.xls,.xlsx,.t'
-    + 'xt,.md,.csv,.json,.xml,.yaml,.yml,.js,.ts,.py,.java,.c,.cpp,.cs,.go,.rs,.php,.sql,.html,.css,.sh,.log')
+    + 'xt,.md,.csv,.json,.xml,.yaml,.yml,.js,.ts,.py,.java,.c,.cpp,.cs,.go,.rs,.php,.sql,.html,.css,.sh,.log,.zip,'
+    + '.jsx,.tsx,.mjs,.cjs,.vue,.svelte,.scss,.less,.h,.hpp,.kt,.swift,.rb,.dart,.lua,.toml,.ini,.gradle,.prisma')
 };
 // -> { kind } or throws { code, message }
 function classify(file, opts) {

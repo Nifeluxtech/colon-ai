@@ -1,6 +1,6 @@
 /* Colon AI · header title and the model picker. */
 
-import { autoGrow, renderModeChips } from './composer.js';
+import { autoGrow, renderDevChips, renderModeChips } from './composer.js';
 import { Colon } from '../../../../packages/ui/js/colon.js';
 import { $, CAPS, MODES, S, data, mode, modelId, modelName } from '../core/state.js';
 
@@ -21,7 +21,7 @@ function updateHeader() {
     + '. Change mode');
   mb.innerHTML = icon(MODES[m].icon) + '<span class="cw-mode-l">' + MODES[m].label + '</span>' + icon('chevDown');
   $('#cw-input').placeholder = MODES[m].hint;
-  renderModeChips(); if (S.view === 'welcome' || S.view === 'chat') autoGrow();
+  renderModeChips(); renderDevChips(); if (S.view === 'welcome' || S.view === 'chat') autoGrow();
 }
 function modelMenu(anchor) {
   if (!S.models.length) { C.toast('No models are configured yet.', 'bad'); return; }
