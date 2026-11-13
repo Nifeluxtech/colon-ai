@@ -1,0 +1,13 @@
+# Android build output and local files (never commit keystores or local.properties)
+.gradle/
+build/
+app/build/
+local.properties
+*.jks
+*.keystore
+*.apk
+*.aab
+.idea/
+*.iml
+captures/
+.kotlin/
