@@ -15,12 +15,32 @@
   "settings": {
     "max_tokens": 2048,
     "first_token_timeout_ms": 60000,
-    "concurrency_per_model": 1,
+    "concurrency_per_model": 2,
     "gap_ms": 1500,
     "retries": 2,
     "temperature": "provider default",
-    "limit_per_set": null
+    "limit_per_set": null,
+    "provider_limits": {
+      "nvidia": {
+        "rpm": 30,
+        "inflight": 4
+      }
+    },
+    "per_model": {
+      "nvidia:mistralai/mistral-large-4-1t-a52b": {
+        "body": {
+          "reasoning_effort": "low"
+        },
+        "firstTokenTimeoutMs": 180000,
+        "maxMs": 300000,
+        "cfg": "f1cfc6f974"
+      }
+    }
   },
   "judge": "gemini:gemini-3.5-flash-lite",
-  "finished": "2026-11-12T12:52:18.516Z"
+  "finished": "2026-11-13T10:36:00.823Z",
+  "cli": {
+    "first-token-ms": "60000",
+    "concurrency": "2"
+  }
 }

@@ -1,0 +1,8 @@
+{
+  "state": "stopped",
+  "cfg": "bb7796ed84",
+  "done": 5,
+  "total": 135,
+  "reason": "SIGTERM",
+  "updated": "2026-11-13T10:17:35.772Z"
+}

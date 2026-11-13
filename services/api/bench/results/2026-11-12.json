@@ -2,34 +2,287 @@
   "run": "2026-11-12",
   "suite": "colon-bench-1",
   "started": "2026-11-12T12:37:55.708Z",
-  "finished": "2026-11-12T12:52:18.516Z",
+  "finished": "2026-11-13T10:36:00.823Z",
   "settings": {
     "max_tokens": 2048,
     "first_token_timeout_ms": 60000,
-    "concurrency_per_model": 1,
+    "concurrency_per_model": 2,
     "gap_ms": 1500,
     "retries": 2,
     "temperature": "provider default",
     "limit_per_set": null,
+    "provider_limits": {
+      "nvidia": {
+        "rpm": 30,
+        "inflight": 4
+      }
+    },
+    "per_model": {
+      "nvidia:mistralai/mistral-large-4-1t-a52b": {
+        "body": {
+          "reasoning_effort": "low"
+        },
+        "firstTokenTimeoutMs": 180000,
+        "maxMs": 300000,
+        "cfg": "f1cfc6f974"
+      }
+    },
     "judge": "gemini:gemini-3.5-flash-lite"
   },
   "ranking": [
-    "gemini:gemini-3.5-flash-lite",
     "gemini:gemma-4-26b-a4b-it",
+    "gemini:gemini-3.5-flash-lite",
     "nvidia:minimaxai/minimax-m3.1-flash",
     "gemini:gemma-4-31b-it",
-    "nvidia:deepseek-ai/deepseek-v4.1-flash",
-    "nvidia:z-ai/glm-5.3-flash",
+    "nvidia:mistralai/mistral-large-4-1t-a52b",
     "nvidia:nvidia/nemotron-3.5-lightning-30b-a3b",
-    "nvidia:mistralai/mistral-large-4-1t-a52b"
+    "nvidia:deepseek-ai/deepseek-v4.1-flash",
+    "nvidia:z-ai/glm-5.3-flash"
   ],
   "models": [
+    {
+      "key": "gemini:gemma-4-26b-a4b-it",
+      "provider": "gemini",
+      "model": "gemma-4-26b-a4b-it",
+      "note": "",
+      "status": "done",
+      "errors_by_reason": {},
+      "items": 135,
+      "expected": 135,
+      "score": 98,
+      "components": {
+        "accuracy": 1,
+        "language": 0.864,
+        "speed": 1,
+        "reliability": 1
+      },
+      "overall": {
+        "n": 135,
+        "accuracy": 1,
+        "correct": 135,
+        "errors": 0,
+        "error_rate": 0,
+        "language": 0.86,
+        "first_token_ms": {
+          "median": 834,
+          "p90": 34187
+        },
+        "total_ms": {
+          "median": 5622,
+          "p90": 38556
+        },
+        "tokens": 73375,
+        "cost_usd": 0
+      },
+      "sets": {
+        "coding": {
+          "n": 12,
+          "accuracy": 1,
+          "correct": 12,
+          "errors": 0,
+          "error_rate": 0,
+          "language": null,
+          "first_token_ms": {
+            "median": 1035,
+            "p90": 33617
+          },
+          "total_ms": {
+            "median": 5291,
+            "p90": 36581
+          },
+          "tokens": 7182,
+          "cost_usd": 0
+        },
+        "everyday": {
+          "n": 13,
+          "accuracy": 1,
+          "correct": 13,
+          "errors": 0,
+          "error_rate": 0,
+          "language": null,
+          "first_token_ms": {
+            "median": 7286,
+            "p90": 39581
+          },
+          "total_ms": {
+            "median": 7309,
+            "p90": 39990
+          },
+          "tokens": 6241,
+          "cost_usd": 0
+        },
+        "hausa": {
+          "n": 11,
+          "accuracy": 1,
+          "correct": 11,
+          "errors": 0,
+          "error_rate": 0,
+          "language": 0.898,
+          "first_token_ms": {
+            "median": 819,
+            "p90": 26990
+          },
+          "total_ms": {
+            "median": 2419,
+            "p90": 27011
+          },
+          "tokens": 4686,
+          "cost_usd": 0
+        },
+        "igbo": {
+          "n": 11,
+          "accuracy": 1,
+          "correct": 11,
+          "errors": 0,
+          "error_rate": 0,
+          "language": 0.938,
+          "first_token_ms": {
+            "median": 11854,
+            "p90": 31821
+          },
+          "total_ms": {
+            "median": 12694,
+            "p90": 32997
+          },
+          "tokens": 4874,
+          "cost_usd": 0
+        },
+        "jamb": {
+          "n": 14,
+          "accuracy": 1,
+          "correct": 14,
+          "errors": 0,
+          "error_rate": 0,
+          "language": null,
+          "first_token_ms": {
+            "median": 768,
+            "p90": 21777
+          },
+          "total_ms": {
+            "median": 8395,
+            "p90": 29462
+          },
+          "tokens": 8968,
+          "cost_usd": 0
+        },
+        "pidgin": {
+          "n": 11,
+          "accuracy": 1,
+          "correct": 11,
+          "errors": 0,
+          "error_rate": 0,
+          "language": 0.839,
+          "first_token_ms": {
+            "median": 1000,
+            "p90": 34120
+          },
+          "total_ms": {
+            "median": 2823,
+            "p90": 35202
+          },
+          "tokens": 5053,
+          "cost_usd": 0
+        },
+        "reasoning": {
+          "n": 13,
+          "accuracy": 1,
+          "correct": 13,
+          "errors": 0,
+          "error_rate": 0,
+          "language": null,
+          "first_token_ms": {
+            "median": 798,
+            "p90": 23955
+          },
+          "total_ms": {
+            "median": 4613,
+            "p90": 24893
+          },
+          "tokens": 6242,
+          "cost_usd": 0
+        },
+        "tooluse": {
+          "n": 12,
+          "accuracy": 1,
+          "correct": 12,
+          "errors": 0,
+          "error_rate": 0,
+          "language": null,
+          "first_token_ms": {
+            "median": 828,
+            "p90": 37219
+          },
+          "total_ms": {
+            "median": 1661,
+            "p90": 37814
+          },
+          "tokens": 5906,
+          "cost_usd": 0
+        },
+        "university": {
+          "n": 13,
+          "accuracy": 1,
+          "correct": 13,
+          "errors": 0,
+          "error_rate": 0,
+          "language": null,
+          "first_token_ms": {
+            "median": 782,
+            "p90": 31260
+          },
+          "total_ms": {
+            "median": 7684,
+            "p90": 39678
+          },
+          "tokens": 10412,
+          "cost_usd": 0
+        },
+        "waec": {
+          "n": 14,
+          "accuracy": 1,
+          "correct": 14,
+          "errors": 0,
+          "error_rate": 0,
+          "language": null,
+          "first_token_ms": {
+            "median": 818,
+            "p90": 27421
+          },
+          "total_ms": {
+            "median": 6493,
+            "p90": 35006
+          },
+          "tokens": 8876,
+          "cost_usd": 0
+        },
+        "yoruba": {
+          "n": 11,
+          "accuracy": 1,
+          "correct": 11,
+          "errors": 0,
+          "error_rate": 0,
+          "language": 0.781,
+          "first_token_ms": {
+            "median": 809,
+            "p90": 28594
+          },
+          "total_ms": {
+            "median": 1931,
+            "p90": 34884
+          },
+          "tokens": 4935,
+          "cost_usd": 0
+        }
+      },
+      "failures": []
+    },
     {
       "key": "gemini:gemini-3.5-flash-lite",
       "provider": "gemini",
       "model": "gemini-3.5-flash-lite",
       "note": "reference only (not wanted as primary)",
       "status": "done",
+      "errors_by_reason": {},
       "items": 135,
       "expected": 135,
       "score": 96.8,
@@ -271,277 +524,12 @@
       ]
     },
     {
-      "key": "gemini:gemma-4-26b-a4b-it",
-      "provider": "gemini",
-      "model": "gemma-4-26b-a4b-it",
-      "note": "",
-      "status": "done",
-      "items": 135,
-      "expected": 135,
-      "score": 94.6,
-      "components": {
-        "accuracy": 0.955,
-        "language": 0.864,
-        "speed": 1,
-        "reliability": 0.956
-      },
-      "overall": {
-        "n": 135,
-        "accuracy": 0.956,
-        "correct": 129,
-        "errors": 6,
-        "error_rate": 0.044,
-        "language": 0.86,
-        "first_token_ms": {
-          "median": 831,
-          "p90": 34411
-        },
-        "total_ms": {
-          "median": 4678,
-          "p90": 39041
-        },
-        "tokens": 68244,
-        "cost_usd": 0
-      },
-      "sets": {
-        "coding": {
-          "n": 12,
-          "accuracy": 1,
-          "correct": 12,
-          "errors": 0,
-          "error_rate": 0,
-          "language": null,
-          "first_token_ms": {
-            "median": 1035,
-            "p90": 33617
-          },
-          "total_ms": {
-            "median": 5291,
-            "p90": 36581
-          },
-          "tokens": 7182,
-          "cost_usd": 0
-        },
-        "everyday": {
-          "n": 13,
-          "accuracy": 0.769,
-          "correct": 10,
-          "errors": 3,
-          "error_rate": 0.231,
-          "language": null,
-          "first_token_ms": {
-            "median": 8824,
-            "p90": 42748
-          },
-          "total_ms": {
-            "median": 11692,
-            "p90": 42863
-          },
-          "tokens": 4102,
-          "cost_usd": 0
-        },
-        "hausa": {
-          "n": 11,
-          "accuracy": 0.909,
-          "correct": 10,
-          "errors": 1,
-          "error_rate": 0.091,
-          "language": 0.898,
-          "first_token_ms": {
-            "median": 813,
-            "p90": 28887
-          },
-          "total_ms": {
-            "median": 2137,
-            "p90": 28907
-          },
-          "tokens": 4042,
-          "cost_usd": 0
-        },
-        "igbo": {
-          "n": 11,
-          "accuracy": 0.909,
-          "correct": 10,
-          "errors": 1,
-          "error_rate": 0.091,
-          "language": 0.938,
-          "first_token_ms": {
-            "median": 13433,
-            "p90": 34612
-          },
-          "total_ms": {
-            "median": 13901,
-            "p90": 35778
-          },
-          "tokens": 4231,
-          "cost_usd": 0
-        },
-        "jamb": {
-          "n": 14,
-          "accuracy": 1,
-          "correct": 14,
-          "errors": 0,
-          "error_rate": 0,
-          "language": null,
-          "first_token_ms": {
-            "median": 768,
-            "p90": 21777
-          },
-          "total_ms": {
-            "median": 8395,
-            "p90": 29462
-          },
-          "tokens": 8968,
-          "cost_usd": 0
-        },
-        "pidgin": {
-          "n": 11,
-          "accuracy": 1,
-          "correct": 11,
-          "errors": 0,
-          "error_rate": 0,
-          "language": 0.839,
-          "first_token_ms": {
-            "median": 1000,
-            "p90": 34120
-          },
-          "total_ms": {
-            "median": 2823,
-            "p90": 35202
-          },
-          "tokens": 5053,
-          "cost_usd": 0
-        },
-        "reasoning": {
-          "n": 13,
-          "accuracy": 1,
-          "correct": 13,
-          "errors": 0,
-          "error_rate": 0,
-          "language": null,
-          "first_token_ms": {
-            "median": 798,
-            "p90": 23955
-          },
-          "total_ms": {
-            "median": 4613,
-            "p90": 24893
-          },
-          "tokens": 6242,
-          "cost_usd": 0
-        },
-        "tooluse": {
-          "n": 12,
-          "accuracy": 1,
-          "correct": 12,
-          "errors": 0,
-          "error_rate": 0,
-          "language": null,
-          "first_token_ms": {
-            "median": 828,
-            "p90": 37219
-          },
-          "total_ms": {
-            "median": 1661,
-            "p90": 37814
-          },
-          "tokens": 5906,
-          "cost_usd": 0
-        },
-        "university": {
-          "n": 13,
-          "accuracy": 0.923,
-          "correct": 12,
-          "errors": 1,
-          "error_rate": 0.077,
-          "language": null,
-          "first_token_ms": {
-            "median": 782,
-            "p90": 31933
-          },
-          "total_ms": {
-            "median": 7562,
-            "p90": 41401
-          },
-          "tokens": 8707,
-          "cost_usd": 0
-        },
-        "waec": {
-          "n": 14,
-          "accuracy": 1,
-          "correct": 14,
-          "errors": 0,
-          "error_rate": 0,
-          "language": null,
-          "first_token_ms": {
-            "median": 818,
-            "p90": 27421
-          },
-          "total_ms": {
-            "median": 6493,
-            "p90": 35006
-          },
-          "tokens": 8876,
-          "cost_usd": 0
-        },
-        "yoruba": {
-          "n": 11,
-          "accuracy": 1,
-          "correct": 11,
-          "errors": 0,
-          "error_rate": 0,
-          "language": 0.781,
-          "first_token_ms": {
-            "median": 809,
-            "p90": 28594
-          },
-          "total_ms": {
-            "median": 1931,
-            "p90": 34884
-          },
-          "tokens": 4935,
-          "cost_usd": 0
-        }
-      },
-      "failures": [
-        {
-          "id": "ha-02",
-          "set": "hausa",
-          "detail": "upstream_error 500: Internal error encountered."
-        },
-        {
-          "id": "ig-02",
-          "set": "igbo",
-          "detail": "upstream_error 500: Internal error encountered."
-        },
-        {
-          "id": "everyday-03",
-          "set": "everyday",
-          "detail": "upstream_error 500: Internal error encountered."
-        },
-        {
-          "id": "uni-04",
-          "set": "university",
-          "detail": "upstream_error 500: Internal error encountered."
-        },
-        {
-          "id": "everyday-06",
-          "set": "everyday",
-          "detail": "upstream_error 500: Internal error encountered."
-        },
-        {
-          "id": "everyday-13",
-          "set": "everyday",
-          "detail": "upstream_error 500: Internal error encountered."
-        }
-      ]
-    },
-    {
       "key": "nvidia:minimaxai/minimax-m3.1-flash",
       "provider": "nvidia",
       "model": "minimaxai/minimax-m3.1-flash",
       "note": "",
       "status": "done",
+      "errors_by_reason": {},
       "items": 135,
       "expected": 135,
       "score": 88.9,
@@ -888,31 +876,32 @@
       "model": "gemma-4-31b-it",
       "note": "",
       "status": "done",
+      "errors_by_reason": {},
       "items": 135,
       "expected": 135,
-      "score": 83.5,
+      "score": 88.5,
       "components": {
-        "accuracy": 0.924,
-        "language": 0.947,
+        "accuracy": 0.988,
+        "language": 0.949,
         "speed": 0,
-        "reliability": 0.926
+        "reliability": 1
       },
       "overall": {
         "n": 135,
-        "accuracy": 0.922,
-        "correct": 124,
-        "errors": 10,
-        "error_rate": 0.074,
-        "language": 0.948,
+        "accuracy": 0.989,
+        "correct": 133,
+        "errors": 0,
+        "error_rate": 0,
+        "language": 0.951,
         "first_token_ms": {
-          "median": 20900,
-          "p90": 35197
+          "median": 20973,
+          "p90": 37762
         },
         "total_ms": {
-          "median": 23380,
+          "median": 23440,
           "p90": 43289
         },
-        "tokens": 61347,
+        "tokens": 72034,
         "cost_usd": 0
       },
       "sets": {
@@ -920,18 +909,18 @@
           "n": 12,
           "accuracy": 0.917,
           "correct": 11,
-          "errors": 1,
-          "error_rate": 0.083,
+          "errors": 0,
+          "error_rate": 0,
           "language": null,
           "first_token_ms": {
-            "median": 18189,
-            "p90": 40232
+            "median": 17989,
+            "p90": 38654
           },
           "total_ms": {
-            "median": 21055,
-            "p90": 46252
+            "median": 21015,
+            "p90": 46214
           },
-          "tokens": 6436,
+          "tokens": 7896,
           "cost_usd": 0
         },
         "everyday": {
@@ -972,74 +961,74 @@
         },
         "igbo": {
           "n": 11,
-          "accuracy": 0.909,
-          "correct": 10,
-          "errors": 1,
-          "error_rate": 0.091,
+          "accuracy": 1,
+          "correct": 11,
+          "errors": 0,
+          "error_rate": 0,
           "language": 1,
           "first_token_ms": {
-            "median": 17591,
-            "p90": 26452
+            "median": 17381,
+            "p90": 25051
           },
           "total_ms": {
-            "median": 18561,
-            "p90": 31711
+            "median": 18448,
+            "p90": 30892
           },
-          "tokens": 3972,
+          "tokens": 4610,
           "cost_usd": 0
         },
         "jamb": {
           "n": 14,
-          "accuracy": 0.786,
-          "correct": 11,
-          "errors": 3,
-          "error_rate": 0.214,
+          "accuracy": 1,
+          "correct": 14,
+          "errors": 0,
+          "error_rate": 0,
           "language": null,
           "first_token_ms": {
-            "median": 22074,
-            "p90": 32597
+            "median": 21709,
+            "p90": 34355
           },
           "total_ms": {
-            "median": 24923,
-            "p90": 38965
+            "median": 26796,
+            "p90": 40854
           },
-          "tokens": 6236,
+          "tokens": 10115,
           "cost_usd": 0
         },
         "pidgin": {
           "n": 11,
-          "accuracy": 0.773,
-          "correct": 8,
-          "errors": 2,
-          "error_rate": 0.182,
-          "language": 0.958,
+          "accuracy": 0.955,
+          "correct": 10,
+          "errors": 0,
+          "error_rate": 0,
+          "language": 0.964,
           "first_token_ms": {
-            "median": 21081,
-            "p90": 32545
+            "median": 21771,
+            "p90": 38461
           },
           "total_ms": {
-            "median": 21797,
-            "p90": 35188
+            "median": 26585,
+            "p90": 38481
           },
-          "tokens": 3653,
+          "tokens": 5193,
           "cost_usd": 0
         },
         "reasoning": {
           "n": 13,
-          "accuracy": 0.923,
-          "correct": 12,
-          "errors": 1,
-          "error_rate": 0.077,
+          "accuracy": 1,
+          "correct": 13,
+          "errors": 0,
+          "error_rate": 0,
           "language": null,
           "first_token_ms": {
-            "median": 18557,
-            "p90": 34871
+            "median": 17978,
+            "p90": 34486
           },
           "total_ms": {
-            "median": 22469,
-            "p90": 36140
+            "median": 22447,
+            "p90": 35830
           },
-          "tokens": 5417,
+          "tokens": 6075,
           "cost_usd": 0
         },
         "tooluse": {
@@ -1062,38 +1051,38 @@
         },
         "university": {
           "n": 13,
-          "accuracy": 0.923,
-          "correct": 12,
-          "errors": 1,
-          "error_rate": 0.077,
+          "accuracy": 1,
+          "correct": 13,
+          "errors": 0,
+          "error_rate": 0,
           "language": null,
           "first_token_ms": {
-            "median": 22947,
-            "p90": 34366
+            "median": 24276,
+            "p90": 33912
           },
           "total_ms": {
-            "median": 29092,
-            "p90": 54566
+            "median": 31138,
+            "p90": 52908
           },
-          "tokens": 8127,
+          "tokens": 9502,
           "cost_usd": 0
         },
         "waec": {
           "n": 14,
-          "accuracy": 0.929,
-          "correct": 13,
-          "errors": 1,
-          "error_rate": 0.071,
+          "accuracy": 1,
+          "correct": 14,
+          "errors": 0,
+          "error_rate": 0,
           "language": null,
           "first_token_ms": {
-            "median": 20289,
-            "p90": 31957
+            "median": 20631,
+            "p90": 38804
           },
           "total_ms": {
-            "median": 23461,
-            "p90": 45959
+            "median": 23641,
+            "p90": 47127
           },
-          "tokens": 7541,
+          "tokens": 8678,
           "cost_usd": 0
         },
         "yoruba": {
@@ -1117,31 +1106,6 @@
       },
       "failures": [
         {
-          "id": "reason-01",
-          "set": "reasoning",
-          "detail": "upstream_error 500: Internal error encountered."
-        },
-        {
-          "id": "jamb-02",
-          "set": "jamb",
-          "detail": "upstream_error 500: Internal error encountered."
-        },
-        {
-          "id": "ig-03",
-          "set": "igbo",
-          "detail": "upstream_error 500: Internal error encountered."
-        },
-        {
-          "id": "jamb-03",
-          "set": "jamb",
-          "detail": "upstream_error 500: Internal error encountered."
-        },
-        {
-          "id": "pcm-03",
-          "set": "pidgin",
-          "detail": "upstream_error 500: Internal error encountered."
-        },
-        {
           "id": "pcm-06",
           "set": "pidgin",
           "detail": "missing pikin"
@@ -1149,258 +1113,239 @@
         {
           "id": "code-07",
           "set": "coding",
-          "detail": "upstream_error 500: Internal error encountered."
-        },
-        {
-          "id": "uni-07",
-          "set": "university",
-          "detail": "upstream_error: This model is currently experiencing high demand. Spikes in demand are usually temporary. Please try again later."
-        },
-        {
-          "id": "waec-09",
-          "set": "waec",
-          "detail": "upstream_error 500: Internal error encountered."
-        },
-        {
-          "id": "jamb-10",
-          "set": "jamb",
-          "detail": "upstream_error 500: Internal error encountered."
-        },
-        {
-          "id": "pcm-10",
-          "set": "pidgin",
-          "detail": "upstream_error 500: Internal error encountered."
+          "detail": "0/4 tests; Do not know how to serialize a BigInt; Do not know how to serialize a BigInt"
         }
       ]
     },
     {
-      "key": "nvidia:deepseek-ai/deepseek-v4.1-flash",
+      "key": "nvidia:mistralai/mistral-large-4-1t-a52b",
       "provider": "nvidia",
-      "model": "deepseek-ai/deepseek-v4.1-flash",
+      "model": "mistralai/mistral-large-4-1t-a52b",
       "note": "",
-      "status": "incomplete",
-      "items": 15,
+      "status": "done",
+      "errors_by_reason": {},
+      "items": 135,
       "expected": 135,
-      "score": 0,
+      "score": 88.2,
       "components": {
-        "accuracy": 0,
-        "language": 0,
-        "speed": 0,
-        "reliability": 0
+        "accuracy": 0.971,
+        "language": 0.899,
+        "speed": 0.15,
+        "reliability": 1
       },
       "overall": {
-        "n": 15,
-        "accuracy": 0,
-        "correct": 0,
-        "errors": 15,
-        "error_rate": 1,
-        "language": null,
+        "n": 135,
+        "accuracy": 0.973,
+        "correct": 129,
+        "errors": 0,
+        "error_rate": 0,
+        "language": 0.915,
         "first_token_ms": {
-          "median": null,
-          "p90": null
+          "median": 12755,
+          "p90": 71233
         },
         "total_ms": {
-          "median": null,
-          "p90": null
+          "median": 15845,
+          "p90": 83157
         },
         "tokens": 0,
         "cost_usd": 0
       },
       "sets": {
         "coding": {
-          "n": 2,
-          "accuracy": 0,
-          "correct": 0,
-          "errors": 2,
-          "error_rate": 1,
+          "n": 12,
+          "accuracy": 0.944,
+          "correct": 11,
+          "errors": 0,
+          "error_rate": 0,
           "language": null,
           "first_token_ms": {
-            "median": null,
-            "p90": null
+            "median": 38326,
+            "p90": 87442
           },
           "total_ms": {
-            "median": null,
-            "p90": null
+            "median": 47134,
+            "p90": 89052
           },
           "tokens": 0,
           "cost_usd": 0
         },
         "everyday": {
-          "n": 2,
-          "accuracy": 0,
-          "correct": 0,
-          "errors": 2,
-          "error_rate": 1,
+          "n": 13,
+          "accuracy": 0.962,
+          "correct": 12,
+          "errors": 0,
+          "error_rate": 0,
           "language": null,
           "first_token_ms": {
-            "median": null,
-            "p90": null
+            "median": 4191,
+            "p90": 16202
           },
           "total_ms": {
-            "median": null,
-            "p90": null
+            "median": 4541,
+            "p90": 21690
           },
           "tokens": 0,
           "cost_usd": 0
         },
         "hausa": {
-          "n": 2,
-          "accuracy": 0,
-          "correct": 0,
-          "errors": 2,
-          "error_rate": 1,
-          "language": null,
+          "n": 11,
+          "accuracy": 0.955,
+          "correct": 10,
+          "errors": 0,
+          "error_rate": 0,
+          "language": 0.596,
           "first_token_ms": {
-            "median": null,
-            "p90": null
+            "median": 29759,
+            "p90": 49952
           },
           "total_ms": {
-            "median": null,
-            "p90": null
+            "median": 39539,
+            "p90": 51940
           },
           "tokens": 0,
           "cost_usd": 0
         },
         "igbo": {
-          "n": 2,
-          "accuracy": 0,
-          "correct": 0,
-          "errors": 2,
-          "error_rate": 1,
-          "language": null,
+          "n": 11,
+          "accuracy": 0.864,
+          "correct": 9,
+          "errors": 0,
+          "error_rate": 0,
+          "language": 1,
           "first_token_ms": {
-            "median": null,
-            "p90": null
+            "median": 26180,
+            "p90": 90301
           },
           "total_ms": {
-            "median": null,
-            "p90": null
+            "median": 83361,
+            "p90": 106022
           },
           "tokens": 0,
           "cost_usd": 0
         },
         "jamb": {
-          "n": 1,
-          "accuracy": 0,
-          "correct": 0,
-          "errors": 1,
-          "error_rate": 1,
+          "n": 14,
+          "accuracy": 1,
+          "correct": 14,
+          "errors": 0,
+          "error_rate": 0,
           "language": null,
           "first_token_ms": {
-            "median": null,
-            "p90": null
+            "median": 10514,
+            "p90": 37647
           },
           "total_ms": {
-            "median": null,
-            "p90": null
+            "median": 11092,
+            "p90": 38458
           },
           "tokens": 0,
           "cost_usd": 0
         },
         "pidgin": {
-          "n": 1,
-          "accuracy": 0,
-          "correct": 0,
-          "errors": 1,
-          "error_rate": 1,
-          "language": null,
+          "n": 11,
+          "accuracy": 1,
+          "correct": 11,
+          "errors": 0,
+          "error_rate": 0,
+          "language": 1,
           "first_token_ms": {
-            "median": null,
-            "p90": null
+            "median": 10137,
+            "p90": 28797
           },
           "total_ms": {
-            "median": null,
-            "p90": null
+            "median": 15451,
+            "p90": 41795
           },
           "tokens": 0,
           "cost_usd": 0
         },
         "reasoning": {
-          "n": 1,
-          "accuracy": 0,
-          "correct": 0,
-          "errors": 1,
-          "error_rate": 1,
+          "n": 13,
+          "accuracy": 1,
+          "correct": 13,
+          "errors": 0,
+          "error_rate": 0,
           "language": null,
           "first_token_ms": {
-            "median": null,
-            "p90": null
+            "median": 14155,
+            "p90": 23411
           },
           "total_ms": {
-            "median": null,
-            "p90": null
+            "median": 15501,
+            "p90": 29659
           },
           "tokens": 0,
           "cost_usd": 0
         },
         "tooluse": {
-          "n": 1,
-          "accuracy": 0,
-          "correct": 0,
-          "errors": 1,
-          "error_rate": 1,
+          "n": 12,
+          "accuracy": 1,
+          "correct": 12,
+          "errors": 0,
+          "error_rate": 0,
           "language": null,
           "first_token_ms": {
-            "median": null,
-            "p90": null
+            "median": 6994,
+            "p90": 24317
           },
           "total_ms": {
-            "median": null,
-            "p90": null
+            "median": 8148,
+            "p90": 24441
           },
           "tokens": 0,
           "cost_usd": 0
         },
         "university": {
-          "n": 1,
-          "accuracy": 0,
-          "correct": 0,
-          "errors": 1,
-          "error_rate": 1,
+          "n": 13,
+          "accuracy": 1,
+          "correct": 13,
+          "errors": 0,
+          "error_rate": 0,
           "language": null,
           "first_token_ms": {
-            "median": null,
-            "p90": null
+            "median": 15789,
+            "p90": 132565
           },
           "total_ms": {
-            "median": null,
-            "p90": null
+            "median": 17475,
+            "p90": 133520
           },
           "tokens": 0,
           "cost_usd": 0
         },
         "waec": {
-          "n": 1,
-          "accuracy": 0,
-          "correct": 0,
-          "errors": 1,
-          "error_rate": 1,
+          "n": 14,
+          "accuracy": 1,
+          "correct": 14,
+          "errors": 0,
+          "error_rate": 0,
           "language": null,
           "first_token_ms": {
-            "median": null,
-            "p90": null
+            "median": 8745,
+            "p90": 40614
           },
           "total_ms": {
-            "median": null,
-            "p90": null
+            "median": 9531,
+            "p90": 40617
           },
           "tokens": 0,
           "cost_usd": 0
         },
         "yoruba": {
-          "n": 1,
-          "accuracy": 0,
-          "correct": 0,
-          "errors": 1,
-          "error_rate": 1,
-          "language": null,
+          "n": 11,
+          "accuracy": 0.955,
+          "correct": 10,
+          "errors": 0,
+          "error_rate": 0,
+          "language": 1,
           "first_token_ms": {
-            "median": null,
-            "p90": null
+            "median": 14926,
+            "p90": 50040
           },
           "total_ms": {
-            "median": null,
-            "p90": null
+            "median": 23355,
+            "p90": 50181
           },
           "tokens": 0,
           "cost_usd": 0
@@ -1408,442 +1353,67 @@
       },
       "failures": [
         {
-          "id": "code-01",
-          "set": "coding",
-          "detail": "timeout: The model took too long to start answering."
-        },
-        {
-          "id": "everyday-01",
-          "set": "everyday",
-          "detail": "timeout: The model took too long to start answering."
-        },
-        {
-          "id": "ha-01",
-          "set": "hausa",
-          "detail": "timeout: The model took too long to start answering."
-        },
-        {
-          "id": "ig-01",
-          "set": "igbo",
-          "detail": "timeout: The model took too long to start answering."
-        },
-        {
-          "id": "jamb-01",
-          "set": "jamb",
-          "detail": "timeout: The model took too long to start answering."
-        },
-        {
-          "id": "pcm-01",
-          "set": "pidgin",
-          "detail": "timeout: The model took too long to start answering."
-        },
-        {
-          "id": "reason-01",
-          "set": "reasoning",
-          "detail": "timeout: The model took too long to start answering."
-        },
-        {
-          "id": "tool-01",
-          "set": "tooluse",
-          "detail": "timeout: The model took too long to start answering."
-        },
-        {
-          "id": "uni-01",
-          "set": "university",
-          "detail": "timeout: The model took too long to start answering."
-        },
-        {
-          "id": "waec-01",
-          "set": "waec",
-          "detail": "timeout: The model took too long to start answering."
-        },
-        {
-          "id": "yo-01",
-          "set": "yoruba",
-          "detail": "timeout: The model took too long to start answering."
-        },
-        {
-          "id": "code-02",
-          "set": "coding",
-          "detail": "timeout: The model took too long to start answering."
-        },
-        {
-          "id": "everyday-02",
-          "set": "everyday",
-          "detail": "timeout: The model took too long to start answering."
-        },
-        {
-          "id": "ha-02",
-          "set": "hausa",
-          "detail": "timeout: The model took too long to start answering."
-        },
-        {
           "id": "ig-02",
           "set": "igbo",
-          "detail": "timeout: The model took too long to start answering."
-        }
-      ],
-      "same_items": {
-        "items": 15,
-        "accuracy": {
-          "nvidia:deepseek-ai/deepseek-v4.1-flash": 0,
-          "gemini:gemma-4-26b-a4b-it": 0.867,
-          "gemini:gemma-4-31b-it": 0.933,
-          "gemini:gemini-3.5-flash-lite": 1,
-          "nvidia:minimaxai/minimax-m3.1-flash": 0.867
-        }
-      }
-    },
-    {
-      "key": "nvidia:z-ai/glm-5.3-flash",
-      "provider": "nvidia",
-      "model": "z-ai/glm-5.3-flash",
-      "note": "",
-      "status": "incomplete",
-      "items": 15,
-      "expected": 135,
-      "score": 0,
-      "components": {
-        "accuracy": 0,
-        "language": 0,
-        "speed": 0,
-        "reliability": 0
-      },
-      "overall": {
-        "n": 15,
-        "accuracy": 0,
-        "correct": 0,
-        "errors": 15,
-        "error_rate": 1,
-        "language": null,
-        "first_token_ms": {
-          "median": null,
-          "p90": null
+          "detail": "missing one of ututu oma/i bola chi/ibola chi/ibolachi/i boola chi/iboola chi"
         },
-        "total_ms": {
-          "median": null,
-          "p90": null
-        },
-        "tokens": 0,
-        "cost_usd": 0
-      },
-      "sets": {
-        "coding": {
-          "n": 2,
-          "accuracy": 0,
-          "correct": 0,
-          "errors": 2,
-          "error_rate": 1,
-          "language": null,
-          "first_token_ms": {
-            "median": null,
-            "p90": null
-          },
-          "total_ms": {
-            "median": null,
-            "p90": null
-          },
-          "tokens": 0,
-          "cost_usd": 0
-        },
-        "everyday": {
-          "n": 2,
-          "accuracy": 0,
-          "correct": 0,
-          "errors": 2,
-          "error_rate": 1,
-          "language": null,
-          "first_token_ms": {
-            "median": null,
-            "p90": null
-          },
-          "total_ms": {
-            "median": null,
-            "p90": null
-          },
-          "tokens": 0,
-          "cost_usd": 0
-        },
-        "hausa": {
-          "n": 2,
-          "accuracy": 0,
-          "correct": 0,
-          "errors": 2,
-          "error_rate": 1,
-          "language": null,
-          "first_token_ms": {
-            "median": null,
-            "p90": null
-          },
-          "total_ms": {
-            "median": null,
-            "p90": null
-          },
-          "tokens": 0,
-          "cost_usd": 0
-        },
-        "igbo": {
-          "n": 2,
-          "accuracy": 0,
-          "correct": 0,
-          "errors": 2,
-          "error_rate": 1,
-          "language": null,
-          "first_token_ms": {
-            "median": null,
-            "p90": null
-          },
-          "total_ms": {
-            "median": null,
-            "p90": null
-          },
-          "tokens": 0,
-          "cost_usd": 0
-        },
-        "jamb": {
-          "n": 1,
-          "accuracy": 0,
-          "correct": 0,
-          "errors": 1,
-          "error_rate": 1,
-          "language": null,
-          "first_token_ms": {
-            "median": null,
-            "p90": null
-          },
-          "total_ms": {
-            "median": null,
-            "p90": null
-          },
-          "tokens": 0,
-          "cost_usd": 0
-        },
-        "pidgin": {
-          "n": 1,
-          "accuracy": 0,
-          "correct": 0,
-          "errors": 1,
-          "error_rate": 1,
-          "language": null,
-          "first_token_ms": {
-            "median": null,
-            "p90": null
-          },
-          "total_ms": {
-            "median": null,
-            "p90": null
-          },
-          "tokens": 0,
-          "cost_usd": 0
-        },
-        "reasoning": {
-          "n": 1,
-          "accuracy": 0,
-          "correct": 0,
-          "errors": 1,
-          "error_rate": 1,
-          "language": null,
-          "first_token_ms": {
-            "median": null,
-            "p90": null
-          },
-          "total_ms": {
-            "median": null,
-            "p90": null
-          },
-          "tokens": 0,
-          "cost_usd": 0
-        },
-        "tooluse": {
-          "n": 1,
-          "accuracy": 0,
-          "correct": 0,
-          "errors": 1,
-          "error_rate": 1,
-          "language": null,
-          "first_token_ms": {
-            "median": null,
-            "p90": null
-          },
-          "total_ms": {
-            "median": null,
-            "p90": null
-          },
-          "tokens": 0,
-          "cost_usd": 0
-        },
-        "university": {
-          "n": 1,
-          "accuracy": 0,
-          "correct": 0,
-          "errors": 1,
-          "error_rate": 1,
-          "language": null,
-          "first_token_ms": {
-            "median": null,
-            "p90": null
-          },
-          "total_ms": {
-            "median": null,
-            "p90": null
-          },
-          "tokens": 0,
-          "cost_usd": 0
-        },
-        "waec": {
-          "n": 1,
-          "accuracy": 0,
-          "correct": 0,
-          "errors": 1,
-          "error_rate": 1,
-          "language": null,
-          "first_token_ms": {
-            "median": null,
-            "p90": null
-          },
-          "total_ms": {
-            "median": null,
-            "p90": null
-          },
-          "tokens": 0,
-          "cost_usd": 0
-        },
-        "yoruba": {
-          "n": 1,
-          "accuracy": 0,
-          "correct": 0,
-          "errors": 1,
-          "error_rate": 1,
-          "language": null,
-          "first_token_ms": {
-            "median": null,
-            "p90": null
-          },
-          "total_ms": {
-            "median": null,
-            "p90": null
-          },
-          "tokens": 0,
-          "cost_usd": 0
-        }
-      },
-      "failures": [
         {
-          "id": "code-01",
+          "id": "code-09",
           "set": "coding",
-          "detail": "timeout: The model took too long to start answering."
+          "detail": "1/3 tests; Expected values to be strictly deep-equal:; Expected values to be strictly deep-equal:"
         },
         {
-          "id": "everyday-01",
+          "id": "everyday-05",
           "set": "everyday",
-          "detail": "timeout: The model took too long to start answering."
+          "detail": "missing 1960 | ok"
         },
         {
-          "id": "ha-01",
+          "id": "ha-05",
           "set": "hausa",
-          "detail": "timeout: The model took too long to start answering."
+          "detail": "ha 0%, orthography 0% | ok"
         },
         {
-          "id": "ig-01",
+          "id": "ig-07",
           "set": "igbo",
-          "detail": "timeout: The model took too long to start answering."
+          "detail": "missing ahia"
         },
         {
-          "id": "jamb-01",
-          "set": "jamb",
-          "detail": "timeout: The model took too long to start answering."
-        },
-        {
-          "id": "pcm-01",
-          "set": "pidgin",
-          "detail": "timeout: The model took too long to start answering."
-        },
-        {
-          "id": "reason-01",
-          "set": "reasoning",
-          "detail": "timeout: The model took too long to start answering."
-        },
-        {
-          "id": "tool-01",
-          "set": "tooluse",
-          "detail": "timeout: The model took too long to start answering."
-        },
-        {
-          "id": "uni-01",
-          "set": "university",
-          "detail": "timeout: The model took too long to start answering."
-        },
-        {
-          "id": "waec-01",
-          "set": "waec",
-          "detail": "timeout: The model took too long to start answering."
-        },
-        {
-          "id": "yo-01",
+          "id": "yo-08",
           "set": "yoruba",
-          "detail": "timeout: The model took too long to start answering."
-        },
-        {
-          "id": "code-02",
-          "set": "coding",
-          "detail": "timeout: The model took too long to start answering."
-        },
-        {
-          "id": "everyday-02",
-          "set": "everyday",
-          "detail": "timeout: The model took too long to start answering."
-        },
-        {
-          "id": "ha-02",
-          "set": "hausa",
-          "detail": "timeout: The model took too long to start answering."
-        },
-        {
-          "id": "ig-02",
-          "set": "igbo",
-          "detail": "timeout: The model took too long to start answering."
+          "detail": "missing oja"
         }
-      ],
-      "same_items": {
-        "items": 15,
-        "accuracy": {
-          "nvidia:z-ai/glm-5.3-flash": 0,
-          "gemini:gemma-4-26b-a4b-it": 0.867,
-          "gemini:gemma-4-31b-it": 0.933,
-          "gemini:gemini-3.5-flash-lite": 1,
-          "nvidia:minimaxai/minimax-m3.1-flash": 0.867
-        }
-      }
+      ]
     },
     {
       "key": "nvidia:nvidia/nemotron-3.5-lightning-30b-a3b",
       "provider": "nvidia",
       "model": "nvidia/nemotron-3.5-lightning-30b-a3b",
       "note": "",
-      "status": "incomplete",
-      "items": 130,
+      "status": "done",
+      "errors_by_reason": {},
+      "items": 135,
       "expected": 135,
-      "score": 73.7,
+      "score": 73.9,
       "components": {
-        "accuracy": 0.771,
+        "accuracy": 0.773,
         "language": 0.7,
-        "speed": 0.191,
+        "speed": 0.202,
         "reliability": 1
       },
       "overall": {
-        "n": 130,
-        "accuracy": 0.782,
-        "correct": 97,
+        "n": 135,
+        "accuracy": 0.79,
+        "correct": 102,
         "errors": 0,
         "error_rate": 0,
         "language": 0.747,
         "first_token_ms": {
-          "median": 11283,
-          "p90": 43227
+          "median": 10916,
+          "p90": 43082
         },
         "total_ms": {
-          "median": 14965,
-          "p90": 58268
+          "median": 14074,
+          "p90": 58038
         },
         "tokens": 0,
         "cost_usd": 0
@@ -1922,19 +1492,19 @@
           "cost_usd": 0
         },
         "jamb": {
-          "n": 13,
-          "accuracy": 0.923,
-          "correct": 12,
+          "n": 14,
+          "accuracy": 0.929,
+          "correct": 13,
           "errors": 0,
           "error_rate": 0,
           "language": null,
           "first_token_ms": {
-            "median": 8225,
-            "p90": 26911
+            "median": 8196,
+            "p90": 26606
           },
           "total_ms": {
-            "median": 10186,
-            "p90": 60994
+            "median": 9198,
+            "p90": 60646
           },
           "tokens": 0,
           "cost_usd": 0
@@ -1958,19 +1528,19 @@
           "cost_usd": 0
         },
         "reasoning": {
-          "n": 12,
+          "n": 13,
           "accuracy": 1,
-          "correct": 12,
+          "correct": 13,
           "errors": 0,
           "error_rate": 0,
           "language": null,
           "first_token_ms": {
-            "median": 9215,
-            "p90": 13096
+            "median": 10167,
+            "p90": 12983
           },
           "total_ms": {
-            "median": 10035,
-            "p90": 14852
+            "median": 10560,
+            "p90": 14711
           },
           "tokens": 0,
           "cost_usd": 0
@@ -1994,37 +1564,37 @@
           "cost_usd": 0
         },
         "university": {
-          "n": 12,
-          "accuracy": 0.917,
-          "correct": 11,
+          "n": 13,
+          "accuracy": 0.923,
+          "correct": 12,
           "errors": 0,
           "error_rate": 0,
           "language": null,
           "first_token_ms": {
-            "median": 14258,
-            "p90": 24837
+            "median": 11846,
+            "p90": 24760
           },
           "total_ms": {
-            "median": 20540,
-            "p90": 34081
+            "median": 16099,
+            "p90": 33226
           },
           "tokens": 0,
           "cost_usd": 0
         },
         "waec": {
-          "n": 12,
-          "accuracy": 0.917,
-          "correct": 11,
+          "n": 14,
+          "accuracy": 0.929,
+          "correct": 13,
           "errors": 0,
           "error_rate": 0,
           "language": null,
           "first_token_ms": {
-            "median": 8106,
-            "p90": 33627
+            "median": 7878,
+            "p90": 29887
           },
           "total_ms": {
-            "median": 9248,
-            "p90": 44307
+            "median": 8215,
+            "p90": 42559
           },
           "tokens": 0,
           "cost_usd": 0
@@ -2214,246 +1784,240 @@
           "set": "yoruba",
           "detail": "yo 0%, orthography 0%"
         }
-      ],
-      "same_items": {
-        "items": 130,
-        "accuracy": {
-          "nvidia:nvidia/nemotron-3.5-lightning-30b-a3b": 0.782,
-          "gemini:gemma-4-26b-a4b-it": 0.954,
-          "gemini:gemma-4-31b-it": 0.919,
-          "gemini:gemini-3.5-flash-lite": 0.992,
-          "nvidia:minimaxai/minimax-m3.1-flash": 0.89
-        }
-      }
+      ]
     },
     {
-      "key": "nvidia:mistralai/mistral-large-4-1t-a52b",
+      "key": "nvidia:deepseek-ai/deepseek-v4.1-flash",
       "provider": "nvidia",
-      "model": "mistralai/mistral-large-4-1t-a52b",
+      "model": "deepseek-ai/deepseek-v4.1-flash",
       "note": "",
       "status": "incomplete",
-      "items": 42,
+      "errors_by_reason": {
+        "timeout": 13,
+        "timeout/connect": 5
+      },
+      "items": 18,
       "expected": 135,
-      "score": 88.6,
+      "score": 0,
       "components": {
-        "accuracy": 0.977,
-        "language": 1,
+        "accuracy": 0,
+        "language": 0,
         "speed": 0,
-        "reliability": 1
+        "reliability": 0
       },
       "overall": {
-        "n": 42,
-        "accuracy": 0.976,
-        "correct": 41,
-        "errors": 0,
-        "error_rate": 0,
-        "language": 1,
+        "n": 18,
+        "accuracy": 0,
+        "correct": 0,
+        "errors": 18,
+        "error_rate": 1,
+        "language": null,
         "first_token_ms": {
-          "median": 27552,
-          "p90": 90131
+          "median": null,
+          "p90": null
         },
         "total_ms": {
-          "median": 30576,
-          "p90": 90621
+          "median": null,
+          "p90": null
         },
         "tokens": 0,
         "cost_usd": 0
       },
       "sets": {
         "coding": {
-          "n": 4,
-          "accuracy": 1,
-          "correct": 4,
-          "errors": 0,
-          "error_rate": 0,
+          "n": 5,
+          "accuracy": 0,
+          "correct": 0,
+          "errors": 5,
+          "error_rate": 1,
           "language": null,
           "first_token_ms": {
-            "median": 79322,
-            "p90": 108761
+            "median": null,
+            "p90": null
           },
           "total_ms": {
-            "median": 80710,
-            "p90": 110875
+            "median": null,
+            "p90": null
           },
           "tokens": 0,
           "cost_usd": 0
         },
         "everyday": {
-          "n": 4,
-          "accuracy": 1,
-          "correct": 4,
-          "errors": 0,
-          "error_rate": 0,
+          "n": 2,
+          "accuracy": 0,
+          "correct": 0,
+          "errors": 2,
+          "error_rate": 1,
           "language": null,
           "first_token_ms": {
-            "median": 7827,
-            "p90": 22365
+            "median": null,
+            "p90": null
           },
           "total_ms": {
-            "median": 8351,
-            "p90": 22921
+            "median": null,
+            "p90": null
           },
           "tokens": 0,
           "cost_usd": 0
         },
         "hausa": {
-          "n": 4,
-          "accuracy": 1,
-          "correct": 4,
-          "errors": 0,
-          "error_rate": 0,
+          "n": 2,
+          "accuracy": 0,
+          "correct": 0,
+          "errors": 2,
+          "error_rate": 1,
           "language": null,
           "first_token_ms": {
-            "median": 34401,
-            "p90": 46679
+            "median": null,
+            "p90": null
           },
           "total_ms": {
-            "median": 34814,
-            "p90": 47012
+            "median": null,
+            "p90": null
           },
           "tokens": 0,
           "cost_usd": 0
         },
         "igbo": {
-          "n": 4,
-          "accuracy": 0.75,
-          "correct": 3,
-          "errors": 0,
-          "error_rate": 0,
+          "n": 2,
+          "accuracy": 0,
+          "correct": 0,
+          "errors": 2,
+          "error_rate": 1,
           "language": null,
           "first_token_ms": {
-            "median": 84791,
-            "p90": 89219
+            "median": null,
+            "p90": null
           },
           "total_ms": {
-            "median": 85067,
-            "p90": 89550
+            "median": null,
+            "p90": null
           },
           "tokens": 0,
           "cost_usd": 0
         },
         "jamb": {
-          "n": 4,
-          "accuracy": 1,
-          "correct": 4,
-          "errors": 0,
-          "error_rate": 0,
+          "n": 1,
+          "accuracy": 0,
+          "correct": 0,
+          "errors": 1,
+          "error_rate": 1,
           "language": null,
           "first_token_ms": {
-            "median": 34170,
-            "p90": 70477
+            "median": null,
+            "p90": null
           },
           "total_ms": {
-            "median": 35152,
-            "p90": 71022
+            "median": null,
+            "p90": null
           },
           "tokens": 0,
           "cost_usd": 0
         },
         "pidgin": {
-          "n": 4,
-          "accuracy": 1,
-          "correct": 4,
-          "errors": 0,
-          "error_rate": 0,
-          "language": 1,
+          "n": 1,
+          "accuracy": 0,
+          "correct": 0,
+          "errors": 1,
+          "error_rate": 1,
+          "language": null,
           "first_token_ms": {
-            "median": 17007,
-            "p90": 27527
+            "median": null,
+            "p90": null
           },
           "total_ms": {
-            "median": 23514,
-            "p90": 40396
+            "median": null,
+            "p90": null
           },
           "tokens": 0,
           "cost_usd": 0
         },
         "reasoning": {
-          "n": 4,
-          "accuracy": 1,
-          "correct": 4,
-          "errors": 0,
-          "error_rate": 0,
+          "n": 1,
+          "accuracy": 0,
+          "correct": 0,
+          "errors": 1,
+          "error_rate": 1,
           "language": null,
           "first_token_ms": {
-            "median": 17613,
-            "p90": 25968
+            "median": null,
+            "p90": null
           },
           "total_ms": {
-            "median": 18304,
-            "p90": 28076
+            "median": null,
+            "p90": null
           },
           "tokens": 0,
           "cost_usd": 0
         },
         "tooluse": {
-          "n": 4,
-          "accuracy": 1,
-          "correct": 4,
-          "errors": 0,
-          "error_rate": 0,
+          "n": 1,
+          "accuracy": 0,
+          "correct": 0,
+          "errors": 1,
+          "error_rate": 1,
           "language": null,
           "first_token_ms": {
-            "median": 7711,
-            "p90": 133615
+            "median": null,
+            "p90": null
           },
           "total_ms": {
-            "median": 8729,
-            "p90": 147734
+            "median": null,
+            "p90": null
           },
           "tokens": 0,
           "cost_usd": 0
         },
         "university": {
-          "n": 4,
-          "accuracy": 1,
-          "correct": 4,
-          "errors": 0,
-          "error_rate": 0,
+          "n": 1,
+          "accuracy": 0,
+          "correct": 0,
+          "errors": 1,
+          "error_rate": 1,
           "language": null,
           "first_token_ms": {
-            "median": 89779,
-            "p90": 178504
+            "median": null,
+            "p90": null
           },
           "total_ms": {
-            "median": 91768,
-            "p90": 186103
+            "median": null,
+            "p90": null
           },
           "tokens": 0,
           "cost_usd": 0
         },
         "waec": {
-          "n": 3,
-          "accuracy": 1,
-          "correct": 3,
-          "errors": 0,
-          "error_rate": 0,
+          "n": 1,
+          "accuracy": 0,
+          "correct": 0,
+          "errors": 1,
+          "error_rate": 1,
           "language": null,
           "first_token_ms": {
-            "median": 30972,
-            "p90": 63818
+            "median": null,
+            "p90": null
           },
           "total_ms": {
-            "median": 33078,
-            "p90": 65994
+            "median": null,
+            "p90": null
           },
           "tokens": 0,
           "cost_usd": 0
         },
         "yoruba": {
-          "n": 3,
-          "accuracy": 1,
-          "correct": 3,
-          "errors": 0,
-          "error_rate": 0,
+          "n": 1,
+          "accuracy": 0,
+          "correct": 0,
+          "errors": 1,
+          "error_rate": 1,
           "language": null,
           "first_token_ms": {
-            "median": 50040,
-            "p90": 74727
+            "median": null,
+            "p90": null
           },
           "total_ms": {
-            "median": 50181,
-            "p90": 77569
+            "median": null,
+            "p90": null
           },
           "tokens": 0,
           "cost_usd": 0
@@ -2461,19 +2025,443 @@
       },
       "failures": [
         {
+          "id": "everyday-01",
+          "set": "everyday",
+          "detail": "timeout: The model took too long to start answering."
+        },
+        {
+          "id": "ha-01",
+          "set": "hausa",
+          "detail": "timeout: The model took too long to start answering."
+        },
+        {
+          "id": "ig-01",
+          "set": "igbo",
+          "detail": "timeout: The model took too long to start answering."
+        },
+        {
+          "id": "jamb-01",
+          "set": "jamb",
+          "detail": "timeout: The model took too long to start answering."
+        },
+        {
+          "id": "pcm-01",
+          "set": "pidgin",
+          "detail": "timeout: The model took too long to start answering."
+        },
+        {
+          "id": "reason-01",
+          "set": "reasoning",
+          "detail": "timeout: The model took too long to start answering."
+        },
+        {
+          "id": "tool-01",
+          "set": "tooluse",
+          "detail": "timeout: The model took too long to start answering."
+        },
+        {
+          "id": "uni-01",
+          "set": "university",
+          "detail": "timeout: The model took too long to start answering."
+        },
+        {
+          "id": "waec-01",
+          "set": "waec",
+          "detail": "timeout: The model took too long to start answering."
+        },
+        {
+          "id": "yo-01",
+          "set": "yoruba",
+          "detail": "timeout: The model took too long to start answering."
+        },
+        {
+          "id": "everyday-02",
+          "set": "everyday",
+          "detail": "timeout: The model took too long to start answering."
+        },
+        {
+          "id": "ha-02",
+          "set": "hausa",
+          "detail": "timeout: The model took too long to start answering."
+        },
+        {
           "id": "ig-02",
           "set": "igbo",
-          "detail": "missing one of ututu oma/i bola chi/ibola chi/ibolachi/i boola chi/iboola chi"
+          "detail": "timeout: The model took too long to start answering."
+        },
+        {
+          "id": "code-01",
+          "set": "coding",
+          "detail": "timeout (no response from the host (queued or overloaded)): The model took too long to start answering. after 60.0 s, 3 attempts"
+        },
+        {
+          "id": "code-02",
+          "set": "coding",
+          "detail": "timeout (no response from the host (queued or overloaded)): The model took too long to start answering. after 60.0 s, 3 attempts"
+        },
+        {
+          "id": "code-03",
+          "set": "coding",
+          "detail": "timeout (no response from the host (queued or overloaded)): The model took too long to start answering. after 60.0 s, 3 attempts"
+        },
+        {
+          "id": "code-04",
+          "set": "coding",
+          "detail": "timeout (no response from the host (queued or overloaded)): The model took too long to start answering. after 60.0 s, 3 attempts"
+        },
+        {
+          "id": "code-05",
+          "set": "coding",
+          "detail": "timeout (no response from the host (queued or overloaded)): The model took too long to start answering. after 60.0 s, 3 attempts"
         }
       ],
       "same_items": {
-        "items": 42,
+        "items": 18,
         "accuracy": {
-          "nvidia:mistralai/mistral-large-4-1t-a52b": 0.976,
-          "gemini:gemma-4-26b-a4b-it": 0.905,
-          "gemini:gemma-4-31b-it": 0.881,
-          "gemini:gemini-3.5-flash-lite": 0.988,
-          "nvidia:minimaxai/minimax-m3.1-flash": 0.867
+          "nvidia:deepseek-ai/deepseek-v4.1-flash": 0,
+          "gemini:gemma-4-26b-a4b-it": 1,
+          "gemini:gemma-4-31b-it": 1,
+          "gemini:gemini-3.5-flash-lite": 1,
+          "nvidia:minimaxai/minimax-m3.1-flash": 0.889,
+          "nvidia:nvidia/nemotron-3.5-lightning-30b-a3b": 0.639,
+          "nvidia:mistralai/mistral-large-4-1t-a52b": 0.944
+        }
+      }
+    },
+    {
+      "key": "nvidia:z-ai/glm-5.3-flash",
+      "provider": "nvidia",
+      "model": "z-ai/glm-5.3-flash",
+      "note": "",
+      "status": "incomplete",
+      "errors_by_reason": {
+        "timeout": 13,
+        "timeout/connect": 4
+      },
+      "items": 19,
+      "expected": 135,
+      "score": 3.4,
+      "components": {
+        "accuracy": 0.03,
+        "language": 0,
+        "speed": 0,
+        "reliability": 0.105
+      },
+      "overall": {
+        "n": 19,
+        "accuracy": 0.105,
+        "correct": 2,
+        "errors": 17,
+        "error_rate": 0.895,
+        "language": null,
+        "first_token_ms": {
+          "median": 58376,
+          "p90": 58614
+        },
+        "total_ms": {
+          "median": 59085,
+          "p90": 59559
+        },
+        "tokens": 0,
+        "cost_usd": 0
+      },
+      "sets": {
+        "coding": {
+          "n": 6,
+          "accuracy": 0.333,
+          "correct": 2,
+          "errors": 4,
+          "error_rate": 0.667,
+          "language": null,
+          "first_token_ms": {
+            "median": 58376,
+            "p90": 58614
+          },
+          "total_ms": {
+            "median": 59085,
+            "p90": 59559
+          },
+          "tokens": 0,
+          "cost_usd": 0
+        },
+        "everyday": {
+          "n": 2,
+          "accuracy": 0,
+          "correct": 0,
+          "errors": 2,
+          "error_rate": 1,
+          "language": null,
+          "first_token_ms": {
+            "median": null,
+            "p90": null
+          },
+          "total_ms": {
+            "median": null,
+            "p90": null
+          },
+          "tokens": 0,
+          "cost_usd": 0
+        },
+        "hausa": {
+          "n": 2,
+          "accuracy": 0,
+          "correct": 0,
+          "errors": 2,
+          "error_rate": 1,
+          "language": null,
+          "first_token_ms": {
+            "median": null,
+            "p90": null
+          },
+          "total_ms": {
+            "median": null,
+            "p90": null
+          },
+          "tokens": 0,
+          "cost_usd": 0
+        },
+        "igbo": {
+          "n": 2,
+          "accuracy": 0,
+          "correct": 0,
+          "errors": 2,
+          "error_rate": 1,
+          "language": null,
+          "first_token_ms": {
+            "median": null,
+            "p90": null
+          },
+          "total_ms": {
+            "median": null,
+            "p90": null
+          },
+          "tokens": 0,
+          "cost_usd": 0
+        },
+        "jamb": {
+          "n": 1,
+          "accuracy": 0,
+          "correct": 0,
+          "errors": 1,
+          "error_rate": 1,
+          "language": null,
+          "first_token_ms": {
+            "median": null,
+            "p90": null
+          },
+          "total_ms": {
+            "median": null,
+            "p90": null
+          },
+          "tokens": 0,
+          "cost_usd": 0
+        },
+        "pidgin": {
+          "n": 1,
+          "accuracy": 0,
+          "correct": 0,
+          "errors": 1,
+          "error_rate": 1,
+          "language": null,
+          "first_token_ms": {
+            "median": null,
+            "p90": null
+          },
+          "total_ms": {
+            "median": null,
+            "p90": null
+          },
+          "tokens": 0,
+          "cost_usd": 0
+        },
+        "reasoning": {
+          "n": 1,
+          "accuracy": 0,
+          "correct": 0,
+          "errors": 1,
+          "error_rate": 1,
+          "language": null,
+          "first_token_ms": {
+            "median": null,
+            "p90": null
+          },
+          "total_ms": {
+            "median": null,
+            "p90": null
+          },
+          "tokens": 0,
+          "cost_usd": 0
+        },
+        "tooluse": {
+          "n": 1,
+          "accuracy": 0,
+          "correct": 0,
+          "errors": 1,
+          "error_rate": 1,
+          "language": null,
+          "first_token_ms": {
+            "median": null,
+            "p90": null
+          },
+          "total_ms": {
+            "median": null,
+            "p90": null
+          },
+          "tokens": 0,
+          "cost_usd": 0
+        },
+        "university": {
+          "n": 1,
+          "accuracy": 0,
+          "correct": 0,
+          "errors": 1,
+          "error_rate": 1,
+          "language": null,
+          "first_token_ms": {
+            "median": null,
+            "p90": null
+          },
+          "total_ms": {
+            "median": null,
+            "p90": null
+          },
+          "tokens": 0,
+          "cost_usd": 0
+        },
+        "waec": {
+          "n": 1,
+          "accuracy": 0,
+          "correct": 0,
+          "errors": 1,
+          "error_rate": 1,
+          "language": null,
+          "first_token_ms": {
+            "median": null,
+            "p90": null
+          },
+          "total_ms": {
+            "median": null,
+            "p90": null
+          },
+          "tokens": 0,
+          "cost_usd": 0
+        },
+        "yoruba": {
+          "n": 1,
+          "accuracy": 0,
+          "correct": 0,
+          "errors": 1,
+          "error_rate": 1,
+          "language": null,
+          "first_token_ms": {
+            "median": null,
+            "p90": null
+          },
+          "total_ms": {
+            "median": null,
+            "p90": null
+          },
+          "tokens": 0,
+          "cost_usd": 0
+        }
+      },
+      "failures": [
+        {
+          "id": "everyday-01",
+          "set": "everyday",
+          "detail": "timeout: The model took too long to start answering."
+        },
+        {
+          "id": "ha-01",
+          "set": "hausa",
+          "detail": "timeout: The model took too long to start answering."
+        },
+        {
+          "id": "ig-01",
+          "set": "igbo",
+          "detail": "timeout: The model took too long to start answering."
+        },
+        {
+          "id": "jamb-01",
+          "set": "jamb",
+          "detail": "timeout: The model took too long to start answering."
+        },
+        {
+          "id": "pcm-01",
+          "set": "pidgin",
+          "detail": "timeout: The model took too long to start answering."
+        },
+        {
+          "id": "reason-01",
+          "set": "reasoning",
+          "detail": "timeout: The model took too long to start answering."
+        },
+        {
+          "id": "tool-01",
+          "set": "tooluse",
+          "detail": "timeout: The model took too long to start answering."
+        },
+        {
+          "id": "uni-01",
+          "set": "university",
+          "detail": "timeout: The model took too long to start answering."
+        },
+        {
+          "id": "waec-01",
+          "set": "waec",
+          "detail": "timeout: The model took too long to start answering."
+        },
+        {
+          "id": "yo-01",
+          "set": "yoruba",
+          "detail": "timeout: The model took too long to start answering."
+        },
+        {
+          "id": "everyday-02",
+          "set": "everyday",
+          "detail": "timeout: The model took too long to start answering."
+        },
+        {
+          "id": "ha-02",
+          "set": "hausa",
+          "detail": "timeout: The model took too long to start answering."
+        },
+        {
+          "id": "ig-02",
+          "set": "igbo",
+          "detail": "timeout: The model took too long to start answering."
+        },
+        {
+          "id": "code-03",
+          "set": "coding",
+          "detail": "timeout (no response from the host (queued or overloaded)): The model took too long to start answering. after 60.0 s, 3 attempts"
+        },
+        {
+          "id": "code-04",
+          "set": "coding",
+          "detail": "timeout (no response from the host (queued or overloaded)): The model took too long to start answering. after 60.0 s, 3 attempts"
+        },
+        {
+          "id": "code-05",
+          "set": "coding",
+          "detail": "timeout (no response from the host (queued or overloaded)): The model took too long to start answering. after 60.0 s, 3 attempts"
+        },
+        {
+          "id": "code-06",
+          "set": "coding",
+          "detail": "timeout (no response from the host (queued or overloaded)): The model took too long to start answering. after 60.0 s, 3 attempts"
+        }
+      ],
+      "same_items": {
+        "items": 19,
+        "accuracy": {
+          "nvidia:z-ai/glm-5.3-flash": 0.105,
+          "gemini:gemma-4-26b-a4b-it": 1,
+          "gemini:gemma-4-31b-it": 1,
+          "gemini:gemini-3.5-flash-lite": 1,
+          "nvidia:minimaxai/minimax-m3.1-flash": 0.895,
+          "nvidia:nvidia/nemotron-3.5-lightning-30b-a3b": 0.658,
+          "nvidia:mistralai/mistral-large-4-1t-a52b": 0.947
         }
       }
     }
