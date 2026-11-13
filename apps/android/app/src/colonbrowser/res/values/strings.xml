@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Colon Browser (ng.nifelux.colonbrowser): the app's own name and the update texts that name the app. -->
+<resources>
+    <string name="app_name">Colon Browser</string>
+    <string name="logo_description">Colon Browser</string>
+    <string name="update_message">Colon Browser %1$s is ready. You have %2$s.</string>
+    <string name="update_downloading">Colon Browser %1$s</string>
+    <string name="update_invalid">That file isn\'t a valid Colon Browser update, so it was deleted.</string>
+    <string name="update_other_key">This update is signed with a different key. Uninstall Colon Browser, then install the new APK from the release page.</string>
+    <string name="update_allow_installs">Allow Colon Browser to install updates, then tap the update notification.</string>
+    <string name="update_ready_title">Colon Browser %1$s downloaded</string>
+</resources>

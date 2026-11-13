@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Colon Browser's launcher screen: same splash API, then the browser's DayNight theme. -->
+    <style name="Theme.Colon.Splash.Browser">
+        <item name="postSplashScreenTheme">@style/Theme.Colon</item>
+    </style>
+</resources>

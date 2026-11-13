@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Colon Browser: its own launcher background, so the two Colon apps are easy to tell apart. -->
+<resources>
+    <color name="launcher_bg">#0B1A3F</color>
+</resources>
