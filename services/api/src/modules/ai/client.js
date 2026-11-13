@@ -148,7 +148,10 @@ async function streamChat(o) {
       if (!c) return;
       const d = c.delta || c.message || {};
       if (d.content || d.reasoning || d.reasoning_content) arm(idleMs, 'idle');  // reasoning counts as alive
-      if (!d.content && (d.reasoning || d.reasoning_content)) trace.reasoning++;
+      if (!d.content && (d.reasoning || d.reasoning_content)) {
+        trace.reasoning++;
+        if (o.onReasoning) o.onReasoning();
+      }
       if (typeof d.content === 'string') emit(filter.push(d.content));
       if (c.finish_reason) finishReason = c.finish_reason;
     });

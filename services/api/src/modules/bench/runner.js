@@ -124,10 +124,14 @@ async function runItem(c, item, opts = {}) {
     ...(waited ? { waited_ms: waited } : {}), cfg: cfgOf(c, o) };
 }
 
+// Errors that will not go away by asking again (wrong key, wrong model id): the model stops at the first one.
+const FATAL = new Set(['auth', 'model_not_found', 'payment_required']);
+
 /**
- * runModel(candidate, items, { done: Set(ids), onResult(row), concurrency, gapMs, unreliableAfter, ...runItem opts })
- * -> { rows, unreliable }
- * Stops early (unreliable) when more than half of the first `unreliableAfter` (default 20) results are errors.
+ * runModel(candidate, items, { done: Set(ids), prior, onResult(row), concurrency, gapMs, unreliableAfter, limiter,
+ *   ...runItem opts }) -> { rows, unreliable, fatal }
+ * Stops early (unreliable) when more than half of the first `unreliableAfter` (default 20) results are errors, and
+ * at once (fatal = the error reason) on a 401/403/404/402.
  */
 async function runModel(c, items, opts = {}) {
   const todo = items.filter(it => !(opts.done && opts.done.has(it.id)));
@@ -135,24 +139,25 @@ async function runModel(c, items, opts = {}) {
   const prior = opts.prior || [];
   const conc = Math.max(1, Math.min(4, opts.concurrency || 1));
   const after = opts.unreliableAfter || 20;
-  let unreliable = false, next = 0;
+  let unreliable = false, fatal = null, next = 0;
   const check = () => {
     const all = prior.concat(rows);
     if (all.length >= after && all.filter(r => r.error).length / all.length > 0.5) unreliable = true;
   };
   check();
   async function worker() {
-    while (!unreliable && next < todo.length) {
+    while (!unreliable && !fatal && next < todo.length) {
       const it = todo[next++];
       const row = await runItem(c, it, opts);
       rows.push(row);
       if (opts.onResult) opts.onResult(row);
+      if (row.error && FATAL.has(row.error_code)) fatal = row.error;
       check();
       if (opts.gapMs) await (opts.sleep || realSleep)(opts.gapMs);
     }
   }
   await Promise.all(Array.from({ length: conc }, worker));
-  return { rows, unreliable };
+  return { rows, unreliable, fatal };
 }
 
 // Re-grades a stored row from its saved reply with the current graders (after a grader fix, no new API calls).
@@ -185,4 +190,4 @@ async function judgeItem(judge, item, row, opts = {}) {
 }
 
 module.exports = { loadSets, runItem, regrade, runModel, judgeItem, sandboxFetch, parseCandidate, keyOf, slug,
-  CANDIDATES, SUITE_VERSION, SETS_DIR, FORMAT, cfgOf, bodyOf };
+  CANDIDATES, SUITE_VERSION, SETS_DIR, FORMAT, cfgOf, bodyOf, providerConfig };
