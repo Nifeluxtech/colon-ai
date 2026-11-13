@@ -23,9 +23,14 @@ object BridgeProtocol {
         /** The server's greeting. bridge=false means the server only has the basic /ws gateway (no Saga commands). */
         data class Hello(val bridge: Boolean, val service: String) : Incoming()
         object Pong : Incoming()
-        data class Command(val id: String, val name: String, val args: JSONObject, val tabId: String?) : Incoming()
+        /** [conversationId] (Phase 10): the chat whose browser the command is for; null = whichever is shown. */
+        data class Command(val id: String, val name: String, val args: JSONObject, val tabId: String?,
+                           val conversationId: String? = null) : Incoming()
         /** The backend asks to start (or end) AI or Shared control. Starting always needs the user's consent. */
-        data class Control(val mode: ControlState.Mode, val task: String?) : Incoming()
+        data class Control(val mode: ControlState.Mode, val task: String?, val conversationId: String? = null) :
+            Incoming()
+        /** Phase 10: Saga reached a secret field; the user types it ([message]) and taps Return to AI. */
+        data class Handoff(val kind: String, val message: String, val conversationId: String?) : Incoming()
         data class Error(val code: String, val message: String) : Incoming()
         object Unknown : Incoming()
     }
@@ -41,23 +46,32 @@ object BridgeProtocol {
                 val name = o.optString("name")
                 if (id.isEmpty() || id.length > 64 || name.isEmpty()) Incoming.Unknown
                 else Incoming.Command(id, name, o.optJSONObject("args") ?: JSONObject(),
-                    o.optString("tab_id").ifEmpty { null })
+                    o.optString("tab_id").ifEmpty { null }, conv(o))
             }
             "control" -> ControlState.Mode.from(o.optString("mode"))
-                ?.let { Incoming.Control(it, o.optString("task").ifEmpty { null }?.take(200)) } ?: Incoming.Unknown
+                ?.let { Incoming.Control(it, o.optString("task").ifEmpty { null }?.take(200), conv(o)) }
+                ?: Incoming.Unknown
+            "handoff" -> Incoming.Handoff(o.optString("kind").ifEmpty { "password" }.take(20),
+                o.optString("message").take(200), conv(o))
             "error" -> Incoming.Error(o.optString("code"), o.optString("message"))
             else -> Incoming.Unknown
         }
     }
 
+    private fun conv(o: JSONObject): String? = o.optString("conversation_id").ifEmpty { null }?.take(64)
+
     private fun base(type: String) = JSONObject().put("v", VERSION).put("type", type)
         .put("ts", System.currentTimeMillis())
 
     fun hello(appVersion: String, versionCode: Int, deviceId: String, sdk: Int, lowRam: Boolean,
-              mode: ControlState.Mode): String = base("hello")
+              mode: ControlState.Mode, conversationId: String? = null): String = base("hello")
         .put("client", "android").put("app_version", appVersion).put("version_code", versionCode)
         .put("device_id", deviceId).put("sdk", sdk).put("low_ram", lowRam).put("control", mode.wire)
-        .put("capabilities", JSONArray(COMMANDS)).toString()
+        .put("capabilities", JSONArray(COMMANDS))
+        .apply { if (conversationId != null) put("conversation_id", conversationId) }.toString()
+
+    /** Phase 10: the in-chat panel now shows this conversation's browser ("" = a new chat with no id yet). */
+    fun chat(conversationId: String?): String = base("chat").put("conversation_id", conversationId ?: "").toString()
 
     fun ping(): String = base("ping").toString()
 

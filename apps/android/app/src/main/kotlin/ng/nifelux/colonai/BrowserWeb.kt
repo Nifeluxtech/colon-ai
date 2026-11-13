@@ -32,6 +32,7 @@ object BrowserWeb {
     fun create(a: BrowserHost, tab: BrowserTab): WebView {
         val wv = WebView(a.activity)
         if (tab.incognito) PrivateProfiles.apply(wv) // before anything else touches the WebView
+        else a.tabProfile()?.let { ChatProfiles.apply(wv, it) } // Phase 10: the chat's own cookies and storage
         wv.setBackgroundColor(if (a.isDark()) 0xFF080F24.toInt() else 0xFFFFFFFF.toInt())
         ShellWeb.secureDefaults(wv.settings)
         wv.settings.apply {

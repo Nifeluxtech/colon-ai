@@ -7,16 +7,18 @@ import org.json.JSONObject
 /**
  * History, bookmarks, the downloads list and the open tabs, kept on the phone only (ROADMAP Phase 8: a user's
  * browsing stays on their device). Small JSON lists in private SharedPreferences; history is capped. [name]
- * separates stores: Colon Browser uses the default one, Colon AI's in-chat panel its own.
+ * separates stores: Colon Browser uses the default one, Colon AI's in-chat panel its own. [historyName] (Phase 10)
+ * keeps the history in its own file: each chat's browser has its own history, bookmarks and downloads stay shared.
  */
-class BrowserStore(context: Context, name: String = DEFAULT) {
+class BrowserStore(context: Context, name: String = DEFAULT, historyName: String? = null) {
     data class Entry(val url: String, val title: String, val time: Long)
     /** A download started from a tab: DownloadManager id, file name, source URL. */
     data class Download(val id: Long, val name: String, val url: String, val time: Long)
 
     private val prefs = context.getSharedPreferences(name, Context.MODE_PRIVATE)
+    private val historyPrefs = historyName?.let { context.getSharedPreferences(it, Context.MODE_PRIVATE) } ?: prefs
 
-    fun history(): List<Entry> = read("history")
+    fun history(): List<Entry> = read("history", historyPrefs)
     fun bookmarks(): List<Entry> = read("bookmarks")
 
     fun addHistory(url: String, title: String) {
@@ -61,8 +63,8 @@ class BrowserStore(context: Context, name: String = DEFAULT) {
         get() = prefs.getString("tabs", null)
         set(v) { prefs.edit().putString("tabs", v).apply() }
 
-    private fun read(key: String): List<Entry> = try {
-        val arr = JSONArray(prefs.getString(key, "[]"))
+    private fun read(key: String, from: android.content.SharedPreferences = prefs): List<Entry> = try {
+        val arr = JSONArray(from.getString(key, "[]"))
         (0 until arr.length()).mapNotNull { i ->
             arr.optJSONObject(i)?.let { Entry(it.optString("u"), it.optString("t"), it.optLong("at")) }
         }.filter { it.url.isNotEmpty() }
@@ -73,7 +75,7 @@ class BrowserStore(context: Context, name: String = DEFAULT) {
     private fun write(key: String, list: List<Entry>) {
         val arr = JSONArray()
         list.forEach { arr.put(JSONObject().put("u", it.url).put("t", it.title.take(200)).put("at", it.time)) }
-        prefs.edit().putString(key, arr.toString()).apply()
+        (if (key == "history") historyPrefs else prefs).edit().putString(key, arr.toString()).apply()
     }
 
     /** Pure list rules, unit-tested in BrowserStoreTest. */

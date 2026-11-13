@@ -28,6 +28,12 @@ interface BrowserHost {
     /** Google or bank sign-in: opens in a Chrome Custom Tab, and the tab reloads when the user comes back. */
     fun openSignIn(url: String)
 
+    /** Saga's control changed (mode, pause, handoff): the chat page is told (ChatBrowserPanel). */
+    fun onControlChanged() {}
+
+    /** The WebView profile a new normal tab uses (Phase 10: the chat's own, ChatSessions); null = the default. */
+    fun tabProfile(): String? = null
+
     /** A page finished loading: history is recorded on the phone, never for private tabs. */
     fun onPageLoaded(tab: BrowserTab) {
         if (PrivateBrowsing.recordsHistory(tab.incognito, tab.url)) store.addHistory(tab.url, tab.title)
