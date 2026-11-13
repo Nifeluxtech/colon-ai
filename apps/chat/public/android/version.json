@@ -1,17 +1,17 @@
 {
-  "versionName": "0.9.1",
-  "versionCode": 901,
-  "apkUrl": "https://github.com/Nifeluxtech/colon-ai/releases/download/v0.9.1/colon-ai-0.9.1.apk",
-  "releaseUrl": "https://github.com/Nifeluxtech/colon-ai/releases/tag/v0.9.1",
-  "notes": "The browser panel now opens inside the conversation, where the Colon Browser card sits, and scrolls with the chat. Full screen, split and embedded layouts are still in the panel menu, and switching never reloads the page.",
+  "versionName": "0.9.2",
+  "versionCode": 902,
+  "apkUrl": "https://github.com/Nifeluxtech/colon-ai/releases/download/v0.9.2/colon-ai-0.9.2.apk",
+  "releaseUrl": "https://github.com/Nifeluxtech/colon-ai/releases/tag/v0.9.2",
+  "notes": "The browser panel now always opens inside the conversation on phones, including when Saga opens it or a link opens it, and no longer gets stuck above the chat.",
   "minSupportedVersionCode": 0,
   "publishedAt": "2026-11-13",
   "browser": {
-    "versionName": "0.9.1",
-    "versionCode": 901,
-    "apkUrl": "https://github.com/Nifeluxtech/colon-ai/releases/download/v0.9.1/colon-browser-0.9.1.apk",
-    "releaseUrl": "https://github.com/Nifeluxtech/colon-ai/releases/tag/v0.9.1",
-    "notes": "Maintenance release alongside Colon AI 0.9.1 (the in-chat browser now opens inside the conversation). No changes to Colon Browser itself.",
+    "versionName": "0.9.2",
+    "versionCode": 902,
+    "apkUrl": "https://github.com/Nifeluxtech/colon-ai/releases/download/v0.9.2/colon-browser-0.9.2.apk",
+    "releaseUrl": "https://github.com/Nifeluxtech/colon-ai/releases/tag/v0.9.2",
+    "notes": "Maintenance release alongside Colon AI 0.9.2 (the in-chat browser fix). No changes to Colon Browser itself.",
     "minSupportedVersionCode": 0
   }
 }
