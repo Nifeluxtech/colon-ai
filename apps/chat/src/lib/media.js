@@ -168,20 +168,25 @@ function create(o) {
       var rec = new SR(); rec.lang = (s.voice && s.voice.lang) || 'en-NG'; rec.interimResults = true;
         rec.continuous = true;
       voice = { kind: 'dictation', rec: rec, finalText: '', cancelled: false, stopping: false, restarts: 0 };
+      // Android Chrome repeats earlier words inside each new result ("hi", "hi how", "hi how are you"), so the
+      // session text is rebuilt from all results each time, and a result that already contains the text so far
+      // replaces it instead of being added to it.
       rec.onresult = function (e) {
-        var interim = '';
-        for (var i = e.resultIndex; i < e.results.length; i++) { if (e.results[i].isFinal) voice.finalText += e.results[
-          i][0].transcript + ' '; else interim += e.results[i][0].transcript; }
-        var el = bar.querySelector('.cv-interim'); if (el) el.textContent = (voice.finalText + interim).trim()
-          || 'Listening…';
-        if (o.onTranscript) o.onTranscript((voice.finalText + interim).trim(), false);
+        var said = '';
+        for (var i = 0; i < e.results.length; i++) { var t = e.results[i][0].transcript.trim(); if (!t) continue;
+          var low = t.toLowerCase(), prev = said.toLowerCase();
+          if (!said || low.indexOf(prev) === 0) said = t; else if (prev.slice(-low.length) !== low) said += ' ' + t; }
+        voice.session = said;
+        var all = (voice.finalText + ' ' + said).trim();
+        var el = bar.querySelector('.cv-interim'); if (el) el.textContent = all || 'Listening…';
+        if (o.onTranscript) o.onTranscript(all, false);
       };
       // Android Chrome ends a dictation session after a short pause even with continuous on, so keep
       // restarting until the user taps Done (or the 5-minute cap), and keep the words heard so far.
       rec.onerror = function (e) {
         if (!voice || voice.kind !== 'dictation') return;
         if ((e.error === 'no-speech' || e.error === 'network') && !voice.stopping && voice.restarts < 40) return;
-        var v = voice; v.failed = true; cleanup();
+        var v = voice; v.failed = true; cleanup(); v.finalText = (v.finalText + ' ' + (v.session || '')).trim();
         if (e.error === 'not-allowed' || e.error === 'service-not-allowed') voiceError('denied');
         else if (e.error === 'audio-capture') voiceError('nomic');
         else if (e.error === 'network') voiceError('network');
@@ -192,10 +197,11 @@ function create(o) {
       rec.onend = function () {
         if (!voice || voice.kind !== 'dictation' || voice.rec !== rec) return;
         if (!voice.stopping && !voice.cancelled && voice.restarts < 40) {
+          voice.finalText = (voice.finalText + ' ' + (voice.session || '')).trim(); voice.session = '';
           voice.restarts++; try { rec.start(); return; } catch (err) { /* fall through and finish */ }
         }
-        var v = voice; cleanup();
-        if (!v.cancelled && o.onTranscript) o.onTranscript(v.finalText.trim(), true);
+        var v = voice; cleanup(); v.finalText = (v.finalText + ' ' + (v.session || '')).trim();
+        if (!v.cancelled && o.onTranscript) o.onTranscript(v.finalText, true);
       };
       try { rec.start(); showRecording('Listening in ' + langLabel(rec.lang) + '… tap Done when you finish'); }
       catch (e) {

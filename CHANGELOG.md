@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.6.3] — 2026-11-13 · Dictation text fix
+### Fixed
+- **Spoken words appeared several times** in the message box on Android ("hi hi how hi how are you…"): Chrome
+  repeats earlier words inside each new result. The dictation text is now rebuilt from the results each time, and a
+  result that already holds the text so far replaces it rather than being added.
+
 ## [0.6.2] — 2026-11-13 · Voice fix
 ### Fixed
 - **English dictation stopped after about 5 seconds** on Android: Chrome ends a speech session at the first short
