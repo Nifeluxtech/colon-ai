@@ -29,6 +29,9 @@ const SENSITIVE_FIELD = new RegExp(String.raw`\b(?:password|passcode|pin|otp|cvv
   + String.raw`account ?number|iban|phone|tel|mobile|email|e-mail|address|street|postal|zip|birth|dob|passport|`
   + String.raw`licen[cs]e)\b`, 'i');
 
+// A big text box for a message, reply, comment or post (a search box that happens to be a textarea is not one).
+const MESSAGE_FIELD = /\b(?:message|reply|comment|post|tweet|chat|write|review|compose|caption)/i;
+
 function luhn(digits) {
   let sum = 0;
   for (let i = 0; i < digits.length; i++) {
@@ -96,7 +99,7 @@ function forFill(args, el) {
   const pd = personalData(args.value);
   if (pd) return { kind: 'personal_data', reason: `Type your ${pd.replace('_', ' ')} into "${short(named)}"` };
   // Typing a message into a large text box is preparing to send it; Saga asks before typing it.
-  if (el && (el.tag === 'textarea' || el.contenteditable) && WORDS.send_message.test(field + ' message')) {
+  if (el && (el.tag === 'textarea' || el.contenteditable) && MESSAGE_FIELD.test(field)) {
     return { kind: 'send_message', reason: `Write a message in "${short(named)}"` };
   }
   return null;
