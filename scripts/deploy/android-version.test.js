@@ -44,3 +44,12 @@ test('the Gradle build and the workflow use the same names and rule', () => {
   assert.match(wf, /assembleColonbrowserRelease/);
   assert.doesNotMatch(wf, /echo "\$\{\{ secrets\./); // secrets are never echoed
 });
+
+test('a two-digit minor keeps versionCode increasing (0.9.2 -> 902, 0.10.0 -> 1000)', () => {
+  const code = (v) => { const [a, b, c] = v.split('.').map(Number); return a * 10000 + b * 100 + c; };
+  assert.equal(code('0.9.2'), 902);
+  assert.equal(code('0.10.0'), 1000);
+  assert.ok(code('0.10.0') > code('0.9.2'), 'an installed 0.9.2 must see 0.10.0 as newer');
+  const m = JSON.parse(read('apps/chat/public/android/version.json'));
+  assert.ok(m.versionCode >= 1000 && m.browser.versionCode >= 1000, 'both APKs are on 0.10.0 or later');
+});
