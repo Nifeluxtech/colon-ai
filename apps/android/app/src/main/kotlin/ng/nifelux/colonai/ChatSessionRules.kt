@@ -47,6 +47,14 @@ object ChatSessionRules {
     fun originsToClear(urls: Collection<String>): List<String> =
         urls.mapNotNull { UrlRules.originOf(it) }.filter { it !in UrlRules.SHELL_ORIGINS }.distinct()
 
+    /** After the user allowed Saga in a chat's browser, the chat's next instructions (each a new Saga task) don't
+     *  ask again for this long, until the user taps Stop, declines, or the panel shows another chat. */
+    const val CONSENT_TTL_MS = 10 * 60_000L
+
+    fun consentStands(allowedChat: String?, allowedAt: Long, chat: String?, now: Long,
+                      ttl: Long = CONSENT_TTL_MS): Boolean =
+        allowedChat != null && chat != null && allowedChat == chat && now - allowedAt in 0 until ttl
+
     /** The chat's browser mode: "ai" (AI only) or "shared" (AI + me); anything else is the default. */
     fun mode(value: String?, default: String = "ai"): String = when (value) {
         "ai" -> "ai"

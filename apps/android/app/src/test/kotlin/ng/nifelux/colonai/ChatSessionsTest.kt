@@ -63,6 +63,16 @@ class ChatSessionsTest {
         assertEquals("shared", ChatSessionRules.mode("nonsense", "shared"))
     }
 
+    @Test fun consentLastsForTheSameChatOnlyAndOnlyForAWhile() {
+        val t = 1_000_000L
+        assertTrue(ChatSessionRules.consentStands("c1", t, "c1", t + 60_000))
+        assertFalse(ChatSessionRules.consentStands("c1", t, "c2", t + 1))
+        assertFalse(ChatSessionRules.consentStands("c1", t, null, t + 1))
+        assertFalse(ChatSessionRules.consentStands(null, t, "c1", t + 1))
+        assertFalse(ChatSessionRules.consentStands("c1", t, "c1", t + ChatSessionRules.CONSENT_TTL_MS))
+        assertFalse(ChatSessionRules.consentStands("c1", t, "c1", t - 1))
+    }
+
     @Test fun switchingModesNeverGivesSagaControl() {
         val c = ControlState()
         assertNull(c.switchMode(ControlState.Mode.SHARED)) // manual, no task: nothing to send

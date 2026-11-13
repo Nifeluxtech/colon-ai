@@ -338,6 +338,13 @@ class ChatBrowserPanel(private val a: MainActivity) : BrowserHost, TabManager.Ho
         main.postDelayed({ ChatProfiles.delete(profile) }, 1500)
     }
 
+    /** browser('forget', {all: true}): every conversation was deleted; so is every chat's browser. */
+    fun forgetAllChats() {
+        if (!ChatSessionRules.isDraft(chatKey)) switchTo(ChatSessionRules.draftKey(System.currentTimeMillis()))
+        val profiles = chats.order().filter { it != chatKey }.mapNotNull { chats.forget(it) }
+        main.postDelayed({ profiles.forEach { ChatProfiles.delete(it) } }, 1500)
+    }
+
     /** browser('mode'): this chat's "AI only" (ai) or "AI + me" (shared); a running Saga task switches too. */
     fun setChatMode(mode: String) {
         val m = ChatSessionRules.mode(mode)

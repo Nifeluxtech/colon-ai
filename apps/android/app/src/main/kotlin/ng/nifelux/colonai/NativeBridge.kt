@@ -169,7 +169,7 @@ class NativeBridge(private val host: MainActivity, private val webView: WebView)
      * except anchor (sent up to once a frame while the thread scrolls), which answers null. inline: true says the
      * page draws the in-thread card, so the "inline" layout may be used (feature "browserInline", v0.9.1).
      * Phase 10 (feature "browserChats"): chat {conversation_id, adopt?} shows that chat's own browser, forget
-     * {conversation_id} deletes a deleted chat's browser, mode {mode: ai|shared} sets the chat's "AI only" / "AI + me",
+     * {conversation_id} deletes a deleted chat's browser ({all: true}: every chat's), mode {mode: ai|shared} sets the chat's "AI only" / "AI + me",
      * control {op: take_control|return_to_ai|pause|resume|stop} is the user's control from the chat page.
      */
     private fun browser(a: JSONObject, done: (Boolean, Any?, String?) -> Unit) {
@@ -194,7 +194,8 @@ class NativeBridge(private val host: MainActivity, private val webView: WebView)
             "handoff" -> { done(true, JSONObject().put("handedOff", p.handoff()), null); return }
             "state" -> Unit
             "chat" -> p.showChat(a.optString("conversation_id").ifBlank { null }, a.optBoolean("adopt", false))
-            "forget" -> p.forgetChat(a.optString("conversation_id").ifBlank { null })
+            "forget" -> if (a.optBoolean("all", false)) p.forgetAllChats()
+                else p.forgetChat(a.optString("conversation_id").ifBlank { null })
             "mode" -> {
                 val m = a.optString("mode")
                 if (m != "ai" && m != "shared") { done(false, null, "bad_mode"); return }

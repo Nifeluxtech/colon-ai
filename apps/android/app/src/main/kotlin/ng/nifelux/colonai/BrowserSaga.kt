@@ -45,6 +45,11 @@ class BrowserSaga(private val a: BrowserHost, private val bridge: BridgeClient) 
     private lateinit var btnControl: Button
     private lateinit var btnStop: Button
     private lateinit var shield: View
+    /** Phase 10: the chat whose browser the user last allowed Saga in, and when (ChatSessionRules.consentStands). */
+    private var allowedChat: String? = null
+    private var allowedAt = 0L
+
+    private fun forgetConsent() { allowedChat = null; allowedAt = 0L }
 
     fun bind(root: View) {
         chip = root.findViewById(R.id.mode_chip)
@@ -59,7 +64,7 @@ class BrowserSaga(private val a: BrowserHost, private val bridge: BridgeClient) 
         btnControl.setOnClickListener {
             apply(if (control.mode == ControlState.Mode.MANUAL) control.returnToAi() else control.takeControl())
         }
-        btnStop.setOnClickListener { apply(control.stop()) }
+        btnStop.setOnClickListener { forgetConsent(); apply(control.stop()) }
         root.findViewById<View>(R.id.btn_take_control).setOnClickListener { apply(control.takeControl()) }
         render()
     }
@@ -88,14 +93,26 @@ class BrowserSaga(private val a: BrowserHost, private val bridge: BridgeClient) 
             return
         }
         if (request.mode == ControlState.Mode.MANUAL) { apply(control.stop()); return }
+        // The user allowed Saga in this chat's browser a moment ago and is giving it the next instruction in the chat.
+        val chat = bridge.conversationId
+        val now = System.currentTimeMillis()
+        if (ChatSessionRules.consentStands(allowedChat, allowedAt, chat, now)) {
+            allowedAt = now
+            apply(control.grant(request.mode, request.task) ?: "consent")
+            return
+        }
         val label = request.task ?: a.activity.getString(R.string.saga_task_unknown)
         MaterialAlertDialogBuilder(a.activity)
             .setTitle(R.string.saga_consent_title)
             .setMessage(a.activity.getString(if (request.mode == ControlState.Mode.AI) R.string.saga_consent_ai
                 else R.string.saga_consent_shared, label))
             // Already in that mode (nothing changes on the phone): still tell the server the user said yes.
-            .setPositiveButton(R.string.allow) { _, _ -> apply(control.grant(request.mode, request.task) ?: "consent") }
+            .setPositiveButton(R.string.allow) { _, _ ->
+                bridge.conversationId?.let { allowedChat = it; allowedAt = System.currentTimeMillis() }
+                apply(control.grant(request.mode, request.task) ?: "consent")
+            }
             .setNegativeButton(R.string.not_now) { _, _ ->
+                forgetConsent()
                 bridge.reportControl(control.mode, control.paused, "declined")
             }
             .setCancelable(false)
@@ -145,7 +162,7 @@ class BrowserSaga(private val a: BrowserHost, private val bridge: BridgeClient) 
             "return_to_ai" -> control.returnToAi()
             "pause" -> control.pause()
             "resume" -> control.resume()
-            "stop" -> control.stop()
+            "stop" -> { forgetConsent(); control.stop() }
             else -> null
         }
         apply(reason)
@@ -153,7 +170,7 @@ class BrowserSaga(private val a: BrowserHost, private val bridge: BridgeClient) 
     }
 
     /** The panel is about to show another chat: Saga's task in this one ends (its browser is put away). */
-    fun endForChatSwitch() { approvalDialog?.dismiss(); apply(control.stop()) }
+    fun endForChatSwitch() { approvalDialog?.dismiss(); forgetConsent(); apply(control.stop()) }
 
     private fun refuseSecret(kind: String, reply: Reply) {
         handOff(kind)
