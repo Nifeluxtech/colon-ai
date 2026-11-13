@@ -135,7 +135,7 @@ test('candidates: request bodies and options per model, same body as routing for
   const c = (m) => cands.parseCandidate(`nvidia:${m}`);
   assert.deepEqual(cands.bodyOf(c('z-ai/glm-5.3-flash')), { reasoning_effort: 'low' });
   assert.deepEqual(cands.bodyOf(c('deepseek-ai/deepseek-v4.1-flash')), { chat_template_kwargs: { thinking: false } });
-  assert.deepEqual(cands.bodyOf(c('mistralai/mistral-large-4-1t-a52b')), { reasoning_effort: 'none' });
+  assert.equal(cands.bodyOf(c('mistralai/mistral-large-4-1t-a52b')), null, 'NVIDIA 400s on reasoning_effort');
   const nemo = c('nvidia/nemotron-3.5-lightning-30b-a3b');
   assert.deepEqual(cands.bodyOf(nemo), { reasoning_budget: 1024 });
   assert.equal(nemo.opts.maxTokens, 4096);
