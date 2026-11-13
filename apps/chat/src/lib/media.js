@@ -79,7 +79,9 @@ function create(o) {
   }
 
   /* ---------- Voice ---------- */
-  var SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  // Android System WebView has no working speech service, so inside the Colon app every language goes through
+  // Colon speech (recorded with getUserMedia, transcribed by the server). v0.7.1
+  var SR = C.native && C.native.isShell() ? null : window.SpeechRecognition || window.webkitSpeechRecognition;
   var voice = null; // { kind:'dictation'|'recorder', colon?, ... }
   function voiceLang() { var s = o.getSettings ? o.getSettings() : {}; return (s.voice && s.voice.lang) || 'en-NG'; }
   // auto: English with dictation when the browser has it; everything else through Colon speech (server).
