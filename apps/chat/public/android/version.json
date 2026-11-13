@@ -1,17 +1,17 @@
 {
-  "versionName": "0.8.0",
-  "versionCode": 800,
-  "apkUrl": "https://github.com/Nifeluxtech/colon-ai/releases/download/v0.8.0/colon-ai-0.8.0.apk",
-  "releaseUrl": "https://github.com/Nifeluxtech/colon-ai/releases/tag/v0.8.0",
-  "notes": "Web pages now open in a real browser panel beside the chat (embedded, split or full screen). Colon Browser is now its own app.",
+  "versionName": "0.9.0",
+  "versionCode": 900,
+  "apkUrl": "https://github.com/Nifeluxtech/colon-ai/releases/download/v0.9.0/colon-ai-0.9.0.apk",
+  "releaseUrl": "https://github.com/Nifeluxtech/colon-ai/releases/tag/v0.9.0",
+  "notes": "Saga can now browse for you in the browser panel: it opens by itself, explains each step and cites the pages it used. Payments, purchases, forms, messages and personal details always wait for your tap.",
   "minSupportedVersionCode": 0,
   "publishedAt": "2026-11-13",
   "browser": {
-    "versionName": "0.8.0",
-    "versionCode": 800,
-    "apkUrl": "https://github.com/Nifeluxtech/colon-ai/releases/download/v0.8.0/colon-browser-0.8.0.apk",
-    "releaseUrl": "https://github.com/Nifeluxtech/colon-ai/releases/tag/v0.8.0",
-    "notes": "First Colon Browser app: tabs and history that survive restarts, private tabs, desktop site, downloads list, clear browsing data, and Google and bank sign-in in a Custom Tab.",
+    "versionName": "0.9.0",
+    "versionCode": 900,
+    "apkUrl": "https://github.com/Nifeluxtech/colon-ai/releases/download/v0.9.0/colon-browser-0.9.0.apk",
+    "releaseUrl": "https://github.com/Nifeluxtech/colon-ai/releases/tag/v0.9.0",
+    "notes": "Saga can now read pages, click, type and scroll in Colon Browser while you watch, and asks for your approval before payments, purchases, forms, messages or personal details.",
     "minSupportedVersionCode": 0
   }
 }
