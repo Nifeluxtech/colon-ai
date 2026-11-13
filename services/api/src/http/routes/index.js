@@ -7,4 +7,5 @@ module.exports = new Router()
   .use(require('./auth'))
   .use(require('./account'))
   .use(require('./admin'))
-  .use(require('./chat'));
+  .use(require('./chat'))
+  .use(require('./study'));

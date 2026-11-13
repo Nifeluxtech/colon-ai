@@ -43,10 +43,10 @@ colon-ai/
 │       ├── src/
 │       │   ├── config/          defaults.js (THE schema), env.js (read + validate), index.js (config object)
 │       │   ├── http/            server.js (middleware), router.js, middleware/, routes/{health,auth,account,
-│       │   │                    admin,chat}/ (wiring only)
+│       │   │                    admin,chat}/ and routes/study.js (wiring only)
 │       │   ├── ws/              WebSocket gateway (/ws)
-│       │   ├── modules/         account, admin, ai, auth, bench, chat, extract, health, safety, search; each
-│       │   │                    has an index.js facade and its handlers/ where it serves routes
+│       │   ├── modules/         account, admin, ai, auth, bench, chat, extract, health, safety, search,
+│       │   │                    study; each has an index.js facade and its handlers/ where it serves routes
 │       │   ├── shared/          logger, request-context, crypto, audit, settings, mailer, validate,
 │       │   │                    ratelimit, security-headers, multipart
 │       │   └── db/              MariaDB pool and migration runner
@@ -149,6 +149,23 @@ Inside `chat/reply.js`, after `start` and before routing, quota, web search or a
 5. **Events**: `safety_events` (no text by default), shown in Admin › Safety.
 
 Every system prompt carries the safety section (`ai/prompts.js` ← `safety.SYSTEM`).
+
+### Study: CBT practice test (v0.5.7, `modules/study`)
+
+`POST /study/cbt { subject, topic?, exam: waec|neco|jamb|university|general, language }` (guests and signed-in
+users; `guestOrigin`, the `guestChat` switch for guests, 5 per 10 minutes per IP) returns
+`{ questions: [{ q, options[4], answer: 'A'…'D', explanation }] ×10, durationSec: 300, exam, examLabel, subject, topic }`.
+Nothing is saved: the app keeps the test, answers and absolute end time in `sessionStorage` and marks it itself.
+
+1. `cbt.js` cleans the input (one line, capped, prompt-bending characters removed); `safety.checkInput` checks the
+   subject and topic (refusal → 422 `refused`).
+2. One Study-mode reply is consumed (`ai.limits`); it is refunded if no test could be made.
+3. `ai.generate` (mode `study`, not streamed) gets the parameters as the user turn and the strict-JSON rules as extra
+   system context (exam style, exactly one correct option, working before the answer, never "real past questions").
+   The output check (`safety.streamGuard().final`) runs on the whole reply.
+4. `parse.js` repairs and checks the reply (fences, LaTeX backslashes, trailing commas, salvage of complete items),
+   drops bad or duplicate items, corrects a numeric key that contradicts the explanation's working, and shuffles the
+   options. Fewer than 10 → one more generation (pooled), then 502 `bad_output`.
 
 ### Research mode: search → reader → cited answer
 

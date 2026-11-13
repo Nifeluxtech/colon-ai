@@ -15,6 +15,7 @@ import './pages/explore.js';
 import './pages/guest.js';
 import './pages/help.js';
 import './pages/settings.js';
+import './pages/cbt.js';
 import './pages/chat.js';
 
 const NEED = ['icon', 'esc', 'sheet', 'menu', 'confirm', 'prompt', 'toast', 'debounce', 'copyText', 'uid', 'fmtBytes',
@@ -38,7 +39,8 @@ document.addEventListener('DOMContentLoaded', function () {
     ],
     routes: [
       ws('/', ''), ws('/c/:id', ''), ws('/history', 'History'), ws('/saved', 'Saved'),
-      ws('/explore', 'Explore'), ws('/settings', 'Settings'), ws('/help', 'Help'), ws('/share/:token', 'Shared chat')
+      ws('/explore', 'Explore'), ws('/settings', 'Settings'), ws('/help', 'Help'), ws('/share/:token', 'Shared chat'),
+      ws('/cbt', 'CBT practice test')
     ]
   });
 });

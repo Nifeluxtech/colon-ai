@@ -17,7 +17,8 @@ const settings = require('../shared/settings');
 
 // Maintenance mode (Phase 4): new chat activity gets 503 with the admin's message. Reading history,
 // settings and sign-in keep working, and staff are exempt so they can test the fix.
-const CHAT_WRITE = /^\/(chat\/guest(\/extract)?|conversations(\/.*)?|messages\/[^/]+\/feedback|uploads(\/.*)?)$/;
+const CHAT_WRITE = new RegExp(String.raw`^/(chat/guest(/extract)?|study/cbt|conversations(/.*)?|`
+  + String.raw`messages/[^/]+/feedback|uploads(/.*)?)$`);
 async function maintenance(req, path) {
   if (['GET', 'HEAD', 'OPTIONS'].includes(req.method) || !CHAT_WRITE.test(path)) return null;
   if (req.user && settings.STAFF.has(req.user.role)) return null;

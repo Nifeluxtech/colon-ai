@@ -65,6 +65,7 @@ function mount(view, ctx) {
         + 'class="kbd cw-hide-touch">Ctrl K</span></label>') +
       '<nav class="nav-list cw-nav" aria-label="Main">' +
         navLink('/', 'home', 'Home') + navLink('/explore', 'explore', 'Explore') +
+        navLink('/cbt', 'target', 'CBT practice') +
         (ephemeral() ? '' : navLink('/saved', 'saved', 'Saved') + navLink('/history', 'history', 'History')) +
         (signedIn() ? navLink('/settings', 'settings', 'Settings') : '') + navLink('/help', 'help', 'Help & Support')
           + '</nav>' +
@@ -186,7 +187,7 @@ function route(a, b) {
   var sh = /^\/share\/([^/]+)$/.exec(p);
   if (sh) return showShared(decodeURIComponent(sh[1]));
   var pages = { '/history': 'history', '/saved': 'saved', '/explore': 'explore', '/settings': 'settings',
-    '/help': 'help' };
+    '/help': 'help', '/cbt': 'cbt' };
   if (pages[p] && ((ephemeral() && (p === '/history' || p === '/saved')) || (!signedIn()
     && p === '/settings'))) return showPage('login', ctx);
   if (pages[p]) return showPage(pages[p], ctx);
