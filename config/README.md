@@ -180,3 +180,4 @@ submissions, messages, personal data) are always tapped on the phone; no setting
 | `SAGA_STEP_TIMEOUT_MS` | number | no | `20000` | the phone's answer to one command; two timeouts in a row fail the task |
 | `SAGA_APPROVAL_TIMEOUT_MS` | number | no | `120000` | the user's consent ("Let Saga browse?") or approval tap on the phone |
 | `SAGA_TASKS_PER_HOUR` | number | no | `20` | browsing tasks one user may start per hour |
+| `SAGA_HANDOFF_TIMEOUT_MS` | number | no | `600000` | Phase 10: how long Saga waits for the user to type a password, code or card details and tap Return to AI |

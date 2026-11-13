@@ -45,6 +45,20 @@ Git Version Control, cron, JetBackup; no browser terminal). The repository is cl
    ```
    Disk is 5 GB: each version folder is a few MB per app, so prune at least every few releases.
 
+## Release notes
+
+### 0.10.0 (Phase 10: one browser per chat)
+
+- **Migration `0010_chat_browser_sessions.sql` runs by itself when the API starts** (adds
+  `browser_sessions.conversation_id` and moves its unique key to device + conversation, `chat_conversations.
+  browser_mode`, `saga_tasks.mode`). Existing sessions become the device-wide session (`conversation_id = ''`), so
+  Colon Browser and older apps keep working. Take a database dump first (step 5 above). After the restart,
+  `/health` `database.migrations` should end with `0010_chat_browser_sessions`.
+- **Optional env key `SAGA_HANDOFF_TIMEOUT_MS`** (default `600000`, 10 minutes): how long Saga waits for the user to
+  type a password, code or card details and tap Return to AI. Nothing to add unless you want another value.
+- New APKs for both apps (versionCode 1000); `apps/chat/public/android/version.json` points at the `v0.10.0`
+  GitHub release, so publish the release (Android workflow) before or together with this deploy.
+
 ## The `.htaccess` file
 
 Each document root has a server-only `.htaccess` (gitignored; the deploy refuses a repo copy and never overwrites
