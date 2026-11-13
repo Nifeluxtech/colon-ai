@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Dark theme (Colon's default look): values from packages/ui/css/tokens.css [data-theme="dark"]. -->
+<resources>
+    <color name="colon_bg">#080F24</color>
+    <color name="colon_surface">#101B3D</color>
+    <color name="colon_field">#111D42</color>
+    <color name="colon_line">#2A3A6E</color>
+    <color name="colon_text">#F1F5FF</color>
+    <color name="colon_muted">#8190B8</color>
+    <color name="colon_chip">#1B2B5E</color>
+    <color name="colon_banner">#16245A</color>
+    <color name="colon_shield">#40080F24</color>
+</resources>
