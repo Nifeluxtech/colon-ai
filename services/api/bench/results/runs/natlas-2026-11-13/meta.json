@@ -1,0 +1,31 @@
+{
+  "run": "natlas-2026-11-13",
+  "suite": "colon-bench-1",
+  "started": "2026-11-13T11:42:55.700Z",
+  "models": [
+    "natlas:n-atlas"
+  ],
+  "settings": {
+    "max_tokens": 250,
+    "first_token_timeout_ms": 60000,
+    "concurrency_per_model": 1,
+    "gap_ms": 1500,
+    "retries": 2,
+    "temperature": "provider default",
+    "limit_per_set": 2,
+    "provider_limits": {
+      "natlas": {
+        "rpm": 0,
+        "inflight": 0
+      }
+    },
+    "per_model": {}
+  },
+  "cli": {
+    "sets": "hausa,igbo,yoruba",
+    "limit": "2",
+    "max-tokens": "250",
+    "first-token-ms": "60000"
+  },
+  "finished": "2026-11-13T11:43:14.530Z"
+}

@@ -1,0 +1,136 @@
+{
+  "run": "natlas-2026-11-13",
+  "suite": "colon-bench-1",
+  "started": "2026-11-13T11:42:55.700Z",
+  "finished": "2026-11-13T11:43:14.530Z",
+  "settings": {
+    "max_tokens": 250,
+    "first_token_timeout_ms": 60000,
+    "concurrency_per_model": 1,
+    "gap_ms": 1500,
+    "retries": 2,
+    "temperature": "provider default",
+    "limit_per_set": 2,
+    "provider_limits": {
+      "natlas": {
+        "rpm": 0,
+        "inflight": 0
+      }
+    },
+    "per_model": {},
+    "judge": null
+  },
+  "ranking": [
+    "natlas:n-atlas"
+  ],
+  "models": [
+    {
+      "key": "natlas:n-atlas",
+      "provider": "natlas",
+      "model": "n-atlas",
+      "note": "",
+      "status": "done",
+      "errors_by_reason": {},
+      "items": 6,
+      "expected": 6,
+      "score": 55,
+      "components": {
+        "accuracy": 0.5,
+        "language": 0,
+        "speed": 1,
+        "reliability": 1
+      },
+      "overall": {
+        "n": 6,
+        "accuracy": 0.5,
+        "correct": 3,
+        "errors": 0,
+        "error_rate": 0,
+        "language": null,
+        "first_token_ms": {
+          "median": 936,
+          "p90": 1825
+        },
+        "total_ms": {
+          "median": 1305,
+          "p90": 2337
+        },
+        "tokens": 0,
+        "cost_usd": 0
+      },
+      "sets": {
+        "hausa": {
+          "n": 2,
+          "accuracy": 0.5,
+          "correct": 1,
+          "errors": 0,
+          "error_rate": 0,
+          "language": null,
+          "first_token_ms": {
+            "median": 1163,
+            "p90": 1341
+          },
+          "total_ms": {
+            "median": 1453,
+            "p90": 1555
+          },
+          "tokens": 0,
+          "cost_usd": 0
+        },
+        "igbo": {
+          "n": 2,
+          "accuracy": 0.5,
+          "correct": 1,
+          "errors": 0,
+          "error_rate": 0,
+          "language": null,
+          "first_token_ms": {
+            "median": 1585,
+            "p90": 2129
+          },
+          "total_ms": {
+            "median": 2189,
+            "p90": 2912
+          },
+          "tokens": 0,
+          "cost_usd": 0
+        },
+        "yoruba": {
+          "n": 2,
+          "accuracy": 0.5,
+          "correct": 1,
+          "errors": 0,
+          "error_rate": 0,
+          "language": null,
+          "first_token_ms": {
+            "median": 849,
+            "p90": 915
+          },
+          "total_ms": {
+            "median": 1236,
+            "p90": 1273
+          },
+          "tokens": 0,
+          "cost_usd": 0
+        }
+      },
+      "failures": [
+        {
+          "id": "ha-02",
+          "set": "hausa",
+          "detail": "missing one of ina kwana/barka da safiya/barka da safe"
+        },
+        {
+          "id": "ig-02",
+          "set": "igbo",
+          "detail": "missing one of ututu oma/i bola chi/ibola chi/ibolachi/i boola chi/iboola chi"
+        },
+        {
+          "id": "yo-02",
+          "set": "yoruba",
+          "detail": "missing one of kaaro/kaaaro/aaro/ekaaro"
+        }
+      ]
+    }
+  ]
+}

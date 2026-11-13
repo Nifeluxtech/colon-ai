@@ -90,10 +90,13 @@ test('mode routing for English (bench 2026-11-12): every mode → Gemma 4 26B fi
   setEnv(ALL);
   assert.deepEqual(order(ai.chainFor({ mode: 'nonsense' })), order(ai.chainFor({ mode: 'general' })));
 });
-test('providers are enabled only when their key is set (N-ATLaS also needs a base URL)', () => {
-  setEnv({ GROQ_API_KEY: 'g', GROQ_MODEL: 'qwen', NATLAS_API_KEY: 'n' }); // no NATLAS_BASE_URL
+test('providers are enabled only when their key is set (N-ATLaS defaults to Langa)', () => {
+  setEnv({ GROQ_API_KEY: 'g', GROQ_MODEL: 'qwen' });
   assert.deepEqual(Object.keys(ai.enabledProviders()), ['groq']);
   assert.deepEqual(order(ai.chainFor({ mode: 'developer', language: 'yo' })), ['groq:qwen']);
+  setEnv({ GROQ_API_KEY: 'g', GROQ_MODEL: 'qwen', NATLAS_API_KEY: 'n' }); // no NATLAS_BASE_URL: Langa default
+  assert.deepEqual(Object.keys(ai.enabledProviders()), ['groq', 'natlas']);
+  assert.equal(ai.enabledProviders().natlas.baseUrl, 'https://langa.julimer.com/v1');
   setEnv({});
   assert.equal(ai.isConfigured(), false);
   assert.ok(ai.listModels().every(m => !m.available));
@@ -176,4 +179,13 @@ test('Stop (abort) ends the call without fallback and reports the partial text',
   const p = ai.generate({ mode: 'general', messages: [{ role: 'user', content: 'x' }], fetch: f, signal: ctl.signal,
     timeouts: { ...fast, idleTimeoutMs: 5000 }, onDelta: () => setTimeout(() => ctl.abort(), 5) });
   await assert.rejects(p, (e) => e.name === 'AbortError' && e.partialText.startsWith('Hello'));
+});
+
+test('capTokens: a provider cap (N-ATLaS on Langa, 2048) limits max_tokens', () => {
+  const { capTokens } = require('../../src/modules/ai/client');
+  assert.equal(capTokens({ provider: { maxTokens: 2048 }, maxTokens: 8192 }), 2048);
+  assert.equal(capTokens({ provider: { maxTokens: 2048 }, maxTokens: 500 }), 500);
+  assert.equal(capTokens({ provider: { maxTokens: 2048 } }), 2048);
+  assert.equal(capTokens({ provider: {}, maxTokens: 700 }), 700);
+  assert.equal(capTokens({ provider: {} }), null);
 });

@@ -71,8 +71,10 @@ const SCHEMA = [
   str('NVIDIA_GLM_MODEL', 'z-ai/glm-5.3-flash', 'NVIDIA GLM id'),
   str('NVIDIA_GLM_REASONING', 'low', 'GLM reasoning_effort: low, high, max, or "default" (host default = max)'),
   str('NVIDIA_MINIMAX_MODEL', 'minimaxai/minimax-m3.1-flash', 'NVIDIA MiniMax id'),
-  url('NATLAS_BASE_URL', '', 'OpenAI-compatible host serving N-ATLaS'), secret('NATLAS_API_KEY', 'N-ATLaS key'),
+  url('NATLAS_BASE_URL', 'https://langa.julimer.com/v1', 'OpenAI-compatible host serving N-ATLaS (Langa)'),
+  secret('NATLAS_API_KEY', 'N-ATLaS key (Langa)'),
   str('NATLAS_MODEL', 'n-atlas', 'N-ATLaS model id'),
+  num('NATLAS_MAX_TOKENS', 2048, 'Output cap the N-ATLaS host accepts (Langa: 2048)'),
   // Benchmark gate
   str('BENCH_GATE', 'on', '"off" lets models into routing without a fresh benchmark'),
   num('BENCH_MAX_AGE_DAYS', 30, 'how fresh a benchmark must be'),

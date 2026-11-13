@@ -34,6 +34,13 @@ function retryAfter(h, now = Date.now()) {
   return Number.isNaN(t) ? null : Math.max(0, t - now);
 }
 
+// A host with its own output cap (provider.maxTokens, e.g. N-ATLaS on Langa: 2048) never gets asked for more.
+function capTokens(o) {
+  const cap = o.provider && o.provider.maxTokens;
+  if (!cap) return o.maxTokens || null;
+  return Math.min(o.maxTokens || cap, cap);
+}
+
 function errorMessage(text) {
   try {
     const j = JSON.parse(text);
@@ -80,7 +87,7 @@ async function streamChat(o) {
     const base = String(o.provider.baseUrl).replace(/\/+$/, '');
     const body = native ? geminiBody(o) : {
       model: o.model, messages: o.messages, stream: true,
-      ...(o.maxTokens ? { max_tokens: o.maxTokens } : {}),
+      ...(capTokens(o) ? { max_tokens: capTokens(o) } : {}),
       ...(o.temperature !== undefined ? { temperature: o.temperature } : {}),
       ...(o.provider.body || {}),
       ...(o.body || {}),
@@ -197,4 +204,5 @@ async function streamChat(o) {
   }
 }
 
-module.exports = { streamChat, ProviderError, codeForStatus, retryAfter, _gemini: { geminiBody, geminiChunk } };
+module.exports = { streamChat, ProviderError, codeForStatus, retryAfter, capTokens,
+  _gemini: { geminiBody, geminiChunk } };

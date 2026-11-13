@@ -37,7 +37,7 @@ const STATIC = {
     reasoning: { specialist: null, demoted: [] },
     exam: { specialist: null, demoted: [] },
     research: { specialist: null, demoted: [] },
-    everyday: { specialist: 'minimax', demoted: [] },
+    everyday: { specialist: null, demoted: [] },   // full 2026-11-12 run: Gemma 4 26B (route head) leads
     pidgin: { specialist: null, demoted: [] },
     yoruba: { specialist: null, demoted: ['minimax'] },
     hausa: { specialist: null, demoted: ['minimax'] },

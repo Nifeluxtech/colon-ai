@@ -119,7 +119,7 @@ test('derive on the committed benchmark (2026-11-12) matches the built-in static
       assert.equal(d.categories[c].specialist, sp.STATIC.categories[c].specialist, c);
       assert.deepEqual(d.categories[c].demoted, sp.STATIC.categories[c].demoted, c);
     }
-    assert.equal(d.categories.everyday.specialist, 'minimax');
+    assert.equal(d.categories.everyday.specialist, null, 'Gemma 4 26B (route head) leads everyday after the rerun');
     assert.equal(d.categories.hausa.specialist, null, 'Gemma 4 31B is better in Hausa but ~18 s to first token');
     for (const c of ['yoruba', 'hausa', 'igbo']) assert.deepEqual(d.categories[c].demoted, ['minimax']);
   } finally { process.env = saved; }
