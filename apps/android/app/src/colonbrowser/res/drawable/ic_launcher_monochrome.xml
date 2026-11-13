@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Themed icon (Android 13+) for Colon Browser: the globe outline, one colour. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp" android:height="108dp" android:viewportWidth="108" android:viewportHeight="108">
+    <path android:strokeColor="#FFFFFFFF" android:strokeWidth="3.5" android:fillColor="#00000000" android:pathData="M54,29a25,25 0,1 1,0 50a25,25 0,1 1,0 -50z"/>
+    <path android:strokeColor="#FFFFFFFF" android:strokeWidth="2.5" android:fillColor="#00000000" android:pathData="M54,29c-8,7 -12,16 -12,25s4,18 12,25M54,29c8,7 12,16 12,25s-4,18 -12,25M30,46h48M30,62h48"/>
+</vector>
