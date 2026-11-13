@@ -1,0 +1,71 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Clear browsing data: five independent choices, Colon AI's sign-in is always kept. -->
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:id="@+id/clear_root"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:fillViewport="true">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:padding="20dp">
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/clear_data"
+            android:textColor="@color/colon_text"
+            android:textSize="22sp"
+            android:textStyle="bold" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="6dp"
+            android:layout_marginBottom="12dp"
+            android:text="@string/clear_intro"
+            android:textColor="@color/colon_muted"
+            android:textSize="14sp" />
+
+        <CheckBox android:id="@+id/cb_history" style="@style/Colon.ClearRow" android:checked="true"
+            android:text="@string/clear_history_long" />
+        <CheckBox android:id="@+id/cb_cookies" style="@style/Colon.ClearRow" android:checked="false"
+            android:text="@string/clear_sites" />
+        <CheckBox android:id="@+id/cb_cache" style="@style/Colon.ClearRow" android:checked="true"
+            android:text="@string/clear_cache" />
+        <CheckBox android:id="@+id/cb_storage" style="@style/Colon.ClearRow" android:checked="false"
+            android:text="@string/clear_storage" />
+        <CheckBox android:id="@+id/cb_downloads" style="@style/Colon.ClearRow" android:checked="false"
+            android:text="@string/clear_downloads" />
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="20dp"
+            android:gravity="end"
+            android:orientation="horizontal">
+
+            <Button
+                android:id="@+id/btn_cancel"
+                style="@style/Colon.BarButton"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:minHeight="48dp"
+                android:text="@string/cancel" />
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btn_clear"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="8dp"
+                android:minHeight="48dp"
+                android:text="@string/clear"
+                android:textAllCaps="false"
+                app:backgroundTint="@color/colon_primary"
+                app:cornerRadius="999dp" />
+        </LinearLayout>
+    </LinearLayout>
+</ScrollView>

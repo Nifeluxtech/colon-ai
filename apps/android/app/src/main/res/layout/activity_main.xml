@@ -1,5 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Colon AI shell: the chat WebView (added in code), a thin progress line and the offline screen. -->
+<!-- Colon AI shell. split_box stacks the in-chat browser panel (ChatBrowserPanel, hidden until a page opens), a
+     draggable divider and the chat WebView (added in code to web_container). Layout changes only resize these
+     views, so switching embedded / split / full never reloads a page. Progress line and offline screen on top. -->
 <FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
@@ -8,13 +10,45 @@
     android:layout_height="match_parent"
     tools:ignore="MergeRootFrame">
 
-    <FrameLayout
-        android:id="@+id/web_container"
+    <LinearLayout
+        android:id="@+id/split_box"
         android:layout_width="match_parent"
-        android:layout_height="match_parent" />
+        android:layout_height="match_parent"
+        android:orientation="vertical">
+
+        <include
+            android:id="@+id/browser_panel"
+            layout="@layout/view_browser_panel"
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="0.42"
+            android:visibility="gone" />
+
+        <FrameLayout
+            android:id="@+id/panel_divider"
+            android:layout_width="match_parent"
+            android:layout_height="16dp"
+            android:background="@color/colon_bg"
+            android:contentDescription="@string/panel_divider"
+            android:visibility="gone">
+
+            <View
+                android:id="@+id/panel_divider_handle"
+                android:layout_width="36dp"
+                android:layout_height="4dp"
+                android:layout_gravity="center"
+                android:background="@drawable/bg_divider_handle" />
+        </FrameLayout>
+
+        <FrameLayout
+            android:id="@+id/web_container"
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="1" />
+    </LinearLayout>
 
     <ProgressBar
-        android:id="@+id/progress"
+        android:id="@+id/shell_progress"
         style="?android:attr/progressBarStyleHorizontal"
         android:layout_width="match_parent"
         android:layout_height="3dp"

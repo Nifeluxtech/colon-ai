@@ -1,0 +1,142 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Colon AI's in-chat browser panel (ChatBrowserPanel): a header with the Saga mode chip, the address, back /
+     reload, expand, menu (forward, layouts, handoff...) and close; the Saga control bar; and the active tab's WebView (added in code under
+     the AI-mode shield). The view ids match activity_browser.xml so BrowserSaga binds to either screen. -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:id="@+id/panel_root"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/colon_bg"
+    android:orientation="vertical"
+    tools:ignore="Overdraw">
+
+    <LinearLayout
+        android:id="@+id/panel_header"
+        android:layout_width="match_parent"
+        android:layout_height="52dp"
+        android:background="@color/colon_surface"
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
+        android:paddingStart="8dp"
+        android:paddingEnd="0dp">
+
+        <TextView
+            android:id="@+id/mode_chip"
+            android:layout_width="wrap_content"
+            android:layout_height="28dp"
+            android:layout_marginEnd="6dp"
+            android:background="@drawable/bg_chip"
+            android:backgroundTint="@color/colon_chip"
+            android:gravity="center"
+            android:minWidth="44dp"
+            android:paddingHorizontal="10dp"
+            android:text="@string/mode_manual"
+            android:textColor="@color/colon_text"
+            android:textSize="11sp"
+            android:textStyle="bold" />
+
+        <EditText
+            android:id="@+id/address"
+            android:layout_width="0dp"
+            android:layout_height="38dp"
+            android:layout_weight="1"
+            android:autofillHints=""
+            android:background="@drawable/bg_address"
+            android:drawablePadding="6dp"
+            android:drawableTint="@color/colon_muted"
+            android:hint="@string/address_hint"
+            android:imeOptions="actionGo"
+            android:importantForAutofill="no"
+            android:inputType="textUri"
+            android:paddingHorizontal="12dp"
+            android:selectAllOnFocus="true"
+            android:singleLine="true"
+            android:textColor="@color/colon_text"
+            android:textColorHint="@color/colon_muted"
+            android:textSize="14sp" />
+
+        <ImageButton android:id="@+id/btn_back" style="@style/Colon.PanelButton"
+            android:contentDescription="@string/back" android:src="@drawable/ic_back" />
+        <ImageButton android:id="@+id/btn_reload" style="@style/Colon.PanelButton"
+            android:contentDescription="@string/reload" android:src="@drawable/ic_refresh" />
+        <ImageButton android:id="@+id/btn_expand" style="@style/Colon.PanelButton"
+            android:contentDescription="@string/panel_full" android:src="@drawable/ic_fullscreen" />
+        <ImageButton android:id="@+id/btn_menu" style="@style/Colon.PanelButton"
+            android:contentDescription="@string/menu" android:src="@drawable/ic_more" />
+        <ImageButton android:id="@+id/btn_close" style="@style/Colon.PanelButton"
+            android:contentDescription="@string/panel_close" android:src="@drawable/ic_close" />
+    </LinearLayout>
+
+    <ProgressBar
+        android:id="@+id/progress"
+        style="?android:attr/progressBarStyleHorizontal"
+        android:layout_width="match_parent"
+        android:layout_height="3dp"
+        android:indeterminate="false"
+        android:max="100"
+        android:progressBackgroundTint="@android:color/transparent"
+        android:progressTint="@color/colon_primary"
+        android:visibility="gone" />
+
+    <LinearLayout
+        android:id="@+id/control_banner"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:background="@color/colon_banner"
+        android:gravity="center_vertical"
+        android:minHeight="44dp"
+        android:orientation="horizontal"
+        android:paddingStart="12dp"
+        android:paddingEnd="4dp"
+        android:visibility="gone">
+
+        <TextView
+            android:id="@+id/control_text"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:ellipsize="end"
+            android:maxLines="2"
+            android:textColor="@color/colon_text"
+            android:textSize="13sp" />
+
+        <Button android:id="@+id/btn_pause" style="@style/Colon.BarButton" android:layout_width="wrap_content"
+            android:layout_height="wrap_content" android:text="@string/pause" />
+        <Button android:id="@+id/btn_control" style="@style/Colon.BarButton" android:layout_width="wrap_content"
+            android:layout_height="wrap_content" android:text="@string/take_control" />
+        <Button android:id="@+id/btn_stop" style="@style/Colon.BarButton" android:layout_width="wrap_content"
+            android:layout_height="wrap_content" android:text="@string/stop" />
+    </LinearLayout>
+
+    <FrameLayout
+        android:id="@+id/content"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1">
+
+        <FrameLayout
+            android:id="@+id/ai_shield"
+            tools:ignore="UselessParent"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:background="@color/colon_shield"
+            android:clickable="true"
+            android:focusable="true"
+            android:visibility="gone">
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btn_take_control"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_gravity="bottom|center_horizontal"
+                android:layout_marginBottom="16dp"
+                android:minHeight="48dp"
+                android:text="@string/take_control"
+                android:textAllCaps="false"
+                app:backgroundTint="@color/colon_primary"
+                app:cornerRadius="999dp" />
+        </FrameLayout>
+    </FrameLayout>
+</LinearLayout>
