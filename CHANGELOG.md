@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.6.5] — 2026-11-13 · Hands-free conversation
+### Added
+- **Hands-free mode** (`apps/chat/src/lib/hands-free.js`): pick "Hands-free conversation" at the bottom of the mic's
+  language list. Colon listens, sends when you stop talking, reads the reply aloud, then listens again. A
+  "Hands-free" pill above the composer shows Listening / thinking / speaking with an End button; Cancel on the
+  recording bar or tapping the mic also ends it. Two turns in a row with no speech end the session.
+- End of a turn: 1.6 s without new words (English dictation) or 1.5 s below speech level on the microphone (Colon
+  speech for Naijá, Yorùbá, Hausa, Igbo); 9 s of nothing counts as a miss. `ChatMedia` gained `onLevel`, and a
+  failed or empty Colon transcription now reports an empty final transcript so the loop can move on.
+- Tests: `packages/ui/test/hands-free.test.js` (3).
+
 ## [0.6.4] — 2026-11-13 · Done button fix
 ### Fixed
 - **Tapping Done could leave the mic stuck** on Android: if Done landed between two dictation restarts, Chrome had

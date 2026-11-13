@@ -123,6 +123,7 @@ function create(o) {
       if (o.onTranscript) o.onTranscript(t.text, true);
     }, function (e) {
       bar.hidden = true; bar.innerHTML = ''; if (o.onVoiceState) o.onVoiceState(false);
+      if (o.onTranscript) o.onTranscript('', true); // lets hands-free move on
       if (e.code === 'no_speech') return C.toast('I didn’t catch any speech. Try again a little closer to the mic.');
       var guest = data.kind === 'guest';
       C.toast((e.message || 'Couldn’t transcribe that.') + (guest ? '' : ' Added it as a voice note instead.'),
@@ -156,6 +157,7 @@ function create(o) {
         an.getByteFrequencyData(buf); var bars = bar.querySelectorAll('.cv-level i');
         for (var i = 0; i < bars.length; i++) { var v = buf[4 + i * 6] / 255; bars[i].style.transform = 'scaleY('
           + (0.2 + v * 1.2).toFixed(2) + ')'; }
+        if (o.onLevel) { for (var j = 2, sum = 0; j < 34; j++) sum += buf[j]; o.onLevel(sum / 32 / 255); }
         requestAnimationFrame(tick);
       })();
     } catch (e) {}
@@ -228,7 +230,8 @@ function create(o) {
       mr.ondataavailable = function (e) { if (e.data && e.data.size) chunks.push(e.data); };
       mr.onstop = function () {
         var v = voice; cleanup();
-        if (!v || v.cancelled || !chunks.length) return;
+        if (!v || v.cancelled) return;
+        if (!chunks.length) { if (v.colon && o.onTranscript) o.onTranscript('', true); return; }
         var mime = mr.mimeType || 'audio/webm', ext = /mp4/.test(mime) ? 'm4a' : /ogg/.test(mime) ? 'ogg' : 'webm';
         var dur = Math.max(1, Math.round((Date.now() - t0) / 1000));
         var file = new File(chunks, 'Voice note ' + new Date().toLocaleTimeString([], { hour: '2-digit',

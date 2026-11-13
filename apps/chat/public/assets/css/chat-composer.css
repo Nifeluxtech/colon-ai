@@ -163,3 +163,5 @@
   border-top-color:var(--primary);animation:cvspin .8s linear infinite;flex:none}
 @keyframes cvspin{to{transform:rotate(360deg)}}
 @media (max-width:420px){.cv-voice.live .cv-level{display:none}.cv-lang{max-width:104px}}
+/* Hands-free conversation pill (0.6.5) */
+.cv-hf{margin-bottom:8px;border-color:var(--accent,var(--line-2))}

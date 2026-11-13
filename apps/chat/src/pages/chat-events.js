@@ -21,6 +21,7 @@ var C = Colon;
 /* Mic: pick the language first (small pop list above the mic), then recording starts. Tapping the mic while
    recording stops it as before. */
 function voiceMenu(anchor) {
+  if (S.hf && S.hf.active()) return S.hf.stop();
   if (S.media.voiceActive()) return S.media.stopVoice();
   var cur = (S.settings && S.settings.voice && S.settings.voice.lang) || 'en-NG';
   C.menu(anchor, [{ head: 'Speak in' }].concat(SPEECH_LANGS.map(function (l) {
@@ -31,7 +32,8 @@ function voiceMenu(anchor) {
       }
       S.media.startVoice();
     } };
-  })), { label: 'Choose the language you will speak', align: 'right' });
+  })).concat(['-', { label: 'Hands-free conversation', sub: 'Talk, pause, and hear the answer. Tap End to stop.',
+    onClick: function () { S.hf.start(); } }]), { label: 'Choose the language you will speak', align: 'right' });
 }
 
 /* ================= Events ================= */

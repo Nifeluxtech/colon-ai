@@ -15,7 +15,7 @@ import { go, start } from './colon/router.js';
 import { API, LANGS, hasRole, roleName, state, theme } from './colon/state.js';
 
 const Colon = {
-  version: '0.6.4', start: start, api: api, icon: icon, esc: esc, $: $, $$: $$, toast: toast, sheet: sheet,
+  version: '0.6.5', start: start, api: api, icon: icon, esc: esc, $: $, $$: $$, toast: toast, sheet: sheet,
   field: field, bindForm: bindForm, go: go, ago: ago, device: device, initials: initials, roleName: roleName,
   hasRole: hasRole, LANGS: LANGS, MARK: MARK, logo: logo, theme: theme, menu: menu, confirm: confirmDialog,
   prompt: promptDialog, drawer: drawer, keyboard: keyboard, resizable: resizable, copyText: copyText,

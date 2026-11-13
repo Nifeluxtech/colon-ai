@@ -15,7 +15,9 @@ import { applySidebar, closeDrawer, refreshConvs, renderConvs } from '../compone
 import { CW } from '../core/cw.js';
 import { ColonChatData } from '../core/data.js';
 import { $, PROMPTS, S, brandName, data, ephemeral, isMobile, setData, signedIn } from '../core/state.js';
+import { createHandsFree } from '../lib/hands-free.js';
 import { ChatMedia } from '../lib/media.js';
+import { ReadAloud } from '../lib/read-aloud.js';
 
 var C = Colon, icon = C.icon, esc = C.esc;
 
@@ -135,12 +137,16 @@ function mount(view, ctx) {
       $('[data-a=mic]').setAttribute('aria-pressed', on); },
     onTranscript: function (text, final) {
       var ta = $('#cw-input');
-      if (final === 'cancel') { ta.value = ta.dataset.before || ''; autoGrow(); return; }
+      if (final === 'cancel') { ta.value = ta.dataset.before || ''; autoGrow(); S.hf.transcript('', 'cancel'); return; }
       if (ta.dataset.before === undefined) ta.dataset.before = ta.value ? ta.value + ' ' : '';
       ta.value = ta.dataset.before + text; autoGrow(); syncComposer();
+      if (S.hf.transcript(text, final)) { delete ta.dataset.before; return; }
       if (final === true) { delete ta.dataset.before; if (S.settings.voice.autoSend && text) send(); else ta.focus(); }
-    }
+    },
+    onLevel: function (v) { S.hf.level(v); }
   });
+  S.hf = createHandsFree({ media: S.media, send: send, speak: ReadAloud, bar: $('.cv-voice'), toast: C.toast,
+    getSettings: function () { return S.settings || {}; } });
   S.collapsed = localStorage.getItem('colon.sidebar') === 'closed';
   applySidebar();
   Promise.all([
@@ -150,8 +156,8 @@ function mount(view, ctx) {
       C.toast('Couldn’t load the model list. Using Colon Saga.', 'bad'); })
   ]).then(function () { refreshConvs(); route(ctx); });
   return function unmount() {
-    if (S.streaming) S.streaming.ctl.abort(); if (S.media) S.media.destroy(); document.removeEventListener('keydown',
-      onKey);
+    if (S.hf) S.hf.stop(); if (S.streaming) S.streaming.ctl.abort(); if (S.media) S.media.destroy();
+    document.removeEventListener('keydown', onKey);
     if (S.ro) S.ro.disconnect(); document.documentElement.classList.remove('app-lock');
   };
 }

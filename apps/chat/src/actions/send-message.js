@@ -1,6 +1,7 @@
 /* Colon AI · sending a message and streaming the reply; regenerate, stop and edit-and-resend. */
 
 import { Colon } from '../../../../packages/ui/js/colon.js';
+import { ColonMarkdown } from '../../../../packages/ui/js/markdown/index.js';
 import { autoGrow, scrollBottom, syncComposer } from '../components/composer.js';
 import { announce, paintMessage, renderThread } from '../components/message.js';
 import { updateHeader } from '../components/model-picker.js';
@@ -66,6 +67,7 @@ function run(call, tempUser, replaceId) {
   function finish() {
     S.streaming = null; renderThread(); syncComposer(); scrollBottom(); refreshConvs(); updateHeader();
     if (msg && msg.status === 'complete') announce('Colon Saga replied.');
+    if (S.hf) S.hf.replyDone(msg, msg && msg.content ? ColonMarkdown.toText(msg.content) : '');
   }
 }
 function stopStreaming() { if (S.streaming) S.streaming.ctl.abort(); }
