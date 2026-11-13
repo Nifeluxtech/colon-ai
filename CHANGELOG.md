@@ -1,5 +1,28 @@
 # Changelog
 
+## [0.9.2] — 2026-11-13 · The browser panel stays inside the conversation
+Fix for 0.9.1 on real phones: the in-chat browser panel could still open pinned above the chat (embedded, with its
+own header) instead of inside the thread. Every version number moves to 0.9.2 (apps, `Colon.version`,
+`version.json` for both APKs, versionCode 902).
+### Fixed
+- **Android: "can the page draw the card?" no longer starts as "no".** 0.9.1 started it false and only flipped it
+  when the chat page made a `browser(...)` call with `inline: true`, so a panel the app opened by itself first
+  (Saga's auto-open when it asks to browse, a link the shell routed, `openTab`) showed embedded; the 4 s grace
+  after a page load could also run out on a slow phone and leave it embedded. It now starts unknown (inline,
+  hidden until the card reports), the grace (6 s) is armed on every open and every chat page load, and an
+  `anchor` report counts as the page saying it draws the card.
+- **Android: phones open every panel in the conversation** (Browser button, AI Browse, Saga, links, reopen after
+  collapse or full screen) — `PanelLayout.openMode`. Collapsing from full screen or split no longer saves the
+  embedded fallback as the preferred layout (in 0.9.1 that pinned every later open above the chat). Embedded and
+  split from the panel menu still work while the panel is open; wide screens keep their saved layout.
+- **Chat:** the panel state now carries `inlineReady`; whenever it is false the page tells the app it draws the
+  card (with a 0.9.1 app, once per page when the panel is embedded). The page follows the panel as soon as the
+  bridge is ready instead of after settings and models load, re-syncs on resume, sends anchors with
+  `inline: true`, and draws the card even without the header Browser button (`lib/native-panel.js`).
+### Tests
+- `packages/ui/test/native-panel.test.js` (the handshake, including a model of the app: Saga/link opens before the
+  page spoke, a slow reload past the grace, reopen after full screen); Kotlin `InlineOpenTest`.
+
 ## [0.9.1] — 2026-11-13 · The browser panel inside the conversation
 On phones, Colon AI's browser panel now shows inside the chat thread, where the web's "Colon Browser" card sits,
 instead of being pinned above the chat header. Every version number moves to 0.9.1 (apps, `Colon.version`,

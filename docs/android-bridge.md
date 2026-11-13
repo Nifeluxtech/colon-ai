@@ -53,8 +53,11 @@ screens open `split`) shows the panel inside the conversation, where the web app
 
 - The page says it can draw the card by adding `inline: true` to its `browser(...)` calls (the chat does on every
   call, including the first `state`). The app uses `inline` only then; with an older page the panel shows
-  `embedded` (above the chat) as before, and `state.layout` says which layout is really shown. When the shell page
-  reloads, the panel stays inline but hidden for up to 4 s, waiting for the new page to say so again.
+  `embedded` (above the chat) as before, and `state.layout` says which layout is really shown. Since 0.9.2 the app
+  starts not knowing (inline, hidden until the card reports) and waits up to 6 s after each open and each shell
+  page load before falling back to `embedded`; an `anchor` report also counts as saying so. The state carries
+  `inlineReady` (0.9.2): while it is `false` the page should say so again (the chat answers it with a `state` call).
+  On phones every open from closed starts `inline` (0.9.2); a layout picked in the panel menu lasts while it is open.
 - When `state.layout` is `inline`, the page draws the card in the thread (`.cw-native-host`, next to the web card's
   `.cw-embed-host`): status dot, "Colon Browser", the page's address, collapse (`collapse`), full screen
   (`layout { layout: 'full' }`) and close (`close`), and an empty body box (60vh, at least 320 px). The native

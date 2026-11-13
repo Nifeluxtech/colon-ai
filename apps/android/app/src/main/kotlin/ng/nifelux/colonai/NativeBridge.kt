@@ -175,7 +175,8 @@ class NativeBridge(private val host: MainActivity, private val webView: WebView)
         if (url.isNotEmpty() && !UrlRules.isWebUrl(url)) { done(false, null, "bad_url"); return }
         if (a.optBoolean("inline", false)) p.setWebInline()
         when (a.optString("action")) {
-            "anchor" -> { p.setAnchor(InlineGeometry.anchorOf(a)); done(true, null, null); return }
+            // Only a page that draws the card reports its box: that says it can too (v0.9.2).
+            "anchor" -> { p.setWebInline(); p.setAnchor(InlineGeometry.anchorOf(a)); done(true, null, null); return }
             "open" -> p.open(url.ifEmpty { null }, a.optString("layout").ifEmpty { null })
             "navigate" -> if (url.isEmpty()) { done(false, null, "bad_url"); return } else p.open(url)
             "layout" -> {
