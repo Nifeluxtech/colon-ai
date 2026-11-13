@@ -1,6 +1,7 @@
-# Android bridge (v0.7.1, Phase 7)
+# Android bridge (v0.8.0, Phases 7–8)
 
-The Colon AI Android app (`apps/android`) has two bridges:
+The Colon AI Android app (`apps/android`, flavor `colonai`) has two bridges. Colon Browser (flavor `colonbrowser`)
+shows no Colon page, so it has only the backend bridge (2).
 
 1. **JavaScript bridge** (`window.ColonNative`): between the chat web app and the app on the same phone.
 2. **Backend bridge** (WebSocket): between the phone and `services/api`, so the backend and Saga can see the
@@ -30,7 +31,8 @@ the web, and sets `html[data-shell="android"]` for CSS.
 | Call | Arguments | Result |
 |---|---|---|
 | `info()` | | `{ platform, version, versionCode, sdk, release, model, lowRam, webview, bridge, online, signedRelease, features[] }` |
-| `openTab(url)` | `url` http(s) or `''` | opens a native Colon Browser tab |
+| `openTab(url)` | `url` http(s) or `''` | opens the page in the native in-chat browser panel (v0.7.x: a Colon Browser screen) |
+| `browser(action, o)` | `action`: `open` (`{ url?, layout? }`) · `navigate` (`{ url }`) · `layout` (`{ layout: embedded·split·full }`) · `collapse` (`{ collapsed }`) · `close` · `back` · `forward` · `reload` · `handoff` · `state` | the panel state `{ open, layout, collapsed, url, title, loading, progress, canGoBack, canGoForward, tabs, control, paused, task, browserApp }`; `handoff` → `{ handedOff }` (opens the page in the Colon Browser app, or offers its download). Feature `browserPanel`. |
 | `share({ title, text, url })` | | Android share sheet |
 | `download(url, name, mime)` | http(s) URL | Android DownloadManager (cookies included, so signed-in files work) |
 | `call('saveFile', { name, mime, base64 })` | ≤ 25 MB | saves into Downloads (`{ path }`) — used for blob exports |
@@ -43,11 +45,12 @@ the web, and sets `html[data-shell="android"]` for CSS.
 | `call('bridgeStatus')` | | `{ status }`: `off` · `offline` · `connecting` · `connected` · `bridge_ready` · `unavailable` |
 
 **Events** (`ColonNative.on(name, fn)` or `window` event `colonnative:<name>`): `share` (`{ pending: true }`; call
-`takeShare()`), `bridge` (`{ status }`), `resume` (app back in the foreground).
+`takeShare()`), `bridge` (`{ status }`), `resume` (app back in the foreground), `browser` (the panel state above,
+whenever the panel opens, closes, changes layout, loads, or Saga's control changes).
 
 **Native paths that need no call:** `<input type="file">` opens Android's file picker (accept types and multiple
 files honoured); `getUserMedia({ audio })` asks for the microphone permission and is granted only to Colon's
-pages; links to other sites open in Colon Browser tabs; `mailto:`, `tel:`, `intent://` and other app links leave
+pages; links to other sites open in the in-chat browser panel; `mailto:`, `tel:`, `intent://` and other app links leave
 the app safely (no explicit components).
 
 **Voice in the app:** Android System WebView has no working speech-recognition service, so inside the app every
@@ -102,16 +105,21 @@ Every frame has `type`; app frames also carry `v: 1` and `ts` (ms since epoch).
 | `command` | `id` (≤ 64 chars), `name`, `args`, `tab_id?` | runs on the open Colon Browser; always answered with `ack` |
 | `error` | `code`, `message` | logged |
 
-**Commands in v0.7.1:** `open_url {url, new_tab?}`, `new_tab {url?}`, `back`, `forward`, `reload`, `stop`,
+**Commands (since v0.7.1):** `open_url {url, new_tab?}`, `new_tab {url?}`, `back`, `forward`, `reload`, `stop`,
 `switch_tab {tab_id}`, `close_tab {tab_id}`, `get_page_state`, `get_tabs`. Errors: `manual_control` (the user is in
 control or never agreed), `paused`, `browser_not_open`, `bad_url`, `no_tab`, `no_history`, `tab_limit`,
-`unsupported` (any other name). Phase 9 adds `get_page_content`, `get_links`, `click`, `fill`, `scroll`,
+`unsupported` (any other name), `private_tab` (v0.8.0: Saga can't read or drive private tabs; they are also left out
+of `get_tabs` and `page_state`). In Colon AI the commands run on the in-chat browser panel while it is open; in
+Colon Browser on its tabs. Phase 9 adds `get_page_content`, `get_links`, `click`, `fill`, `scroll`,
 `screenshot` (injected JavaScript in the tab, with on-phone approval for payments, forms and messages).
 
 **Control on the phone:** AI mode puts a shield over the page with **Take control**; the bar under the address
 shows Pause/Resume, Take control / Return to AI and Stop. Commands run only in AI or Shared mode and not paused.
 
-### What the backend must add (not in v0.7.1: `services/api` was not changed)
+### What the backend must add (not in v0.7.1 or v0.8.0: `services/api` was not changed)
+
+Phase 8's session manager adds `session_sync` / `session_request` frames and `hello.app`: see
+`docs/phase8-backend-contract.md`.
 
 1. **Authenticate the socket:** in the `upgrade` handler, load the session from the `colon_sid` cookie (the same
    `sessions.load(req)` the HTTP routes use; `req.cookies` must be parsed for upgrade requests) or from
