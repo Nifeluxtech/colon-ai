@@ -21,7 +21,15 @@ import java.io.File
  */
 object Downloads {
     /** Starts a download; returns the file name, or null when the URL isn't http(s). */
-    fun enqueue(context: Context, url: String, userAgent: String?, contentDisposition: String?, mime: String?): String? {
+    fun enqueue(context: Context, url: String, userAgent: String?, contentDisposition: String?, mime: String?): String? =
+        start(context, url, userAgent, contentDisposition, mime)?.first
+
+    /**
+     * Starts a download; returns (file name, DownloadManager id), or null when the URL isn't http(s).
+     * [cookies] false leaves the WebView's cookies out (private tabs: their cookies live in another profile).
+     */
+    fun start(context: Context, url: String, userAgent: String?, contentDisposition: String?, mime: String?,
+              cookies: Boolean = true): Pair<String, Long>? {
         if (!UrlRules.isWebUrl(url)) return null
         val name = safeName(URLUtil.guessFileName(url, contentDisposition, mime))
         val req = DownloadManager.Request(Uri.parse(url))
@@ -32,15 +40,17 @@ object Downloads {
         mime?.takeIf { it.isNotBlank() }?.let { req.setMimeType(it) }
         userAgent?.let { req.addRequestHeader("User-Agent", it) }
         // Cookies let signed-in downloads work (for example a file attached in Colon AI).
-        try { CookieManager.getInstance().getCookie(url)?.let { req.addRequestHeader("Cookie", it) } } catch (_: Exception) {}
+        if (cookies) try {
+            CookieManager.getInstance().getCookie(url)?.let { req.addRequestHeader("Cookie", it) }
+        } catch (_: Exception) {}
         if (canWritePublic(context)) {
             req.setDestinationInExternalPublicDir(Environment.DIRECTORY_DOWNLOADS, name)
         } else {
             req.setDestinationInExternalFilesDir(context, Environment.DIRECTORY_DOWNLOADS, name)
         }
         val dm = context.getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
-        dm.enqueue(req)
-        return name
+        val id = dm.enqueue(req)
+        return name to id
     }
 
     /** Saves bytes as a file in Downloads (Android 10+) or the app's own download folder (older). */

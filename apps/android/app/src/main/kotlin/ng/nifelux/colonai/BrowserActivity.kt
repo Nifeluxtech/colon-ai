@@ -1,12 +1,16 @@
 package ng.nifelux.colonai
 
 import android.app.ActivityManager
+import android.app.SearchManager
 import android.content.ComponentCallbacks2
 import android.content.Context
 import android.content.Intent
+import android.content.res.ColorStateList
 import android.content.res.Configuration
 import android.graphics.Color
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import android.view.KeyEvent
 import android.view.View
 import android.view.ViewGroup
@@ -17,7 +21,6 @@ import android.webkit.WebView
 import android.widget.EditText
 import android.widget.FrameLayout
 import android.widget.ImageButton
-import android.widget.PopupMenu
 import android.widget.ProgressBar
 import android.widget.TextView
 import android.widget.Toast
@@ -27,42 +30,47 @@ import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
+import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.core.view.ViewCompat
-import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
-import androidx.core.view.WindowInsetsControllerCompat
 
 /**
- * Colon Browser on Android System WebView: one WebView per tab (TabManager), native address bar, back / forward /
- * reload / home, tabs, bookmarks, history and downloads, plus the Saga control bar (BrowserSaga) wired to the bridge.
+ * Colon Browser (the standalone app, ng.nifelux.colonbrowser) on Android System WebView: one WebView per tab
+ * (TabManager), native address bar, back / forward / reload / home, tabs and private tabs, bookmarks, history,
+ * downloads, desktop site, clear browsing data, Google and bank sign-in in a Custom Tab, and the Saga control bar
+ * (BrowserSaga). Tabs and history survive restarts; private tabs never do. Menus live in BrowserMenu.
  */
-class BrowserActivity : AppCompatActivity(), TabManager.Host {
-    lateinit var tabs: TabManager
+class BrowserActivity : AppCompatActivity(), TabManager.Host, BrowserHost {
+    override val activity: AppCompatActivity get() = this
+    override lateinit var tabs: TabManager
         private set
-    lateinit var fileChooser: FileChooser
+    override lateinit var fileChooser: FileChooser
         private set
-    lateinit var store: BrowserStore
+    override lateinit var store: BrowserStore
         private set
     lateinit var saga: BrowserSaga
         private set
 
     private lateinit var content: FrameLayout
+    private lateinit var topBar: View
     private lateinit var address: EditText
     private lateinit var progress: ProgressBar
     private lateinit var tabCount: TextView
     private lateinit var back: ImageButton
     private lateinit var forward: ImageButton
     private lateinit var reload: ImageButton
-    private var fullscreen: View? = null
-    private var fullscreenCallback: WebChromeClient.CustomViewCallback? = null
-    private var permissionCallback: ((Map<String, Boolean>) -> Unit)? = null
+    private lateinit var fullscreen: Fullscreen
+    private lateinit var permissions: PermissionAsker
+    private val main = Handler(Looper.getMainLooper())
+    private var reloadOnReturn = false
+    private val saveTabs = Runnable { store.tabsJson = tabs.toJson() }
 
-    private val permissionLauncher =
-        registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { result ->
-            permissionCallback?.invoke(result); permissionCallback = null
-        }
+    val clearData = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { r ->
+        if (r.resultCode == RESULT_OK) { tabs.active?.webView?.reload(); refreshChrome() }
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        if (BuildConfig.IS_BROWSER_APP) installSplashScreen()
         super.onCreate(savedInstanceState)
         enableEdgeToEdge(SystemBarStyle.auto(Color.TRANSPARENT, Color.TRANSPARENT),
             SystemBarStyle.auto(Color.TRANSPARENT, Color.TRANSPARENT))
@@ -75,6 +83,7 @@ class BrowserActivity : AppCompatActivity(), TabManager.Host {
             WindowInsetsCompat.CONSUMED
         }
         content = findViewById(R.id.content)
+        topBar = findViewById(R.id.top_bar)
         address = findViewById(R.id.address)
         progress = findViewById(R.id.progress)
         tabCount = findViewById(R.id.tab_count)
@@ -82,7 +91,10 @@ class BrowserActivity : AppCompatActivity(), TabManager.Host {
         forward = findViewById(R.id.btn_forward)
         reload = findViewById(R.id.btn_reload)
         fileChooser = FileChooser(this)
+        permissions = PermissionAsker(this)
+        fullscreen = Fullscreen(this)
         store = BrowserStore(this)
+        PrivateProfiles.deleteStale() // a private session the app was killed in
 
         val am = getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager
         tabs = TabManager(this, TabPolicy.maxLiveFor(am.isLowRamDevice, am.memoryClass),
@@ -98,12 +110,14 @@ class BrowserActivity : AppCompatActivity(), TabManager.Host {
             override fun handleOnBackPressed() {
                 val wv = tabs.active?.webView
                 when {
-                    fullscreen != null -> exitFullscreen()
+                    fullscreen.active -> exitFullscreen()
                     wv != null && wv.canGoBack() -> wv.goBack()
+                    tabs.active?.popup == true && tabs.tabs.size > 1 -> tabs.active?.let { tabs.close(it) }
                     else -> { isEnabled = false; onBackPressedDispatcher.onBackPressed(); isEnabled = true }
                 }
             }
         })
+        if (BuildConfig.IS_BROWSER_APP) UpdateChecker.checkOnStart(this)
     }
 
     private fun wireControls() {
@@ -120,8 +134,8 @@ class BrowserActivity : AppCompatActivity(), TabManager.Host {
             if (t.progress in 0..99) t.webView?.stopLoading() else t.webView?.reload()
         }
         findViewById<View>(R.id.btn_home).setOnClickListener { navigate(UrlRules.HOME) }
-        tabCount.setOnClickListener { showTabs() }
-        findViewById<View>(R.id.btn_menu).setOnClickListener { showMenu(it) }
+        tabCount.setOnClickListener { BrowserMenu.showTabs(this) }
+        findViewById<View>(R.id.btn_menu).setOnClickListener { BrowserMenu.show(this, it) }
         saga.bind(findViewById(R.id.browser_root))
     }
 
@@ -130,11 +144,17 @@ class BrowserActivity : AppCompatActivity(), TabManager.Host {
         handleIntent(intent)
     }
 
-    /** Opens the intent's link (from Colon AI, Saga or another app) in a new tab. */
+    /** Opens the intent's link or search (from Colon AI, Saga or another app) in a new tab. */
     private fun handleIntent(intent: Intent?): Boolean {
-        val url = intent?.dataString ?: return false
-        if (!UrlRules.isWebUrl(url)) return false
+        intent ?: return false
+        val url = when (intent.action) {
+            Intent.ACTION_WEB_SEARCH -> intent.getStringExtra(SearchManager.QUERY)?.let { UrlRules.addressToUrl(it) }
+            else -> intent.dataString
+        } ?: return false
+        if (url != UrlRules.HOME && !UrlRules.isWebUrl(url)) return false
         intent.data = null
+        intent.action = Intent.ACTION_MAIN // handled once, even after rotation
+        if (UrlRules.needsCustomTab(url, BuildConfig.EXTRA_CUSTOM_TAB_HOSTS)) { openSignIn(url); return false }
         if (tabs.open(url) == null) tabLimitReached()
         return true
     }
@@ -146,14 +166,24 @@ class BrowserActivity : AppCompatActivity(), TabManager.Host {
 
     override fun onStop() {
         saga.detach()
+        main.removeCallbacks(saveTabs)
         store.tabsJson = tabs.toJson()
         super.onStop()
     }
 
-    override fun onResume() { super.onResume(); tabs.active?.webView?.onResume() }
+    override fun onResume() {
+        super.onResume()
+        tabs.active?.webView?.onResume()
+        if (reloadOnReturn) { reloadOnReturn = false; tabs.active?.webView?.reload() }
+    }
+
     override fun onPause() { tabs.active?.webView?.onPause(); super.onPause() }
 
     override fun onDestroy() {
+        if (isFinishing && tabs.tabs.any { it.incognito }) {
+            tabs.tabs.filter { it.incognito }.forEach { t -> t.webView?.let { ShellWeb.destroy(it) }; t.webView = null }
+            onPrivateSessionEnded()
+        }
         tabs.tabs.forEach { t -> t.webView?.let { ShellWeb.destroy(it) }; t.webView = null }
         super.onDestroy()
     }
@@ -165,13 +195,15 @@ class BrowserActivity : AppCompatActivity(), TabManager.Host {
         if (level >= ComponentCallbacks2.TRIM_MEMORY_RUNNING_LOW) tabs.trim(1)
     }
 
-    override fun onLowMemory() { super.onLowMemory(); tabs.trim(1) }
+    @Deprecated("Deprecated in Java")
+    override fun onLowMemory() { @Suppress("DEPRECATION") super.onLowMemory(); tabs.trim(1) }
 
     /* ---------- navigation ---------- */
 
-    fun navigate(input: String) {
+    override fun navigate(input: String) {
         val url = UrlRules.addressToUrl(input) ?: return
         hideKeyboard()
+        if (UrlRules.needsCustomTab(url, BuildConfig.EXTRA_CUSTOM_TAB_HOSTS)) { openSignIn(url); return }
         val tab = tabs.active
         if (tab == null) { if (tabs.open(url) == null) tabLimitReached(); return }
         tab.url = url
@@ -180,12 +212,38 @@ class BrowserActivity : AppCompatActivity(), TabManager.Host {
     }
 
     override fun loadInto(webView: WebView, url: String) {
+        val tab = tabs.tabs.firstOrNull { it.webView === webView }
         when {
-            url == UrlRules.HOME -> webView.loadDataWithBaseURL(null, HomePage.html(store.bookmarks(), isDark()),
-                "text/html", "utf-8", null)
+            url == UrlRules.HOME -> webView.loadDataWithBaseURL(null,
+                HomePage.html(if (tab?.incognito == true) emptyList() else store.bookmarks(), isDark(),
+                    tab?.incognito == true, PrivateProfiles.supported()), "text/html", "utf-8", null)
             UrlRules.isWebUrl(url) -> webView.loadUrl(url)
             else -> Unit // a blank pop-up tab, filled by its opener
         }
+    }
+
+    /** Opens a new private tab, after a warning when this WebView can't keep its cookies separate. */
+    fun openPrivateTab() {
+        val open = { if (tabs.open(UrlRules.HOME, incognito = true) == null) tabLimitReached() }
+        if (PrivateProfiles.supported()) open()
+        else com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
+            .setTitle(R.string.private_tab).setMessage(R.string.private_limited)
+            .setPositiveButton(R.string.private_open_anyway) { _, _ -> open() }
+            .setNegativeButton(R.string.cancel, null).show()
+    }
+
+    /** Desktop site on/off for the active tab (reloads it). */
+    fun toggleDesktop() {
+        val tab = tabs.active ?: return
+        tab.desktop = !tab.desktop
+        tab.webView?.let { BrowserWeb.applyUserAgent(it, tab.desktop); it.reload() }
+        toast(getString(if (tab.desktop) R.string.desktop_on else R.string.desktop_off))
+        scheduleSave()
+    }
+
+    override fun openSignIn(url: String) {
+        if (SignInTabs.open(this, url, isDark())) { reloadOnReturn = true; toast(getString(R.string.signin_custom_tab)) }
+        else toast(getString(R.string.signin_no_browser))
     }
 
     /* ---------- TabManager.Host ---------- */
@@ -211,32 +269,62 @@ class BrowserActivity : AppCompatActivity(), TabManager.Host {
     }
 
     override fun onTabsChanged() {
-        tabCount.text = String.format(java.util.Locale.getDefault(), "%d", tabs.tabs.size.coerceAtMost(99))
-        tabCount.contentDescription = getString(R.string.tabs_open, tabs.tabs.size)
+        val n = tabs.tabs.size
+        tabCount.text = String.format(java.util.Locale.getDefault(), "%d", n.coerceAtMost(99))
+        tabCount.contentDescription = getString(R.string.tabs_open, n)
+        scheduleSave()
     }
 
-    fun onTabUpdated(tab: BrowserTab) {
+    override fun onPrivateSessionEnded() {
+        PrivateProfiles.endSession()
+        main.postDelayed({ PrivateProfiles.deleteStale() }, 1500) // once the WebViews have let go of the profile
+    }
+
+    private fun scheduleSave() { main.removeCallbacks(saveTabs); main.postDelayed(saveTabs, 800) }
+
+    /* ---------- BrowserHost ---------- */
+
+    override fun onTabUpdated(tab: BrowserTab) {
         if (tab === tabs.active) { refreshChrome(); saga.reportState() }
+        if (!tab.incognito) scheduleSave()
     }
 
-    fun onPageLoaded(tab: BrowserTab) = store.addHistory(tab.url, tab.title)
-
-    fun onTabRendererGone(tab: BrowserTab) {
+    override fun onTabRendererGone(tab: BrowserTab) {
         tab.webView?.let { (it.parent as? ViewGroup)?.removeView(it); it.destroy() }
         tab.webView = null
         if (tab === tabs.active) { tabs.switchTo(tab); toast(getString(R.string.tab_crashed)) }
     }
 
-    fun tabLimitReached() = toast(getString(R.string.tab_limit, tabs.maxTabs))
+    override fun tabLimitReached() = toast(getString(R.string.tab_limit, tabs.maxTabs))
 
-    private fun refreshChrome() {
+    override fun askPermissions(perms: Array<String>, cb: (Map<String, Boolean>) -> Unit) = permissions.ask(perms, cb)
+
+    override fun enterFullscreen(view: View, callback: WebChromeClient.CustomViewCallback) =
+        fullscreen.enter(view, callback)
+
+    override fun exitFullscreen() = fullscreen.exit()
+
+    override fun isDark(): Boolean =
+        (resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) != Configuration.UI_MODE_NIGHT_NO
+
+    override fun toast(text: String) = Toast.makeText(this, text, Toast.LENGTH_SHORT).show()
+
+    fun refreshChrome() {
         val tab = tabs.active
         val wv = tab?.webView
+        val private = tab?.incognito == true
         if (!address.hasFocus()) address.setText(UrlRules.displayUrl(tab?.url))
+        address.hint = getString(if (private) R.string.address_hint_private else R.string.address_hint)
+        topBar.setBackgroundColor(ContextCompat.getColor(this, if (private) R.color.colon_private else R.color.colon_bg))
+        address.backgroundTintList = if (private) ColorStateList.valueOf(ContextCompat.getColor(this,
+            R.color.colon_private_field)) else null
         val secure = tab?.url?.startsWith("https://") == true
-        address.setCompoundDrawablesRelativeWithIntrinsicBounds(
-            if (tab == null || tab.url == UrlRules.HOME || tab.url.isEmpty()) R.drawable.ic_search
-            else if (secure) R.drawable.ic_lock else R.drawable.ic_info, 0, 0, 0)
+        address.setCompoundDrawablesRelativeWithIntrinsicBounds(when {
+            private -> R.drawable.ic_private
+            tab == null || tab.url == UrlRules.HOME || tab.url.isEmpty() -> R.drawable.ic_search
+            secure -> R.drawable.ic_lock
+            else -> R.drawable.ic_info
+        }, 0, 0, 0)
         back.isEnabled = wv?.canGoBack() == true
         forward.isEnabled = wv?.canGoForward() == true
         back.alpha = if (back.isEnabled) 1f else .38f
@@ -246,109 +334,8 @@ class BrowserActivity : AppCompatActivity(), TabManager.Host {
         progress.progress = tab?.progress ?: 100
         reload.setImageResource(if (loading) R.drawable.ic_close else R.drawable.ic_refresh)
         reload.contentDescription = getString(if (loading) R.string.stop_loading else R.string.reload)
+        tabCount.isActivated = private
     }
-
-    /* ---------- tabs, menu, lists ---------- */
-
-    private fun showTabs() {
-        EntryList.show(this, getString(R.string.tabs_title, tabs.tabs.size),
-            tabs.tabs.map { EntryList.Item(it.id, it.label(), UrlRules.displayUrl(it.url), it === tabs.active) },
-            getString(R.string.no_tabs),
-            onPick = { item -> tabs.find(item.key)?.let { tabs.switchTo(it) } },
-            onRemove = { item -> tabs.find(item.key)?.let { tabs.close(it) } },
-            action = getString(R.string.new_tab) to { if (tabs.open(UrlRules.HOME) == null) tabLimitReached() })
-    }
-
-    private fun showMenu(anchor: View) {
-        val tab = tabs.active
-        val pageUrl = tab?.url?.takeIf { UrlRules.isWebUrl(it) }
-        val menu = PopupMenu(this, anchor)
-        val m = menu.menu
-        m.add(0, 1, 0, R.string.new_tab)
-        if (pageUrl != null) m.add(0, 2, 1, if (store.isBookmarked(pageUrl)) R.string.remove_bookmark
-            else R.string.add_bookmark)
-        m.add(0, 3, 2, R.string.bookmarks)
-        m.add(0, 4, 3, R.string.history)
-        m.add(0, 5, 4, R.string.downloads)
-        if (pageUrl != null) { m.add(0, 6, 5, R.string.share_page); m.add(0, 7, 6, R.string.open_in_app) }
-        m.add(0, 8, 7, R.string.saga_status)
-        m.add(0, 9, 8, R.string.clear_data)
-        m.add(0, 10, 9, R.string.back_to_chat)
-        menu.setOnMenuItemClickListener { item ->
-            when (item.itemId) {
-                1 -> if (tabs.open(UrlRules.HOME) == null) tabLimitReached()
-                2 -> pageUrl?.let { toast(getString(if (store.toggleBookmark(it, tab.title)) R.string.bookmarked
-                    else R.string.bookmark_removed)) }
-                3 -> showEntries(R.string.bookmarks, store.bookmarks(), R.string.no_bookmarks) { store.removeBookmark(it) }
-                4 -> showEntries(R.string.history, store.history(), R.string.no_history) { store.removeHistory(it) }
-                5 -> openDownloads()
-                6 -> pageUrl?.let { share(it, tab.title) }
-                7 -> pageUrl?.let { UpdateChecker.openExternal(this, it) }
-                8 -> saga.showStatus()
-                9 -> BrowserData.confirmClear(this) { refreshChrome() }
-                10 -> startActivity(Intent(this, MainActivity::class.java)
-                    .addFlags(Intent.FLAG_ACTIVITY_REORDER_TO_FRONT))
-            }
-            true
-        }
-        menu.show()
-    }
-
-    private fun showEntries(titleRes: Int, list: List<BrowserStore.Entry>, emptyRes: Int, remove: (String) -> Unit) {
-        EntryList.show(this, getString(titleRes),
-            list.map { EntryList.Item(it.url, it.title.ifBlank { it.url }, it.url) }, getString(emptyRes),
-            onPick = { navigate(it.key) }, onRemove = { remove(it.key) })
-    }
-
-    private fun openDownloads() {
-        try { startActivity(Intent(android.app.DownloadManager.ACTION_VIEW_DOWNLOADS)) }
-        catch (_: Exception) { toast(getString(R.string.no_app_to_open)) }
-    }
-
-    private fun share(url: String, title: String) {
-        val send = Intent(Intent.ACTION_SEND).setType("text/plain").putExtra(Intent.EXTRA_TEXT, url)
-            .putExtra(Intent.EXTRA_SUBJECT, title)
-        try { startActivity(Intent.createChooser(send, null)) } catch (_: Exception) {}
-    }
-
-    /* ---------- full-screen video ---------- */
-
-    fun enterFullscreen(view: View, callback: WebChromeClient.CustomViewCallback) {
-        if (fullscreen != null) { callback.onCustomViewHidden(); return }
-        fullscreen = view
-        fullscreenCallback = callback
-        (window.decorView as FrameLayout).addView(view, FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT,
-            ViewGroup.LayoutParams.MATCH_PARENT))
-        WindowCompat.getInsetsController(window, window.decorView).apply {
-            systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
-            hide(WindowInsetsCompat.Type.systemBars())
-        }
-    }
-
-    fun exitFullscreen() {
-        val v = fullscreen ?: return
-        (window.decorView as FrameLayout).removeView(v)
-        fullscreen = null
-        WindowCompat.getInsetsController(window, window.decorView).show(WindowInsetsCompat.Type.systemBars())
-        fullscreenCallback?.onCustomViewHidden()
-        fullscreenCallback = null
-    }
-
-    /* ---------- helpers ---------- */
-
-    fun askPermissions(perms: Array<String>, cb: (Map<String, Boolean>) -> Unit) {
-        val missing = perms.filter { ContextCompat.checkSelfPermission(this, it) != android.content.pm.PackageManager
-            .PERMISSION_GRANTED }
-        if (missing.isEmpty()) { cb(perms.associateWith { true }); return }
-        permissionCallback?.invoke(emptyMap())
-        permissionCallback = { r -> cb(perms.associateWith { it !in missing || r[it] == true }) }
-        permissionLauncher.launch(missing.toTypedArray())
-    }
-
-    fun isDark(): Boolean =
-        (resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) != Configuration.UI_MODE_NIGHT_NO
-
-    fun toast(text: String) = Toast.makeText(this, text, Toast.LENGTH_SHORT).show()
 
     private fun hideKeyboard() {
         address.clearFocus()

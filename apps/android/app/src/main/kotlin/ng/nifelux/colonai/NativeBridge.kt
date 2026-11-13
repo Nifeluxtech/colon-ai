@@ -120,6 +120,7 @@ class NativeBridge(private val host: MainActivity, private val webView: WebView)
                 if (url.isNotEmpty() && !UrlRules.isWebUrl(url)) done(false, null, "bad_url")
                 else { host.openBrowserTab(url.ifEmpty { null }); done(true, null, null) }
             }
+            "browser" -> browser(a, done)
             "openExternal" -> {
                 val url = a.optString("url")
                 if (!UrlRules.isWebUrl(url)) done(false, null, "bad_url")
@@ -162,6 +163,33 @@ class NativeBridge(private val host: MainActivity, private val webView: WebView)
         }
     }
 
+    /**
+     * The in-chat browser panel (ChatBrowserPanel): {action: open|navigate|layout|collapse|close|back|forward|
+     * reload|handoff|state, url?, layout?, collapsed?}. Every action answers with the panel's state.
+     */
+    private fun browser(a: JSONObject, done: (Boolean, Any?, String?) -> Unit) {
+        val p = host.browserPanel
+        val url = a.optString("url")
+        if (url.isNotEmpty() && !UrlRules.isWebUrl(url)) { done(false, null, "bad_url"); return }
+        when (a.optString("action")) {
+            "open" -> p.open(url.ifEmpty { null }, a.optString("layout").ifEmpty { null })
+            "navigate" -> if (url.isEmpty()) { done(false, null, "bad_url"); return } else p.open(url)
+            "layout" -> {
+                val m = PanelLayout.Mode.from(a.optString("layout")) ?: run { done(false, null, "bad_layout"); return }
+                p.setMode(m)
+            }
+            "collapse" -> p.setCollapsed(a.optBoolean("collapsed", true))
+            "close" -> p.close()
+            "back" -> p.goBack()
+            "forward" -> p.goForward()
+            "reload" -> p.reloadPage()
+            "handoff" -> { done(true, JSONObject().put("handedOff", p.handoff()), null); return }
+            "state" -> Unit
+            else -> { done(false, null, "unknown_action"); return }
+        }
+        done(true, p.state(), null)
+    }
+
     private fun saveFile(a: JSONObject, done: (Boolean, Any?, String?) -> Unit) {
         val b64 = a.optString("base64")
         if (b64.isEmpty() || b64.length > MAX_SAVE_B64) { done(false, null, "too_large"); return }
@@ -202,7 +230,7 @@ class NativeBridge(private val host: MainActivity, private val webView: WebView)
         const val LEGACY = "ColonNativeLegacy"
         private const val MAX_SAVE_B64 = 34 * 1024 * 1024 // about 25 MB of file
         val FEATURES = listOf("share", "download", "saveFile", "openTab", "openExternal", "haptic",
-            "requestPermission", "checkUpdate", "setTheme", "setSession", "takeShare", "fileInput", "mic")
+            "requestPermission", "checkUpdate", "setTheme", "setSession", "takeShare", "fileInput", "mic", "browserPanel")
 
         /** Defines window.ColonNative (promise API) on top of the channel. Runs once per page, before page scripts. */
         private val SHIM = """
@@ -249,7 +277,8 @@ class NativeBridge(private val host: MainActivity, private val webView: WebView)
     checkUpdate: function (prompt) { return call('checkUpdate', { prompt: !!prompt }); },
     setTheme: function (t) { return call('setTheme', { theme: t }); },
     setSession: function (o) { return call('setSession', o || {}); },
-    takeShare: function () { return call('takeShare'); }
+    takeShare: function () { return call('takeShare'); },
+    browser: function (action, o) { var a = o || {}; a.action = action; return call('browser', a); }
   });
   call('ready').then(function () {
     try { window.dispatchEvent(new Event('colonnative:ready')); } catch (e) {}

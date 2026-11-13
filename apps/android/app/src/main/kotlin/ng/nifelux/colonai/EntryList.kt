@@ -23,6 +23,7 @@ object EntryList {
         onPick: (Item) -> Unit,
         onRemove: ((Item) -> Unit)?,
         action: Pair<String, () -> Unit>? = null,
+        neutral: Pair<String, () -> Unit>? = null,
     ): AlertDialog {
         val rows = items.toMutableList()
         lateinit var dialog: AlertDialog
@@ -68,6 +69,7 @@ object EntryList {
         val b = MaterialAlertDialogBuilder(activity).setTitle(title).setView(box)
             .setNegativeButton(R.string.close, null)
         action?.let { (label, run) -> b.setPositiveButton(label) { _, _ -> run() } }
+        neutral?.let { (label, run) -> b.setNeutralButton(label) { _, _ -> run() } }
         dialog = b.create()
         dialog.show()
         return dialog

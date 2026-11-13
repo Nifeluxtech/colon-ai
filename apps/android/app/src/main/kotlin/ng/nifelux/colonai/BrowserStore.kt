@@ -5,13 +5,16 @@ import org.json.JSONArray
 import org.json.JSONObject
 
 /**
- * History, bookmarks and the open tabs, kept on the phone only (ROADMAP Phase 8: a user's browsing stays on their
- * device). Small JSON lists in private SharedPreferences; history is capped.
+ * History, bookmarks, the downloads list and the open tabs, kept on the phone only (ROADMAP Phase 8: a user's
+ * browsing stays on their device). Small JSON lists in private SharedPreferences; history is capped. [name]
+ * separates stores: Colon Browser uses the default one, Colon AI's in-chat panel its own.
  */
-class BrowserStore(context: Context) {
+class BrowserStore(context: Context, name: String = DEFAULT) {
     data class Entry(val url: String, val title: String, val time: Long)
+    /** A download started from a tab: DownloadManager id, file name, source URL. */
+    data class Download(val id: Long, val name: String, val url: String, val time: Long)
 
-    private val prefs = context.getSharedPreferences("colon.browser", Context.MODE_PRIVATE)
+    private val prefs = context.getSharedPreferences(name, Context.MODE_PRIVATE)
 
     fun history(): List<Entry> = read("history")
     fun bookmarks(): List<Entry> = read("bookmarks")
@@ -34,6 +37,25 @@ class BrowserStore(context: Context) {
     }
 
     fun removeBookmark(url: String) = write("bookmarks", bookmarks().filter { it.url != url })
+
+    fun downloads(): List<Download> = try {
+        val arr = JSONArray(prefs.getString("downloads", "[]"))
+        (0 until arr.length()).mapNotNull { i ->
+            arr.optJSONObject(i)?.let { Download(it.optLong("id"), it.optString("n"), it.optString("u"), it.optLong("at")) }
+        }
+    } catch (_: Exception) {
+        emptyList()
+    }
+
+    fun addDownload(d: Download) = writeDownloads(Lists.addDownload(downloads(), d, DOWNLOADS_CAP))
+    fun removeDownload(id: Long) = writeDownloads(downloads().filter { it.id != id })
+    fun clearDownloads() = writeDownloads(emptyList())
+
+    private fun writeDownloads(list: List<Download>) {
+        val arr = JSONArray()
+        list.forEach { arr.put(JSONObject().put("id", it.id).put("n", it.name).put("u", it.url).put("at", it.time)) }
+        prefs.edit().putString("downloads", arr.toString()).apply()
+    }
 
     var tabsJson: String?
         get() = prefs.getString("tabs", null)
@@ -59,9 +81,17 @@ class BrowserStore(context: Context) {
         /** Newest first; visiting a page again moves it to the top instead of adding a duplicate. */
         fun addHistory(list: List<Entry>, e: Entry, cap: Int): List<Entry> =
             (listOf(e) + list.filter { it.url != e.url }).take(cap)
+
+        /** Newest first, one row per DownloadManager id. */
+        fun addDownload(list: List<Download>, d: Download, cap: Int): List<Download> =
+            (listOf(d) + list.filter { it.id != d.id }).take(cap)
     }
 
     companion object {
+        const val DEFAULT = "colon.browser"
+        /** Colon AI's in-chat panel keeps its own history and downloads list. */
+        const val PANEL = "colon.panel"
         const val HISTORY_CAP = 300
+        const val DOWNLOADS_CAP = 100
     }
 }

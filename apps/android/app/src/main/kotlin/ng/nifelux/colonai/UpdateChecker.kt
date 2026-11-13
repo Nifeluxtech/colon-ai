@@ -29,8 +29,9 @@ import java.security.MessageDigest
 
 /**
  * In-app updates for the directly installed APK: reads version.json, offers the newer APK, downloads it with
- * DownloadManager, checks it is really Colon AI (same package, newer version, same signing key) and opens the
- * system installer. Play Store builds (Phase 11) will use Play's own updates instead.
+ * DownloadManager, checks it is really this app (same package, newer version, same signing key) and opens the
+ * system installer. Colon AI and Colon Browser each read their own entry of the manifest (BuildConfig.APP_KEY).
+ * Play Store builds (Phase 11) will use Play's own updates instead.
  */
 object UpdateChecker {
     private const val PREFS = "colon.update"
@@ -44,12 +45,12 @@ object UpdateChecker {
         if (!force && now - prefs.getLong("checked_at", 0) < CHECK_EVERY_MS) { onResult(null, "recent"); return }
         prefs.edit().putLong("checked_at", now).apply()
         val req = Request.Builder().url(BuildConfig.UPDATE_URL).cacheControl(CacheControl.FORCE_NETWORK)
-            .header("User-Agent", "ColonAndroid/${BuildConfig.VERSION_NAME}").build()
+            .header("User-Agent", "ColonAndroid/${BuildConfig.VERSION_NAME} (${BuildConfig.APP_KEY})").build()
         ColonApplication.of(context).http.newCall(req).enqueue(object : Callback {
             override fun onFailure(call: Call, e: IOException) { main.post { onResult(null, "offline") } }
             override fun onResponse(call: Call, response: Response) {
                 val body = response.use { if (it.isSuccessful) it.body?.string() else null }
-                val manifest = body?.let { VersionManifest.parse(it) }
+                val manifest = body?.let { VersionManifest.forApp(it, BuildConfig.APP_KEY) }
                 main.post { onResult(manifest, if (manifest == null) "bad_manifest" else null) }
             }
         })
@@ -89,7 +90,7 @@ object UpdateChecker {
         val app = context.applicationContext
         val dir = app.getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS)
         if (dir == null) { openExternal(context, m.apkUrl); return }
-        val name = "colon-ai-${m.versionName}.apk"
+        val name = "${BuildConfig.APK_NAME}-${m.versionName}.apk"
         File(dir, name).delete()
         val req = DownloadManager.Request(Uri.parse(m.apkUrl))
             .setTitle(app.getString(R.string.update_downloading, m.versionName))

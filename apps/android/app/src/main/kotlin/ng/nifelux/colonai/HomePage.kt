@@ -5,8 +5,9 @@ package ng.nifelux.colonai
  * loadDataWithBaseURL, so it works offline and costs nothing. Pure, unit-tested (escaping) in HomePageTest.
  */
 object HomePage {
-    fun html(bookmarks: List<BrowserStore.Entry>, dark: Boolean): String {
-        val bg = if (dark) "#080F24" else "#FFFFFF"
+    fun html(bookmarks: List<BrowserStore.Entry>, dark: Boolean, private: Boolean = false,
+             separateCookies: Boolean = true): String {
+        val bg = if (private) (if (dark) "#1A1238" else "#F3EEFF") else if (dark) "#080F24" else "#FFFFFF"
         val text = if (dark) "#F1F5FF" else "#0F172A"
         val muted = if (dark) "#8190B8" else "#64748B"
         val field = if (dark) "#101B3D" else "#F5F8FF"
@@ -40,7 +41,16 @@ p{color:$muted;font-size:13px;margin-top:auto;text-align:center}
 <form action="https://www.google.com/search" method="get" role="search">
 <input name="q" type="search" placeholder="Search the web" aria-label="Search the web" autocomplete="off"></form>
 <div class="tiles">$tiles</div>
-<p>Colon Browser · your history and bookmarks stay on this phone</p>
+<p>${footer(private, separateCookies)}</p>
 </body></html>"""
+    }
+
+    /** The line under the tiles: what this tab keeps (private tabs say exactly what is and isn't separated). */
+    fun footer(private: Boolean, separateCookies: Boolean): String = when {
+        !private -> "Colon Browser · your history and bookmarks stay on this phone"
+        separateCookies -> "Private tab · no history is saved, and its cookies and site data are deleted when you " +
+            "close your last private tab"
+        else -> "Private tab · no history is saved. This phone's WebView can't keep a private tab's cookies " +
+            "apart from your other tabs"
     }
 }

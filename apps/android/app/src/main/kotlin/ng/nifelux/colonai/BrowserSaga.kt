@@ -12,11 +12,12 @@ import org.json.JSONArray
 import org.json.JSONObject
 
 /**
- * The Saga side of Colon Browser: the AI / Manual / Shared indicator, the control bar (Take control, Return to AI,
+ * The Saga side of a browser screen (Colon Browser, or Colon AI's in-chat panel): the AI / Manual / Shared indicator, the control bar (Take control, Return to AI,
  * Pause, Stop), the consent prompt, and running the backend's commands on tabs (docs/android-bridge.md).
- * Page state leaves the phone only while Saga has AI or Shared control.
+ * Page state leaves the phone only while Saga has AI or Shared control, and never from a private tab: Saga can't
+ * read or drive private tabs.
  */
-class BrowserSaga(private val a: BrowserActivity, private val bridge: BridgeClient) :
+class BrowserSaga(private val a: BrowserHost, private val bridge: BridgeClient) :
     BridgeClient.Listener, BridgeClient.CommandHandler {
     val control = ControlState()
     private val main = Handler(Looper.getMainLooper())
@@ -68,10 +69,10 @@ class BrowserSaga(private val a: BrowserActivity, private val bridge: BridgeClie
     /** The backend asks for control. Saga never takes over without the user's yes on the phone. */
     override fun onControlRequest(request: BridgeProtocol.Incoming.Control) {
         if (request.mode == ControlState.Mode.MANUAL) { apply(control.stop()); return }
-        val label = request.task ?: a.getString(R.string.saga_task_unknown)
-        MaterialAlertDialogBuilder(a)
+        val label = request.task ?: a.activity.getString(R.string.saga_task_unknown)
+        MaterialAlertDialogBuilder(a.activity)
             .setTitle(R.string.saga_consent_title)
-            .setMessage(a.getString(if (request.mode == ControlState.Mode.AI) R.string.saga_consent_ai
+            .setMessage(a.activity.getString(if (request.mode == ControlState.Mode.AI) R.string.saga_consent_ai
                 else R.string.saga_consent_shared, label))
             .setPositiveButton(R.string.allow) { _, _ -> apply(control.grant(request.mode, request.task)) }
             .setNegativeButton(R.string.not_now) { _, _ ->
@@ -90,26 +91,26 @@ class BrowserSaga(private val a: BrowserActivity, private val bridge: BridgeClie
 
     private fun render() {
         val mode = control.mode
-        chip.text = a.getString(when (mode) {
+        chip.text = a.activity.getString(when (mode) {
             ControlState.Mode.MANUAL -> R.string.mode_manual
             ControlState.Mode.AI -> R.string.mode_ai
             ControlState.Mode.SHARED -> R.string.mode_shared
         })
-        chip.backgroundTintList = ColorStateList.valueOf(ContextCompat.getColor(a, when (mode) {
+        chip.backgroundTintList = ColorStateList.valueOf(ContextCompat.getColor(a.activity, when (mode) {
             ControlState.Mode.MANUAL -> R.color.colon_chip
             ControlState.Mode.AI -> R.color.colon_primary
             ControlState.Mode.SHARED -> R.color.colon_cyan_dark
         }))
-        chip.setTextColor(ContextCompat.getColor(a, if (mode == ControlState.Mode.MANUAL) R.color.colon_text
+        chip.setTextColor(ContextCompat.getColor(a.activity, if (mode == ControlState.Mode.MANUAL) R.color.colon_text
             else android.R.color.white))
-        chip.contentDescription = a.getString(R.string.mode_description, chip.text)
+        chip.contentDescription = a.activity.getString(R.string.mode_description, chip.text)
         val showBanner = mode != ControlState.Mode.MANUAL || control.resumable != null
         banner.visibility = if (showBanner) View.VISIBLE else View.GONE
         bannerText.text = when {
-            mode == ControlState.Mode.MANUAL -> a.getString(R.string.saga_you_control)
-            control.paused -> a.getString(R.string.saga_paused)
-            mode == ControlState.Mode.AI -> a.getString(R.string.saga_browsing, control.task ?: "")
-            else -> a.getString(R.string.saga_shared)
+            mode == ControlState.Mode.MANUAL -> a.activity.getString(R.string.saga_you_control)
+            control.paused -> a.activity.getString(R.string.saga_paused)
+            mode == ControlState.Mode.AI -> a.activity.getString(R.string.saga_browsing, control.task ?: "")
+            else -> a.activity.getString(R.string.saga_shared)
         }
         btnPause.visibility = if (mode == ControlState.Mode.MANUAL) View.GONE else View.VISIBLE
         btnPause.setText(if (control.paused) R.string.resume else R.string.pause)
@@ -118,7 +119,7 @@ class BrowserSaga(private val a: BrowserActivity, private val bridge: BridgeClie
     }
 
     fun showStatus() {
-        val link = a.getString(when (status) {
+        val link = a.activity.getString(when (status) {
             BridgeClient.Status.BRIDGE_READY -> R.string.link_ready
             BridgeClient.Status.CONNECTED -> R.string.link_basic
             BridgeClient.Status.CONNECTING -> R.string.link_connecting
@@ -126,20 +127,22 @@ class BrowserSaga(private val a: BrowserActivity, private val bridge: BridgeClie
             BridgeClient.Status.UNAVAILABLE -> R.string.link_unavailable
             BridgeClient.Status.OFF -> R.string.link_off
         })
-        MaterialAlertDialogBuilder(a)
+        MaterialAlertDialogBuilder(a.activity)
             .setTitle(R.string.saga_status)
-            .setMessage(a.getString(R.string.saga_status_text, chip.text, link))
+            .setMessage(a.activity.getString(R.string.saga_status_text, chip.text, link))
             .setPositiveButton(R.string.close, null)
             .show()
     }
 
     /** Sends the active tab's state (throttled). Nothing is sent in Manual mode. */
     fun reportState() {
-        if (control.mode == ControlState.Mode.MANUAL || stateQueued) return
+        if (control.mode == ControlState.Mode.MANUAL || stateQueued || a.tabs.active?.incognito == true) return
         stateQueued = true
         main.postDelayed({
             stateQueued = false
-            if (control.mode != ControlState.Mode.MANUAL) bridge.send(BridgeProtocol.pageState(pageState()))
+            if (control.mode != ControlState.Mode.MANUAL && a.tabs.active?.incognito != true) {
+                bridge.send(BridgeProtocol.pageState(pageState()))
+            }
         }, 400)
     }
 
@@ -154,7 +157,7 @@ class BrowserSaga(private val a: BrowserActivity, private val bridge: BridgeClie
             .put("progress", t?.progress ?: 100)
             .put("can_go_back", wv?.canGoBack() == true)
             .put("can_go_forward", wv?.canGoForward() == true)
-            .put("tabs", a.tabs.tabs.size)
+            .put("tabs", a.tabs.tabs.count { !it.incognito })
             .put("mode", control.mode.wire)
             .put("paused", control.paused)
     }
@@ -166,6 +169,9 @@ class BrowserSaga(private val a: BrowserActivity, private val bridge: BridgeClie
         }
         val args = command.args
         val tab = command.tabId?.let { a.tabs.find(it) } ?: a.tabs.active
+        if (tab?.incognito == true && command.name != "new_tab" && command.name != "get_tabs") {
+            reply(false, null, "private_tab"); return
+        }
         when (command.name) {
             "open_url", "new_tab" -> {
                 val url = args.optString("url").ifEmpty { if (command.name == "new_tab") UrlRules.HOME else "" }
@@ -190,14 +196,14 @@ class BrowserSaga(private val a: BrowserActivity, private val bridge: BridgeClie
                 reply(true, null, null)
             }
             "switch_tab", "close_tab" -> {
-                val t = a.tabs.find(args.optString("tab_id").ifEmpty { command.tabId })
+                val t = a.tabs.find(args.optString("tab_id").ifEmpty { command.tabId })?.takeIf { !it.incognito }
                     ?: run { reply(false, null, "no_tab"); return }
                 if (command.name == "switch_tab") a.tabs.switchTo(t) else a.tabs.close(t)
                 reply(true, null, null)
             }
             "get_page_state" -> reply(true, pageState(), null)
             "get_tabs" -> reply(true, JSONObject().put("tabs", JSONArray().apply {
-                a.tabs.tabs.forEach { t ->
+                a.tabs.tabs.filter { !it.incognito }.forEach { t ->
                     put(JSONObject().put("id", t.id).put("url", t.url).put("title", t.title)
                         .put("active", t === a.tabs.active))
                 }

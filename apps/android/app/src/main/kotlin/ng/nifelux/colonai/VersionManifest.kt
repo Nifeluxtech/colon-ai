@@ -5,6 +5,10 @@ import org.json.JSONObject
 /**
  * The update manifest served at https://chat.apparatus.name.ng/android/version.json
  * (apps/chat/public/android/version.json in the repo). Parsing is pure and unit-tested (VersionManifestTest).
+ *
+ * One file serves both apps (v0.8.0): the top-level fields describe Colon AI (unchanged since v0.7.1, so older
+ * Colon AI builds keep working) and the "browser" object describes Colon Browser. Each app reads only its own
+ * entry ([forApp]); an APK must also be named for that app, so Colon AI is never offered Colon Browser's APK.
  */
 data class VersionManifest(
     val versionName: String,
@@ -20,7 +24,25 @@ data class VersionManifest(
     fun isRequired(installedCode: Int): Boolean = installedCode < minSupportedCode
 
     companion object {
-        /** Parses the manifest; null when it is malformed or points somewhere an APK must not come from. */
+        const val APP_COLON_AI = "colonai"
+        const val APP_COLON_BROWSER = "colonbrowser"
+
+        /** Parses the entry for [app] (colonai or colonbrowser); null when missing, malformed or unsafe. */
+        fun forApp(json: String, app: String): VersionManifest? {
+            val root = try { JSONObject(json) } catch (_: Exception) { return null }
+            val entry = when (app) {
+                APP_COLON_AI -> root
+                APP_COLON_BROWSER -> root.optJSONObject("browser") ?: return null
+                else -> return null
+            }
+            val m = parse(entry.toString()) ?: return null
+            val file = m.apkUrl.substringAfterLast('/')
+            val prefix = if (app == APP_COLON_BROWSER) "colon-browser" else "colon-ai"
+            return if (file == "$prefix.apk" || Regex("^${prefix}-\\d+\\.\\d+\\.\\d+\\.apk$").matches(file)) m
+            else null
+        }
+
+        /** Parses one manifest entry; null when it is malformed or points somewhere an APK must not come from. */
         fun parse(json: String): VersionManifest? = try {
             val o = JSONObject(json)
             val name = o.optString("versionName")

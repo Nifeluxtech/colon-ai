@@ -15,6 +15,7 @@ import android.webkit.URLUtil
 import android.webkit.ValueCallback
 import android.webkit.WebChromeClient
 import android.webkit.WebResourceRequest
+import android.webkit.WebSettings
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import android.net.Uri
@@ -22,12 +23,15 @@ import android.util.Log
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 
 /**
- * WebView set-up and clients for Colon Browser tabs. Tabs are ordinary web pages: they never get window.ColonNative,
- * can't read local files, can't load mixed content, and ask before using the camera or microphone.
+ * WebView set-up and clients for browser tabs, shared by Colon Browser and Colon AI's in-chat panel (BrowserHost).
+ * Tabs are ordinary web pages: they never get window.ColonNative, can't read local files, can't load mixed content,
+ * and ask before using the camera or microphone. Private tabs use their own WebView profile and no cache; Google
+ * and bank sign-in pages leave for a Chrome Custom Tab (UrlRules.needsCustomTab).
  */
 object BrowserWeb {
-    fun create(a: BrowserActivity, tab: BrowserTab): WebView {
-        val wv = WebView(a)
+    fun create(a: BrowserHost, tab: BrowserTab): WebView {
+        val wv = WebView(a.activity)
+        if (tab.incognito) PrivateProfiles.apply(wv) // before anything else touches the WebView
         wv.setBackgroundColor(if (a.isDark()) 0xFF080F24.toInt() else 0xFFFFFFFF.toInt())
         ShellWeb.secureDefaults(wv.settings)
         wv.settings.apply {
@@ -36,36 +40,56 @@ object BrowserWeb {
             displayZoomControls = false
             loadWithOverviewMode = true
             useWideViewPort = true
-            userAgentString = "$userAgentString ${ShellWeb.UA_TOKEN}"
+            if (tab.incognito) cacheMode = WebSettings.LOAD_NO_CACHE
         }
+        applyUserAgent(wv, tab.desktop)
         CookieManager.getInstance().setAcceptThirdPartyCookies(wv, false) // privacy default for tabs
         wv.webViewClient = TabClient(a, tab)
         wv.webChromeClient = TabChrome(a, tab)
         wv.setDownloadListener { url, ua, disposition, mime, _ ->
+            val ctx = a.activity
             when {
                 url.startsWith("data:") -> try {
                     val bytes = Base64.decode(url.substringAfter("base64,"), Base64.DEFAULT)
-                    a.toast(a.getString(R.string.saved_to, Downloads.saveBytes(a,
+                    a.toast(ctx.getString(R.string.saved_to, Downloads.saveBytes(ctx,
                         URLUtil.guessFileName(url, disposition, mime), mime, bytes)))
-                } catch (_: Exception) { a.toast(a.getString(R.string.download_failed)) }
-                else -> Downloads.enqueue(a, url, ua, disposition, mime)
-                    ?.let { a.toast(a.getString(R.string.downloading, it)) }
-                    ?: a.toast(a.getString(R.string.download_unsupported))
+                } catch (_: Exception) { a.toast(ctx.getString(R.string.download_failed)) }
+                else -> Downloads.start(ctx, url, ua, disposition, mime, cookies = !tab.incognito)
+                    ?.let { (name, id) -> a.onDownload(tab, name, url, id) }
+                    ?: a.toast(ctx.getString(R.string.download_unsupported))
             }
         }
         return wv
     }
 
-    private class TabClient(private val a: BrowserActivity, private val tab: BrowserTab) : WebViewClient() {
+    /** Mobile or desktop site: the user agent (always ending with the app's ColonAndroid token). */
+    fun applyUserAgent(wv: WebView, desktop: Boolean) {
+        val base = WebSettings.getDefaultUserAgent(wv.context)
+        wv.settings.userAgentString = (if (desktop) UserAgents.desktop(base) else base) + " " + ShellWeb.UA_TOKEN
+        wv.settings.loadWithOverviewMode = true
+        wv.settings.useWideViewPort = true
+    }
+
+    private class TabClient(private val a: BrowserHost, private val tab: BrowserTab) : WebViewClient() {
         override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean {
             val url = request.url.toString()
+            if (request.isForMainFrame && UrlRules.needsCustomTab(url, BuildConfig.EXTRA_CUSTOM_TAB_HOSTS)) {
+                a.openSignIn(url); return true
+            }
             if (UrlRules.isWebUrl(url) || url.startsWith("about:")) return false
             if (!request.isForMainFrame) return true
-            External.open(a, url)?.let { view.loadUrl(it) }
+            External.open(a.activity, url)?.let { view.loadUrl(it) }
             return true
         }
 
         override fun onPageStarted(view: WebView, url: String?, favicon: Bitmap?) {
+            // A sign-in page reached without a link click (a pop-up, a redirect from script): stop and hand it over.
+            if (UrlRules.needsCustomTab(url, BuildConfig.EXTRA_CUSTOM_TAB_HOSTS)) {
+                view.stopLoading()
+                a.openSignIn(url!!)
+                if (tab.popup && !view.canGoBack()) view.post { a.tabs.close(tab) }
+                return
+            }
             if (url != null && !url.startsWith("about:")) tab.url = url
             tab.progress = 0
             a.onTabUpdated(tab)
@@ -88,7 +112,7 @@ object BrowserWeb {
 
         override fun onReceivedSslError(view: WebView, handler: SslErrorHandler, error: SslError) {
             handler.cancel() // never proceed past a bad certificate
-            a.toast(a.getString(R.string.ssl_blocked))
+            a.toast(a.activity.getString(R.string.ssl_blocked))
         }
 
         override fun onRenderProcessGone(view: WebView, detail: RenderProcessGoneDetail): Boolean {
@@ -98,7 +122,7 @@ object BrowserWeb {
         }
     }
 
-    private class TabChrome(private val a: BrowserActivity, private val tab: BrowserTab) : WebChromeClient() {
+    private class TabChrome(private val a: BrowserHost, private val tab: BrowserTab) : WebChromeClient() {
         override fun onProgressChanged(view: WebView, newProgress: Int) {
             tab.progress = newProgress
             a.onTabUpdated(tab)
@@ -119,11 +143,11 @@ object BrowserWeb {
             }
             if (wanted.isEmpty()) { request.deny(); return }
             val host = request.origin.host ?: request.origin.toString()
-            val what = a.getString(if (wanted.size == 2) R.string.perm_cam_mic
+            val what = a.activity.getString(if (wanted.size == 2) R.string.perm_cam_mic
                 else if (wanted[0] == PermissionRequest.RESOURCE_AUDIO_CAPTURE) R.string.perm_mic else R.string.perm_cam)
-            MaterialAlertDialogBuilder(a)
-                .setTitle(a.getString(R.string.perm_site_title, host))
-                .setMessage(a.getString(R.string.perm_site_text, host, what))
+            MaterialAlertDialogBuilder(a.activity)
+                .setTitle(a.activity.getString(R.string.perm_site_title, host))
+                .setMessage(a.activity.getString(R.string.perm_site_text, host, what))
                 .setPositiveButton(R.string.allow) { _, _ ->
                     val perms = wanted.map {
                         if (it == PermissionRequest.RESOURCE_AUDIO_CAPTURE) Manifest.permission.RECORD_AUDIO
@@ -153,7 +177,10 @@ object BrowserWeb {
             Boolean {
             if (!isUserGesture) return false
             // A blank tab: the opener fills it through the transport.
-            val newTab = a.tabs.open("", foreground = true) ?: run { a.tabLimitReached(); return false }
+            // A private tab's pop-up stays private (same profile).
+            val newTab = a.tabs.open("", foreground = true, incognito = tab.incognito)
+                ?: run { a.tabLimitReached(); return false }
+            newTab.popup = true
             val wv = a.tabs.ensureLive(newTab)
             (resultMsg.obj as WebView.WebViewTransport).webView = wv
             resultMsg.sendToTarget()

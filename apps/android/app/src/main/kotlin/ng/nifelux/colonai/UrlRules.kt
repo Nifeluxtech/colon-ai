@@ -20,6 +20,21 @@ object UrlRules {
     private val APK_HOSTS = setOf("github.com", "objects.githubusercontent.com",
         "release-assets.githubusercontent.com", "chat.apparatus.name.ng")
 
+    /**
+     * Sign-in pages that refuse to work inside a WebView (Google blocks embedded sign-in; some banks do too). They
+     * open in a Chrome Custom Tab instead and the user comes back to the tab afterwards. An entry starting with "."
+     * also covers every subdomain. More hosts can be added at build time (gradle -Pcolon.customTabHosts=...).
+     */
+    val GOOGLE_SIGNIN_HOSTS: Set<String> = setOf("accounts.google.com", "accounts.youtube.com")
+
+    /** Nigerian banks' internet-banking sign-in hosts (checked on the banks' own pages, Nov 2026). Extend freely. */
+    val BANK_SIGNIN_HOSTS: Set<String> = setOf(
+        "ibank.gtbank.com", "ibank.accessbankplc.com", "ibank.zenithbank.com", "ibank.ubagroup.com",
+        "ibank.firstbanknigeria.com",
+    )
+
+    val CUSTOM_TAB_HOSTS: Set<String> = GOOGLE_SIGNIN_HOSTS + BANK_SIGNIN_HOSTS
+
     const val HOME = "colon:home"
     const val SEARCH = "https://www.google.com/search?q="
 
@@ -44,6 +59,27 @@ object UrlRules {
     fun isColonApi(url: String?): Boolean {
         val o = originOf(url?.replaceFirst(Regex("^wss://", RegexOption.IGNORE_CASE), "https://")) ?: return false
         return o == "https://api.apparatus.name.ng"
+    }
+
+    /** True when [host] is [rule] or, for a rule starting with ".", the domain itself or any subdomain of it. */
+    fun hostMatches(host: String, rule: String): Boolean {
+        val h = host.lowercase().trimEnd('.')
+        val r = rule.lowercase().trim()
+        if (r.isEmpty()) return false
+        return if (r.startsWith(".")) h == r.drop(1) || h.endsWith(r) else h == r
+    }
+
+    /**
+     * True for an https page that must open in a Chrome Custom Tab (Google or bank sign-in). [extra] is the
+     * comma-separated build-time list (BuildConfig.EXTRA_CUSTOM_TAB_HOSTS).
+     */
+    fun needsCustomTab(url: String?, extra: String = ""): Boolean {
+        if (url.isNullOrBlank()) return false
+        val u = try { URI(url.trim()) } catch (_: Exception) { return false }
+        if (u.scheme?.lowercase() != "https") return false
+        val host = u.host ?: return false
+        val rules = CUSTOM_TAB_HOSTS + extra.split(',').map { it.trim() }.filter { it.isNotEmpty() }
+        return rules.any { hostMatches(host, it) }
     }
 
     /** Update APKs: https only, on a known host, ending in .apk. */

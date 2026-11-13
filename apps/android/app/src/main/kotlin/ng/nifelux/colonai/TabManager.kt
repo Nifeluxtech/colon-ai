@@ -2,15 +2,19 @@ package ng.nifelux.colonai
 
 import android.os.Bundle
 import android.webkit.WebView
-import org.json.JSONArray
-import org.json.JSONObject
 
-/** One browser tab. Its WebView exists only while the tab is "live"; a discarded tab keeps its history in [saved]. */
-class BrowserTab(val id: String, var url: String, var title: String) {
+/**
+ * One browser tab. Its WebView exists only while the tab is "live"; a discarded tab keeps its history in [saved].
+ * A private ([incognito]) tab is never discarded with saved state, never saved for the next launch and records no
+ * history (PrivateBrowsing). [desktop] asks sites for their desktop page. [popup] marks a tab a page opened.
+ */
+class BrowserTab(val id: String, var url: String, var title: String, val incognito: Boolean = false) {
     var webView: WebView? = null
     var saved: Bundle? = null
     var lastUsed: Long = System.currentTimeMillis()
     var progress = 100
+    var desktop = false
+    var popup = false
 
     val live: Boolean get() = webView != null
     fun label(): String = title.ifBlank { UrlRules.displayUrl(url).ifBlank { "New tab" } }
@@ -49,6 +53,8 @@ class TabManager(private val host: Host, private val maxLive: Int, val maxTabs: 
         fun loadInto(webView: WebView, url: String)
         fun onActiveTabChanged(tab: BrowserTab?)
         fun onTabsChanged()
+        /** The last private tab closed: its throwaway profile can be deleted. */
+        fun onPrivateSessionEnded() {}
     }
 
     val tabs = mutableListOf<BrowserTab>()
@@ -57,9 +63,9 @@ class TabManager(private val host: Host, private val maxLive: Int, val maxTabs: 
     private var seq = 0
 
     /** Opens a tab; null when the tab limit is reached. */
-    fun open(url: String, foreground: Boolean = true): BrowserTab? {
+    fun open(url: String, foreground: Boolean = true, incognito: Boolean = false): BrowserTab? {
         if (tabs.size >= maxTabs) return null
-        val tab = BrowserTab("t${System.currentTimeMillis().toString(36)}${seq++}", url, "")
+        val tab = BrowserTab("t${System.currentTimeMillis().toString(36)}${seq++}", url, "", incognito)
         val at = active?.let { tabs.indexOf(it) + 1 } ?: tabs.size
         tabs.add(at.coerceIn(0, tabs.size), tab)
         if (foreground) switchTo(tab) else host.onTabsChanged()
@@ -96,24 +102,34 @@ class TabManager(private val host: Host, private val maxLive: Int, val maxTabs: 
         discard(tab, keepState = false)
         if (active === tab) {
             active = null
-            val next = tabs.getOrNull(index.coerceAtMost(tabs.size - 1))
+            // A closed private tab hands over to another private tab first, then to the nearest tab.
+            val next = (if (tab.incognito) tabs.lastOrNull { it.incognito } else null)
+                ?: tabs.getOrNull(index.coerceAtMost(tabs.size - 1))
             if (next != null) switchTo(next) else host.onActiveTabChanged(null)
         }
+        if (tab.incognito && PrivateBrowsing.sessionEnded(tabs.map { it.incognito })) host.onPrivateSessionEnded()
         host.onTabsChanged()
     }
 
     fun closeAll() {
+        val hadPrivate = tabs.any { it.incognito }
         tabs.toList().forEach { discard(it, keepState = false) }
         tabs.clear()
         active = null
+        if (hadPrivate) host.onPrivateSessionEnded()
         host.onActiveTabChanged(null)
         host.onTabsChanged()
     }
 
-    /** Frees a tab's WebView. Its back/forward list is kept unless [keepState] is false. */
+    /** Closes every private tab (their profile is then deleted). */
+    fun closePrivate() {
+        tabs.filter { it.incognito }.forEach { close(it) }
+    }
+
+    /** Frees a tab's WebView. Its back/forward list is kept unless [keepState] is false (never kept for private). */
     fun discard(tab: BrowserTab, keepState: Boolean = true) {
         val wv = tab.webView ?: return
-        if (keepState) tab.saved = Bundle().also { wv.saveState(it) }
+        if (keepState && !tab.incognito) tab.saved = Bundle().also { wv.saveState(it) }
         tab.webView = null
         host.destroyTabWebView(wv)
     }
@@ -124,23 +140,14 @@ class TabManager(private val host: Host, private val maxLive: Int, val maxTabs: 
         ids.mapNotNull { find(it) }.forEach { discard(it) }
     }
 
-    fun toJson(): String = JSONObject()
-        .put("active", active?.id)
-        .put("tabs", JSONArray().apply {
-            tabs.forEach { put(JSONObject().put("id", it.id).put("url", it.url).put("title", it.title)) }
-        }).toString()
+    /** The open tabs for the next launch (TabSnapshot: private tabs are left out). */
+    fun toJson(): String = TabSnapshot.encode(
+        tabs.map { TabSnapshot.Tab(it.id, it.url, it.title, it.incognito, it.desktop) }, active?.id)
 
     /** Restores saved tabs as discarded tabs (they load when opened); returns the tab that was active. */
     fun restore(json: String?): BrowserTab? {
-        if (json.isNullOrBlank()) return null
-        val o = try { JSONObject(json) } catch (_: Exception) { return null }
-        val arr = o.optJSONArray("tabs") ?: return null
-        for (i in 0 until arr.length().coerceAtMost(maxTabs)) {
-            val t = arr.optJSONObject(i) ?: continue
-            val url = t.optString("url")
-            if (url != UrlRules.HOME && !UrlRules.isWebUrl(url)) continue
-            tabs += BrowserTab(t.optString("id").ifEmpty { "r$i" }, url, t.optString("title"))
-        }
-        return find(o.optString("active")) ?: tabs.lastOrNull()
+        val state = TabSnapshot.decode(json, maxTabs)
+        state.tabs.forEach { t -> tabs += BrowserTab(t.id, t.url, t.title).also { it.desktop = t.desktop } }
+        return find(state.activeId) ?: tabs.lastOrNull()
     }
 }

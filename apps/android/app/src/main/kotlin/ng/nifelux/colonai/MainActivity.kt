@@ -7,7 +7,6 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.graphics.Color
 import android.graphics.drawable.ColorDrawable
-import android.net.Uri
 import android.os.Bundle
 import android.os.SystemClock
 import android.view.View
@@ -33,7 +32,8 @@ import org.json.JSONObject
 /**
  * The Colon AI shell: the chat web app in one WebView with native extras (window.ColonNative), the splash,
  * edge-to-edge insets, back handling, file and mic permissions, share-to-Colon, downloads and update prompts.
- * WebView set-up and its clients live in ShellWeb.kt.
+ * Web pages open in the in-chat browser panel (ChatBrowserPanel, a native WebView beside the chat); Colon AI has
+ * no standalone browser screen since v0.8.0 (that is the Colon Browser app). WebView set-up lives in ShellWeb.kt.
  */
 class MainActivity : AppCompatActivity() {
     lateinit var webView: WebView
@@ -42,7 +42,11 @@ class MainActivity : AppCompatActivity() {
         private set
     lateinit var fileChooser: FileChooser
         private set
+    lateinit var browserPanel: ChatBrowserPanel
+        private set
+    val permissions = PermissionAsker(this)
     @Volatile var currentUrl: String? = null
+    private var lastTouchInPanel = false
 
     private lateinit var container: FrameLayout
     private lateinit var progress: ProgressBar
@@ -67,7 +71,7 @@ class MainActivity : AppCompatActivity() {
         enableEdgeToEdge(SystemBarStyle.dark(Color.TRANSPARENT), SystemBarStyle.dark(Color.TRANSPARENT))
         setContentView(R.layout.activity_main)
         container = findViewById(R.id.web_container)
-        progress = findViewById(R.id.progress)
+        progress = findViewById(R.id.shell_progress)
         offline = findViewById(R.id.offline)
         findViewById<Button>(R.id.offline_retry).setOnClickListener { retry() }
         applyInsets(findViewById(R.id.root))
@@ -80,9 +84,11 @@ class MainActivity : AppCompatActivity() {
             ViewGroup.LayoutParams.MATCH_PARENT))
         nativeBridge = NativeBridge(this, webView)
         nativeBridge.install()
+        browserPanel = ChatBrowserPanel(this)
 
         onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
             override fun handleOnBackPressed() {
+                if (browserPanel.handleBack(lastTouchInPanel)) return
                 if (offline.visibility != View.VISIBLE && webView.canGoBack()) webView.goBack()
                 else { isEnabled = false; onBackPressedDispatcher.onBackPressed(); isEnabled = true }
             }
@@ -110,11 +116,34 @@ class MainActivity : AppCompatActivity() {
     override fun onResume() {
         super.onResume()
         if (::webView.isInitialized) { webView.onResume(); nativeBridge.emit("resume", null) }
+        if (::browserPanel.isInitialized) browserPanel.onResume()
     }
 
     override fun onPause() {
         if (::webView.isInitialized) webView.onPause()
+        if (::browserPanel.isInitialized) browserPanel.onPause()
         super.onPause()
+    }
+
+    /** Remembers whether the last touch was in the browser panel (the back button then goes back there). */
+    override fun dispatchTouchEvent(ev: android.view.MotionEvent): Boolean {
+        if (ev.actionMasked == android.view.MotionEvent.ACTION_DOWN && ::browserPanel.isInitialized) {
+            lastTouchInPanel = browserPanel.contains(ev)
+        }
+        return super.dispatchTouchEvent(ev)
+    }
+
+    override fun onConfigurationChanged(newConfig: android.content.res.Configuration) {
+        super.onConfigurationChanged(newConfig)
+        if (::browserPanel.isInitialized) browserPanel.onConfigurationChanged()
+    }
+
+    override fun onTrimMemory(level: Int) {
+        super.onTrimMemory(level)
+        @Suppress("DEPRECATION")
+        if (level >= android.content.ComponentCallbacks2.TRIM_MEMORY_RUNNING_LOW && ::browserPanel.isInitialized) {
+            browserPanel.onTrimMemory()
+        }
     }
 
     override fun onSaveInstanceState(outState: Bundle) {
@@ -123,6 +152,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     override fun onDestroy() {
+        if (::browserPanel.isInitialized) browserPanel.destroy()
         if (::webView.isInitialized) ShellWeb.destroy(webView)
         super.onDestroy()
     }
@@ -173,11 +203,9 @@ class MainActivity : AppCompatActivity() {
             ColonApplication.of(this).bridge.status.name.lowercase()))
     }
 
+    /** A web page from the chat (a link, "Open browser", Saga): it opens in the in-chat browser panel. */
     fun openBrowserTab(url: String?) {
-        startActivity(Intent(this, BrowserActivity::class.java).apply {
-            action = BrowserActivity.ACTION_OPEN_TAB
-            url?.let { data = Uri.parse(it) }
-        })
+        if (::browserPanel.isInitialized) browserPanel.open(url)
     }
 
     fun shareText(title: String, text: String, url: String): Boolean {
