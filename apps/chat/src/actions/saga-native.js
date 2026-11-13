@@ -6,7 +6,7 @@
    and cited pages to the chat. On the web, or when the server or the phone can't do it, AI Browse falls back to
    the web reader panel (ColonSagaBrowse), as before. */
 
-import { addBrowseNote, nativeFailed, openBrowser, syncNative } from '../components/browser-panel.js';
+import { addBrowseNote, nativeBrowser, nativeFailed, openBrowser, syncNative } from '../components/browser-panel.js';
 import { Colon } from '../../../../packages/ui/js/colon.js';
 import { S, data, signedIn } from '../core/state.js';
 
@@ -74,9 +74,10 @@ function poll(t) {
   }, POLL_MS);
 }
 
-/** AI Browse in the app: opens the native panel and, with a goal, has Saga browse there. */
+/** AI Browse in the app: opens the native panel (in the thread on phones since 0.9.1) and, with a goal, has Saga
+    browse there. */
 function browseNative(goal) {
-  C.native.browser('open', {}).then(syncNative, nativeFailed);
+  nativeBrowser('open', {}).then(syncNative, nativeFailed);
   if (!goal) return;
   // Saga's tasks belong to an account; signed-out (guest) chats keep the web reader.
   if (!signedIn() || data.kind !== 'remote') return webFallback(goal);

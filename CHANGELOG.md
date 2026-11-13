@@ -1,5 +1,32 @@
 # Changelog
 
+## [0.9.1] — 2026-11-13 · The browser panel inside the conversation
+On phones, Colon AI's browser panel now shows inside the chat thread, where the web's "Colon Browser" card sits,
+instead of being pinned above the chat header. Every version number moves to 0.9.1 (apps, `Colon.version`,
+`version.json` for both APKs, versionCode 901).
+### Added
+- **Layout `inline`** for the in-chat browser panel (Android, `PanelLayout.Mode.INLINE`), the default on phones
+  (wide screens still open split). The chat draws the card (status dot, "Colon Browser", the address, collapse,
+  full screen, close) and an empty body box (60vh, at least 320 px); the app lays the panel's WebView over that
+  box, clipped to the visible thread so it never covers the chat header or the composer, and hides it when the card
+  is scrolled away or collapsed. Scrolling only translates the panel (no relayout); the same WebView is kept when
+  switching to embedded, split or full screen and back, so nothing reloads. "In the conversation" in the panel
+  menu (full screen) switches back. Saga opening the panel when it asks to browse opens it inline too.
+- **Bridge:** `browser('anchor', { visible, x, y, width, height, viewportTop, viewportBottom, dpr })` (the card's
+  body box in CSS px; sent on open, scroll, resize and keyboard, at most once a frame and only when it changed),
+  `inline: true` on any `browser(...)` call (the page draws the card), `layout: 'inline'` in the panel state and
+  the `layout` action, feature `browserInline` (docs/android-bridge.md).
+- **Chat:** `lib/native-anchor.js` (measures and reports the box; keeps the card on screen when the keyboard opens
+  for the panel's page) and the card in `.cw-native-host`; tests in `packages/ui/test/native-anchor.test.js`.
+  Kotlin: `InlineGeometry` (CSS px -> device px and the clip, `InlineGeometryTest`), `InlineLayer`.
+### Changed
+- The panel's saved layout moved to a new preference key (`layout`), so phones start in the conversation once
+  after the update; a layout picked from then on is remembered.
+### Compatibility
+- An older chat page in the new app never sends `inline: true`, so the panel stays embedded above the chat as in
+  0.9.0 (`state.layout` reports what is shown). The new chat page in an older app (no `browserInline`) keeps the
+  0.9.0 behaviour. When the chat page reloads, an inline panel waits hidden up to 4 s for the new page.
+
 ## [0.9.0] — 2026-11-13 · Phase 9: Saga browser automation
 Saga browses for the user on their phone: it drives the Colon AI browser panel (a real WebView with the user's own
 cookies) through the WebSocket bridge, explains every step, cites the pages it read, and waits for the user's tap

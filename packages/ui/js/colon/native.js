@@ -69,8 +69,9 @@ var native = {
     return true; },
   /** True when the app has the native in-chat browser panel (Colon AI 0.8.0+). */
   hasPanel: function () { return native.can('browserPanel'); },
-  /** Drives the native panel: action open|navigate|layout|collapse|close|back|forward|reload|handoff|state.
-      Resolves with the panel state { open, layout, collapsed, url, title, loading, control, ... }. */
+  /** Drives the native panel: action open|navigate|layout|collapse|close|back|forward|reload|handoff|state, and
+      since 0.9.1 (feature "browserInline") anchor (where the inline panel's box is in the thread). Resolves with the
+      panel state { open, layout: inline|embedded|split|full, collapsed, url, title, loading, control, ... }. */
   browser: function (action, o) { var a = Object.assign({}, o || {}, { action: action });
     return native.hasPanel() ? native.call('browser', a) : noNative(); },
   haptic: function (kind) { var b = bridge(); if (b) b.haptic(kind || 'tap').catch(function () {}); },

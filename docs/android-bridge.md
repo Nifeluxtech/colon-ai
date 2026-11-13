@@ -32,7 +32,7 @@ the web, and sets `html[data-shell="android"]` for CSS.
 |---|---|---|
 | `info()` | | `{ platform, version, versionCode, sdk, release, model, lowRam, webview, bridge, online, signedRelease, features[] }` |
 | `openTab(url)` | `url` http(s) or `''` | opens the page in the native in-chat browser panel (v0.7.x: a Colon Browser screen) |
-| `browser(action, o)` | `action`: `open` (`{ url?, layout? }`) · `navigate` (`{ url }`) · `layout` (`{ layout: embedded·split·full }`) · `collapse` (`{ collapsed }`) · `close` · `back` · `forward` · `reload` · `handoff` · `state` | the panel state `{ open, layout, collapsed, url, title, loading, progress, canGoBack, canGoForward, tabs, control, paused, task, browserApp }`; `handoff` → `{ handedOff }` (opens the page in the Colon Browser app, or offers its download). Feature `browserPanel`. |
+| `browser(action, o)` | `action`: `open` (`{ url?, layout? }`) · `navigate` (`{ url }`) · `layout` (`{ layout: inline·embedded·split·full }`) · `collapse` (`{ collapsed }`) · `close` · `back` · `forward` · `reload` · `handoff` · `state` · `anchor` (v0.9.1, see below). Any action may carry `inline: true` (v0.9.1): the page draws the in-thread card | the panel state `{ open, layout, collapsed, url, title, loading, progress, canGoBack, canGoForward, tabs, control, paused, task, browserApp }`; `handoff` → `{ handedOff }` (opens the page in the Colon Browser app, or offers its download); `anchor` → `null`. Feature `browserPanel`; `inline` and `anchor` need feature `browserInline`. |
 | `share({ title, text, url })` | | Android share sheet |
 | `download(url, name, mime)` | http(s) URL | Android DownloadManager (cookies included, so signed-in files work) |
 | `call('saveFile', { name, mime, base64 })` | ≤ 25 MB | saves into Downloads (`{ path }`) — used for blob exports |
@@ -47,6 +47,29 @@ the web, and sets `html[data-shell="android"]` for CSS.
 **Events** (`ColonNative.on(name, fn)` or `window` event `colonnative:<name>`): `share` (`{ pending: true }`; call
 `takeShare()`), `bridge` (`{ status }`), `resume` (app back in the foreground), `browser` (the panel state above,
 whenever the panel opens, closes, changes layout, loads, or Saga's control changes).
+
+**The panel in the chat thread (v0.9.1, feature `browserInline`).** Layout `inline` (the default on phones; wide
+screens open `split`) shows the panel inside the conversation, where the web app's "Colon Browser" card sits:
+
+- The page says it can draw the card by adding `inline: true` to its `browser(...)` calls (the chat does on every
+  call, including the first `state`). The app uses `inline` only then; with an older page the panel shows
+  `embedded` (above the chat) as before, and `state.layout` says which layout is really shown. When the shell page
+  reloads, the panel stays inline but hidden for up to 4 s, waiting for the new page to say so again.
+- When `state.layout` is `inline`, the page draws the card in the thread (`.cw-native-host`, next to the web card's
+  `.cw-embed-host`): status dot, "Colon Browser", the page's address, collapse (`collapse`), full screen
+  (`layout { layout: 'full' }`) and close (`close`), and an empty body box (60vh, at least 320 px). The native
+  panel has no header of its own in this layout; full screen brings back its header and menu (where "In the
+  conversation", "Embedded in chat" and "Split screen" switch layouts; nothing reloads).
+- The page reports the body box with `browser('anchor', { visible, x, y, width, height, viewportTop,
+  viewportBottom, dpr })`: CSS px of the shell page (`getBoundingClientRect()`), the visible band of the thread
+  (between the chat header and the composer, cut by the keyboard's visual viewport) and `devicePixelRatio`. It
+  sends one on open and then at most one per animation frame when the thread scrolls, anything resizes or the
+  keyboard opens, and only when something changed; `{ visible: false }` when the box is out of the band, the card
+  is collapsed, or the chat leaves the conversation (`apps/chat/src/lib/native-anchor.js`).
+- The app lays the panel over that box: px × `dpr` (the screen density when `dpr` is missing or outside 0.5–8),
+  offset by the shell WebView's position, clipped to `viewportTop`..`viewportBottom` so it never covers the header
+  or the composer; touches outside the clip reach the chat (`InlineGeometry`, `InlineLayer`). Scrolling only moves
+  it (translation); it is re-laid out only when the box's size changes. Hidden when not visible or collapsed.
 
 **Native paths that need no call:** `<input type="file">` opens Android's file picker (accept types and multiple
 files honoured); `getUserMedia({ audio })` asks for the microphone permission and is granted only to Colon's

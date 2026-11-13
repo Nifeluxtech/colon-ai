@@ -30,7 +30,7 @@
   .cw-model-t small{display:none}
   [data-view="welcome"] .cw-head [data-a="new"]{display:none}
   .cw-screen-head{flex-wrap:wrap}
-  .cw-embed-host{padding:0 10px}
+  .cw-embed-host,.cw-native-host{padding:0 10px}
   [data-layout="split"] .cw-mswitch.seg{display:flex}
   [data-layout="split"] .cw-body{flex-direction:column}
   [data-layout="split"][data-mtab="chat"] .cw-split{display:none}

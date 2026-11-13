@@ -104,6 +104,7 @@ object ShellWeb {
         override fun onPageStarted(view: WebView, url: String?, favicon: Bitmap?) {
             a.currentUrl = url
             a.nativeBridge.onPageStarted()
+            a.onShellPageStarted()
         }
 
         override fun onPageCommitVisible(view: WebView, url: String?) {

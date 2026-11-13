@@ -5,7 +5,7 @@ import { Colon } from '../../../../packages/ui/js/colon.js';
 import { renameConv } from '../actions/rename.js';
 import { browseNative } from '../actions/saga-native.js';
 import { send, stopStreaming } from '../actions/send-message.js';
-import { applySplitWidth, openBrowser, renderEmbed, setLayout, setMobileTab, toggleBrowser }
+import { applySplitWidth, nativeInlineAction, openBrowser, renderEmbed, setLayout, setMobileTab, toggleBrowser }
   from '../components/browser-panel.js';
 import { autoGrow, devTemplate, modeMenu, onThreadScroll, scrollBottom, setMode, syncComposer,
   trackComposerHeight } from '../components/composer.js';
@@ -122,6 +122,8 @@ function bind() {
       'browser-close': function () { S.browser.full = false; setLayout('none'); },
       'layout-split': function () { S.browser.full = false; setLayout('split'); }, 'layout-embed': function () {
         setLayout('embedded'); },
+      'native-collapse': function () { nativeInlineAction(act); }, 'native-full': function () {
+        nativeInlineAction(act); }, 'native-close': function () { nativeInlineAction(act); },
       'embed-collapse': function () { S.browser.collapsed = !S.browser.collapsed; renderEmbed(); },
       'embed-full': function () { S.browser.full = !S.browser.full; S.browser.collapsed = false; renderEmbed();
         document.body.classList.toggle('cw-noscroll', S.browser.full); },
