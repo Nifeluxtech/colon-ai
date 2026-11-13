@@ -1,5 +1,39 @@
 # Changelog
 
+## [0.5.6] — 2026-11-13 · Benchmark rerun fixes
+Gets the four models that failed or stopped in the first benchmark (`services/api/bench/results/2026-11-12.md`)
+ready for a rerun: DeepSeek V4.1 Flash and GLM-5.3 Flash (100 % first-token timeouts on NVIDIA), Nemotron 3.5
+Lightning (stopped at 130/135) and Mistral Large 4 (stopped at 42). Root causes and the rerun steps:
+`docs/phases/phase-5-benchmark.md`.
+### Fixed
+- **GLM-5.3 Flash** now sends `reasoning_effort: low` (NVIDIA's default is `max`), in Saga's routing and in the
+  benchmark. New optional env `NVIDIA_GLM_REASONING` (`low`, `high`, `max`, or `default`).
+- **Nemotron 3.5 Lightning** is benchmarked with `reasoning_budget: 1024` and 4096 max tokens: its reasoning counted
+  against 2048 max tokens and 16 replies ended at `finish_reason: length` with no answer.
+- **Mistral Large 4** sends `reasoning_effort: none` explicitly. DeepSeek, GLM and Mistral get 180 s to the first
+  token (NVIDIA free-tier queueing), Nemotron 120 s.
+### Added
+- **Resume from checkpoint**: `npm run bench -- --resume [run]` continues a stopped run with the same flags; a
+  `<model>.status.json` per model (`running`, `done`, `stopped`, `unreliable`, `failed`); Ctrl-C/SIGTERM marks
+  running models `stopped`. Each row carries a settings fingerprint, so answers made with other settings are asked
+  again instead of being mixed in. `--reset-unreliable`.
+- **Provider-wide limits**: one limiter per provider for all its models (NVIDIA: 30 requests/min, 4 in flight by
+  default; `--rpm-nvidia`, `--inflight-nvidia`, `BENCH_RPM_NVIDIA`).
+- **Retries**: `Retry-After` is honoured on 429/503, exponential back-off with jitter; 400/401/403/404 are never
+  retried, and a wrong key or model id stops that model at once.
+- **Clear error reasons** per item: code, HTTP status, where it stalled (`connect` = no response headers, the host is
+  queueing; `first_token`; `idle`; `max`), reasoning chunks seen, attempts and time, plus an attempt log. Replies cut
+  at the token cap say so. The report lists errors by reason per model.
+- `npm run bench -- --probe`: one tiny request per model (headers, first reasoning chunk, first answer, finish
+  reason) before a long run.
+- The provider client attaches `retryAfterMs` and the stall `phase` to its errors (no change to what users see).
+- Tests (10 new, mock provider): retry policy, limiter, stall phases, cut-off replies, fatal stop, per-model options,
+  checkpoints, probe, and the CLI stopped with SIGTERM then resumed end to end.
+### Changed
+- Version 0.5.6 everywhere.
+### Not changed
+- No route, migration or app screen changed; the 2026-11-12 results are kept as they were.
+
 ## [0.5.5] — 2026-11-13 · Safety layer
 Phase 5 safety: harmful-content filtering on what users send and what the model streams back, prompt-injection
 guards for web pages and uploaded files, and an Admin › Safety view. Rule-based and in process (no model, no new
