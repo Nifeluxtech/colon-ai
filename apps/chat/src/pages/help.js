@@ -1,6 +1,7 @@
 /* Colon AI · Help & Support screen: FAQ, shortcuts and contact links. */
 
 import { Colon } from '../../../../packages/ui/js/colon.js';
+import { appRowHtml, bindAppRow } from '../components/app-row.js';
 import { CW } from '../core/cw.js';
 
 var C = Colon, icon = C.icon, esc = C.esc;
@@ -43,7 +44,12 @@ var FAQ = [
     + 'If the microphone is blocked, allow it in your browser’s site settings.')],
   ['What is the browser panel?',
     ('Colon Browser inside your chat. Open it from the globe button or “Browse the Web”. On the web it is a reader '
-    + 'preview that shows pages as clean text; full browsing comes with the Colon Android app.')],
+    + 'preview that shows pages as clean text. In the Colon AI Android app, links open in real browser tabs with '
+    + 'logins, downloads and video.')],
+  ['Is there an Android app?',
+    ('Yes. Colon AI for Android (Android 7 and newer) adds full browsing in Colon Browser, voice with your phone’s '
+    + 'microphone, downloads, and “Share → Colon AI” from any app. Install the APK from the Colon page on GitHub '
+    + 'Releases (allow your browser to install apps when Android asks); the app offers updates by itself.')],
   ['How do I delete my data?',
     ('Settings → Data management lets you export or delete all conversations. You can delete your whole account '
     + 'from Account → Security.')]
@@ -61,10 +67,12 @@ CW.pages.help = function (page) {
         + (s[0] ? '<span class="kbd">' + s[0] + '</span> + ' : '') + '<span class="kbd">' + s[1]
         + '</span></span></div>';
     }).join('') + '</div>' +
+    '<div class="section-title">Colon on your phone</div><div class="list">' + appRowHtml() + '</div>' +
     '<div class="section-title">Get in touch</div><div class="list">' +
     C.row('https://github.com/Nifeluxtech/colon-ai/issues', 'alert', 'Report a problem', 'Open an issue on GitHub') +
     C.row('#/terms', 'file', 'Terms of Service', '') + C.row('#/privacy', 'lock', 'Privacy Policy', '') + '</div>' +
     '<p class="tiny muted" style="text-align:center;margin:20px 0">Colon AI v' + esc(C.version)
     + ' · by Nifelux</p></div>';
-  page.querySelector('a[href^="https://github.com"]').setAttribute('target', '_blank');
+  page.querySelector('a[href^="https://github.com/Nifeluxtech/colon-ai/issues"]').setAttribute('target', '_blank');
+  bindAppRow(page);
 };

@@ -1,6 +1,7 @@
 /* Colon AI · Settings screen: account, appearance, language, voice, chat preferences,
    privacy, data management and sign out. Account fields use the existing PATCH /account/profile;
    everything else goes through ColonChatData.saveSettings(). */
+import { appRowHtml, bindAppRow } from '../components/app-row.js';
 import { CW } from '../core/cw.js';
 import { Colon } from '../../../../packages/ui/js/colon.js';
 import { ColonBrowser } from '../../../../packages/ui/js/browser/index.js';
@@ -10,7 +11,7 @@ CW.pages = CW.pages || {};
 
 var SECTIONS = [['account', 'Account', 'user'], ['appearance', 'Appearance', 'palette'], ['language', 'Language',
   'language'], ['voice', 'Voice', 'mic'], ['chat', 'Chat', 'chat'], ['privacy', 'Privacy', 'shield'], ['data', 'Data',
-  'database']];
+  'database'], ['app', 'App', 'phone']];
 var VOICE_LANGS = [['en-NG', 'English (Nigeria)'], ['pcm-NG', 'Naijá (Pidgin)'], ['yo-NG', 'Yorùbá'], ['ha-NG',
   'Hausa'], ['ig-NG', 'Igbo'], ['auto', 'Mixed / not sure'], ['en-GB', 'English (UK)'], ['en-US', 'English (US)']];
 
@@ -143,11 +144,13 @@ CW.pages.settings = function (page, ctx) {
           + 'style="color:var(--bad);background:var(--bad-bg)">') + C.icon('trash')
           + ('</span><span class="body"><span class="title" style="color:var(--bad)">Delete all '
           + 'conversations</span><span class="sub">Permanently remove every chat and file.</span></span></button>')) +
+      section('app', 'Colon on your phone', 'phone', appRowHtml()) +
       '<div class="set-out"><button class="btn block danger" type="button" data-signout>' + icon('out')
         + 'Sign out</button><p class="tiny muted" style="text-align:center;margin-top:14px">Colon AI v'
         + esc(C.version) + ' · '
         + (data.kind === 'local' ? 'preview data mode' : 'synced') + ' · by Nifelux</p></div></div>';
     bind(s);
+    bindAppRow(page);
     stats();
     if (ctx && ctx.query && ctx.query.get('s')) jump(ctx.query.get('s'));
   }

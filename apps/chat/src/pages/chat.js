@@ -17,6 +17,7 @@ import { ColonChatData } from '../core/data.js';
 import { $, PROMPTS, S, brandName, data, ephemeral, isMobile, setData, signedIn } from '../core/state.js';
 import { createHandsFree } from '../lib/hands-free.js';
 import { ChatMedia } from '../lib/media.js';
+import { startNativeShell } from '../lib/native-shell.js';
 import { ReadAloud } from '../lib/read-aloud.js';
 
 var C = Colon, icon = C.icon, esc = C.esc;
@@ -154,8 +155,9 @@ function mount(view, ctx) {
       }),
     data.listModels().then(function (m) { S.models = m; }).catch(function () { S.models = [];
       C.toast('Couldn’t load the model list. Using Colon Saga.', 'bad'); })
-  ]).then(function () { refreshConvs(); route(ctx); });
+  ]).then(function () { refreshConvs(); route(ctx); S.nativeStop = startNativeShell(); });
   return function unmount() {
+    if (S.nativeStop) S.nativeStop();
     if (S.hf) S.hf.stop(); if (S.streaming) S.streaming.ctl.abort(); if (S.media) S.media.destroy();
     document.removeEventListener('keydown', onKey);
     if (S.ro) S.ro.disconnect(); document.documentElement.classList.remove('app-lock');

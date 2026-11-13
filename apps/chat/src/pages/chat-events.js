@@ -109,7 +109,8 @@ function bind() {
       'rename-current': function () { if (S.current) renameConv(S.current); },
       attach: function () { S.media.pick(); }, mic: function () { voiceMenu(a); },
       'mode-menu': function () { modeMenu(a); },
-      'browse-web': function () { var v = ta.value.trim(); var b = openBrowser(); if (v) { b.startTask(v);
+      'browse-web': function () { var v = ta.value.trim(), b = openBrowser(null, { panel: true });
+        if (v) { b.startTask(v);
         ta.value = ''; autoGrow(); syncComposer(); C.toast('Saga is browsing. Watch every step in the panel.'); } },
       browser: function () { S.browser.layout === 'none' ? openBrowser() : setLayout('none'); },
       'browser-close': function () { S.browser.full = false; setLayout('none'); },
