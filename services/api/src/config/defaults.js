@@ -82,6 +82,12 @@ const SCHEMA = [
   str('WEB_SEARCH', 'on', '"off" switches web search off until an admin turns it on'),
   secret('BRAVE_SEARCH_API_KEY', 'Brave Search API key (optional)'), secret('TAVILY_API_KEY', 'Tavily key (optional)'),
   url('SEARXNG_URL', '', 'SearXNG base URL (optional)'), secret('SEARXNG_API_KEY', 'SearXNG bearer token (optional)'),
+  // Voice (modules/voice; Phase 6)
+  oneOf('VOICE', ['on', 'off'], 'on', '"off" switches server transcription off (browser dictation still works)'),
+  secret('NAIJA_SPEECH_API_KEY', 'Naija Speech API key (Hausa, Igbo, Yoruba, Nigerian English speech to text)'),
+  url('NAIJA_SPEECH_BASE_URL', 'https://asr.naijallm.com/v1', 'Naija Speech API base URL'),
+  str('VOICE_GEMINI_MODEL', 'gemini-3.5-flash-lite', 'Gemini model that transcribes audio ("off" to skip)'),
+  num('VOICE_MAX_SECONDS', 300, 'longest recording accepted for transcription'),
   // Safety layer (modules/safety; ADR 0003)
   oneOf('SAFETY', ['on', 'off'], 'on', '"off" switches the rule filters off (child-safety rules always stay on)'),
   oneOf('SAFETY_LOG_TEXT', ['off', 'hash', 'excerpt'], 'off',

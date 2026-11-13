@@ -38,8 +38,9 @@ var FAQ = [
     + 'build folders, images and .env files are skipped) and remembers them for the rest of the chat, so you can '
     + 'keep asking follow-up questions. Name a file (for example “fix src/app.js”) to make sure it is read first.')],
   ['How does voice input work?',
-    ('Tap the microphone. Where your browser supports it, Colon types what you say. Otherwise it records a voice '
-    + 'note. If the microphone is blocked, allow it in your browser’s site settings.')],
+    ('Tap the microphone and speak, then tap Done. Colon writes what you said in the message box so you can fix it '
+    + 'before sending. Pick your language (English, Naijá, Yorùbá, Hausa or Igbo) on the recording bar. If the '
+    + 'microphone is blocked, allow it in your browser’s site settings.')],
   ['What is the browser panel?',
     ('Colon Browser inside your chat. Open it from the globe button or “Browse the Web”. On the web it is a reader '
     + 'preview that shows pages as clean text; full browsing comes with the Colon Android app.')],

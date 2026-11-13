@@ -100,6 +100,8 @@ fill='none' stroke='%238190B8' stroke-width='2' stroke-linecap='round'%3E%3Cpath
 .seg.block{display:flex}.seg.block button{flex:1;justify-content:center}
 /* Settings rows */
 .set-row{display:flex;align-items:center;gap:14px;padding:14px 16px;min-height:60px;border-top:1px solid var(--line)}
+.set-note{margin:0;padding:10px 16px 14px;font-size:12px;line-height:1.45;color:var(--text-2);
+  border-top:1px solid var(--line)}
 .set-row:first-child{border-top:0}
 .set-row .body{flex:1;min-width:0}
 .set-row .title{display:block;font-weight:600}

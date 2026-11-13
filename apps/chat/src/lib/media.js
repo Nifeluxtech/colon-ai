@@ -1,11 +1,13 @@
 /* Colon AI · attachments and voice input for the composer.
    Attachments: file picker, drag and drop, paste. Each file is validated (type, size, count),
    shows a preview, real progress, and a clear error state with retry/remove.
-   Voice: live dictation with the Web Speech API when the browser has it; otherwise records a
-   voice note with MediaRecorder (with a live level meter). Permission-denied, no-microphone and
-   unsupported states are explained in the composer.
+   Voice: English uses live dictation (Web Speech API) when the browser has it. Pidgin, Yorùbá, Hausa and Igbo
+   (and any browser without dictation) record with MediaRecorder and Colon speech transcribes on the server into
+   the message box, editable before sending; if that fails the recording is kept as a voice note.
+   Permission-denied, no-microphone and unsupported states are explained in the composer.
    ChatMedia.create({ data, tray, voiceBar, getSettings, onChange, onTranscript, onVoiceDone }) */
 import { Colon } from '../../../../packages/ui/js/colon.js';
+import { SPEECH_LANGS, langLabel, transcribe } from '../core/voice-client.js';
 
 var C = Colon, icon = C.icon, esc = C.esc;
 var KIND_ICON = { image: 'image', pdf: 'fileText', doc: 'fileText', text: 'file', audio: 'mic' };
@@ -78,9 +80,12 @@ function create(o) {
 
   /* ---------- Voice ---------- */
   var SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-  var voice = null; // { kind:'dictation'|'recorder', ... }
+  var voice = null; // { kind:'dictation'|'recorder', colon?, ... }
+  function voiceLang() { var s = o.getSettings ? o.getSettings() : {}; return (s.voice && s.voice.lang) || 'en-NG'; }
+  // auto: English with dictation when the browser has it; everything else through Colon speech (server).
   function voiceMethod() { var s = o.getSettings ? o.getSettings() : {}; var m = (s.voice && s.voice.method) || 'auto';
-    return m === 'auto' ? (SR ? 'dictation' : 'recorder') : m; }
+    if (m === 'dictation' && !SR) m = 'colon';
+    return m === 'auto' ? (SR && /^en-/.test(voiceLang()) ? 'dictation' : 'colon') : m; }
   function voiceError(kind) {
     var msg = {
       denied: ['Microphone access is blocked',
@@ -104,10 +109,39 @@ function create(o) {
     if (e.target.closest('[data-voice-stop]')) stopVoice();
     if (e.target.closest('[data-voice-cancel]')) cancelVoice();
   });
-  function showRecording(label) {
+  bar.addEventListener('change', function (e) {
+    var sel = e.target.closest('[data-voice-lang]'); if (!sel || !voice) return;
+    voice.lang = sel.value; if (o.onVoiceLang) o.onVoiceLang(sel.value);
+  });
+  function langPicker(cur) {
+    return '<select class="cv-lang" data-voice-lang aria-label="Language you are speaking">' + SPEECH_LANGS.map(
+      function (l) { return '<option value="' + l[0] + '"' + (l[0] === cur ? ' selected' : '') + '>' + esc(l[1])
+        + '</option>'; }).join('') + '</select>';
+  }
+  function showBusy(label) {
+    bar.hidden = false; bar.className = 'cv-voice busy';
+    bar.innerHTML = '<span class="spinner sm" aria-hidden="true"></span><span class="cv-voice-body"><b>' + esc(label)
+      + '</b></span>';
+  }
+  // Colon speech: transcribe on the server, put the words in the message box. On failure keep the recording.
+  function viaColon(file, dur, lang) {
+    showBusy('Transcribing ' + langLabel(lang) + '…');
+    if (o.onVoiceState) o.onVoiceState(true);
+    transcribe(file, { lang: lang, duration: dur, name: file.name }).then(function (t) {
+      bar.hidden = true; bar.innerHTML = ''; if (o.onVoiceState) o.onVoiceState(false);
+      if (o.onTranscript) o.onTranscript(t.text, true);
+    }, function (e) {
+      bar.hidden = true; bar.innerHTML = ''; if (o.onVoiceState) o.onVoiceState(false);
+      if (e.code === 'no_speech') return C.toast('I didn’t catch any speech. Try again a little closer to the mic.');
+      var guest = data.kind === 'guest';
+      C.toast((e.message || 'Couldn’t transcribe that.') + (guest ? '' : ' Added it as a voice note instead.'), 'bad');
+      if (!guest) addFiles([file], { fromRecorder: true, duration: dur });
+    });
+  }
+  function showRecording(label, lang) {
     bar.hidden = false; bar.className = 'cv-voice live';
     bar.innerHTML = '<span class="cv-rec-dot" aria-hidden="true"></span><span class="cv-voice-body"><b>' + esc(label)
-      + '</b><span class="cv-interim" aria-live="polite"></span></span>' +
+      + '</b><span class="cv-interim" aria-live="polite"></span></span>' + (lang ? langPicker(lang) : '') +
       ('<span class="cv-level" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></span><span class="cv-time '
         + 'mono">0:00</span>') +
       ('<button type="button" class="btn xs ghost" data-voice-cancel>Cancel</button><button type="button" '
@@ -167,12 +201,16 @@ function create(o) {
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia || !window.MediaRecorder) return voiceError(
       'unsupported');
     voice = { kind: 'pending' };
-    navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true } }).then(function (
-      stream) {
+    var colon = method === 'colon', lang = voiceLang();
+    // Mono with the browser's noise suppression; a low bitrate keeps uploads small on slow networks.
+    navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true,
+      autoGainControl: true, channelCount: 1 } }).then(function (stream) {
       var type = ['audio/webm;codecs=opus', 'audio/webm', 'audio/mp4', 'audio/ogg'].filter(function (t) {
         return MediaRecorder.isTypeSupported && MediaRecorder.isTypeSupported(t); })[0] || '';
-      var mr = new MediaRecorder(stream, type ? { mimeType: type } : undefined), chunks = [], t0 = Date.now();
-      voice = { kind: 'recorder', mr: mr, stream: stream, cancelled: false };
+      var opts = { audioBitsPerSecond: 24000 }; if (type) opts.mimeType = type;
+      var mr, chunks = [], t0 = Date.now();
+      try { mr = new MediaRecorder(stream, opts); } catch (e) { mr = new MediaRecorder(stream); }
+      voice = { kind: 'recorder', mr: mr, stream: stream, cancelled: false, colon: colon, lang: lang };
       mr.ondataavailable = function (e) { if (e.data && e.data.size) chunks.push(e.data); };
       mr.onstop = function () {
         var v = voice; cleanup();
@@ -181,10 +219,11 @@ function create(o) {
         var dur = Math.max(1, Math.round((Date.now() - t0) / 1000));
         var file = new File(chunks, 'Voice note ' + new Date().toLocaleTimeString([], { hour: '2-digit',
           minute: '2-digit' }).replace(':', '.') + '.' + ext, { type: mime.split(';')[0] });
-        addFiles([file], { fromRecorder: true, duration: dur });
-        if (o.onVoiceDone) o.onVoiceDone(file);
+        if (v.colon) viaColon(file, dur, v.lang);
+        else { addFiles([file], { fromRecorder: true, duration: dur }); if (o.onVoiceDone) o.onVoiceDone(file); }
       };
-      mr.start(250); showRecording('Recording voice note'); levels(stream);
+      mr.start(250); showRecording(colon ? 'Listening… tap Done when you finish' : 'Recording voice note',
+        colon ? lang : ''); levels(stream);
     }, function (e) {
       voice = null;
       if (e.name === 'NotAllowedError' || e.name === 'SecurityError') voiceError('denied');

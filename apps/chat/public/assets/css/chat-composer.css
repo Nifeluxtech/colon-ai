@@ -156,3 +156,10 @@
   text-transform:uppercase;color:var(--muted);margin:0 4px 8px}
 .set-h svg{width:16px;height:16px}
 .set-out{margin-top:26px}
+/* Voice: language picker while recording, and the "Transcribing…" state (Phase 6) */
+.cv-lang{flex:none;max-width:132px;height:30px;padding:0 8px;border-radius:9px;border:1px solid var(--line-2);
+  background:var(--surface-solid);color:var(--text);font:inherit;font-size:13px}
+.cv-voice.busy .spinner{width:18px;height:18px;border-radius:50%;border:2px solid var(--line-2);
+  border-top-color:var(--primary);animation:cvspin .8s linear infinite;flex:none}
+@keyframes cvspin{to{transform:rotate(360deg)}}
+@media (max-width:420px){.cv-voice.live .cv-level{display:none}.cv-lang{max-width:104px}}

@@ -129,6 +129,8 @@ function mount(view, ctx) {
   bind();
   S.media = ChatMedia.create({
     data: data, tray: $('.att-tray'), voiceBar: $('.cv-voice'), getSettings: function () { return S.settings || {}; },
+    onVoiceLang: function (lang) { S.settings.voice = Object.assign({}, S.settings.voice, { lang: lang });
+      data.saveSettings({ voice: { lang: lang } }).catch(function () {}); },
     onChange: syncComposer, onVoiceState: function (on) { $('[data-a=mic]').classList.toggle('rec', on);
       $('[data-a=mic]').setAttribute('aria-pressed', on); },
     onTranscript: function (text, final) {

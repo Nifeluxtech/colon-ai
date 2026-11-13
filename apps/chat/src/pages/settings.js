@@ -11,8 +11,8 @@ CW.pages = CW.pages || {};
 var SECTIONS = [['account', 'Account', 'user'], ['appearance', 'Appearance', 'palette'], ['language', 'Language',
   'language'], ['voice', 'Voice', 'mic'], ['chat', 'Chat', 'chat'], ['privacy', 'Privacy', 'shield'], ['data', 'Data',
   'database']];
-var VOICE_LANGS = [['en-NG', 'English (Nigeria)'], ['en-GB', 'English (UK)'], ['en-US', 'English (US)'], ['yo-NG',
-  'Yorùbá'], ['ha-NG', 'Hausa'], ['ig-NG', 'Igbo']];
+var VOICE_LANGS = [['en-NG', 'English (Nigeria)'], ['pcm-NG', 'Naijá (Pidgin)'], ['yo-NG', 'Yorùbá'], ['ha-NG',
+  'Hausa'], ['ig-NG', 'Igbo'], ['auto', 'Mixed / not sure'], ['en-GB', 'English (UK)'], ['en-US', 'English (US)']];
 
 function toggle(name, label, sub, on, disabled) {
   return '<label class="set-row"><span class="body"><span class="title">' + esc(label) + '</span>' + (sub
@@ -81,19 +81,23 @@ CW.pages.settings = function (page, ctx) {
           + 'for now. Naijá, Yorùbá, Hausa and Igbo menus are coming.</span></span><span '
           + 'class="badge">English</span></div>')) +
       section('voice', 'Voice', 'mic',
-        select('voice.lang', 'Speech language', 'Used for dictation and read aloud.', s.voice.lang, VOICE_LANGS) +
+        select('voice.lang', 'Speech language', 'The language you speak to Colon. You can also change it while '
+          + 'recording.', s.voice.lang, VOICE_LANGS) +
         select('voice.method', 'Voice input method', media && media.hasDictation
           ? 'This browser supports live dictation.' :
           'This browser can record voice notes; live dictation isn’t available.', s.voice.method, [['auto',
-          'Automatic (recommended)'], ['dictation', 'Live dictation (type what I say)'], ['recorder',
-          'Record a voice note']]) +
+          'Automatic (recommended)'], ['colon', 'Colon speech (best for Nigerian languages)'], ['dictation',
+          'Live dictation (English, this browser)'], ['recorder', 'Record a voice note']]) +
         toggle('voice.autoSend', 'Send after dictation', 'Send the message as soon as you stop speaking.',
           s.voice.autoSend) +
         select('voice.readAloudRate', 'Read-aloud speed', '', s.voice.readAloudRate, [[0.8, 'Slower'], [1, 'Normal'],
           [1.25, 'Faster']]) +
         ('<div class="set-row"><span class="body"><span class="title">Microphone access</span><span class="sub" '
           + 'data-mic-state>Check that Colon can hear you.</span></span><button class="btn sm" type="button" '
-          + 'data-test-mic>') + icon('mic') + 'Test</button></div>') +
+          + 'data-test-mic>') + icon('mic') + 'Test</button></div>' +
+        ('<p class="set-note">Colon speech for Hausa, Igbo, Yorùbá and Nigerian English is powered by NCAIR / '
+          + 'N-ATLaS ASR models (Awarri Technologies, an initiative of the Federal Ministry of Communications, '
+          + 'Innovation and Digital Economy), served by Naija LLM Benchmarks. Recordings are not stored.</p>')) +
       section('chat', 'Chat preferences', 'chat',
         select('defaultMode', 'Default mode for new chats', '', s.defaultMode, [['general', 'General'], ['study',
           'Study'], ['developer', 'Developer'], ['research', 'Research']]) +

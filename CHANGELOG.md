@@ -1,5 +1,24 @@
 # Changelog
 
+## [0.6.0] — 2026-11-13 · Voice input (Phase 6 begins)
+Speak to Colon in English, Naijá, Yorùbá, Hausa or Igbo; the words land in the message box to check before sending.
+Details: `docs/phases/phase-6-voice.md`.
+### Added
+- **Voice module** (`services/api/src/modules/voice`): `POST /voice/transcribe` (multipart `file` + `lang`,
+  12 MB / 5 minutes) and `GET /voice/status`. Signed-in users 60 recordings an hour; guests 20 an hour per IP (own
+  origins only, follows the guest-chat switch). Logs `voice_ok` / `voice_failed` with provider, language and time.
+- **Providers:** Naija Speech API (free; NCAIR / N-ATLaS ASR models) leads for Hausa, Igbo, Yorùbá and Nigerian
+  English; a Gemini model (`VOICE_GEMINI_MODEL`, default `gemini-3.5-flash-lite`, on `GEMINI_API_KEY`) handles Pidgin
+  and "Mixed" and is the fallback. Recordings are never stored.
+- **Composer:** "Colon speech" voice method. The recording bar has a language picker (remembered in Settings), a
+  level meter and a "Transcribing…" state; a failed transcription falls back to a voice note (signed in).
+  Recording is mono with noise suppression at 24 kbps Opus, about 180 KB a minute on slow networks.
+- New env: `VOICE`, `NAIJA_SPEECH_API_KEY`, `NAIJA_SPEECH_BASE_URL`, `VOICE_GEMINI_MODEL`, `VOICE_MAX_SECONDS`.
+- Settings › Voice: Naijá and "Mixed / not sure" languages, model attribution (required by the NCAIR licence).
+### Changed
+- Voice method "Automatic": English uses the browser's live dictation when it has it; every other language uses
+  Colon speech.
+
 ## [0.5.11] — 2026-11-13 · N-ATLaS and Phase 5 complete
 Closes Phase 5 (Intelligence & evaluation).
 ### Added
