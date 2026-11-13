@@ -31,7 +31,9 @@ const r = new Router();
 r.get('/browser/fetch', h.reader.gate, perReader, h.reader.getFetch);
 
 r.get('/browser/session', requireUser, perUser('browser-session-read', 600, 3600), h.session.getSession);
-r.put('/browser/session', requireUser, perUser('browser-session', 1200, 3600), h.session.putSession);
+// A session with 30 tabs and their back/forward stacks can pass the default 64 KB JSON cap.
+r.put('/browser/session', { bodyLimit: 512 * 1024 }, requireUser, perUser('browser-session', 1200, 3600),
+  h.session.putSession);
 r.delete('/browser/session', requireUser, perUser('browser-session', 1200, 3600), h.session.deleteSession);
 r.get('/browser/sessions', requireUser, perUser('browser-session-read', 600, 3600), h.session.listSessions);
 
