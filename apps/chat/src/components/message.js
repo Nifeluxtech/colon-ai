@@ -6,6 +6,7 @@ import { attachmentsHtml, loadAttachmentThumbs } from './uploads.js';
 import { Colon } from '../../../../packages/ui/js/colon.js';
 import { ColonMarkdown } from '../../../../packages/ui/js/markdown/index.js';
 import { editMessage, regenerate } from '../actions/send-message.js';
+import { ReadAloud } from '../lib/read-aloud.js';
 import { $, MODES, S, STAGES, data, ephemeral, modelName, signedIn } from '../core/state.js';
 
 var C = Colon, icon = C.icon, esc = C.esc, MD = ColonMarkdown;
@@ -65,7 +66,7 @@ function msgHtml(m, isLast) {
         + '" data-tip="Good response">' + icon('thumbUp') + '</button>' +
       '<button class="icon-btn sm" data-msg="down" aria-label="Bad response" aria-pressed="' + (fb === 'down')
         + '" data-tip="Bad response">' + icon('thumbDown') + '</button>' +
-      ('speechSynthesis' in window
+      (ReadAloud.canPlay
         ? '<button class="icon-btn sm" data-msg="speak" aria-label="Read aloud" aria-pressed="' + (S.speaking === m.id)
         + '" data-tip="Read aloud">' + icon('volume') + '</button>' : '') +
       (m.version > 1 ? '<span class="tiny muted">Version ' + m.version + '</span>' : '') + '</div>') +
@@ -134,12 +135,12 @@ function msgAction(b) {
     }, { label: 'Feedback' });
   }
   else if (act === 'speak') {
-    if (S.speaking === m.id) { speechSynthesis.cancel(); S.speaking = null; renderThread(); return; }
-    speechSynthesis.cancel();
-    var u = new SpeechSynthesisUtterance(MD.toText(m.content).slice(0, 6000)); u.lang = (S.settings.voice
-      && S.settings.voice.lang) || 'en-NG'; u.rate = (S.settings.voice && S.settings.voice.readAloudRate) || 1;
-    u.onend = u.onerror = function () { S.speaking = null; renderThread(); };
-    S.speaking = m.id; speechSynthesis.speak(u); renderThread();
+    if (S.speaking === m.id) { ReadAloud.stop(); S.speaking = null; renderThread(); return; }
+    var v = S.settings.voice || {};
+    ReadAloud.play(MD.toText(m.content).slice(0, 12000), { engine: v.readAloudVoice || 'auto', speaker: v.speaker,
+      rate: v.readAloudRate || 1, lang: v.lang, onStart: function () { C.toast('Preparing the Colon voice…'); },
+      onEnd: function () { S.speaking = null; renderThread(); } });
+    S.speaking = m.id; renderThread();
   }
 }
 function sendFeedback(m, fb) {

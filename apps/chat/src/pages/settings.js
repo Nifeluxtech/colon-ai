@@ -81,8 +81,8 @@ CW.pages.settings = function (page, ctx) {
           + 'for now. Naijá, Yorùbá, Hausa and Igbo menus are coming.</span></span><span '
           + 'class="badge">English</span></div>')) +
       section('voice', 'Voice', 'mic',
-        select('voice.lang', 'Speech language', 'The language you speak to Colon. You can also change it while '
-          + 'recording.', s.voice.lang, VOICE_LANGS) +
+        select('voice.lang', 'Speech language', 'The language you speak to Colon. You also pick it each time you '
+          + 'tap the mic.', s.voice.lang, VOICE_LANGS) +
         select('voice.method', 'Voice input method', media && media.hasDictation
           ? 'This browser supports live dictation.' :
           'This browser can record voice notes; live dictation isn’t available.', s.voice.method, [['auto',
@@ -90,6 +90,12 @@ CW.pages.settings = function (page, ctx) {
           'Live dictation (English, this browser)'], ['recorder', 'Record a voice note']]) +
         toggle('voice.autoSend', 'Send after dictation', 'Send the message as soon as you stop speaking.',
           s.voice.autoSend) +
+        select('voice.readAloudVoice', 'Read-aloud voice', 'Colon voices speak Yorùbá, Hausa, Igbo and Nigerian '
+          + 'English but take a few seconds to start. Your phone’s voice is instant and works offline.',
+        s.voice.readAloudVoice || 'auto', [['auto', 'Automatic: Colon for Yorùbá, Hausa, Igbo'], ['colon',
+          'Always Colon voices'], ['device', 'Always this phone’s voice']]) +
+        select('voice.speaker', 'Colon voice', '', s.voice.speaker || 'female', [['female', 'Female'], ['male',
+          'Male']]) +
         select('voice.readAloudRate', 'Read-aloud speed', '', s.voice.readAloudRate, [[0.8, 'Slower'], [1, 'Normal'],
           [1.25, 'Faster']]) +
         ('<div class="set-row"><span class="body"><span class="title">Microphone access</span><span class="sub" '
@@ -97,7 +103,8 @@ CW.pages.settings = function (page, ctx) {
           + 'data-test-mic>') + icon('mic') + 'Test</button></div>' +
         ('<p class="set-note">Colon speech for Hausa, Igbo, Yorùbá and Nigerian English is powered by NCAIR / '
           + 'N-ATLaS ASR models (Awarri Technologies, an initiative of the Federal Ministry of Communications, '
-          + 'Innovation and Digital Economy), served by Naija LLM Benchmarks. Recordings are not stored.</p>')) +
+          + 'Innovation and Digital Economy), served by Naija LLM Benchmarks. Colon voices by Naija Speech API. '
+          + 'Recordings are not stored.</p>')) +
       section('chat', 'Chat preferences', 'chat',
         select('defaultMode', 'Default mode for new chats', '', s.defaultMode, [['general', 'General'], ['study',
           'Study'], ['developer', 'Developer'], ['research', 'Research']]) +

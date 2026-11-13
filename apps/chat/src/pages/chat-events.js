@@ -14,8 +14,25 @@ import { applySidebar, closeDrawer, moreMenu, openDrawer, profileMenu, refreshCo
 import { openAttachment } from '../components/uploads.js';
 import { CW } from '../core/cw.js';
 import { $, PROMPTS, S, data, isMobile } from '../core/state.js';
+import { SPEECH_LANGS } from '../core/voice-client.js';
 
 var C = Colon;
+
+/* Mic: pick the language first (small pop list above the mic), then recording starts. Tapping the mic while
+   recording stops it as before. */
+function voiceMenu(anchor) {
+  if (S.media.voiceActive()) return S.media.stopVoice();
+  var cur = (S.settings && S.settings.voice && S.settings.voice.lang) || 'en-NG';
+  C.menu(anchor, [{ head: 'Speak in' }].concat(SPEECH_LANGS.map(function (l) {
+    return { label: l[1], checked: l[0] === cur, onClick: function () {
+      if (l[0] !== cur) {
+        S.settings.voice = Object.assign({}, S.settings.voice, { lang: l[0] });
+        data.saveSettings({ voice: { lang: l[0] } }).catch(function () {});
+      }
+      S.media.startVoice();
+    } };
+  })), { label: 'Choose the language you will speak', align: 'right' });
+}
 
 /* ================= Events ================= */
 function bind() {
@@ -88,7 +105,7 @@ function bind() {
       model: function () { modelMenu(a); }, profile: function () { profileMenu(a); }, more: function () { moreMenu(a);
         }, theme: toggleTheme,
       'rename-current': function () { if (S.current) renameConv(S.current); },
-      attach: function () { S.media.pick(); }, mic: function () { S.media.startVoice(); },
+      attach: function () { S.media.pick(); }, mic: function () { voiceMenu(a); },
       'mode-menu': function () { modeMenu(a); },
       'browse-web': function () { var v = ta.value.trim(); var b = openBrowser(); if (v) { b.startTask(v);
         ta.value = ''; autoGrow(); syncComposer(); C.toast('Saga is browsing. Watch every step in the panel.'); } },

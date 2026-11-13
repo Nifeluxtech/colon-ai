@@ -7,7 +7,7 @@
    Permission-denied, no-microphone and unsupported states are explained in the composer.
    ChatMedia.create({ data, tray, voiceBar, getSettings, onChange, onTranscript, onVoiceDone }) */
 import { Colon } from '../../../../packages/ui/js/colon.js';
-import { SPEECH_LANGS, langLabel, transcribe } from '../core/voice-client.js';
+import { langLabel, transcribe } from '../core/voice-client.js';
 
 var C = Colon, icon = C.icon, esc = C.esc;
 var KIND_ICON = { image: 'image', pdf: 'fileText', doc: 'fileText', text: 'file', audio: 'mic' };
@@ -109,15 +109,6 @@ function create(o) {
     if (e.target.closest('[data-voice-stop]')) stopVoice();
     if (e.target.closest('[data-voice-cancel]')) cancelVoice();
   });
-  bar.addEventListener('change', function (e) {
-    var sel = e.target.closest('[data-voice-lang]'); if (!sel || !voice) return;
-    voice.lang = sel.value; if (o.onVoiceLang) o.onVoiceLang(sel.value);
-  });
-  function langPicker(cur) {
-    return '<select class="cv-lang" data-voice-lang aria-label="Language you are speaking">' + SPEECH_LANGS.map(
-      function (l) { return '<option value="' + l[0] + '"' + (l[0] === cur ? ' selected' : '') + '>' + esc(l[1])
-        + '</option>'; }).join('') + '</select>';
-  }
   function showBusy(label) {
     bar.hidden = false; bar.className = 'cv-voice busy';
     bar.innerHTML = '<span class="spinner sm" aria-hidden="true"></span><span class="cv-voice-body"><b>' + esc(label)
@@ -138,10 +129,10 @@ function create(o) {
       if (!guest) addFiles([file], { fromRecorder: true, duration: dur });
     });
   }
-  function showRecording(label, lang) {
+  function showRecording(label) {
     bar.hidden = false; bar.className = 'cv-voice live';
     bar.innerHTML = '<span class="cv-rec-dot" aria-hidden="true"></span><span class="cv-voice-body"><b>' + esc(label)
-      + '</b><span class="cv-interim" aria-live="polite"></span></span>' + (lang ? langPicker(lang) : '') +
+      + '</b><span class="cv-interim" aria-live="polite"></span></span>' +
       ('<span class="cv-level" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></span><span class="cv-time '
         + 'mono">0:00</span>') +
       ('<button type="button" class="btn xs ghost" data-voice-cancel>Cancel</button><button type="button" '
@@ -195,7 +186,8 @@ function create(o) {
       };
       rec.onend = function () { if (!voice || voice.kind !== 'dictation') return; var v = voice; cleanup();
         if (!v.cancelled && o.onTranscript) o.onTranscript(v.finalText.trim(), true); };
-      try { rec.start(); showRecording('Listening… speak now'); } catch (e) { cleanup(); voiceError('other'); }
+      try { rec.start(); showRecording('Listening in ' + langLabel(rec.lang) + '… speak now'); } catch (e) {
+        cleanup(); voiceError('other'); }
       return;
     }
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia || !window.MediaRecorder) return voiceError(
@@ -222,8 +214,8 @@ function create(o) {
         if (v.colon) viaColon(file, dur, v.lang);
         else { addFiles([file], { fromRecorder: true, duration: dur }); if (o.onVoiceDone) o.onVoiceDone(file); }
       };
-      mr.start(250); showRecording(colon ? 'Listening… tap Done when you finish' : 'Recording voice note',
-        colon ? lang : ''); levels(stream);
+      mr.start(250); showRecording(colon ? 'Listening in ' + langLabel(lang) + '… tap Done when you finish'
+        : 'Recording voice note'); levels(stream);
     }, function (e) {
       voice = null;
       if (e.name === 'NotAllowedError' || e.name === 'SecurityError') voiceError('denied');

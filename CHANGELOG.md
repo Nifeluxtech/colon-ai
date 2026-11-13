@@ -1,5 +1,22 @@
 # Changelog
 
+## [0.6.1] — 2026-11-13 · Spoken replies
+### Added
+- **Read aloud in Nigerian voices:** `POST /voice/speak` (`{ text, lang, speaker }` → MP3, ≤ 900 characters) with
+  Naija Speech voices for Yorùbá, Hausa, Igbo and Nigerian English (female/male per language); the language is
+  detected from the reply. Markdown, code, links and emoji are not read. Last 40 chunks cached in memory.
+  Limits: 300 chunks an hour signed in, 60 for guests, and at most `VOICE_TTS_PER_MINUTE` (default 7) a minute for
+  the whole app, since the key allows 10 requests a minute in total. Logs `tts_ok` / `tts_failed`.
+- **Client** (`apps/chat/src/lib/read-aloud.js`): plays a reply chunk by chunk (≈120 characters first, then ≤ 300),
+  fetching the next chunk while one plays; falls back to the phone's voice when Colon voices are off, busy or
+  offline. Settings › Voice: read-aloud voice (Automatic / Colon / phone) and Colon voice (female / male).
+- **Language first:** tapping the mic opens a small list (English, Naijá, Yorùbá, Hausa, Igbo, Mixed) above it;
+  picking one remembers it and starts recording. The recording bar shows the language and no longer has a picker.
+### Changed
+- Read-aloud "Automatic" uses Colon voices for Yorùbá, Hausa and Igbo replies and the phone's voice for English and
+  Naijá: Naija Speech generates slower than real time (measured 9–18 s for 70–130 characters, one request at a time),
+  which is fine where no phone voice exists but slower than the phone for English.
+
 ## [0.6.0] — 2026-11-13 · Voice input (Phase 6 begins)
 Speak to Colon in English, Naijá, Yorùbá, Hausa or Igbo; the words land in the message box to check before sending.
 Details: `docs/phases/phase-6-voice.md`.

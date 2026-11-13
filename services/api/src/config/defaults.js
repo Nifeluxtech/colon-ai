@@ -88,6 +88,7 @@ const SCHEMA = [
   url('NAIJA_SPEECH_BASE_URL', 'https://asr.naijallm.com/v1', 'Naija Speech API base URL'),
   str('VOICE_GEMINI_MODEL', 'gemini-3.5-flash-lite', 'Gemini model that transcribes audio ("off" to skip)'),
   num('VOICE_MAX_SECONDS', 300, 'longest recording accepted for transcription'),
+  num('VOICE_TTS_PER_MINUTE', 7, 'read-aloud requests a minute to Naija Speech (key allows 10 in total)'),
   // Safety layer (modules/safety; ADR 0003)
   oneOf('SAFETY', ['on', 'off'], 'on', '"off" switches the rule filters off (child-safety rules always stay on)'),
   oneOf('SAFETY_LOG_TEXT', ['off', 'hash', 'excerpt'], 'off',

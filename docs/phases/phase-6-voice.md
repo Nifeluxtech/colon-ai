@@ -20,7 +20,15 @@ on low-end Android phones.
   and Igbo close to the spoken text; Gemini with "Mixed" misread a Hausa clip as Igbo, so the app asks for the
   language rather than guessing (auto-detect is the weak spot).
 
+## 0.6.1 · Spoken replies (done)
+- Read-aloud button on each reply → `lib/read-aloud.js` → `POST /voice/speak` per chunk → MP3 played in order.
+- Voices: `ha` hausa_female1 / hausa_male2, `ig` igbo_female2 / igbo_male2, `yo` yoruba_female2 / yoruba_male2,
+  `en` idera / osagie. Naijá is read by the English voice.
+- Measured 2026-11-13: generation is slower than real time and serialised per key (3 parallel requests finished at
+  5.5, 10.7 and 11 s). So "Automatic" uses Colon voices only for Yorùbá, Hausa and Igbo; English and Naijá use the
+  phone's voice (instant, offline). Users can choose "Always Colon voices".
+- Budget: Naija Speech allows 10 requests a minute per key for the whole app; read-aloud takes at most 7.
+
 ## Next
-- 0.6.1 Spoken replies: play button per reply, sentence-by-sentence TTS (Naija Speech voices), voice per language.
 - 0.6.2 Hands-free mode: silence detection, auto-send, speak the reply, listen again.
 - 0.6.3 Evaluation: real recorded clips per language (WER), low-end Android timing (Infinix SMART class).

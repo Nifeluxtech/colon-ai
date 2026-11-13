@@ -10,7 +10,8 @@ const BOOLS = ['enterToSend', 'showMeta', 'linksInPanel', 'streaming', 'saveHist
 const ENUMS = { defaultMode: store.MODES, browserLayout: ['split', 'embedded'], textSize: ['sm', 'md', 'lg'] };
 
 const VOICE = { lang: ['en-NG', 'en-GB', 'en-US', 'pcm-NG', 'yo-NG', 'ha-NG', 'ig-NG', 'auto'], method: ['auto',
-  'colon', 'dictation', 'recorder'], readAloudRate: [0.8, 1, 1.25] };
+  'colon', 'dictation', 'recorder'], readAloudRate: [0.8, 1, 1.25], readAloudVoice: ['auto', 'colon', 'device'],
+  speaker: ['female', 'male'] };
 
 function cleanSettings(patch) {
   const out = {};

@@ -39,8 +39,8 @@ var FAQ = [
     + 'keep asking follow-up questions. Name a file (for example “fix src/app.js”) to make sure it is read first.')],
   ['How does voice input work?',
     ('Tap the microphone and speak, then tap Done. Colon writes what you said in the message box so you can fix it '
-    + 'before sending. Pick your language (English, Naijá, Yorùbá, Hausa or Igbo) on the recording bar. If the '
-    + 'microphone is blocked, allow it in your browser’s site settings.')],
+    + 'before sending. Pick your language (English, Naijá, Yorùbá, Hausa or Igbo) from the list that opens first. '
+    + 'If the microphone is blocked, allow it in your browser’s site settings.')],
   ['What is the browser panel?',
     ('Colon Browser inside your chat. Open it from the globe button or “Browse the Web”. On the web it is a reader '
     + 'preview that shows pages as clean text; full browsing comes with the Colon Android app.')],

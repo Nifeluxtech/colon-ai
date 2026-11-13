@@ -17,7 +17,17 @@ const postTranscribe = async (req) => {
 
 const getStatus = async () => {
   const s = require('./index').status();
-  return [200, { voice: { enabled: s.enabled, languages: s.languages, ready: s.providers.some(p => p.ready) } }];
+  return [200, { voice: { enabled: s.enabled, languages: s.languages, ready: s.providers.some(p => p.ready),
+    speak: require('./speak').ready() } }];
 };
 
-module.exports = { postTranscribe, getStatus };
+// POST /voice/speak { text, lang, speaker } -> audio/mpeg, written directly (not JSON).
+const postSpeak = async (req, res) => {
+  const b = req.body || {};
+  const r = await require('./speak').speak({ text: b.text, lang: b.lang, speaker: b.speaker });
+  res.writeHead(200, { 'Content-Type': r.mime, 'Content-Length': r.audio.length, 'Cache-Control': 'private, '
+    + 'max-age=86400', 'X-Content-Type-Options': 'nosniff', 'X-Voice': r.voice, 'X-Language': r.lang });
+  res.end(r.audio);
+};
+
+module.exports = { postTranscribe, getStatus, postSpeak };

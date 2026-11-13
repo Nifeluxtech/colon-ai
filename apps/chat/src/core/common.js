@@ -40,7 +40,8 @@ var DEFAULT_SETTINGS = {
   enterToSend: true, defaultMode: 'general', defaultModel: null, showMeta: true, linksInPanel: true,
     browserLayout: 'split',
   streaming: true, textSize: 'md', saveHistory: true, shareFeedback: true,
-  voice: { lang: 'en-NG', method: 'auto', autoSend: false, readAloudRate: 1 }
+  voice: { lang: 'en-NG', method: 'auto', autoSend: false, readAloudRate: 1, readAloudVoice: 'auto',
+    speaker: 'female' }
 };
 
 function now() { return new Date().toISOString(); }
