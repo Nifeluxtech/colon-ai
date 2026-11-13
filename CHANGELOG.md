@@ -1,5 +1,44 @@
 # Changelog
 
+## [0.5.9] — 2026-11-13 · Developer mode
+Phase 5 Developer mode: code explain, fix, generate and review, and a project-files context. Details:
+`docs/phases/phase-5-developer.md`.
+### Added
+- **Developer prompt** (`ai/prompts.js`): explain (walk-through, complexity, pitfalls); fix (name the bug, root cause,
+  corrected code as a minimal diff or the full file, how to test); generate (complete runnable code, file names,
+  dependencies, run instructions); review/refactor by severity. Fenced code blocks with language tags; code and
+  identifiers in English, prose in the reply language; never invent APIs, say when unsure; secure by default (no
+  hard-coded secrets, parameterised SQL, input validation); one clarifying question only when essential; Nigerian
+  context (cPanel hosting, Paystack/Flutterwave) when relevant.
+- **Larger output for Developer replies**: new optional env `AI_DEVELOPER_MAX_TOKENS` (default 8192; other modes keep
+  `AI_MAX_TOKENS`). Routing order unchanged.
+- **Project files**: attach code files or a `.zip` of a project (20 MB, kind `doc`, mime `application/zip`; other
+  ZIP-based files are still refused; more code extensions accepted). The zip is read once at upload into a snapshot
+  (`modules/developer/snapshot.js`): top folder stripped; `node_modules`, `.git`, `vendor`, `dist`, `build` and
+  other tool folders counted but not read; binaries, images, minified bundles, lockfiles (size only) and secret
+  files (`.env`, keys; `.env.example` is read) listed without contents.
+- **Project context** for every Developer reply (`modules/developer/project.js`, `chat/context.js forMode`): code
+  files and snapshots from every message in the conversation (follow-ups keep them; a re-attached file replaces
+  the old copy), ordered by files named in the message, then entry points/configs, then smallest code first, within
+  48,000 characters (12,000 per file, 24,000 for a named file). A header with counts and languages and a file tree
+  marking every truncated or omitted file and why; the model is told not to guess missing files. Tree and files are
+  untrusted: neutralised by the injection guard and fenced per file with random end markers. Guests get a plain
+  rendering from `/chat/guest/extract`.
+- **Safe ZIP reader** (`extract/zip.js`), now shared with DOCX/PPTX/XLSX/ODT: path traversal, absolute paths and
+  NUL names refuse a project archive (422 `unsafe`); zip bombs refused by declared total (128 MB), ratio (200× for
+  entries over 1 MB) and entry count (20,000); every entry inflated with a cap at its declared size.
+- **Developer quick actions** in the chat app: Explain, Fix a bug, Generate, Review (prefill a short template) and
+  Attach project, shown above the composer in Developer mode only. Help FAQ: "How do I get help with my code?".
+- Tests (13 new): prompt contents and output cap; snapshot ignore rules, traversal and zip-bomb refusal; context
+  priority, budget, truncation and omission notes, merging, injection fencing; chat context per mode; and an
+  integration test with the mock provider (the stored zip reaches the model as context and a follow-up reuses it).
+### Changed
+- Code blocks never widen a message on phones (`max-width`, horizontal scroll contained); they already had the
+  language label and Copy.
+- Version 0.5.9 everywhere.
+### Not changed
+- No migration, no new route, no new dependency; routing order as configured.
+
 ## [0.5.8] — 2026-11-13 · CBT: fresh questions every test
 ### Fixed
 - **CBT tests no longer repeat themselves.** The same exam + subject + topic used to send the model the identical

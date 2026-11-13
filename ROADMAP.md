@@ -76,7 +76,11 @@ Each phase ships only when it meets its release standard: tested, secured, deplo
 - Study mode: step-by-step explanations, quizzes, flashcards, past-question practice and a timed CBT practice test (10 questions, 5 minutes). **Done in v0.5.7**
   (prompt only): quizzes one question at a time with A–D options, feedback and a score; flashcards as a table;
   WAEC/JAMB-style practice, and real past questions only when the student supplies them.
-- Developer mode: code explain, fix, generate, and a project-files context.
+- Developer mode: code explain, fix, generate, and a project-files context. **Done in v0.5.9**
+  (`docs/phases/phase-5-developer.md`): a full Developer prompt (explain, fix with root cause + minimal diff + how
+  to test, complete runnable generation, review; secure by default; never invents APIs), Explain / Fix a bug /
+  Generate / Review quick actions, and code files or a `.zip` project read safely into a budgeted, prioritised
+  project context that follow-up messages keep.
 - Safety layer: harmful-content filtering and prompt-injection guards. **Done in v0.5.5**
   (`docs/decisions/0003-safety-layer.md`): rule-based input moderation in English, Pidgin, Yorùbá, Hausa and Igbo
   (child safety, self-harm with Nigerian helplines, weapons, drugs, hate, explicit content for guests, Yahoo-yahoo

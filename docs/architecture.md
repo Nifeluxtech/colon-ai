@@ -45,8 +45,9 @@ colon-ai/
 │       │   ├── http/            server.js (middleware), router.js, middleware/, routes/{health,auth,account,
 │       │   │                    admin,chat}/ and routes/study.js (wiring only)
 │       │   ├── ws/              WebSocket gateway (/ws)
-│       │   ├── modules/         account, admin, ai, auth, bench, chat, extract, health, safety, search,
-│       │   │                    study; each has an index.js facade and its handlers/ where it serves routes
+│       │   ├── modules/         account, admin, ai, auth, bench, chat, developer, extract, health, safety,
+│       │   │                    search, study; each has an index.js facade and its handlers/ where it serves
+│       │   │                    routes (developer: project-files context; extract/zip.js: the one ZIP reader)
 │       │   ├── shared/          logger, request-context, crypto, audit, settings, mailer, validate,
 │       │   │                    ratelimit, security-headers, multipart
 │       │   └── db/              MariaDB pool and migration runner
@@ -172,6 +173,26 @@ Nothing is saved: the app keeps the test, answers and absolute end time in `sess
    question types, a variety token; injectable `rng`), generation runs at temperature 0.9, and `similar.js` drops
    near-duplicates (token-set Jaccard ≥ 0.6, same numbers) within the test and against `avoid`. The second call
    also avoids the stems already accepted; if still short, avoid-list near-matches fill the gap (`cbt_short`).
+
+### Developer mode: project-files context (v0.5.9, `modules/developer`)
+
+The prompt is in `ai/prompts.js` (explain, fix, generate, review; secure by default); Developer replies use
+`AI_DEVELOPER_MAX_TOKENS` (8192) and the normal routing table. Project files:
+
+1. **Upload** (`chat/handlers/uploads.js`): code files are stored as `text` as before. A `.zip` (sniffed `PK`, name
+   `.zip`) is kind `doc`, mime `application/zip`; `developer.fromZip` reads it through `extract/zip.js` (traversal,
+   absolute paths, zip bombs and too many entries refused) and stores a JSON snapshot in `chat_attachments.text`
+   with `meta.format = 'zip'`: ignored folders counted, binaries/lockfiles/secrets/minified files listed without
+   contents. No schema change.
+2. **Reply** (`chat/handlers/messages.js`, `guest.js` → `chat/context.js forMode`): in Developer mode the code files
+   and snapshots of every message so far (`chat/files.js forModel` parses snapshots) go to `developer.contextFor`,
+   which orders them (named in the message → entry points/configs → smallest code), fits them to 48,000 characters
+   with truncation/omission notes and a file tree, and fences each file as untrusted. The block goes into the system
+   context (`reply.js`, `o.project`); the messages only reference the files, and the history gets the remaining
+   budget (at least 16,000 characters). Other modes render a `.zip` as a short plain file block.
+3. Guests: `/chat/guest/extract` returns a plain rendering of the project (the tab keeps it).
+
+Details: `docs/phases/phase-5-developer.md`.
 
 ### Research mode: search → reader → cited answer
 
