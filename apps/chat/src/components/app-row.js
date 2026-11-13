@@ -1,23 +1,35 @@
-/* Colon AI · the Android app row for Settings and Help (v0.7.1). On the web it links to the APK on GitHub
-   Releases; inside the app it shows the installed version and checks for an update. */
+/* Colon AI · the Android app rows for Settings and Help (v0.8.0). On the web they link to the two APKs on GitHub
+   Releases (Colon AI and Colon Browser); inside the app they show the installed version, check for an update and
+   open the standalone Colon Browser app (or offer it when it isn't installed). */
 
 import { Colon } from '../../../../packages/ui/js/colon.js';
 
 var C = Colon;
 
+function row(tag, attrs, ico, title, sub) {
+  return '<' + tag + ' class="row" ' + attrs + '><span class="ico">' + C.icon(ico) + '</span><span class="body">'
+    + '<span class="title">' + title + '</span><span class="sub"' + (tag === 'button' ? ' data-app-state' : '')
+    + '>' + sub + '</span></span><span class="chev">' + C.icon('chev') + '</span></' + tag + '>';
+}
 function appRowHtml() {
   var N = C.native, v = N.version();
-  if (N.isShell()) return '<button class="row" type="button" data-app-update><span class="ico">' + C.icon('phone')
-    + '</span><span class="body"><span class="title">Colon AI for Android' + (v ? ' v' + C.esc(v) : '')
-    + '</span><span class="sub" data-app-state>Check for updates</span></span><span class="chev">' + C.icon('chev')
-    + '</span></button>';
-  return '<a class="row" href="' + N.RELEASES + '" target="_blank" rel="noopener" data-app-get><span class="ico">'
-    + C.icon('phone') + '</span><span class="body"><span class="title">Get the Android app</span><span class="sub">'
-    + 'Full browsing in Colon Browser, voice, and Share to Colon. Free APK for Android 7 and newer.</span></span>'
-    + '<span class="chev">' + C.icon('chev') + '</span></a>';
+  if (N.isShell()) return row('button', 'type="button" data-app-update', 'phone', 'Colon AI for Android'
+    + (v ? ' v' + C.esc(v) : ''), 'Check for updates')
+    + (N.hasPanel() ? '<a class="row" href="#" data-browser-app><span class="ico">' + C.icon('globe') + '</span>'
+      + '<span class="body"><span class="title">Colon Browser app</span><span class="sub">The full browser: tabs, '
+      + 'private tabs, bookmarks and downloads</span></span><span class="chev">' + C.icon('chev') + '</span></a>' : '');
+  var link = 'target="_blank" rel="noopener" data-app-get';
+  return row('a', 'href="' + N.APK + '" ' + link, 'phone', 'Get Colon AI for Android',
+    'Voice, Share to Colon and a real browser beside the chat. Free APK for Android 7 and newer.')
+    + row('a', 'href="' + N.BROWSER_APK + '" ' + link, 'globe', 'Get Colon Browser for Android',
+      'The full browser: tabs, private tabs, bookmarks, downloads and Google sign-in.')
+    + row('a', 'href="' + N.RELEASES + '" ' + link, 'info', 'All releases and what changed', 'GitHub Releases');
 }
 
 function bindAppRow(root) {
+  var ba = root.querySelector('[data-browser-app]');
+  if (ba) ba.addEventListener('click', function (e) { e.preventDefault(); C.native.browser('handoff').catch(
+    function () { C.toast('Couldn’t open Colon Browser.', 'bad'); }); });
   var b = root.querySelector('[data-app-update]'); if (!b) return;
   b.addEventListener('click', function () {
     var out = b.querySelector('[data-app-state]'); b.classList.add('is-loading'); out.textContent = 'Checking…';

@@ -38,10 +38,16 @@ function browserIndicator() {
   S.el.querySelectorAll('[data-burl]').forEach(function (u) { u.textContent = (activeTask ? 'Saga: ' + (st.task.site
     || 'working') + ' · ' : '') + label; });
 }
-// In the Android app (v0.7.1) pages open in a native Colon Browser tab (full Chromium, logins, downloads) instead of
-// the web reader preview. AI Browse ({ panel: true }) still runs in the panel until Saga drives native tabs (Phase 9).
+// Inside Colon AI for Android (v0.8.0) the chat's browser is the app's native panel: a real Android WebView beside
+// the chat (embedded, split or full screen; the app draws its header, Saga controls and "Open in Colon Browser").
+// On the web it is the reader panel (light mode). AI Browse ({ panel: true }) still runs in the web panel until
+// Saga drives the native WebView (Phase 9). An older app without the panel opened a native tab instead.
 function openBrowser(url, opts) {
-  if (!(opts && opts.panel) && C.native.openTab(url || '')) return null;
+  if (!(opts && opts.panel)) {
+    if (C.native.hasPanel()) { C.native.browser('open', { url: url || '' }).then(syncNative, nativeFailed);
+      return null; }
+    if (C.native.openTab(url || '')) return null;
+  }
   var b = ensureBrowser();
   if (S.browser.layout === 'none') setLayout(isMobile() ? 'embedded' : (S.settings.browserLayout || 'split'));
   else if (S.browser.layout === 'embedded' && S.browser.collapsed) { S.browser.collapsed = false; renderEmbed(); }
@@ -109,7 +115,29 @@ function addBrowseNote(md, sources, goal) {
       C.toast('AI Browse summary added to the chat.', 'ok'); setMobileTab('chat'); })
     .catch(function (e) { C.toast(e.message, 'bad'); });
 }
+/* ---------- Native panel (Android app) ---------- */
+// The app's panel state -> the Browser button (pressed while open; dot while loading or while Saga has control).
+function syncNative(st) {
+  if (!st || typeof st !== 'object') return; S.browser.nativeState = st;
+  var btn = $('[data-a=browser]'); if (!btn) return; btn.setAttribute('aria-pressed', !!st.open);
+  var dot = btn.querySelector('.dot'); if (dot) dot.hidden = !(st.open && (st.loading || st.control !== 'manual'));
+  S.el.setAttribute('data-native-browser', st.open ? st.layout + (st.collapsed ? '-collapsed' : '') : 'none');
+}
+function nativeFailed() { C.toast('The browser panel didn’t open. Try again.', 'bad'); }
+// The Browser button: opens or closes the native panel in the app, the web panel elsewhere.
+function toggleBrowser() {
+  if (C.native.hasPanel()) { var open = S.browser.nativeState && S.browser.nativeState.open;
+    C.native.browser(open ? 'close' : 'open').then(syncNative, nativeFailed); return; }
+  if (S.browser.layout === 'none') openBrowser(); else setLayout('none');
+}
+// Follows the panel while the chat is mounted; returns the function that stops following.
+function startNativeBrowser() {
+  if (!C.native.hasPanel()) return function () {};
+  C.native.browser('state').then(syncNative, function () {});
+  return C.native.on('browser', syncNative);
+}
 function applyTextSize() { document.documentElement.setAttribute('data-text', (S.settings && S.settings.textSize)
   || 'md'); }
 
-export { applySplitWidth, applyTextSize, openBrowser, renderEmbed, setLayout, setMobileTab };
+export { applySplitWidth, applyTextSize, openBrowser, renderEmbed, setLayout, setMobileTab, startNativeBrowser,
+  syncNative, toggleBrowser };
