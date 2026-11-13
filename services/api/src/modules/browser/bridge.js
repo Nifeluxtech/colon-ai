@@ -5,6 +5,9 @@
 // rules: exactly one owner; `ai`/`shared` only after the phone's `control` with reason `consent`; `take_control`,
 // `pause`, `stop` or `declined` win at once and cancel pending Saga commands (ack error `manual_control`). Every
 // control change goes to the audit log. Only signed-in sockets get any of this.
+// Phase 9 (Saga, modules/saga): command(name, args, tabId, { timeoutMs }) waits longer for commands that need an
+// approval tap on the phone; waitControl() resolves when the phone answers Saga's control request; the phone's
+// hello `capabilities` are kept so Saga can tell an app without the Phase 9 commands (`supports(name)`).
 const store = require('./store');
 const S = require('./session');
 
@@ -15,7 +18,8 @@ const live = new Map();                          // user id -> Set of bridges on
 
 /**
  * createBridge({ send(obj), user, req, audit, throttleMs = 2000, ackTimeoutMs = 20000, now })
- *   -> { handle(raw), requestSession(), command(name, args, tabId), askControl(mode, task), close(), state }
+ *   -> { handle(raw), requestSession(), command(name, args, tabId, o), askControl(mode, task), waitControl(ms),
+ *        hasControl(), supports(name), close(), state }
  */
 function createBridge(o) {
   const send = (m) => { try { o.send({ ...m, ts: Date.now() }); } catch { /* socket gone */ } };
@@ -25,8 +29,10 @@ function createBridge(o) {
   const ackTimeoutMs = o.ackTimeoutMs || 20000;
   const audit = o.audit || (async () => {});
   const st = { ref: null, deviceId: null, app: null, maxTabs: S.MAX_TABS, consented: false, lastSync: 0,
-    queued: null, timer: null, pending: new Map(), seq: 0, writing: Promise.resolve() };
-  const api = { handle, requestSession, command, askControl, close, state: st, user };
+    queued: null, timer: null, pending: new Map(), seq: 0, writing: Promise.resolve(), capabilities: [],
+    watchers: new Set(), seen: 0 };
+  const api = { handle, requestSession, command, askControl, waitControl, hasControl, supports, close, state: st,
+    user };
 
   const error = (code, message, extra = {}) => send({ type: 'error', code, message, ...extra });
 
@@ -43,6 +49,9 @@ function createBridge(o) {
     st.app = PHONE_APPS.includes(m.app) ? m.app : 'colonai';     // apps older than v0.8.1 send no `app`
     st.deviceId = deviceId;
     st.maxTabs = m.low_ram ? LOW_RAM_TABS : S.MAX_TABS;
+    st.capabilities = Array.isArray(m.capabilities) ? m.capabilities.filter((c) => typeof c === 'string'
+      && c.length <= 40).slice(0, 40) : [];
+    st.seen = now();
     st.ref = await store.touchDevice(user.id, deviceId, st.app, m.app_version);
     const cur = await store.load(user.id, st.ref);
     const said = S.CONTROLS.includes(m.control) ? m.control : 'manual';
@@ -127,7 +136,26 @@ function createBridge(o) {
     }
     const after = await store.setControl(user.id, st.ref, next);
     await record(m.reason, after && after.row);
+    for (const w of [...st.watchers]) w(m.reason);
   }
+
+  /** Resolves with the phone's next control reason (consent, declined, stop, ...) or 'timeout' / 'disconnected'. */
+  function waitControl(ms = 120000) {
+    return new Promise((resolve) => {
+      const done = (reason) => { clearTimeout(timer); st.watchers.delete(done); resolve(reason); };
+      const timer = setTimeout(() => done('timeout'), ms);
+      st.watchers.add(done);
+    });
+  }
+
+  /** True while the stored session gives Saga AI/Shared control, not paused, after consent on this socket. */
+  async function hasControl() {
+    if (!user || !st.ref || !st.consented) return false;
+    const c = await currentControl();
+    return c.control !== 'manual' && c.control_owner === 'saga' && !c.paused;
+  }
+
+  function supports(name) { return st.capabilities.includes(name); }
 
   function onAck(m) {
     const p = st.pending.get(String(m.ref || ''));
@@ -141,11 +169,11 @@ function createBridge(o) {
     (e) => p.resolve({ ok: false, error: e.code || 'store_failed' }));
   }
 
-  function pend(kind, frame) {
+  function pend(kind, frame, timeoutMs = ackTimeoutMs) {
     const id = `${kind[0]}${++st.seq}-${now().toString(36)}`;
     return new Promise((resolve) => {
       const timer = setTimeout(() => { st.pending.delete(id); resolve({ ok: false, error: 'timeout', ref: id }); },
-        ackTimeoutMs);
+        timeoutMs);
       st.pending.set(id, { kind, resolve, timer });
       send({ ...frame, id });
     });
@@ -157,14 +185,16 @@ function createBridge(o) {
     return pend('session', { type: 'session_request' });
   }
 
-  /** A Saga command (Phase 9 routing); refused at once unless Saga has AI/Shared control and is not paused. */
-  async function command(name, args = {}, tabId) {
+  /** A Saga command (Phase 9); refused at once unless Saga has AI/Shared control and is not paused. o.timeoutMs:
+   *  how long to wait for the ack (longer when the phone must ask the user to approve). Resolves with the ack. */
+  async function command(name, args = {}, tabId, o = {}) {
     if (!user || !st.ref) return { ok: false, error: 'not_ready' };
     const cur = await store.load(user.id, st.ref);
     if (!cur || cur.row.control === 'manual' || cur.row.control_owner !== 'saga') return { ok: false,
       error: 'manual_control' };
     if (cur.row.paused) return { ok: false, error: 'paused' };
-    return pend('command', { type: 'command', name, args, ...(tabId ? { tab_id: tabId } : {}) });
+    return pend('command', { type: 'command', name, args, ...(tabId ? { tab_id: tabId } : {}) },
+      o.timeoutMs || ackTimeoutMs);
   }
 
   /** Saga asks for control; nothing changes on the server until the phone answers with consent. */
@@ -209,6 +239,7 @@ function createBridge(o) {
       clearTimeout(p.timer); p.resolve({ ok: false, error: 'disconnected', ref: id });
     }
     st.pending.clear();
+    for (const w of [...st.watchers]) w('disconnected');
     const mine = user && live.get(user.id);
     if (mine) { mine.delete(api); if (!mine.size) live.delete(user.id); }
   }
@@ -219,4 +250,7 @@ function createBridge(o) {
 /** connected(userId) -> this worker's bridges for that user (Saga picks a phone from these in Phase 9). */
 const connected = (userId) => [...(live.get(userId) || [])].filter((b) => b.state.ref);
 
-module.exports = { createBridge, connected, MAX_FRAME };
+/** users() -> ids of the users with a phone connected to this worker (Saga's queue sweep, Phase 9). */
+const users = () => [...live.keys()].filter((id) => connected(id).length);
+
+module.exports = { createBridge, connected, users, MAX_FRAME };
