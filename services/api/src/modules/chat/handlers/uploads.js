@@ -7,10 +7,17 @@ const config = require('../../../config');
 const store = require('../store');
 const files = require('../files');
 const extract = require('../../extract');
+const developer = require('../../developer');
 const { SECURITY_HEADERS } = require('../../../shared/security-headers');
 const { readMultipartFile } = require('../../../shared/multipart');
 
 const MAX_UPLOAD = 20 * 1048576;
+
+// Text and metadata kept for an upload. A .zip project (Developer mode) is unpacked safely once, here, into a stored
+// snapshot (modules/developer): traversal and zip bombs are refused, ignored folders, binaries and secrets skipped.
+function readUpload(data, s, name) {
+  return s.format === 'zip' ? developer.fromZip(data, name) : extract.extract(data, s);
+}
 
 // POST /uploads
 const postUploads = async (req) => {
@@ -24,7 +31,7 @@ const postUploads = async (req) => {
       `Your file storage is full (${config.chat.uploadQuotaMb} MB). Clear uploaded files in Settings → Data.`),
       { status: 413, code: 'quota' });
   }
-  const { text, meta } = extract.extract(file.data, s);
+  const { text, meta } = readUpload(file.data, s, file.name);
   if (s.kind === 'audio' && fields.duration) meta.duration = Math.max(0, Math.min(3600, Math.round(Number(
     fields.duration) || 0))) || undefined;
   const id = store.newId();
@@ -78,7 +85,9 @@ const postChatGuestExtract = async (req) => {
   const s = extract.validate(file.data, file.name, { fromRecorder: false });
   if (s.kind === 'image') throw Object.assign(new Error('Log in to ask Colon about images.'), { status: 422,
     code: 'login_required' });
-  const { text, meta } = extract.extract(file.data, s);
+  let { text, meta } = readUpload(file.data, s, file.name);
+  // Guests keep files in the tab: a project archive comes back as a plain rendering (tree + files, budgeted).
+  if (s.format === 'zip') text = developer.render(developer.parseSnapshot(text), { budget: 20000 });
   return [200, { attachment: { id: `g-${store.newId()}`, name: file.name, type: s.mime, size: file.data.length,
     kind: s.kind, text: text.slice(0, 24000), pages: meta.pages, words: meta.words, note: meta.note,
     truncated: text.length > 24000 || meta.truncated || undefined } }];

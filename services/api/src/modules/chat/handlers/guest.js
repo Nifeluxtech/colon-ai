@@ -6,7 +6,7 @@ const limits = require('../../ai').limits;
 const { replyLanguage } = require('../../ai').prompts;
 const store = require('../store');
 const files = require('../files');
-const { buildMessages } = require('../context');
+const { forMode } = require('../context');
 const { respond } = require('../reply');
 const safety = require('../../safety');
 const { MAX_CONTENT, wantsWeb, previousUserText } = require('./chat-common');
@@ -60,10 +60,11 @@ const postChatGuest = async (req, res) => {
   const model = req.body.model ? String(req.body.model).slice(0, 64) : null;
   let msg = null;
   const guard = safety.collector();
+  const built = forMode(history, { mode, guard, message: last.content });   // Developer mode: project context
   await respond({
     req, res, mode, model, language: replyLanguage(chosen, last.content), name: req.user ? req.user.name : '',
-    route: 'chat.guest', guard, userText: last.content,
-    history: buildMessages(history, { guard }), counters: await limits.resolveCounters(req, mode),
+    route: 'chat.guest', guard, userText: last.content, project: built.project,
+    history: built.messages, counters: await limits.resolveCounters(req, mode),
     webSearch: wantsWeb(mode), searchText: last.content, searchPrevious: previousUserText(history),
     store: {
       async start() {

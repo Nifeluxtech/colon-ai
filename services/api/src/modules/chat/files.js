@@ -5,6 +5,7 @@ const path = require('path');
 const db = require('../../db');
 const config = require('../../config');
 const store = require('./store');
+const developer = require('../developer');
 
 const IMAGE_MAX_FOR_MODEL = 8 * 1048576;
 
@@ -47,7 +48,8 @@ async function dataUrl(row) {
   return `data:${row.mime};base64,${buf.toString('base64')}`;
 }
 
-// Model-ready file descriptions for messages: { name, kind, text, note, pages, duration, dataUrl? }.
+// Model-ready file descriptions for messages: { name, kind, text, note, pages, duration, size, dataUrl?, project? }
+// (project: the stored snapshot of a .zip archive, read by Developer mode).
 async function forModel(userId, attachmentLists, latestIndex) {
   const ids = [...new Set(attachmentLists.flat().map(a => a && a.id).filter(Boolean))];
   const rows = ids.length ? await db.query(`SELECT * FROM chat_attachments WHERE user_id = ? AND id IN (${ids.map(() =>
@@ -61,7 +63,8 @@ async function forModel(userId, attachmentLists, latestIndex) {
       if (!r) { files.push({ name: a.name, kind: a.kind, text: '', note: 'This file was deleted.' }); continue; }
       const meta = store.json(r.meta) || {};
       const f = { name: r.name, kind: r.kind, text: r.text || '', note: meta.note, pages: meta.pages,
-        duration: meta.duration };
+        duration: meta.duration, size: r.size };
+      if (meta.format === 'zip') { f.project = developer.parseSnapshot(r.text) || undefined; f.text = ''; }
       if (i === latestIndex && r.kind === 'image') f.dataUrl = await dataUrl(r);
       files.push(f);
     }

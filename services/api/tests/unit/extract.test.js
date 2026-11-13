@@ -50,7 +50,9 @@ test('signature check: real type from the bytes, not the name', () => {
     { fromRecorder: true }).kind, 'audio');
   assert.throws(() => extract.validate(Buffer.alloc(0), 'x.txt'), (e) => e.code === 'empty');
   assert.throws(() => extract.validate(Buffer.alloc(2 * 1048576 + 1, 0x61), 'big.txt'), (e) => e.code === 'too_large');
-  assert.throws(() => extract.validate(makeZip({ 'a.txt': 'x' }), 'archive.zip'), (e) => e.code === 'unsupported');
+  // A .zip is a Developer-mode project archive (v0.5.9); other ZIP-based files are still refused.
+  assert.equal(extract.validate(makeZip({ 'a.txt': 'x' }), 'archive.zip').format, 'zip');
+  assert.throws(() => extract.validate(makeZip({ 'a.txt': 'x' }), 'app.jar'), (e) => e.code === 'unsupported');
 });
 test('PDF text extraction (Flate and plain streams); scanned PDFs say so', () => {
   for (const compress of [true, false]) {

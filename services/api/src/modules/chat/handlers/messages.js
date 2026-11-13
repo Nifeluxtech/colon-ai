@@ -7,7 +7,7 @@ const settings = require('../../../shared/settings');
 const { replyLanguage } = require('../../ai').prompts;
 const store = require('../store');
 const files = require('../files');
-const { buildMessages } = require('../context');
+const { forMode } = require('../context');
 const { respond, stopLocal } = require('../reply');
 const safety = require('../../safety');
 const { MAX_CONTENT, wantsWeb, previousUserText, loadSettings } = require('./chat-common');
@@ -64,12 +64,16 @@ async function seqOf(id) {
 async function streamFor(req, res, conv, userMsg, { version = 1, onOpen, route = 'chat.send' } = {}) {
   const counters = await limits.resolveCounters(req, conv.mode);
   const guard = safety.collector();   // injection flags found in attached files (logged as safety events)
-  return historyFor(req, conv, userMsg.id).then(history => respond({
-    req, res, mode: conv.mode, model: conv.model, language: replyLanguage(req.user.language, userMsg.content),
-      name: req.user.name, route, guard, userText: userMsg.content,
-    history: buildMessages(history, { guard }), counters, store: persistedStore(conv, { version }), onOpen,
-    webSearch: wantsWeb(conv.mode), searchText: userMsg.content, searchPrevious: previousUserText(history),
-  }));
+  return historyFor(req, conv, userMsg.id).then(history => {
+    // Developer mode: the project context comes from every file attached so far in this conversation.
+    const built = forMode(history, { mode: conv.mode, guard, message: userMsg.content });
+    return respond({
+      req, res, mode: conv.mode, model: conv.model, language: replyLanguage(req.user.language, userMsg.content),
+        name: req.user.name, route, guard, userText: userMsg.content, project: built.project,
+      history: built.messages, counters, store: persistedStore(conv, { version }), onOpen,
+      webSearch: wantsWeb(conv.mode), searchText: userMsg.content, searchPrevious: previousUserText(history),
+    });
+  });
 }
 
 function cleanContent(raw) {

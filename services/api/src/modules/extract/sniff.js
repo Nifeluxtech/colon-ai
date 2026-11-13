@@ -1,8 +1,12 @@
 // Real file type from the first bytes (never the extension or browser type alone), and upload validation.
 const { MB, KINDS, fail } = require('./common');
 
-const TEXT_EXT = /\.(txt|md|csv|json|xml|ya?ml|js|ts|py|java|c|cpp|cs|go|rs|php|sql|html|css|sh|log)$/i;
-const DOC_EXT = /\.(docx?|odt|rtf|pptx?|xlsx?)$/i;
+// Text and source code (Developer mode reads these as project files).
+const TEXT_EXT = new RegExp(String.raw`\.(txt|md|csv|json|xml|ya?ml|js|ts|py|java|c|cpp|cs|go|rs|php|sql|html|css|`
+  + String.raw`sh|log|jsx|tsx|mjs|cjs|vue|svelte|scss|less|h|hpp|kt|kts|swift|rb|dart|lua|r|pl|toml|ini|cfg|conf|`
+  + String.raw`env\.example|gradle|properties|bat|ps1|graphql|gql|prisma|twig|ejs|hbs)$`, 'i');
+// .zip is accepted as a code project archive (Developer mode, modules/developer); it is stored as kind "doc".
+const DOC_EXT = /\.(docx?|odt|rtf|pptx?|xlsx?|zip)$/i;
 
 // Detects the real type from the file's first bytes (never trusts the extension or browser type alone).
 function sniff(buf, name = '') {
@@ -14,14 +18,17 @@ function sniff(buf, name = '') {
   if (ascii('RIFF') && ascii('WEBP', 8)) return { kind: 'image', mime: 'image/webp' };
   if (ascii('%PDF-')) return { kind: 'pdf', mime: 'application/pdf' };
   if (ascii('{\\rtf')) return { kind: 'doc', mime: 'application/rtf', format: 'rtf' };
-  if (b.length >= 4 && b[0] === 0x50 && b[1] === 0x4b && b[2] === 0x03 && b[3] === 0x04) {
+  const pk = b.length >= 4 && b[0] === 0x50 && b[1] === 0x4b && ((b[2] === 0x03 && b[3] === 0x04)
+    || (b[2] === 0x05 && b[3] === 0x06 && /\.zip$/i.test(name)));   // PK\5\6 = an empty .zip
+  if (pk) {
     const ext = (name.match(/\.(\w+)$/) || [])[1];
     const map = { docx: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
       pptx: 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
       xlsx: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
         odt: 'application/vnd.oasis.opendocument.text' };
     if (ext && map[ext.toLowerCase()]) return { kind: 'doc', mime: map[ext.toLowerCase()], format: ext.toLowerCase() };
-    return null; // some other ZIP: not accepted
+    if (ext && ext.toLowerCase() === 'zip') return { kind: 'doc', mime: 'application/zip', format: 'zip' };
+    return null; // some other ZIP (.jar, .apk, …): not accepted
   }
   if (b.length >= 8 && b.readUInt32BE(0) === 0xd0cf11e0 && b.readUInt32BE(4) === 0xa1b11ae1) {
     const ext = ((name.match(/\.(\w+)$/) || [])[1] || '').toLowerCase();

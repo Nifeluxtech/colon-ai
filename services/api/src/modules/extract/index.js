@@ -7,6 +7,7 @@ const { imageSize } = require('./image');
 const { unzip, docxText, pptxText, xlsxText, odtText } = require('./docx');
 const { rtfText, oleText, tidy, readable } = require('./text');
 const { pdfText } = require('./pdf');
+const zip = require('./zip');
 
 /**
  * extract(buf, sniffed) -> { text, meta } ; text is '' when nothing readable was found (meta.note says why).
@@ -25,6 +26,8 @@ function extract(buf, s) {
       meta.pages = r.pages || undefined;
       text = r.text;
     } else if (s.kind === 'doc') {
+      // Project archives are read by modules/developer (snapshot at upload); nothing to extract here.
+      if (s.format === 'zip') return { text: '', meta: { format: 'zip' } };
       if (s.format === 'rtf') text = rtfText(buf.toString('latin1'));
       else if (['doc', 'ppt', 'xls'].includes(s.format)) { text = oleText(buf); meta.approximate = true; }
       else {
@@ -54,4 +57,4 @@ function extract(buf, s) {
   return { text, meta };
 }
 
-module.exports = { sniff, validate, extract, imageSize, unzip, pdfText, rtfText, KINDS, MAX_TEXT };
+module.exports = { sniff, validate, extract, imageSize, unzip, zip, pdfText, rtfText, tidy, KINDS, MAX_TEXT };

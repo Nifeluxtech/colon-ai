@@ -41,6 +41,7 @@ function openStream(res) {
  *   counters: daily-limit counters to charge ([{ subject, limit }], see ai/limits.js countersFor)
  *   store.start()                 -> message object sent in "start" (status 'streaming')
  *   webSearch, searchText, searchPrevious   Research mode: search the web for searchText first (see src/modules/search)
+ *   project                       Developer mode: { block } from modules/developer, added to the system context
  * store.finish(result) -> final message sent in "done" ({ content, status, error, providerId, providerModel, sources,
  * web })
  *   store.isStopped()             -> optional: true when another request asked to stop this reply
@@ -103,7 +104,8 @@ async function respond(o) {
       result = await ai.generate({
         mode: o.mode, language: o.language, model: o.model, name: o.name, signal: ctl.signal, routing: cfg,
         messages: safety.redactMessages(o.history).messages, fetch: o.fetch,
-        web: Boolean(web && web.ok), context: [verdict.guidance, webContext].filter(Boolean).join('\n\n'),
+        web: Boolean(web && web.ok),
+        context: [verdict.guidance, webContext, o.project && o.project.block].filter(Boolean).join('\n\n'),
         timeouts: cfg.hedge ? { ...(o.timeouts || {}), hedge: cfg.hedge } : o.timeouts,
         onDelta: (piece) => {
           if (stop) return;

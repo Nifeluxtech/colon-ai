@@ -1,37 +1,18 @@
 // Office Open XML and ODF documents (DOCX, PPTX, XLSX, ODT): read the ZIP container, then the XML parts.
-const zlib = require('zlib');
 const { MB, fail, decodeEntities, stripXml } = require('./common');
+const zip = require('./zip');
 
-/* ---------- ZIP (Office/ODF containers) ---------- */
+/* ---------- ZIP (Office/ODF containers): read through the shared safe reader (zip.js) ---------- */
 function unzip(buf, want) {
   const out = {};
-  let eocd = -1;
-  for (let i = buf.length - 22; i >= Math.max(0, buf.length - 65557); i--) if (buf.readUInt32LE(i) === 0x06054b50) {
-    eocd = i; break; }
-  if (eocd < 0) fail('This document looks damaged (no ZIP directory).', 'processing');
-  const count = buf.readUInt16LE(eocd + 10);
-  let p = buf.readUInt32LE(eocd + 16);
   let total = 0;
-  for (let n = 0; n < count && p + 46 <= buf.length; n++) {
-    if (buf.readUInt32LE(p) !== 0x02014b50) break;
-    const method = buf.readUInt16LE(p + 10);
-    const csize = buf.readUInt32LE(p + 20);
-    const nameLen = buf.readUInt16LE(p + 28), extraLen = buf.readUInt16LE(p + 30), commentLen = buf.readUInt16LE(p
-      + 32);
-    const local = buf.readUInt32LE(p + 42);
-    const name = buf.toString('utf8', p + 46, p + 46 + nameLen);
-    p += 46 + nameLen + extraLen + commentLen;
-    if (!want(name)) continue;
-    const lnameLen = buf.readUInt16LE(local + 26), lextra = buf.readUInt16LE(local + 28);
-    const start = local + 30 + lnameLen + lextra;
-    const data = buf.subarray(start, start + csize);
-    let file;
-    if (method === 0) file = data;
-    else if (method === 8) file = zlib.inflateRawSync(data, { maxOutputLength: 64 * MB });
-    else continue;
+  for (const e of zip.entries(buf)) {
+    if (e.dir || !want(e.name)) continue;
+    const file = zip.read(buf, e, 64 * MB);
+    if (!file) continue;
     total += file.length;
     if (total > 128 * MB) fail('This document is too large to read.', 'processing'); // zip-bomb guard
-    out[name] = file.toString('utf8');
+    out[e.name] = file.toString('utf8');
   }
   return out;
 }
