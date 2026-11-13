@@ -99,8 +99,8 @@
 .cv-time{font-size:13px;color:var(--text-2)}
 
 /* ---------- Browser: embedded card and split pane ---------- */
-.cw-embed-host{max-width:840px;margin:0 auto;padding:0 16px}
-.cw-embed-host:empty{display:none}
+.cw-embed-host,.cw-native-host{max-width:840px;margin:0 auto;padding:0 16px}
+.cw-embed-host:empty,.cw-native-host:empty{display:none}
 .cw-embed{margin:4px 0 16px;border-radius:var(--r-xl);border:1px solid var(--line-2);background:var(--glass);
   overflow:hidden;box-shadow:var(--sh)}
 .cw-embed-head,.cw-split-head{display:flex;align-items:center;gap:8px;min-height:46px;padding:4px 6px 4px 14px;
@@ -112,6 +112,10 @@
 .cw-embed-body .cb[data-control="shared"],.cw-split-body .cb[data-control="shared"]{outline-offset:-3px}
 .cw-embed.collapsed .cw-embed-body{display:none}
 .cw-embed.collapsed .cw-embed-head{border-bottom:0}
+.cw-embed.collapsed [data-a=native-collapse] svg{transform:rotate(180deg)}
+/* The app's own WebView is laid over this box (inline layout, v0.9.1); the text shows only until it is there. */
+.cw-native-body{height:60vh;min-height:320px;display:flex;align-items:center;justify-content:center;
+  background:var(--surface-solid)}
 .cw-embed.full{position:fixed;inset:0;z-index:130;margin:0;border-radius:0;display:flex;flex-direction:column;
   padding-top:var(--safe-t)}
 .cw-embed.full .cw-embed-body{flex:1;height:auto}

@@ -114,7 +114,7 @@ function mount(view, ctx) {
       '<div class="cw-body">' +
         '<section class="cw-chat" aria-label="Conversation">' +
           ('<div class="cw-scroll scroll-y" id="cw-scroll"><div class="cw-page" id="cw-page"></div><div '
-            + 'class="cw-embed-host"></div></div>') +
+            + 'class="cw-embed-host"></div><div class="cw-native-host"></div></div>') +
           composerHtml() +
         '</section>' +
         '<div class="resizer cw-resizer" aria-label="Resize browser panel"></div>' +
@@ -211,7 +211,7 @@ function setView(v) {
   S.view = v; S.el.setAttribute('data-view', v);
   S.stick = true; syncJump();
   $('.cw-composer').hidden = v !== 'chat' && v !== 'welcome';  // pages and shared chats have no composer
-  $('.cw-embed-host').hidden = v !== 'chat';
+  $('.cw-embed-host').hidden = v !== 'chat'; $('.cw-native-host').hidden = v !== 'chat';
   if (v !== 'chat' && v !== 'welcome' && S.browser.layout === 'split' && isMobile()) setMobileTab('chat');
 }
 function showPage(name, ctx) {

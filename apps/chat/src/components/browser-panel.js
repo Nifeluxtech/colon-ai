@@ -5,6 +5,7 @@ import { autoGrow, scrollBottom, syncComposer } from './composer.js';
 import { renderThread } from './message.js';
 import { updateHeader } from './model-picker.js';
 import { refreshConvs } from './sidebar.js';
+import { createAnchor } from '../lib/native-anchor.js';
 import { ColonBrowser } from '../../../../packages/ui/js/browser/index.js';
 import { Colon } from '../../../../packages/ui/js/colon.js';
 import { ColonURL } from '../../../../packages/ui/js/url.js';
@@ -45,7 +46,7 @@ function browserIndicator() {
 // Browse, used on the web and as its fallback. An older app without the panel opened a native tab instead.
 function openBrowser(url, opts) {
   if (!(opts && opts.panel)) {
-    if (C.native.hasPanel()) { C.native.browser('open', { url: url || '' }).then(syncNative, nativeFailed);
+    if (C.native.hasPanel()) { nativeBrowser('open', { url: url || '' }).then(syncNative, nativeFailed);
       return null; }
     if (C.native.openTab(url || '')) return null;
   }
@@ -123,22 +124,75 @@ function syncNative(st) {
   var btn = $('[data-a=browser]'); if (!btn) return; btn.setAttribute('aria-pressed', !!st.open);
   var dot = btn.querySelector('.dot'); if (dot) dot.hidden = !(st.open && (st.loading || st.control !== 'manual'));
   S.el.setAttribute('data-native-browser', st.open ? st.layout + (st.collapsed ? '-collapsed' : '') : 'none');
+  renderNativeInline(st);
 }
 function nativeFailed() { C.toast('The browser panel didn’t open. Try again.', 'bad'); }
 // The Browser button: opens or closes the native panel in the app, the web panel elsewhere.
 function toggleBrowser() {
   if (C.native.hasPanel()) { var open = S.browser.nativeState && S.browser.nativeState.open;
-    C.native.browser(open ? 'close' : 'open').then(syncNative, nativeFailed); return; }
+    nativeBrowser(open ? 'close' : 'open').then(syncNative, nativeFailed); return; }
   if (S.browser.layout === 'none') openBrowser(); else setLayout('none');
 }
 // Follows the panel while the chat is mounted; returns the function that stops following.
 function startNativeBrowser() {
   if (!C.native.hasPanel()) return function () {};
-  C.native.browser('state').then(syncNative, function () {});
-  return C.native.on('browser', syncNative);
+  nativeBrowser('state').then(syncNative, function () {});
+  var off = C.native.on('browser', syncNative);
+  return function () { off(); stopAnchor(); var h = $('.cw-native-host'); if (h) h.innerHTML = ''; };
+}
+/* ---------- Native panel inside the thread (v0.9.1, layout "inline") ---------- */
+// Since Colon AI 0.9.1 (feature "browserInline") the phone's panel can sit in the thread where the web card sits:
+// this page draws the card's header and an empty body box, and the app lays its real WebView over that box
+// (lib/native-anchor.js reports where it is). Every call says this page can draw the card ({ inline: true }), so
+// the app uses "inline" only with a page that can; older pages and older apps keep the panel above the chat.
+function inlineOk() { return C.native.can('browserInline'); }
+function nativeBrowser(action, o) {
+  return C.native.browser(action, inlineOk() ? Object.assign({ inline: true }, o || {}) : o);
+}
+function stopAnchor() { if (S.browser.anchor) { S.browser.anchor.stop(); S.browser.anchor = null; } }
+function inlineHtml() {
+  return '<div class="cw-embed cw-native-card" role="region" aria-label="Colon Browser (in the chat)">'
+    + '<div class="cw-embed-head"><span class="status-dot" data-ndot></span><b>Colon Browser</b>'
+    + '<span class="tiny muted cw-ellipsis" data-nurl></span>'
+    + '<button class="icon-btn sm" data-a="native-collapse" aria-label="Collapse browser" aria-expanded="true" '
+    + 'data-tip="Collapse">' + icon('chevDown') + '</button>'
+    + '<button class="icon-btn sm" data-a="native-full" aria-label="Expand to full screen" data-tip="Full screen">'
+    + icon('expand') + '</button>'
+    + '<button class="icon-btn sm" data-a="native-close" aria-label="Close browser" data-tip="Close">' + icon('x')
+    + '</button></div><div class="cw-embed-body cw-native-body"><span class="tiny muted">Loading the page…</span>'
+    + '</div></div>';
+}
+function renderNativeInline(st) {
+  var host = $('.cw-native-host'); if (!host) return;
+  if (!(st.open && st.layout === 'inline' && inlineOk())) { stopAnchor(); host.innerHTML = ''; return; }
+  var card = host.querySelector('.cw-native-card'), fresh = !card;
+  if (fresh) { host.innerHTML = inlineHtml(); card = host.querySelector('.cw-native-card'); }
+  card.classList.toggle('collapsed', !!st.collapsed);
+  var saga = st.control && st.control !== 'manual';
+  card.querySelector('[data-ndot]').className = 'status-dot' + (saga || st.loading ? ' live' : '')
+    + (st.paused ? ' warn' : '');
+  card.querySelector('[data-nurl]').textContent = (saga ? 'Saga · ' : '') + (st.url ? ColonURL.displayUrl(st.url)
+    : 'New tab');
+  var cb = card.querySelector('[data-a=native-collapse]');
+  cb.setAttribute('aria-expanded', !st.collapsed);
+  cb.setAttribute('aria-label', st.collapsed ? 'Expand browser' : 'Collapse browser');
+  if (!S.browser.anchor) {
+    S.browser.anchor = createAnchor({ el: card.querySelector('.cw-native-body'), scroller: $('#cw-scroll'),
+      watch: [$('#cw-page')], collapsed: function () { return !!(S.browser.nativeState
+        && S.browser.nativeState.collapsed); },
+      send: function (p) { C.native.browser('anchor', p).catch(function () {}); } });
+  } else S.browser.anchor.update();
+  if (fresh) setTimeout(function () { card.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); }, 50);
+}
+// The card's header buttons: collapse / expand, full screen (the app's own header there), close.
+function nativeInlineAction(act) {
+  var st = S.browser.nativeState || {};
+  var call = act === 'native-collapse' ? nativeBrowser('collapse', { collapsed: !st.collapsed })
+    : act === 'native-full' ? nativeBrowser('layout', { layout: 'full' }) : nativeBrowser('close');
+  call.then(syncNative, nativeFailed);
 }
 function applyTextSize() { document.documentElement.setAttribute('data-text', (S.settings && S.settings.textSize)
   || 'md'); }
 
-export { addBrowseNote, applySplitWidth, applyTextSize, nativeFailed, openBrowser, renderEmbed, setLayout,
-  setMobileTab, startNativeBrowser, syncNative, toggleBrowser };
+export { addBrowseNote, applySplitWidth, applyTextSize, nativeBrowser, nativeFailed, nativeInlineAction, openBrowser,
+  renderEmbed, setLayout, setMobileTab, startNativeBrowser, syncNative, toggleBrowser };
