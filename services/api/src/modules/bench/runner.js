@@ -70,11 +70,12 @@ const realSleep = (ms) => new Promise(r => setTimeout(r, ms));
 /**
  * runItem(candidate, item, opts) -> result row
  * opts: { fetch, providers (overrides), limiter ({ acquire }), firstTokenTimeoutMs, idleTimeoutMs, maxMs, maxTokens,
- *   temperature, retries, backoffMs, rateRetries, rateBackoffMs, jitter, sleep }. A candidate's own "opts" win.
+ *   temperature, retries, backoffMs, rateRetries, rateBackoffMs, jitter, sleep, force }. A candidate's own "opts"
+ *   win over the run defaults; "force" (options given explicitly on the command line) wins over both.
  * Error rows carry error (one-line reason), error_code, error_status, error_phase and attempt_log.
  */
 async function runItem(c, item, opts = {}) {
-  const o = { ...opts, ...(c.opts || {}) };
+  const o = { ...opts, ...(c.opts || {}), ...(opts.force || {}) };   // explicit CLI flags win over the model's own
   const sleep = o.sleep || realSleep;
   const provider = providerConfig(c.provider, o.providers);
   const messages = [{ role: 'system', content: systemPrompt({ mode: item.mode, language: item.language }) },

@@ -12,8 +12,9 @@
 //   npm run bench -- --gate nvidia:z-ai/glm-5.3-flash   exit 1 unless a fresh benchmark of that model exists
 // Options: --concurrency 1 (per model, max 4; --concurrency-nvidia 2 sets it per provider), --retry-errors [code],
 // --rpm-nvidia 30 / --inflight-nvidia 4 (provider-wide limits, all models together; 0 = none), --reset-unreliable,
-// --order interleave, --gap-ms 1500, --limit N (items per set), --max-tokens 2048, --first-token-ms 60000 (a model's
-// own options in src/modules/bench/candidates.js win). BENCH_SANDBOX=1 drops the client's own key headers
+// --order interleave, --gap-ms 1500, --limit N (items per set), --max-tokens 2048, --first-token-ms 60000 (defaults;
+// a model's own options in src/modules/bench/candidates.js win over them unless the flag is given explicitly).
+// BENCH_SANDBOX=1 drops the client's own key headers
 // (sandbox key injection only). Ctrl-C / SIGTERM marks running models "stopped"; --resume picks them up.
 const fs = require('fs');
 const path = require('path');
@@ -42,8 +43,12 @@ function args(argv) {
 const readJsonl = ckpt.readJsonl;
 const now = () => new Date().toISOString();
 
+// Flags a resumed run takes over from the run it continues (meta.json "cli"), so the same items are asked with the
+// same settings; a flag given again on --resume replaces the saved one.
+const KEEP = /^(sets|limit|order|gap-ms|max-tokens|first-token-ms|concurrency(-.+)?|rpm-.+|inflight-.+)$/;
+
 async function main() {
-  const o = args(process.argv.slice(2));
+  let o = args(process.argv.slice(2));
   if (o.gate) return runGate(o);
   if (o.probe) return runProbe(o);
   const resume = o.resume === true ? ckpt.latestRun(RESULTS) : o.resume ? String(o.resume) : null;
@@ -56,6 +61,8 @@ async function main() {
   const metaFile = path.join(dir, 'meta.json');
   const meta = fs.existsSync(metaFile) ? JSON.parse(fs.readFileSync(metaFile, 'utf8')) : { run,
     suite: runner.SUITE_VERSION, started: now(), models: [], settings: {} };
+  if (resume && meta.cli) o = { ...meta.cli, ...o };
+  if (!o.report && !o.judge && !o.save) meta.cli = Object.fromEntries(Object.entries(o).filter(([k]) => KEEP.test(k)));
 
   const sets = runner.loadSets(runner.SETS_DIR, o.sets && o.sets !== true ? String(o.sets).split(',') : null);
   const limit = Number(o.limit) || 0;
@@ -76,6 +83,9 @@ async function main() {
     maxTokens: Number(o['max-tokens']) || 2048, firstTokenTimeoutMs: Number(o['first-token-ms']) || 60000,
     temperature: process.env.BENCH_TEMPERATURE !== undefined ? Number(process.env.BENCH_TEMPERATURE) : undefined,
   };
+  // Flags given explicitly override every model's own options (src/modules/bench/candidates.js) too.
+  opts.force = Object.fromEntries([['max-tokens', 'maxTokens'], ['first-token-ms', 'firstTokenTimeoutMs']]
+    .filter(([f]) => Number(o[f])).map(([f, k]) => [k, Number(o[f])]));
   const limits = Object.fromEntries([...new Set(candidates.map(c => c.provider))].map(p => [p, {
     ...(o[`rpm-${p}`] !== undefined || process.env[`BENCH_RPM_${p.toUpperCase()}`] ? { rpm: Number(o[`rpm-${p}`]
       ?? process.env[`BENCH_RPM_${p.toUpperCase()}`]) } : {}),
@@ -195,8 +205,8 @@ async function runProbe(o) {
   const cs = o.models && o.models !== true ? String(o.models).split(',').map(runner.parseCandidate) : runner.CANDIDATES;
   const fetch = process.env.BENCH_SANDBOX === '1' ? runner.sandboxFetch() : undefined;
   const providerConfig = (id) => runner.providerConfig(id);
-  const res = await Promise.all(cs.map(c => probe.probe(c, { fetch, providerConfig,
-    firstTokenTimeoutMs: Number(o['first-token-ms']) || undefined })));
+  const force = Number(o['first-token-ms']) ? { firstTokenTimeoutMs: Number(o['first-token-ms']) } : {};
+  const res = await Promise.all(cs.map(c => probe.probe(c, { fetch, providerConfig, force })));
   for (const r of res) console.log(probe.line(r));
   process.exitCode = res.every(r => r.ok) ? 0 : 1;
 }

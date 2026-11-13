@@ -45,7 +45,7 @@ function bodyOf(c) {
  * Rows carry it so a resumed run never mixes answers produced with different settings.
  */
 function cfgOf(c, opts = {}) {
-  const o = { ...opts, ...(c.opts || {}) };
+  const o = { ...opts, ...(c.opts || {}), ...(opts.force || {}) };
   const key = JSON.stringify({ p: c.provider, m: c.model, b: bodyOf(c), t: o.maxTokens || 2048,
     temp: o.temperature === undefined ? null : o.temperature });
   return crypto.createHash('sha256').update(key).digest('hex').slice(0, 10);

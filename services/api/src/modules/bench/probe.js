@@ -11,7 +11,7 @@ async function probe(c, o) {
   let headersMs = null, reasonMs = null, firstMs = null;
   const base = o.fetch || globalThis.fetch;
   const fetch = async (url, init) => { const r = await base(url, init); headersMs = Date.now() - t0; return r; };
-  const opts = { ...o, ...(c.opts || {}) };
+  const opts = { ...o, ...(c.opts || {}), ...(o.force || {}) };
   try {
     const r = await streamChat({
       provider: o.providerConfig(c.provider), model: c.model, body: bodyOf(c), fetch,

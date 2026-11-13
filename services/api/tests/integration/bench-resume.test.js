@@ -58,7 +58,7 @@ test('bench CLI: SIGTERM leaves a stopped checkpoint, --resume finishes the run'
     const answered = fs.readFileSync(file, 'utf8').split('\n').filter(Boolean).length;
     assert.ok(answered >= 2 && answered < 6);
     const before = asked.length;
-    const second = await bench(['--resume', ...args], env);
+    const second = await bench(['--resume'], env);   // sets, limit, gap taken from the stopped run
     assert.equal(second.code, 0, second.out);
     assert.match(second.out, new RegExp(`${6 - answered} items to run \\(${answered} kept\\)`));
     assert.equal(asked.length - before, 6 - answered, 'answered items are not asked again');

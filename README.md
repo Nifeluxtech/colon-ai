@@ -42,7 +42,7 @@ colon-ai/
 └── CHANGELOG.md
 ```
 
-## What's live (v0.5.5)
+## What's live (v0.5.6)
 - **Colon AI**: chat with Colon Saga **without an account** (guest chats aren't saved), or log in to sync history, Saved, settings and files across devices. Streaming replies with stop, regenerate, edit and copy; Markdown, code, tables and maths; General / Study / Developer / Research modes; uploads (images, PDF, documents, text) with text extraction; feedback on every answer; share links; voice input; and Colon Browser inside the chat (embedded or split screen).
 - **Colon Saga backend**: model router over free hosted models (Gemma 4 26B on Google AI Studio first, then MiniMax M3.1 Flash, Gemma 4 31B, Qwen, DeepSeek and GLM across NVIDIA, Groq and OpenRouter; N-ATLaS optional for African languages), chosen by benchmark score, with hedged racing and automatic fallback, Naijá / Yorùbá / Hausa / Igbo routing, the African layer in every prompt, and per-user daily limits. Add provider keys in cPanel: [docs/deployment.md](docs/deployment.md#phase-3-v040-ai-providers-limits-and-uploads).
 - **Research mode**: web search with cited sources ([1], [2] chips and a Sources list): [docs/phases/phase-5-research.md](docs/phases/phase-5-research.md).
