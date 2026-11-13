@@ -25,6 +25,10 @@ var MODES = {
 function siteLetter(u) { var parts = U.hostOf(u).split('.'); var name = parts.length > 2 ? parts[parts.length
   - 2] : parts[0]; return ((name || '•')[0] || '•').toUpperCase(); }
 function saveBlob(blob, name) {
+  // Android app (v0.7.1): WebView can't follow <a download> to a blob, so the app saves it into Downloads.
+  var N = window.Colon && window.Colon.native;
+  if (N && N.hasBridge()) { N.saveBlob(blob, name).catch(function () { window.Colon.toast('Couldn’t save the file.',
+    'bad'); }); return; }
   var url = URL.createObjectURL(blob), a = document.createElement('a'); a.href = url; a.download = name;
     document.body.appendChild(a); a.click(); a.remove();
   setTimeout(function () { URL.revokeObjectURL(url); }, 4000);
