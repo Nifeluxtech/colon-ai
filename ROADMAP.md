@@ -205,7 +205,9 @@ search adapter and a search cache; rerun DeepSeek/GLM when NVIDIA's free tier an
 with embedded (collapsible), split (stacked with a draggable divider on phones, side by side on wide screens) and
 full-screen layouts that switch without reloading, plus AI / Manual / Shared control with Take control, Return to
 AI, Pause and Stop. Since v0.9.0 the panel opens automatically when Saga browses (AI Browse in the app, or any Saga
-control request while the panel is closed). Still to do: one shared session between Colon Browser and Colon AI (the
+control request while the panel is closed). Since v0.9.1 phones show the panel inside the conversation by default
+(layout "inline": the chat draws the Colon Browser card and the native WebView is laid over it, scrolling with the
+thread). Still to do: one shared session between Colon Browser and Colon AI (the
 backend session manager exists since v0.8.1; the apps' "Sync my tabs" setting and Saga's use of it are still to
 do).
 

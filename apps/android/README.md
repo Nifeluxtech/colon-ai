@@ -17,7 +17,7 @@ Both: Android 7.0 and newer (minSdk 24), target Android 16 (API 36), version fro
 versionCode = major × 10000 + minor × 100 + patch (0.8.0 → 800), same release signing key, a few MB each (release,
 shrunk with R8).
 
-## What is in the apps (v0.9.0)
+## What is in the apps (v0.9.1)
 
 **Colon AI**
 - **Chat shell** (`MainActivity`, `ShellWeb`, `NativeBridge`): loads `https://chat.apparatus.name.ng` with the
@@ -26,9 +26,11 @@ shrunk with R8).
   recovery when a low-memory phone kills the renderer.
 - **In-chat browser panel** (`ChatBrowserPanel`, `PanelLayout`): web pages from the chat (links, the Browser button,
   `ColonNative.browser('open', …)`) open in a real WebView **beside the chat**, not in a separate screen.
-  Layouts: **embedded** (above the chat, collapsible to its header), **split** (draggable divider; stacked on phones,
-  side by side on wide landscape screens) and **full screen**; switching only resizes views, so nothing reloads.
-  Header: Saga mode chip, address bar, back, reload/stop, expand, menu (forward, layouts, tabs, desktop site, share,
+  Layouts: **inline** (v0.9.1, phones' default: inside the conversation, over the Colon Browser card the chat
+  draws, scrolling with the thread and clipped between the chat header and the composer; `InlineGeometry`,
+  `InlineLayer`; the card's header is the web's), **embedded** (above the chat, collapsible to its header),
+  **split** (draggable divider; stacked on phones, side by side on wide landscape screens) and **full screen**;
+  switching only moves or resizes views, so nothing reloads. Header (all layouts but inline): Saga mode chip, address bar, back, reload/stop, expand, menu (forward, layouts, tabs, desktop site, share,
   downloads, Saga status, clear data, close all tabs) and close. **Open in Colon Browser** hands the page to the
   browser app, or offers its download when it isn't installed. Saga's AI / Manual / Shared control, consent prompt,
   shield and Take control / Return to AI / Pause / Stop work in the panel exactly as in Colon Browser.
