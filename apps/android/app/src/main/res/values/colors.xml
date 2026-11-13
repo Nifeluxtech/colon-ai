@@ -3,6 +3,8 @@
 <resources>
     <color name="colon_primary">#4169E1</color>
     <color name="colon_dark">#080F24</color>
+    <!-- Adaptive launcher icon background (Colon Browser overrides it in src/colonbrowser). -->
+    <color name="launcher_bg">#080F24</color>
     <color name="colon_cyan">#38BDF8</color>
     <color name="colon_cyan_dark">#0E7490</color>
 
@@ -15,4 +17,7 @@
     <color name="colon_chip">#E2E8F0</color>
     <color name="colon_banner">#EAF0FF</color>
     <color name="colon_shield">#33080F24</color>
+    <!-- Private tabs: a violet top bar so a private tab is never mistaken for a normal one. -->
+    <color name="colon_private">#EDE5FF</color>
+    <color name="colon_private_field">#DCCEFF</color>
 </resources>

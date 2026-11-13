@@ -1,8 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">Colon AI</string>
-    <string name="browser_name">Colon Browser</string>
-    <string name="share_label">Ask Colon AI</string>
     <string name="logo_description">Colon AI</string>
 
     <!-- Shell -->
@@ -47,6 +45,7 @@
     <string name="stop_loading">Stop loading</string>
     <string name="tabs_open">Tabs open: %1$d</string>
     <string name="tabs_title">Tabs (%1$d)</string>
+    <string name="tabs_title_short">Tabs</string>
     <string name="no_tabs">No tabs open.</string>
     <string name="new_tab">New tab</string>
     <string name="tab_crashed">This tab stopped working and was reloaded.</string>
@@ -62,13 +61,41 @@
     <string name="downloads">Downloads</string>
     <string name="share_page">Share page</string>
     <string name="open_in_app">Open in another app</string>
-    <string name="back_to_chat">Back to Colon AI</string>
+    <string name="back_to_chat">Open Colon AI</string>
     <string name="remove_item">Remove %1$s</string>
     <string name="ssl_blocked">Blocked: this site\'s security certificate isn\'t valid.</string>
     <string name="clear_data">Clear browsing data</string>
-    <string name="clear_history">History</string>
-    <string name="clear_sites">Cookies and site data (you stay signed in to Colon AI)</string>
+    <string name="clear_sites">Cookies (sites sign you out; you stay signed in to Colon AI)</string>
     <string name="clear_cache">Cached images and files</string>
+    <string name="clear_intro">Choose what to delete from this phone. Your Colon AI sign-in is kept.</string>
+    <string name="clear_history_long">Browsing history</string>
+    <string name="clear_storage">Site storage (data sites save on this phone, and HTTP sign-ins)</string>
+    <string name="clear_downloads">Downloads list (the downloaded files stay in Downloads)</string>
+    <string name="no_downloads">No downloads yet.</string>
+    <string name="all_downloads">All downloads</string>
+    <string name="download_not_ready">That download hasn\'t finished, or its file was removed.</string>
+
+    <!-- Private tabs, desktop site, sign-in, handoff -->
+    <string name="new_private_tab">New private tab</string>
+    <string name="private_tab">Private tab</string>
+    <string name="private_label">Private</string>
+    <string name="address_hint_private">Private: search or type a web address</string>
+    <string name="close_private_tabs">Close private tabs</string>
+    <string name="private_limited">This phone\'s Android System WebView is too old to keep a private tab\'s cookies apart from your other tabs. Its history still won\'t be saved and nothing is cached. Update Android System WebView from the Play Store for full private tabs.</string>
+    <string name="private_open_anyway">Open anyway</string>
+    <string name="desktop_site">Desktop site</string>
+    <string name="desktop_on">Desktop site on</string>
+    <string name="desktop_off">Mobile site on</string>
+    <string name="signin_custom_tab">Sign in there, then come back here.</string>
+    <string name="signin_no_browser">This sign-in needs Chrome or another browser, and none is installed.</string>
+    <string name="ask_colon_ai">Ask Colon AI about this page</string>
+    <string name="ask_colon_ai_text">Tell me about this page: %1$s</string>
+    <string name="open_in_browser_app">Open in Colon Browser</string>
+    <string name="get_app">Get the app</string>
+    <string name="get_browser_title">Get Colon Browser</string>
+    <string name="get_browser_text">Colon Browser is Colon\'s full browser app, with tabs, private tabs, bookmarks and downloads. It isn\'t installed yet. Download it from the latest release?</string>
+    <string name="get_colon_ai_title">Get Colon AI</string>
+    <string name="get_colon_ai_text">Colon AI isn\'t installed yet. Download it from the latest release?</string>
     <string name="clear">Clear</string>
     <string name="cleared">Cleared</string>
     <string name="cancel">Cancel</string>
@@ -81,6 +108,17 @@
     <string name="perm_mic">microphone</string>
     <string name="perm_cam">camera</string>
     <string name="perm_cam_mic">camera and microphone</string>
+
+    <!-- In-chat browser panel (Colon AI) -->
+    <string name="panel_divider">Drag to resize the browser and the chat</string>
+    <string name="panel_full">Full screen</string>
+    <string name="panel_exit_full">Exit full screen</string>
+    <string name="panel_close">Close browser</string>
+    <string name="panel_embedded">Embedded in chat</string>
+    <string name="panel_split">Split screen</string>
+    <string name="panel_collapse">Collapse</string>
+    <string name="panel_expand">Expand</string>
+    <string name="panel_close_tabs">Close all tabs</string>
 
     <!-- Saga control -->
     <string name="mode_manual">Manual</string>
