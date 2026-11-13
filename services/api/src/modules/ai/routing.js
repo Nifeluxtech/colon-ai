@@ -60,7 +60,11 @@ function targets() {
       { provider: 'nvidia', model: env('NVIDIA_MINIMAX_MODEL', 'minimaxai/minimax-m3.1-flash'), vision: false },
     ],
     glm: [
-      { provider: 'nvidia', model: env('NVIDIA_GLM_MODEL', 'z-ai/glm-5.3-flash'), vision: false },
+      // GLM-5.3 Flash thinks at reasoning_effort "max" unless told otherwise (NVIDIA model card), which kept every
+      // benchmark item of 2026-11-12 from starting an answer within 60 s. "low" keeps it usable as a chat fallback.
+      { provider: 'nvidia', model: env('NVIDIA_GLM_MODEL', 'z-ai/glm-5.3-flash'), vision: false,
+        body: env('NVIDIA_GLM_REASONING', 'low') === 'default' ? null : { reasoning_effort: env('NVIDIA_GLM_REASONING',
+          'low') } },
     ],
     natlas: [
       { provider: 'natlas', model: env('NATLAS_MODEL', 'n-atlas'), vision: false },

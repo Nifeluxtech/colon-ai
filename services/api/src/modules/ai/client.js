@@ -6,12 +6,13 @@ const { createParser, thinkFilter } = require('./sse');
 const { geminiBody, geminiChunk, geminiEmptyReason } = require('./providers/google');
 
 class ProviderError extends Error {
-  constructor(message, { status = 0, code = 'provider_error', partial = false } = {}) {
+  constructor(message, { status = 0, code = 'provider_error', partial = false, retryAfterMs = null } = {}) {
     super(message);
     this.name = 'ProviderError';
     this.status = status;
     this.code = code;
     this.partial = partial;   // true when some text already reached the user (no fallback then)
+    this.retryAfterMs = retryAfterMs;   // from a Retry-After header (429/503), when the host sent one
   }
 }
 
@@ -23,6 +24,14 @@ function codeForStatus(status) {
   if (status === 408 || status === 504) return 'timeout';
   if (status >= 500) return 'upstream_error';
   return `http_${status}`;
+}
+
+// Retry-After is either seconds or an HTTP date; null when absent or unreadable.
+function retryAfter(h, now = Date.now()) {
+  if (!h) return null;
+  if (/^\d+(\.\d+)?$/.test(String(h).trim())) return Math.round(Number(h) * 1000);
+  const t = Date.parse(h);
+  return Number.isNaN(t) ? null : Math.max(0, t - now);
 }
 
 function errorMessage(text) {
@@ -56,6 +65,7 @@ async function streamChat(o) {
   arm(firstTokenMs, 'first_token');
 
   let text = '', finishReason = null, usage = null, live = false;
+  const trace = { headers: false, reasoning: 0 };   // for timeout errors: did the host answer at all, did it think
   const filter = thinkFilter();
   const emit = (piece) => {
     if (!piece) return;
@@ -88,10 +98,11 @@ async function streamChat(o) {
       body: JSON.stringify(body),
       signal: ctl.signal,
     });
+    trace.headers = true;
     if (!res.ok) {
       const t = await res.text().catch(() => '');
       throw new ProviderError(errorMessage(t) || `HTTP ${res.status}`, { status: res.status, code: codeForStatus(
-        res.status) });
+        res.status), retryAfterMs: retryAfter(res.headers && res.headers.get && res.headers.get('retry-after')) });
     }
     const type = String(res.headers.get('content-type') || '');
     if (type.includes('application/json')) {      // host ignored "stream": answer arrives in one piece
@@ -137,6 +148,7 @@ async function streamChat(o) {
       if (!c) return;
       const d = c.delta || c.message || {};
       if (d.content || d.reasoning || d.reasoning_content) arm(idleMs, 'idle');  // reasoning counts as alive
+      if (!d.content && (d.reasoning || d.reasoning_content)) trace.reasoning++;
       if (typeof d.content === 'string') emit(filter.push(d.content));
       if (c.finish_reason) finishReason = c.finish_reason;
     });
@@ -167,8 +179,13 @@ async function streamChat(o) {
       const a = new Error('aborted'); a.name = 'AbortError'; a.code = 'aborted'; throw a;
     }
     if (timeoutReason) {
-      throw new ProviderError(timeoutReason === 'first_token' ? 'The model took too long to start answering.' :
+      const err = new ProviderError(timeoutReason === 'first_token' ? 'The model took too long to start answering.' :
         'The model stopped responding.', { code: 'timeout', partial: live });
+      // Where it stalled: 'connect' = no response headers (queued/overloaded host), 'first_token' = stream open but
+      // no answer text, 'idle' = went quiet mid-answer, 'max' = hit the overall cap. Used by the benchmark report.
+      err.phase = timeoutReason === 'first_token' && !trace.headers ? 'connect' : timeoutReason;
+      err.reasoningChunks = trace.reasoning;
+      throw err;
     }
     throw new ProviderError(`Network error: ${e.message}`, { code: 'network', partial: live });
   } finally {
@@ -177,4 +194,4 @@ async function streamChat(o) {
   }
 }
 
-module.exports = { streamChat, ProviderError, codeForStatus, _gemini: { geminiBody, geminiChunk } };
+module.exports = { streamChat, ProviderError, codeForStatus, retryAfter, _gemini: { geminiBody, geminiChunk } };
