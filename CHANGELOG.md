@@ -1,5 +1,32 @@
 # Changelog
 
+## [0.5.7] — 2026-11-13 · Study mode tools
+### Added
+- **Quizzes** in Study mode: Colon Saga settles the subject and level, asks one WAEC/JAMB-style A–D question at a
+  time (5 by default), waits for the answer, marks it with a short explanation and a running score, and ends with the
+  score, weak topics and what to revise.
+- **Flashcards**: 10 by default, as a Markdown table (#, Front, Back), basic to harder, with an offer to quiz on them.
+- **Past-question practice**: never presents a made-up question as a real WAEC, NECO, JAMB or university past
+  question; generated ones are labelled "WAEC-style"/"JAMB-style". Pasted past questions are solved step by step,
+  with the option letter, marking-scheme-style working for theory, and one similar practice question.
+- **CBT practice test** (`#/cbt`, from Explore › Study, "CBT practice" in the menu and the Help FAQ): pick WAEC,
+  NECO, JAMB, University or General, a subject (quick chips) and an optional topic, then answer exactly 10 objective
+  questions (A–D) in 5:00 for the whole test, laid out like the JAMB CBT: countdown (warning at 1:00, red at 0:30,
+  screen-reader announcements), question navigator with flags, keyboard shortcuts (A–D, N/P or arrows, F) and
+  Submit with an unanswered count. The test submits itself at 0:00 ("Time up — submitted"); the timer counts to an
+  absolute end time kept with the answers in `sessionStorage`, so a refresh resumes with the right time left. The
+  results show the score, time used and every question with your answer, the right one and why, plus Retake (new
+  questions), New test and "Discuss my mistakes" (a Study chat prefilled with the missed questions). Preview mode
+  (no connection) shows a friendly "needs a connection" notice.
+- **`POST /study/cbt`** (new `modules/study`, route `http/routes/study.js`): open to guests (when guest chat is on)
+  and signed-in users, 5 tests per 10 minutes per IP, counted as one Study-mode reply against the daily limits (given
+  back when no test could be made), subject and topic run through the safety input check. The model is asked for
+  strict JSON; the reply is repaired (fences, LaTeX backslashes, trailing commas, cut-off items) and every item
+  checked (4 distinct options, one answer A–D); numeric answer keys that contradict the explanation's own working are
+  corrected, and options are shuffled so the right letter varies. Under 10 valid questions → one retry (questions
+  pooled), then a 502 with a friendly message. Unit tests for the parser, prompt, input and handler.
+- Help page mentions the Study tools. Unit test for the Study prompt.
+
 ## [0.5.6] — 2026-11-13 · Benchmark rerun fixes
 Gets the four models that failed or stopped in the first benchmark (`services/api/bench/results/2026-11-12.md`)
 ready for a rerun: DeepSeek V4.1 Flash and GLM-5.3 Flash (100 % first-token timeouts on NVIDIA), Nemotron 3.5

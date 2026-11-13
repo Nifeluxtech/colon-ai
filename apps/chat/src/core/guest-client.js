@@ -183,7 +183,9 @@ function GuestChatData(opts) {
     getSettings: function () { return Promise.resolve(settings); },
     saveSettings: function (p) { if (p.voice) p.voice = Object.assign({}, settings.voice, p.voice);
       settings = Object.assign({}, settings, p); return Promise.resolve(settings); },
-    stats: function () { return Promise.resolve({ where: 'This tab only (not saved)' }); }
+    stats: function () { return Promise.resolve({ where: 'This tab only (not saved)' }); },
+    // CBT practice test (v0.5.7): POST /study/cbt -> { questions[10], durationSec, exam, examLabel, subject, topic }
+    cbt: function (o) { return api('/study/cbt', { method: 'POST', body: o }); }
   };
   return self;
 }

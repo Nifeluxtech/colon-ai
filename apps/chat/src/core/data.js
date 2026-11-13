@@ -39,6 +39,8 @@
      POST   /chat/guest { messages:[{role,content,attachments}], mode, model, language } -> text/event-stream
             (nothing saved)
      POST   /chat/guest/extract (multipart: file) -> { attachment:{ id,name,kind,text,... } } (read once, not stored)
+     POST   /study/cbt { subject, topic, exam, language } -> { questions:[{ q,options[4],answer,explanation }],
+            durationSec, count, exam, examLabel, subject, topic } (CBT practice test, v0.5.7; Preview: 'offline')
    Account profile (name, reply language) uses the EXISTING PATCH /account/profile. */
 
 import { RemoteChatData } from './api-client.js';

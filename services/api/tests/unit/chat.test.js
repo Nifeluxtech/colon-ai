@@ -114,3 +114,12 @@ test('context: history within budget, file text inlined, images only on the late
   assert.equal(cut.at(-1).content, 'latest');
   assert.equal(cut[0].role, 'user');
 });
+
+test('study prompt: quizzes one question at a time, flashcards table, no invented past questions', () => {
+  const p = prompts.systemPrompt({ mode: 'study' });
+  assert.match(p, /ONE question at a time/);
+  assert.match(p, /Never show the answer in the same message as the question/);
+  assert.match(p, /columns #, Front and Back/);
+  assert.match(p, /never claim a question is a real WAEC, NECO, JAMB/);
+  assert.doesNotMatch(prompts.systemPrompt({ mode: 'general' }), /Flashcards:/);
+});

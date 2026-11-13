@@ -99,7 +99,8 @@ function RemoteChatData() {
       settings = Object.assign({}, DEFAULT_SETTINGS, d.settings); return settings; }); },
     saveSettings: function (p) { return api('/chat/settings', { method: 'PATCH', body: p }).then(function (d) {
       settings = Object.assign({}, DEFAULT_SETTINGS, d.settings); return settings; }); },
-    stats: function () { return api('/chat/stats').catch(function () { return { where: 'Your Colon account' }; }); }
+    stats: function () { return api('/chat/stats').catch(function () { return { where: 'Your Colon account' }; }); },
+    cbt: function (o) { return api('/study/cbt', { method: 'POST', body: o }); }  // CBT practice test (v0.5.7)
   };
   return self;
 }
