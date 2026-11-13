@@ -250,6 +250,8 @@ class BrowserActivity : AppCompatActivity(), TabManager.Host, BrowserHost {
 
     override fun createTabWebView(tab: BrowserTab): WebView = BrowserWeb.create(this, tab)
 
+    override fun userInputBlocked(): Boolean = ::saga.isInitialized && saga.blocksUser()
+
     override fun destroyTabWebView(webView: WebView) = ShellWeb.destroy(webView)
 
     override fun onActiveTabChanged(tab: BrowserTab?) {

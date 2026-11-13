@@ -20,20 +20,32 @@ import org.json.JSONObject
  *      mouse events, focus, click()) acts on the element itself
  *   5. after a short wait, tools.js `outcome` compares the page with step 1's snapshot: navigated, page_changed,
  *      element_changed, focused or none, so Saga hears when a click did nothing (SagaTap.result).
+ *   6. 0.10.2: a tap that changed nothing at all is followed once by the script click (some pages only listen to
+ *      click(), or the tap missed), unless the step was one the user had to approve (never twice for a payment,
+ *      a purchase, a message or a form) — method "tap+script".
+ * Saga's MotionEvents go through TabWebView.asSaga, so they reach the page even while it ignores the user ("AI
+ * only"). scroll() (0.10.2) is a real finger swipe with the pointer, checked with act.js, falling back to scrolling
+ * the page or its scrolling container by script when the swipe moved nothing.
  * [done] gets (result, error, secretKind): error "secret_field" with the kind when a secret field was refused.
  */
 class SagaClicks(private val tools: SagaTools) {
     private val main = Handler(Looper.getMainLooper())
 
     fun click(wv: WebView, probe: JSONObject, pointer: SagaPointer?, loading: () -> Boolean, halted: () -> String?,
-              done: (JSONObject?, String?, String?) -> Unit) {
+              retry: Boolean, done: (JSONObject?, String?, String?) -> Unit) {
         val urlBefore = wv.url
         point(wv, probe, done) { first ->
             val plan = SagaTap.plan(first, wv.width, wv.height, wv.isAttachedToWindow)
             val before = first.optJSONObject("before")
             val covered = first.optString("covered")
             val settle: (String) -> Unit = { method ->
-                settle(wv, probe, before, method, covered, urlBefore, loading, done)
+                settle(wv, probe, before, method, covered, urlBefore, loading) { res ->
+                    // The tap changed nothing at all: once more as a script click (never for approved steps).
+                    if (!SagaTap.retryWithScript(res, method, retry) || halted() != null) done(res, null, null)
+                    else script(wv, probe, pointer, done) {
+                        settle(wv, probe, before, "tap+script", covered, urlBefore, loading) { done(it, null, null) }
+                    }
+                }
             }
             val act = act@{
                 // Saga may have lost control while the pointer moved (Take control, Pause, Stop): no tap then.
@@ -92,24 +104,81 @@ class SagaClicks(private val tools: SagaTools) {
     }
 
     private fun settle(wv: WebView, probe: JSONObject, before: JSONObject?, method: String, covered: String,
-                       urlBefore: String?, loading: () -> Boolean, done: (JSONObject?, String?, String?) -> Unit) {
+                       urlBefore: String?, loading: () -> Boolean, done: (JSONObject) -> Unit) {
         val args = JSONObject().put("id", probe.optString("id")).put("before", before ?: JSONObject.NULL)
         val look: (Long, Boolean) -> Unit = { delay, last ->
             main.postDelayed({
                 tools.exec(wv, "outcome", args) { o ->
                     val res = SagaTap.result(o?.takeIf { !it.has("error") }, method, covered, urlBefore, wv.url,
                         wv.title, loading())
-                    if (last || !SagaTap.lookAgain(res.optString("changed"))) done(res, null, null)
+                    if (last || !SagaTap.lookAgain(res.optString("changed"))) done(res)
                     else main.postDelayed({
                         tools.exec(wv, "outcome", args) { o2 ->
                             done(SagaTap.result(o2?.takeIf { !it.has("error") }, method, covered, urlBefore, wv.url,
-                                wv.title, loading()), null, null)
+                                wv.title, loading()))
                         }
                     }, SECOND_LOOK_MS)
                 }
             }, delay)
         }
         look(FIRST_LOOK_MS, false)
+    }
+
+    /**
+     * 0.10.2: Saga scrolls like a finger: the pointer goes to the page, swipes (SagaTap.swipe) and lets go; act.js
+     * `scrollinfo` before and after says whether the page (or its scrolling container) moved. top / bottom, a swipe
+     * that moved nothing, or no laid-out view: act.js scrolls by script. [done] gets ({ y, max, target, moved,
+     * method }, null) or (null, error).
+     */
+    fun scroll(wv: WebView, args: JSONObject, pointer: SagaPointer?, halted: () -> String?,
+               done: (JSONObject?, String?) -> Unit) {
+        val byScript = {
+            tools.exec(wv, "scroll", args) { r ->
+                pointer?.release()
+                when {
+                    r == null -> done(null, "page_error")
+                    r.has("error") -> done(null, r.optString("error").ifBlank { "page_error" })
+                    else -> done(r.put("method", "script"), null)
+                }
+            }
+        }
+        tools.exec(wv, "scrollinfo", args) { before ->
+            val plan = SagaTap.swipe(args.optString("direction", "down"), wv.width, wv.height, wv.isAttachedToWindow)
+            if (before == null || before.has("error") || plan == null) { byScript(); return@exec }
+            val go = go@{
+                halted()?.let { pointer?.release(); done(null, it); return@go }
+                swipe(wv, plan, pointer) {
+                    main.postDelayed({
+                        tools.exec(wv, "scrollinfo", args) { after ->
+                            if (SagaTap.scrolled(before, after)) {
+                                pointer?.release()
+                                done(after!!.put("moved", true).put("method", "swipe"), null)
+                            } else byScript()
+                        }
+                    }, SWIPE_SETTLE_MS)
+                }
+            }
+            if (pointer != null) pointer.moveTo(wv, plan.x, plan.fromY, go) else go()
+        }
+    }
+
+    /** A finger swipe: DOWN, [SagaTap.SWIPE_STEPS] MOVEs a frame apart, a short hold (so it doesn't fling far), UP.
+     *  The pointer rides along. */
+    private fun swipe(wv: WebView, plan: SagaTap.Swipe, pointer: SagaPointer?, after: () -> Unit) {
+        val down = SystemClock.uptimeMillis()
+        send(wv, down, down, MotionEvent.ACTION_DOWN, plan.x, plan.fromY)
+        for (i in 1..SagaTap.SWIPE_STEPS) {
+            main.postDelayed({
+                val y = plan.fromY + (plan.toY - plan.fromY) * i / SagaTap.SWIPE_STEPS
+                pointer?.jump(wv, plan.x, y)
+                send(wv, down, SystemClock.uptimeMillis(), MotionEvent.ACTION_MOVE, plan.x, y)
+            }, i * FRAME_MS)
+        }
+        main.postDelayed({
+            send(wv, down, SystemClock.uptimeMillis(), MotionEvent.ACTION_MOVE, plan.x, plan.toY)
+            send(wv, down, SystemClock.uptimeMillis(), MotionEvent.ACTION_UP, plan.x, plan.toY)
+            after()
+        }, SagaTap.SWIPE_STEPS * FRAME_MS + HOLD_MS)
     }
 
     /** A finger tap at ([x], [y]) in the WebView's px: DOWN now, UP [TAP_MS] later, like a real touch. */
@@ -122,17 +191,23 @@ class SagaClicks(private val tools: SagaTools) {
         }, TAP_MS)
     }
 
+    /** Saga's own touch: through TabWebView.asSaga, so a page locked against the user ("AI only") still gets it. */
     private fun send(view: View, downTime: Long, time: Long, action: Int, x: Float, y: Float) {
         val props = MotionEvent.PointerProperties().apply { id = 0; toolType = MotionEvent.TOOL_TYPE_FINGER }
         val coords = MotionEvent.PointerCoords().apply { this.x = x; this.y = y; pressure = 1f; size = 1f }
         val e = MotionEvent.obtain(downTime, time, action, 1, arrayOf(props), arrayOf(coords), 0, 0, 1f, 1f, 0, 0,
             InputDevice.SOURCE_TOUCHSCREEN, 0)
-        try { view.dispatchTouchEvent(e) } catch (_: Exception) { } finally { e.recycle() }
+        try {
+            if (view is TabWebView) view.asSaga { view.dispatchTouchEvent(e) } else view.dispatchTouchEvent(e)
+        } catch (_: Exception) { } finally { e.recycle() }
     }
 
     companion object {
         const val TAP_MS = 60L
         const val FIRST_LOOK_MS = 700L
         const val SECOND_LOOK_MS = 1200L
+        const val FRAME_MS = 16L
+        const val HOLD_MS = 120L
+        const val SWIPE_SETTLE_MS = 350L
     }
 }

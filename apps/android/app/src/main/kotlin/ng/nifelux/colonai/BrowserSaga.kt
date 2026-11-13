@@ -31,6 +31,8 @@ private typealias Reply = (ok: Boolean, result: JSONObject?, error: String?) -> 
  * tap Return to AI"), answers ack error "secret_field", and Return to AI resumes the task. The server sends the same
  * request as a `handoff` frame when its own check finds it first. Commands and control requests for another chat
  * than the one the panel shows are refused ("other_chat"); "AI only" / "AI + me" switch with [switchMode].
+ * 0.10.2: in "AI only" the page ignores the user while Saga has it (TabWebView, [blocksUser]; the shield shows Take
+ * control, paused too); in "AI + me" Saga's steps and requests show on the page as a notice (SagaNotice).
  */
 class BrowserSaga(private val a: BrowserHost, private val bridge: BridgeClient) :
     BridgeClient.Listener, BridgeClient.CommandHandler {
@@ -39,6 +41,10 @@ class BrowserSaga(private val a: BrowserHost, private val bridge: BridgeClient) 
     private val clicks = SagaClicks(tools)
     /** 0.10.1: Saga's pointer over the page (SagaPointer); null until bind(). */
     private var pointer: SagaPointer? = null
+    /** 0.10.2: Saga's notices on the page in "AI + me" (SagaNotice); null until bind(). */
+    private var notice: SagaNotice? = null
+    /** The lock last applied to the tabs (TabWebView.onGuardChanged runs only when it changes). */
+    private var lockedFor: Boolean? = null
     private var approvalDialog: AlertDialog? = null
     private val main = Handler(Looper.getMainLooper())
     private var status = BridgeClient.Status.OFF
@@ -65,10 +71,12 @@ class BrowserSaga(private val a: BrowserHost, private val bridge: BridgeClient) 
         btnStop = root.findViewById(R.id.btn_stop)
         shield = root.findViewById(R.id.ai_shield)
         // Added last to the content frame (WebViews go in at index 0), so it draws over the page and the shield.
+        val content = root.findViewById<FrameLayout>(R.id.content)
         pointer = SagaPointer(root.context).also {
-            root.findViewById<FrameLayout>(R.id.content).addView(it, FrameLayout.LayoutParams(
+            content.addView(it, FrameLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT))
         }
+        notice = SagaNotice(root.context).also { content.addView(it, it.placement()) }
         chip.setOnClickListener { showStatus() }
         btnPause.setOnClickListener { apply(if (control.paused) control.resume() else control.pause()) }
         btnControl.setOnClickListener {
@@ -133,6 +141,7 @@ class BrowserSaga(private val a: BrowserHost, private val bridge: BridgeClient) 
         reason ?: return
         if (!control.canRunCommands()) approvalDialog?.dismiss() // a pending approval is declined when Saga stops
         if (!control.canRunCommands() || control.handoff != null) pointer?.hide()
+        if (control.mode == ControlState.Mode.MANUAL && control.handoff == null) notice?.dismiss()
         bridge.reportControl(control.mode, control.paused, reason)
         render()
         reportState()
@@ -143,6 +152,20 @@ class BrowserSaga(private val a: BrowserHost, private val bridge: BridgeClient) 
 
     private fun otherChat(conversationId: String?): Boolean =
         conversationId != null && conversationId != bridge.conversationId
+
+    /** 0.10.2: the server's word to the user (the task finished, Saga needs them), shown on the page. */
+    override fun onNotice(notice: BridgeProtocol.Incoming.Notice) {
+        if (!otherChat(notice.conversationId)) notify(notice.text, notice.kind)
+    }
+
+    /** "AI + me": a line from Saga at the top of the page for a moment (NoticeRules). */
+    private fun notify(text: String?, kind: String) {
+        val line = NoticeRules.text(text) ?: return
+        if (NoticeRules.shows(control.mode, control.resumable, a.sharedMode())) notice?.show(line, kind)
+    }
+
+    /** 0.10.2: the user may not touch, scroll or type in the page now ("AI only" while Saga has it). */
+    fun blocksUser(): Boolean = InputGuard.blocksUser(control.mode)
 
     /** The server found a secret field first: the user takes over to type it. */
     override fun onHandoff(request: BridgeProtocol.Incoming.Handoff) {
@@ -161,6 +184,7 @@ class BrowserSaga(private val a: BrowserHost, private val bridge: BridgeClient) 
             else -> R.string.handoff_password
         })
         apply(control.handOff(kind, text))
+        notify(text, "ask")
     }
 
     /** "AI only" (AI) or "AI + me" (SHARED), from the chat, the inline card or the status dialog. */
@@ -218,7 +242,13 @@ class BrowserSaga(private val a: BrowserHost, private val bridge: BridgeClient) 
         btnPause.visibility = if (mode == ControlState.Mode.MANUAL) View.GONE else View.VISIBLE
         btnPause.setText(if (control.paused) R.string.resume else R.string.pause)
         btnControl.setText(if (mode == ControlState.Mode.MANUAL) R.string.return_to_ai else R.string.take_control)
-        shield.visibility = if (mode == ControlState.Mode.AI && !control.paused) View.VISIBLE else View.GONE
+        // "AI only": the page is Saga's, paused too (Take control on the shield gives it back to the user).
+        val locked = blocksUser()
+        shield.visibility = if (locked) View.VISIBLE else View.GONE
+        if (locked != lockedFor) {
+            lockedFor = locked
+            a.tabs.tabs.forEach { (it.webView as? TabWebView)?.onGuardChanged(locked) }
+        }
     }
 
     fun showStatus() {
@@ -282,6 +312,7 @@ class BrowserSaga(private val a: BrowserHost, private val bridge: BridgeClient) 
         if (!control.canRunCommands()) {
             reply(false, null, if (control.paused) "paused" else "manual_control"); return
         }
+        notify(command.say, "step")
         val args = command.args
         val tab = command.tabId?.let { a.tabs.find(it) } ?: a.tabs.active
         if (tab?.incognito == true && command.name != "new_tab" && command.name != "get_tabs") {
@@ -336,15 +367,16 @@ class BrowserSaga(private val a: BrowserHost, private val bridge: BridgeClient) 
                 reply(true, null, null)
             }
             "get_page_state" -> reply(true, pageState(), null)
-            "get_page_content", "get_links", "scroll" -> {
+            "get_page_content", "get_links" -> {
                 val wv = tab?.webView ?: run { reply(false, null, "no_tab"); return }
-                val js = when (command.name) {
-                    "get_page_content" -> "content"
-                    "get_links" -> "links"
-                    else -> "scroll"
-                }
-                if (command.name == "scroll") pointer?.swipe(wv, args.optString("direction", "down"))
+                val js = if (command.name == "get_links") "links" else "content"
                 tools.exec(wv, js, args) { r -> pageResult(r, reply) }
+            }
+            "scroll" -> {
+                // 0.10.2: a real swipe with the pointer, checked; the page's own scrolling container by script else.
+                val wv = tab?.webView ?: run { reply(false, null, "no_tab"); return }
+                clicks.scroll(wv, args, pointer, ::halted) { r, e -> if (r != null) reply(true, r, null)
+                    else reply(false, null, e ?: "page_error"); reportState() }
             }
             "screenshot" -> {
                 val wv = tab?.webView ?: run { reply(false, null, "no_tab"); return }
@@ -398,8 +430,11 @@ class BrowserSaga(private val a: BrowserHost, private val bridge: BridgeClient) 
                     reportState()
                 }
                 if (command.name == "click") {
-                    // 0.10.1: a real tap at the element, with the pointer, and what it changed (SagaClicks).
-                    clicks.click(wv, probe, pointer, { (tab?.progress ?: 100) < 100 }, ::halted, answer)
+                    // 0.10.1: a real tap at the element, with the pointer, and what it changed (SagaClicks). 0.10.2:
+                    // a tap that changed nothing is tried once as a script click, never for a step needing approval.
+                    val retry = SagaApproval.decide(SagaApproval.serverKind(args), risk?.optString("kind"),
+                        ControlState.Mode.AI, command.name) == null
+                    clicks.click(wv, probe, pointer, { (tab?.progress ?: 100) < 100 }, ::halted, retry, answer)
                 } else clicks.aim(wv, probe, pointer, ::halted, answer) {
                     tools.exec(wv, command.name, probe) { res ->
                         val refused = res?.takeIf { it.optString("error") == "secret_field" }

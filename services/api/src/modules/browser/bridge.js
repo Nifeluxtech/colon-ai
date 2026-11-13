@@ -1,21 +1,18 @@
 // Session manager on the WebSocket bridge (Phase 8; docs/phase8-backend-contract.md §2, docs/android-bridge.md).
 // One bridge per socket. It answers the phone's `hello` (with `app`) with `session: 1`, stores `session_sync`
 // (throttled to one write per 2 s, latest wins; private tabs, long URLs and extra tabs dropped; frames over 64 KB
-// refused), asks for the session on demand (`session_request`, answered by `ack`), and keeps the control-owner
-// rules: exactly one owner; `ai`/`shared` only after the phone's `control` with reason `consent`; `take_control`,
-// `pause`, `stop` or `declined` win at once and cancel pending Saga commands (ack error `manual_control`). Every
-// control change goes to the audit log. Only signed-in sockets get any of this.
-// Phase 9 (Saga, modules/saga): command(name, args, tabId, { timeoutMs }) waits longer for commands that need an
-// approval tap on the phone; waitControl() resolves when the phone answers Saga's control request; the phone's
-// hello `capabilities` are kept so Saga can tell an app without the Phase 9 commands (`supports(name)`).
-// Phase 10: one browser per chat. The phone says which conversation its panel shows (hello / `chat` /
-// session_sync `conversation_id`); sessions and control are kept per device AND conversation, Saga's commands carry
-// the task's conversation and are refused (`other_chat`) while the panel shows another chat. `handoff` asks the
-// phone to give the page to the user for a secret field; the latest `page_state` is kept (memory only) so Saga in
-// "AI + me" sees what the user changed. Control rules: control.js.
+// refused), asks for the session on demand (`session_request`, answered by `ack`) and keeps the control-owner rules
+// (control.js): one owner; `ai`/`shared` only after the phone's `consent`; `take_control`, `pause`, `stop` or
+// `declined` win at once and cancel pending Saga commands. Every control change is audited; signed-in sockets only.
+// Phase 9 (modules/saga): command(name, args, tabId, { timeoutMs }), waitControl() for the phone's answer, hello
+// `capabilities` (`supports(name)`). Phase 10: one browser per chat: sessions and control per device AND
+// conversation (hello / `chat` / session_sync `conversation_id`), commands for another chat refused (`other_chat`),
+// `handoff` for secret fields, the latest `page_state` kept in memory for "AI + me". 0.10.2: commands carry Saga's
+// `say` and notice() sends a line for the user's screen (frames.js).
 const store = require('./store');
 const S = require('./session');
 const C = require('./control');
+const F = require('./frames');
 
 const MAX_FRAME = 64 * 1024;
 const PHONE_APPS = ['colonai', 'colonbrowser'];
@@ -25,8 +22,7 @@ const live = new Map();                          // user id -> Set of bridges on
 /**
  * createBridge({ send(obj), user, req, audit, throttleMs = 2000, ackTimeoutMs = 20000, now })
  *   -> { handle(raw), requestSession(), command(name, args, tabId, o), askControl(mode, task), waitControl(ms),
- *        hasControl(), supports(name), close(), state }
- */
+ *        hasControl(), supports(name), handoff(info, o), notice(text, kind, o), close(), state } */
 function createBridge(o) {
   const send = (m) => { try { o.send({ ...m, ts: Date.now() }); } catch { /* socket gone */ } };
   const user = o.user || null;
@@ -38,7 +34,7 @@ function createBridge(o) {
     queued: null, timer: null, pending: new Map(), seq: 0, writing: Promise.resolve(), capabilities: [],
     watchers: new Set(), seen: 0, conv: '', page: null };
   const api = { handle, requestSession, command, askControl, waitControl, hasControl, supports, close, handoff,
-    pageState: () => st.page, state: st, user };
+    notice, pageState: () => st.page, state: st, user };
   const sk = () => ({ ref: st.ref, conv: st.conv });
 
   const error = (code, message, extra = {}) => send({ type: 'error', code, message, ...extra });
@@ -215,14 +211,20 @@ function createBridge(o) {
       error: 'manual_control' };
     if (cur.row.paused) return { ok: false, error: 'paused' };
     return pend('command', { type: 'command', name, args, ...(tabId ? { tab_id: tabId } : {}),
-      ...(o.conversation ? { conversation_id: store.convId(o.conversation) } : {}) }, o.timeoutMs || ackTimeoutMs);
+      ...(o.conversation ? { conversation_id: store.convId(o.conversation) } : {}), ...F.say(o.say) },
+    o.timeoutMs || ackTimeoutMs);
+  }
+
+  /** 0.10.2: a line for the user on the phone's page (frames.notice), e.g. that Saga finished; not another chat's. */
+  function notice(text, kind, o = {}) {
+    const f = user && st.ref && onChat(o.conversation) && F.notice(text, kind, store.convId(o.conversation || ''));
+    return f ? (send(f), true) : false;
   }
 
   /** Phase 10: Saga hands the page to the user for a secret field (password, code, card, PIN, sign-in, payment).
    *  The phone switches to Manual, shows the prompt and answers control `handoff`; Return to AI resumes. */
   function handoff(info = {}, o = {}) {
-    if (!user || !st.ref) return false;
-    if (!onChat(o.conversation)) return false;
+    if (!user || !st.ref || !onChat(o.conversation)) return false;
     cancelPending();
     send({ type: 'handoff', kind: String(info.kind || 'secret').slice(0, 20), message: String(info.message || '')
       .slice(0, 200), ...(o.conversation ? { conversation_id: store.convId(o.conversation) } : {}) });

@@ -1,4 +1,4 @@
-# Android bridge (v0.10.0, Phases 7–10)
+# Android bridge (v0.10.2, Phases 7–10)
 
 The Colon AI Android app (`apps/android`, flavor `colonai`) has two bridges. Colon Browser (flavor `colonbrowser`)
 shows no Colon page, so it has only the backend bridge (2).
@@ -60,13 +60,18 @@ screens open `split`) shows the panel inside the conversation, where the web app
   On phones every open from closed starts `inline` (0.9.2); a layout picked in the panel menu lasts while it is open.
 - When `state.layout` is `inline`, the page draws the card in the thread (`.cw-native-host`, next to the web card's
   `.cw-embed-host`): status dot, "Colon Browser", the page's address, collapse (`collapse`), full screen
-  (`layout { layout: 'full' }`) and close (`close`), and an empty body box (60vh, at least 320 px). The native
+  (`layout { layout: 'full' }`) and close (`close`), and an empty body box (since 0.10.2: 50vh, never taller than
+  the space between the header and the composer, at least 240 px; it was 60vh, at least 320 px). The native
   panel has no header of its own in this layout; full screen brings back its header and menu (where "In the
   conversation", "Embedded in chat" and "Split screen" switch layouts; nothing reloads).
 - The page reports the body box with `browser('anchor', { visible, x, y, width, height, viewportTop,
   viewportBottom, dpr })`: CSS px of the shell page (`getBoundingClientRect()`), the visible band of the thread
   (between the chat header and the top of the floating composer, which the thread scrolls under; cut by the
-  keyboard's visual viewport; since 0.10.1 `viewportBottom` is the composer's top, not the scroller's bottom) and `devicePixelRatio`. It
+  keyboard's visual viewport; since 0.10.1 `viewportBottom` is the composer's top, not the scroller's bottom, and
+  since 0.10.2 the top of the composer's "Latest" button when it shows) and `devicePixelRatio`. Since 0.10.2 every
+  number is measured from the visual viewport's corner (what the app's WebView shows on screen: the layout
+  viewport can be moved by the keyboard or a focus scroll), `dpr` includes the visual viewport's scale, and
+  `pageHeight` is the visible page's height in CSS px. It
   sends one on open and then at most one per animation frame when the thread scrolls, anything resizes or the
   keyboard opens, and only when something changed; `{ visible: false }` when the box is out of the band, the card
   is collapsed, or the chat leaves the conversation (`apps/chat/src/lib/native-anchor.js`).
@@ -74,6 +79,10 @@ screens open `split`) shows the panel inside the conversation, where the web app
   offset by the shell WebView's position, clipped to `viewportTop`..`viewportBottom` so it never covers the header
   or the composer; touches outside the clip reach the chat (`InlineGeometry`, `InlineLayer`). Scrolling only moves
   it (translation); it is re-laid out only when the box's size changes. Hidden when not visible or collapsed.
+  Since 0.10.2 the clip also keeps the gap the page saw under `viewportBottom` (`pageHeight − viewportBottom`) from
+  the shell WebView's bottom as it is now: when the keyboard opens (or the composer grows) the app's views resize
+  a frame or more before the page reports again, and up to 0.10.1 the clip then ran to the bottom of the shrunken
+  layer, over the composer.
 
 **One browser per chat (v0.10.0, Phase 10, feature `browserChats`).** Each conversation has its own in-chat
 browser: its own tabs, history, cookies and storage (a WebView profile per chat on WebViews that support profiles;
@@ -156,8 +165,9 @@ Every frame has `type`; app frames also carry `v: 1` and `ts` (ms since epoch).
 | `hello` | `service`, `bridge: 1` | `bridge: 1` turns the status to `bridge_ready`. Today's gateway sends `hello` without `bridge`, which the app shows as "connected (the server hasn't switched on Saga commands yet)". |
 | `pong` | | keeps the link alive |
 | `control` | `mode` (`ai` · `shared` · `manual`), `task` (≤ 200 characters, shown to the user), `conversation_id?` (v0.10.0) | `ai`/`shared`: the phone asks the user "Let Saga browse?" and answers with `control` (`consent` or `declined`). `manual`: Saga's task stops. |
-| `command` | `id` (≤ 64 chars), `name`, `args`, `tab_id?`, `conversation_id?` (v0.10.0) | runs on the open Colon Browser (in Colon AI: on that chat's browser); always answered with `ack` |
+| `command` | `id` (≤ 64 chars), `name`, `args`, `tab_id?`, `conversation_id?` (v0.10.0), `say?` (v0.10.2: Saga's one-line explanation, ≤ 160 characters, shown in "AI + me"; never part of what the step does) | runs on the open Colon Browser (in Colon AI: on that chat's browser); always answered with `ack` |
 | `handoff` | `kind` (`password` · `one_time_code` · `card` · `pin` · `sign_in` · `payment`), `message` (≤ 200 characters, shown to the user), `conversation_id?` | v0.10.0: Saga reached a secret field; the phone switches to Manual, shows "Your turn" with the message and answers `control` `handoff` |
+| `notice` | `text` (≤ 160 characters, one line), `kind` (`step` · `ask` · `done`), `conversation_id?` | v0.10.2: a line for the user on the page, shown in "AI + me" (the server sends "Done. Saga's answer is in the chat." when a task ends). Older apps ignore it |
 | `error` | `code`, `message` | logged |
 
 **Commands (since v0.7.1):** `open_url {url, new_tab?}`, `new_tab {url?}`, `back`, `forward`, `reload`, `stop`,
@@ -176,9 +186,9 @@ that has `get_page_content`.
 |---|---|---|
 | `get_page_content` | | `{ url, title, text (≤ 12 000 chars), truncated, elements: [{ id: "c1"…, tag, type, role, label, text, name, placeholder, autocomplete, href, form, contenteditable }] }` (≤ 60 visible interactive elements; ids are written to `data-colon-saga` and are valid until the next read; typed values are never sent) |
 | `get_links` | | `{ links: [{ text, url }] }` (http(s), unique, ≤ 80) |
-| `click` | `id`, `approval?` | `{ url, title, method, changed, covered? }` (v0.10.1; see "Real clicks" below. Older apps: `{ url, title }`) |
-| `fill` | `id`, `value` (≤ 500), `submit?` (Enter + form submit), `approval?` | `{ url, title }` |
-| `scroll` | `direction`: `up` · `down` · `top` · `bottom` | `{ y, max }` |
+| `click` | `id`, `approval?` | `{ url, title, method, changed, covered? }` (v0.10.1; see "Real clicks" below. Older apps: `{ url, title }`). `method` `tap+script` since 0.10.2 |
+| `fill` | `id`, `value` (≤ 500), `submit?` (Enter, then the form unless the page handled Enter), `approval?` | `{ url, title, typed, method, submitted? }` (0.10.2: `typed` says the text is really in the field; `method` `insert` · `setter` · `select`; error `no_option` for a `<select>` without that option. Older apps: `{ url, title }`) |
+| `scroll` | `direction`: `up` · `down` · `top` · `bottom` | `{ y, max, target, moved, method }` (0.10.2: `target` `page` · `element`, `max` the furthest scroll offset, `method` `swipe` · `script`. Older apps: `{ y, max }`, `max` the page height) |
 | `screenshot` | | `{ mime: "image/jpeg", width, height, base64 }` (≤ 480 px wide, ≤ 40 KB, so the ack fits the 64 KB frame) |
 
 New errors: `no_element` (the id is not on the page any more), `page_error` (the script returned nothing),
@@ -214,7 +224,40 @@ about whether anything happened. Now (`SagaClicks.kt`, pure parts in `SagaTap.kt
    `element_changed`; after any other change it asks for `getPageContent` first.
 
 `fill` and `scroll` move the pointer too (`fill` aims with `point`, so a secret form is refused before the pointer
-moves); typing still uses the native value setter and `input` / `change` events.
+moves).
+
+**Typing, scrolling and a second try (v0.10.2, `assets/saga/act.js`).** The owner's phone showed Saga failing to
+type and scroll. Up to 0.10.1 `fill` set the value with the native setter and fired plain `input` / `change`
+events (no `inputType`, nothing for `contenteditable` editors beyond `textContent`) and answered `ok` without
+checking; `scroll` called `window.scrollBy`, which does nothing on the many sites whose page is one screen with a
+scrolling container, and also answered `ok`. Now:
+
+- `act.js` is evaluated with `tools.js` and passed in as its third argument, so it runs only after `tools.js` found
+  the element and refused secret fields. `fill` focuses the field, selects what is there and types with
+  `document.execCommand('insertText')` (the browser's own editing path: `beforeinput` / `input` with `inputType
+  "insertText"`, which React, Vue, Angular and rich editors register); when the page did not take it, the native
+  setter (or `textContent`) and an `InputEvent`; then `change`. `<select>` picks the option by value or visible
+  text. `typed` reports whether the text is really there; the server tells the model plainly when it is not.
+- `scroll` is a real finger swipe (`MotionEvent` DOWN, 12 MOVEs a frame apart, a short hold so it doesn't fling,
+  UP) with the pointer riding along; `act.js scrollinfo` before and after says whether the page, or the scrollable
+  element under the middle of the view, moved. `top` / `bottom`, or a swipe that moved nothing: `act.js scroll`
+  scrolls that element (or the page) by script, instantly even on `scroll-behavior: smooth` pages. `moved: false`
+  tells the model it is already at the end.
+- A real tap whose outcome is `none` (nothing changed, not even focus) is followed once by the script click
+  (`tap+script`), except for a step that needed the user's approval: a payment, purchase, message or form is never
+  sent twice.
+- Acks are trimmed to the server's 64 KB frame limit (`BridgeProtocol.fitAck`: shorter text with `truncated: true`,
+  then the last elements and links), so a long page read is never dropped by the server and left to time out.
+
+**"AI only" locks the page; "AI + me" shows Saga's words (v0.10.2).** While Saga has the browser in AI only
+(paused too), the page ignores the user: the shield with Take control covers it, and the tab's WebView
+(`TabWebView`) drops the user's touches, mouse wheel and keys (Back and volume still work) and gives the keyboard no
+input connection, so nothing can be typed into the page even after Saga's own tap focused a field. Saga's own
+gestures go through (`TabWebView.asSaga`). Take control, Stop or the end of the task unlock it; private tabs are
+never locked. In AI + me nothing is locked, and Saga's one-line explanation of each step (the command frame's
+`say`), its requests to the user (a hand-off: "Your turn: enter the code…") and the server's `notice` frames show as
+a pill at the top of the browser that fades by itself (`SagaNotice`: steps 2.6 s, done 4 s, requests 7 s; it never
+takes a touch and screen readers announce it).
 
 **Approvals on the phone (Phase 9).** Before `click` and `fill` the phone inspects the **real** element
 (`inspect`) and classifies it (payment · purchase · send_message · form_submission · personal_data, the same rules
@@ -234,7 +277,8 @@ the app still answers `control` with `reason: consent`, so the server never wait
 In Colon AI, a `control` request for AI or Shared **opens the in-chat browser panel** if it is closed (Phase 10:
 the browser appears when Saga browses) and then shows the prompt.
 
-**Control on the phone:** AI mode puts a shield over the page with **Take control**; the bar under the address
+**Control on the phone:** AI mode puts a shield over the page with **Take control** (since 0.10.2 paused too, and
+the page itself ignores the user underneath it); the bar under the address
 shows Pause/Resume, Take control / Return to AI and Stop. Commands run only in AI or Shared mode and not paused.
 
 **Handoff and chats (v0.10.0, Phase 10).** Session, control and consent are kept per device and conversation

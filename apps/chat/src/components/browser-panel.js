@@ -223,8 +223,9 @@ function renderNativeInline(st) {
   if (!S.browser.anchor) {
     S.browser.anchor = createAnchor({ el: card.querySelector('.cw-native-body'), scroller: $('#cw-scroll'),
       // The app's WebView is clipped to the band above the floating composer, never over it (v0.10.1).
-      cover: $('.cw-composer'), watch: [$('#cw-page')], collapsed: function () { return !!(S.browser.nativeState
-        && S.browser.nativeState.collapsed); },
+      // 0.10.2: looked up on every measure (a re-drawn composer still counts) and watched for size changes.
+      cover: function () { return $('.cw-composer'); }, watch: [$('#cw-page'), $('.cw-composer')],
+      collapsed: function () { return !!(S.browser.nativeState && S.browser.nativeState.collapsed); },
       send: function (p) { nativeBrowser('anchor', p).catch(function () {}); },
       // The keyboard opened while the chat's own fields aren't focused: it is for the page in the panel, so keep
       // the card's box on screen (the thread shrank and could have hidden what is typed).
@@ -232,7 +233,9 @@ function renderNativeInline(st) {
         if (!f || !/^(INPUT|TEXTAREA|SELECT)$/.test(f.tagName)) {
           revealInThread(card.querySelector('.cw-native-body'), false); } } });
   } else S.browser.anchor.update();
-  if (fresh) setTimeout(function () { revealInThread(card, true); }, 50);
+  // Saga just took the browser (0.10.2): bring the card into view once, so its pointer and taps can be seen.
+  if (fresh || (saga && !S.browser.sagaShown)) setTimeout(function () { revealInThread(card, true); }, 50);
+  S.browser.sagaShown = !!saga;
 }
 // The card's header buttons: collapse / expand, full screen (the app's own header there), close.
 function nativeInlineAction(act, el) {

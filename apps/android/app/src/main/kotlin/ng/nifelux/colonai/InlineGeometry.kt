@@ -18,6 +18,8 @@ object InlineGeometry {
     data class Anchor(
         val visible: Boolean, val x: Float, val y: Float, val width: Float, val height: Float,
         val viewportTop: Float, val viewportBottom: Float, val dpr: Float,
+        /** 0.10.2: the visible page's height (CSS px) when this was measured; 0 = not sent (older pages). */
+        val pageHeight: Float = 0f,
     )
 
     /** Device px relative to the layer. [clipTop]..[clipBottom] is the part of the layer the panel may show in. */
@@ -38,23 +40,30 @@ object InlineGeometry {
     fun anchorOf(o: JSONObject): Anchor {
         if (!o.optBoolean("visible", false)) return HIDDEN
         fun f(k: String) = o.optDouble(k, Double.NaN).toFloat()
-        return anchorOf(f("x"), f("y"), f("width"), f("height"), f("viewportTop"), f("viewportBottom"), f("dpr"))
+        return anchorOf(f("x"), f("y"), f("width"), f("height"), f("viewportTop"), f("viewportBottom"), f("dpr"),
+            f("pageHeight"))
     }
 
-    fun anchorOf(x: Float, y: Float, width: Float, height: Float, vTop: Float, vBottom: Float, dpr: Float): Anchor {
+    fun anchorOf(x: Float, y: Float, width: Float, height: Float, vTop: Float, vBottom: Float, dpr: Float,
+                 pageHeight: Float = Float.NaN): Anchor {
         val all = listOf(x, y, width, height, vTop, vBottom)
         if (all.any { !it.isFinite() || it < -MAX_CSS || it > MAX_CSS }) return HIDDEN
         if (width <= 0f || height <= 0f || vBottom <= vTop) return HIDDEN
         val d = if (dpr.isFinite() && dpr in MIN_DPR..MAX_DPR) dpr else 0f // 0: use the screen's density
-        return Anchor(true, x, y, width, height, vTop, vBottom, d)
+        val page = if (pageHeight.isFinite() && pageHeight > 0f && pageHeight <= MAX_CSS) pageHeight else 0f
+        return Anchor(true, x, y, width, height, vTop, vBottom, d, page)
     }
 
     /**
      * [density]: the screen's density, used when the page sent no usable dpr. [offsetX]/[offsetY]: the shell
      * WebView's position inside the layer (0 when both fill the same box). [layerWidth]/[layerHeight]: the layer's
-     * size; the clip never leaves it.
+     * size; the clip never leaves it. [shellHeight] (0.10.2): the shell WebView's height in px now. The page's
+     * report can be a frame or more old (the keyboard opened, the composer grew): the gap it saw between the band's
+     * bottom (the composer's top) and the page's bottom ([Anchor.pageHeight] − viewportBottom) is kept from the
+     * WebView's bottom as it is now, so a shrinking chat never lets the panel slide over the composer.
      */
-    fun place(a: Anchor?, density: Float, offsetX: Int, offsetY: Int, layerWidth: Int, layerHeight: Int): Placement {
+    fun place(a: Anchor?, density: Float, offsetX: Int, offsetY: Int, layerWidth: Int, layerHeight: Int,
+              shellHeight: Int = 0): Placement {
         if (a == null || !a.visible || layerWidth <= 0 || layerHeight <= 0) return NOWHERE
         val d = if (a.dpr > 0f) a.dpr else density
         if (!(d > 0f)) return NOWHERE
@@ -63,7 +72,11 @@ object InlineGeometry {
         val width = (a.width * d).roundToInt()
         val height = (a.height * d).roundToInt()
         val clipTop = max(0, (a.viewportTop * d).roundToInt() + offsetY)
-        val clipBottom = min(layerHeight, (a.viewportBottom * d).roundToInt() + offsetY)
+        var clipBottom = min(layerHeight, (a.viewportBottom * d).roundToInt() + offsetY)
+        if (a.pageHeight > 0f && shellHeight > 0) {
+            val gap = ((a.pageHeight - a.viewportBottom) * d).roundToInt().coerceAtLeast(0)
+            clipBottom = min(clipBottom, offsetY + shellHeight - gap)
+        }
         val shows = width > 0 && height > 0 && clipBottom > clipTop &&
             top < clipBottom && top + height > clipTop && left < layerWidth && left + width > 0
         if (!shows) return NOWHERE

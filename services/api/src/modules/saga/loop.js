@@ -138,8 +138,9 @@ async function run(o) {
     const need = policy.approval(cmd, { elements });
     const args = need ? { ...cmd.args, approval: { kind: need.kind, reason: need.reason } } : cmd.args;
     const t0 = now();
+    // say (0.10.2): Saga's one-line explanation travels with the command, so the phone can show it on the page.
     const ack = await o.command(cmd.name, args, { timeoutMs: Math.max(1, Math.min(need ? L.approvalTimeoutMs
-      : L.stepTimeoutMs, left())) }) || { ok: false, error: 'no_answer' };
+      : L.stepTimeoutMs, left())), say: d.say }) || { ok: false, error: 'no_answer' };
     const res = ack.result && typeof ack.result === 'object' ? ack.result : {};
     const approvedOnPhone = res.approval === 'approved';
     const entry = { kind: 'action', say: d.say, tool: cmd.tool, name: cmd.name, args: forLog(cmd, need),

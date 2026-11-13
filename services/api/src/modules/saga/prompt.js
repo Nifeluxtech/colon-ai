@@ -103,6 +103,11 @@ function observe(cmd, ack, o) {
   const where = r.url ? ` Now at ${String(r.url).slice(0, 300)}${r.title ? ` ("${clean(guard, r.title, 120)}")`
     : ''}.` : '';
   if (cmd.name === 'click') return { text: `Result of click: ${clicked(guard, r)}${where}` };
+  // 0.10.2: the phone checks that typing and scrolling really happened (act.js); older phones send neither flag.
+  if (cmd.name === 'fill' && r.typed === false) return { text: 'Result of fill: the field did NOT take the text. Do '
+    + `not assume it was typed; click the field first, or try another field.${where}` };
+  if (cmd.name === 'scroll' && r.moved === false) return { text: 'Result of scroll: nothing moved (already at the '
+    + `top or bottom, or this part of the page does not scroll).${where}` };
   return { text: `Result of ${cmd.tool}: done.${where}${cmd.name === 'fill' ? ' Call getPageContent to see the page '
     + 'now.' : ''}` };
 }
