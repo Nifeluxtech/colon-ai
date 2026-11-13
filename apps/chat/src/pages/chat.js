@@ -18,6 +18,7 @@ import { $, PROMPTS, S, brandName, data, ephemeral, isMobile, setData, signedIn 
 import { createHandsFree } from '../lib/hands-free.js';
 import { ChatMedia } from '../lib/media.js';
 import { startNativeShell } from '../lib/native-shell.js';
+import { pinFrame } from '../lib/thread-scroll.js';
 import { ReadAloud } from '../lib/read-aloud.js';
 
 var C = Colon, icon = C.icon, esc = C.esc;
@@ -128,8 +129,8 @@ function mount(view, ctx) {
     '</div>' +
     '<div class="cw-drawer-back" data-a="drawer-close"></div></div>';
   S.el = view.querySelector('.cw');
-  fillUser();
-  bind();
+  var unpin = pinFrame(window, S.el);  // only the thread scrolls; frame and window stay at 0 (v0.10.1)
+  fillUser(); bind();
   S.media = ChatMedia.create({
     data: data, tray: $('.att-tray'), voiceBar: $('.cv-voice'), getSettings: function () { return S.settings || {}; },
     onVoiceLang: function (lang) { S.settings.voice = Object.assign({}, S.settings.voice, { lang: lang });
@@ -162,8 +163,7 @@ function mount(view, ctx) {
   C.native.ready().then(function () { if (mounted && !S.nativeBrowserStop) S.nativeBrowserStop = startNativeBrowser();
   });
   return function unmount() {
-    mounted = false;
-    if (S.nativeStop) S.nativeStop();
+    mounted = false; unpin(); if (S.nativeStop) S.nativeStop();
     if (S.nativeBrowserStop) { S.nativeBrowserStop(); S.nativeBrowserStop = null; }
     if (S.hf) S.hf.stop(); if (S.streaming) S.streaming.ctl.abort(); if (S.media) S.media.destroy();
     document.removeEventListener('keydown', onKey);

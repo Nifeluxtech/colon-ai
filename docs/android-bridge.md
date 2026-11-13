@@ -65,7 +65,8 @@ screens open `split`) shows the panel inside the conversation, where the web app
   conversation", "Embedded in chat" and "Split screen" switch layouts; nothing reloads).
 - The page reports the body box with `browser('anchor', { visible, x, y, width, height, viewportTop,
   viewportBottom, dpr })`: CSS px of the shell page (`getBoundingClientRect()`), the visible band of the thread
-  (between the chat header and the composer, cut by the keyboard's visual viewport) and `devicePixelRatio`. It
+  (between the chat header and the top of the floating composer, which the thread scrolls under; cut by the
+  keyboard's visual viewport; since 0.10.1 `viewportBottom` is the composer's top, not the scroller's bottom) and `devicePixelRatio`. It
   sends one on open and then at most one per animation frame when the thread scrolls, anything resizes or the
   keyboard opens, and only when something changed; `{ visible: false }` when the box is out of the band, the card
   is collapsed, or the chat leaves the conversation (`apps/chat/src/lib/native-anchor.js`).

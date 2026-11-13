@@ -8,6 +8,7 @@ import { refreshConvs } from './sidebar.js';
 import { chatCall, chatMode, chip, menu, sessionKey } from '../lib/browser-modes.js';
 import { createAnchor } from '../lib/native-anchor.js';
 import { needsAnnounce, showsCard, withInline } from '../lib/native-panel.js';
+import { reveal } from '../lib/thread-scroll.js';
 import { ColonBrowser } from '../../../../packages/ui/js/browser/index.js';
 import { Colon } from '../../../../packages/ui/js/colon.js';
 import { ColonURL } from '../../../../packages/ui/js/url.js';
@@ -67,7 +68,7 @@ function setLayout(l) {
   $('[data-a=browser]').setAttribute('aria-pressed', l !== 'none');
   var embedHost = $('.cw-embed-host');
   if (l === 'embedded') { renderEmbed(); b.mount(embedHost.querySelector('.cw-embed-body')); setTimeout(function () {
-    embedHost.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); }, 50); }
+    revealInThread(embedHost, true); }, 50); }
   else { embedHost.innerHTML = ''; }
   if (l === 'split') { b.mount($('.cw-split-body')); applySplitWidth(); if (isMobile()) setMobileTab('browser'); }
   if (l === 'none') { if (b.el.parentNode) b.el.parentNode.removeChild(b.el); setMobileTab('chat'); }
@@ -178,6 +179,11 @@ function startNativeBrowser() {
 // the app uses "inline" only with a page that can; older pages and older apps keep the panel above the chat.
 function inlineOk() { return C.native.can('browserInline'); }
 function nativeBrowser(action, o) { return C.native.browser(action, withInline(o, inlineOk())); }
+// Brings a card into view by scrolling the thread only (v0.10.1): scrollIntoView() also scrolled the fixed frame,
+// the page and the phone's visual viewport, which moved the composer off the bottom of the screen.
+function revealInThread(el, smooth) {
+  if (el) reveal($('#cw-scroll'), el, { cover: $('.cw-composer'), smooth: !!smooth });
+}
 function stopAnchor() { if (S.browser.anchor) { S.browser.anchor.stop(); S.browser.anchor = null; } }
 function inlineHtml() {
   return '<div class="cw-embed cw-native-card" role="region" aria-label="Colon Browser (in the chat)">'
@@ -216,16 +222,17 @@ function renderNativeInline(st) {
   cb.setAttribute('aria-label', st.collapsed ? 'Expand browser' : 'Collapse browser');
   if (!S.browser.anchor) {
     S.browser.anchor = createAnchor({ el: card.querySelector('.cw-native-body'), scroller: $('#cw-scroll'),
-      watch: [$('#cw-page')], collapsed: function () { return !!(S.browser.nativeState
+      // The app's WebView is clipped to the band above the floating composer, never over it (v0.10.1).
+      cover: $('.cw-composer'), watch: [$('#cw-page')], collapsed: function () { return !!(S.browser.nativeState
         && S.browser.nativeState.collapsed); },
       send: function (p) { nativeBrowser('anchor', p).catch(function () {}); },
       // The keyboard opened while the chat's own fields aren't focused: it is for the page in the panel, so keep
       // the card's box on screen (the thread shrank and could have hidden what is typed).
       onKeyboard: function () { var f = document.activeElement;
         if (!f || !/^(INPUT|TEXTAREA|SELECT)$/.test(f.tagName)) {
-          card.querySelector('.cw-native-body').scrollIntoView({ block: 'nearest' }); } } });
+          revealInThread(card.querySelector('.cw-native-body'), false); } } });
   } else S.browser.anchor.update();
-  if (fresh) setTimeout(function () { card.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); }, 50);
+  if (fresh) setTimeout(function () { revealInThread(card, true); }, 50);
 }
 // The card's header buttons: collapse / expand, full screen (the app's own header there), close.
 function nativeInlineAction(act, el) {
