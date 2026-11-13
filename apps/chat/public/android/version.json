@@ -1,0 +1,9 @@
+{
+  "versionName": "0.7.1",
+  "versionCode": 701,
+  "apkUrl": "https://github.com/Nifeluxtech/colon-ai/releases/download/v0.7.1/colon-ai-0.7.1.apk",
+  "releaseUrl": "https://github.com/Nifeluxtech/colon-ai/releases/tag/v0.7.1",
+  "notes": "First Colon AI Android app: chat with voice, Colon Browser tabs, downloads, Share to Colon and in-app updates.",
+  "minSupportedVersionCode": 0,
+  "publishedAt": "2026-11-13"
+}
