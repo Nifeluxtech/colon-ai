@@ -153,3 +153,30 @@ committed: this repository is public.
 
 The rule filters (`services/api/src/modules/safety`) need no key, no model and no network. The child-safety rules
 run whatever `SAFETY` or the admin settings say, and whether or not the moderation endpoint answers (fail closed).
+
+### Colon Browser server reader (Phase 8)
+
+| Variable | Type | Required | Default | Purpose |
+|---|---|---|---|---|
+| `BROWSER_READER` | on/off | no | `on` | "off" switches `GET /browser/fetch` off (answers `501 not_enabled`; the web apps fall back to the "open in the app" prompt) |
+| `BROWSER_READER_GUESTS` | on/off | no | `on` | "off" keeps the server reader for signed-in users only (guests get `401`) |
+| `BROWSER_READER_BLOCKLIST` | string | no | (empty) | extra hosts the reader refuses, comma-separated; a host covers its subdomains |
+
+The session manager (`/browser/session`, `/browser/sessions`, `/browser/history`, `session_sync` on `/ws`) needs no
+setting: it uses the database and the signed-in session. Contract: `docs/phase8-backend-contract.md`.
+
+### Saga browser automation (Phase 9, 0.9.0)
+
+Saga drives the browser panel of the Colon AI Android app through the bridge (`/ws`), with `POST /browser/agent`
+and the action log in `saga_tasks` / `saga_actions` (migration `0009`). Approvals (payments, purchases, form
+submissions, messages, personal data) are always tapped on the phone; no setting switches them off.
+
+| Variable | Type | Required | Default | Purpose |
+|---|---|---|---|---|
+| `SAGA_BROWSE` | on/off | no | `on` | "off" answers `501 not_enabled` on `POST /browser/agent` (the web reader's AI Browse keeps working) |
+| `SAGA_MAX_STEPS` | number | no | `15` | most actions Saga takes for one task; then it stops and reports the pages it read |
+| `SAGA_TASK_TIMEOUT_MS` | number | no | `300000` | hard cap on one task |
+| `SAGA_MODEL_TIMEOUT_MS` | number | no | `60000` | one Saga decision (model call); two in a row fail the task |
+| `SAGA_STEP_TIMEOUT_MS` | number | no | `20000` | the phone's answer to one command; two timeouts in a row fail the task |
+| `SAGA_APPROVAL_TIMEOUT_MS` | number | no | `120000` | the user's consent ("Let Saga browse?") or approval tap on the phone |
+| `SAGA_TASKS_PER_HOUR` | number | no | `20` | browsing tasks one user may start per hour |

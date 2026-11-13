@@ -1,0 +1,132 @@
+// Runs Saga browsing tasks on the user's phone (Phase 9). The phone's socket lives on one worker; the HTTP request
+// that starts a task may land on another. So: the task is written to MySQL as `queued`; if this worker holds a
+// Colon AI socket for the user it claims the task at once, otherwise the worker that does picks it up within
+// ~2 s (watch(), started by the WebSocket gateway). Then: ask the phone for control (the user taps Allow), run the
+// loop, store the result, hand control back. Stop works from any worker (a flag the loop reads before every step;
+// on the worker running the task it also cancels the command in flight).
+const os = require('os');
+const ai = require('../ai');
+const browser = require('../browser');
+const safety = require('../safety');
+const audit = require('../../shared/audit');
+const log = require('../../shared/logger');
+const store = require('./store');
+const loop = require('./loop');
+const prompt = require('./prompt');
+
+const WORKER = `${os.hostname()}:${process.pid}`.slice(0, 64);
+const QUEUE_MS = 60000;                     // a queued task nobody claims within a minute fails with no_phone
+const running = new Map();                  // task id -> bridge (tasks this worker runs)
+
+const env = (k, d) => (process.env[k] !== undefined && process.env[k] !== '' ? process.env[k] : d);
+const n = (k, d) => (Number(env(k, d)) > 0 ? Number(env(k, d)) : d);
+function settings() {
+  return { enabled: env('SAGA_BROWSE', 'on') !== 'off', maxSteps: n('SAGA_MAX_STEPS', 15),
+    taskTimeoutMs: n('SAGA_TASK_TIMEOUT_MS', 300000), modelTimeoutMs: n('SAGA_MODEL_TIMEOUT_MS', 60000),
+    stepTimeoutMs: n('SAGA_STEP_TIMEOUT_MS', 20000), approvalTimeoutMs: n('SAGA_APPROVAL_TIMEOUT_MS', 120000),
+    tasksPerHour: n('SAGA_TASKS_PER_HOUR', 20) };
+}
+
+// The user's phone on this worker: Colon AI first (the chat and its panel), then Colon Browser; newest hello first.
+function pickBridge(userId) {
+  const list = browser.bridge.connected(userId).sort((a, b) => (b.state.seen || 0) - (a.state.seen || 0));
+  return list.find((b) => b.state.app === 'colonai') || list[0] || null;
+}
+
+const STATUS_FOR = { declined: ['stopped', 'declined'], stop: ['stopped', 'declined'], timeout: ['failed',
+  'no_consent'], disconnected: ['interrupted', 'disconnected'] };
+
+/** execute(task, bridge, deps) runs one claimed task to its end. deps: { generate, req } (tests inject them). */
+async function execute(task, bridge, deps = {}) {
+  const L = { ...settings(), ...(deps.limits || {}) };
+  const req = deps.req || { ip: '' };
+  let seq = 0;
+  const add = (e) => store.addAction(task.id, task.user_id, ++seq, e).catch((err) => log.warn('saga_log_failed',
+    { task: task.id, err: err.message }));
+  if (!bridge.supports('get_page_content')) {
+    await add({ kind: 'end', status: 'failed', error: 'app_update_needed' });
+    return finish(task, { status: 'failed', error: 'app_update_needed', steps: 0 }, req);
+  }
+  if (!(await bridge.hasControl())) {
+    const answered = bridge.waitControl(L.approvalTimeoutMs);
+    await bridge.askControl('ai', task.goal);
+    const reason = await answered;
+    await add({ kind: 'control', error: reason });
+    if (reason !== 'consent' && reason !== 'return_to_ai') {
+      const [status, error] = STATUS_FOR[reason] || ['interrupted', String(reason).slice(0, 40)];
+      return finish(task, { status, error, steps: 0 }, req, bridge);
+    }
+  }
+  await store.setStatus(task.id, 'running');
+  const generate = deps.generate || ai.generate;
+  const context = prompt.system({ maxSteps: L.maxSteps });
+  const r = await loop.run({
+    goal: task.goal, limits: L, log: add, isStopped: () => store.isStopped(task.id),
+    decide: (messages, signal) => generate({ mode: 'general', language: task.language || 'en', messages, context,
+      category: 'reasoning', signal, temperature: 0.2, timeouts: { maxTokens: 800 } }).then((x) => x.text),
+    command: (name, args, o) => bridge.command(name, args, undefined, o),
+  });
+  // A Stop pressed in the chat cancels the command in flight, which reads as "interrupted": it was the user's Stop.
+  if (r.status === 'interrupted' && await store.isStopped(task.id)) { r.status = 'stopped'; r.error = null; }
+  await safety.recordInjection(r.flags, { route: 'saga', mode: 'browse', language: task.language, req });
+  return finish(task, r, req, bridge);
+}
+
+async function finish(task, r, req, bridge) {
+  await store.setStatus(task.id, r.status, { error: r.error, steps: r.steps, answer: r.answer, sources: r.sources });
+  await audit(req, 'saga.task_finished', { actorId: task.user_id, targetType: 'saga_task', targetId: task.id,
+    meta: { status: r.status, error: r.error || null, steps: r.steps || 0, sources: (r.sources || []).length } });
+  // Saga hands the browser back: the phone leaves AI mode and its shield goes.
+  if (bridge && r.status !== 'interrupted') await bridge.askControl('manual').catch(() => {});
+  return r;
+}
+
+async function launch(task, bridge, deps) {
+  if (running.has(task.id) || !(await store.claim(task.id, WORKER, bridge.state.ref))) return null;
+  running.set(task.id, bridge);
+  try { return await execute(task, bridge, deps); } catch (e) {
+    log.error('saga_task_failed', { task: task.id, err: e.message, code: e.code });
+    await store.setStatus(task.id, 'failed', { error: 'internal' }).catch(() => {});
+    return null;
+  } finally { running.delete(task.id); }
+}
+
+/** start(req, { goal, language, conversationId }) -> { id, local } (local: this worker has the phone). */
+async function start(req, o, deps = {}) {
+  const id = await store.create({ userId: req.user.id, goal: o.goal, language: o.language,
+    conversationId: o.conversationId });
+  await audit(req, 'saga.task_created', { actorId: req.user.id, targetType: 'saga_task', targetId: id,
+    meta: { length: o.goal.length } });
+  const b = pickBridge(req.user.id);
+  const task = { id, user_id: req.user.id, goal: o.goal, language: o.language };
+  const done = b ? launch(task, b, { ...deps, req: { ip: req.ip } }) : null;
+  return { id, local: Boolean(b), done };
+}
+
+/** Stop from the chat: the flag (any worker) plus, here, the command in flight. */
+async function stop(userId, id) {
+  await store.requestStop(userId, id);
+  const b = running.get(id);
+  if (b && b.user && b.user.id === userId) await b.askControl('manual').catch(() => {});
+}
+
+// Picks up queued tasks for the users whose phones are connected to this worker.
+async function sweep(deps) {
+  const users = browser.bridge.users();
+  await store.expireQueued(new Date(Date.now() - QUEUE_MS));
+  if (!users.length) return;
+  for (const t of await store.queuedFor(users, new Date(Date.now() - QUEUE_MS))) {
+    const b = pickBridge(t.user_id);
+    if (b) launch(t, b, deps);
+  }
+}
+
+let timer = null;
+function watch(ms = 2000) {
+  if (timer) return;
+  timer = setInterval(() => { if (browser.bridge.users().length) sweep().catch((e) => log.warn('saga_sweep_failed',
+    { err: e.message })); }, ms);
+  timer.unref();
+}
+
+module.exports = { start, stop, execute, launch, sweep, watch, settings, pickBridge, QUEUE_MS, WORKER };

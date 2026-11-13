@@ -17,7 +17,7 @@ Both: Android 7.0 and newer (minSdk 24), target Android 16 (API 36), version fro
 versionCode = major × 10000 + minor × 100 + patch (0.8.0 → 800), same release signing key, a few MB each (release,
 shrunk with R8).
 
-## What is in the apps (v0.8.0)
+## What is in the apps (v0.9.0)
 
 **Colon AI**
 - **Chat shell** (`MainActivity`, `ShellWeb`, `NativeBridge`): loads `https://chat.apparatus.name.ng` with the
@@ -59,6 +59,11 @@ shrunk with R8).
 
 **Both apps**
 - **Saga control** (`BrowserSaga`, `ControlState`) and the **backend bridge** (`BridgeClient`, `docs/android-bridge.md`).
+- **Saga browsing (v0.9.0, both apps):** Saga's page tools run on the tab it drives: read the page, list links,
+  click, type, scroll (`assets/saga/tools.js`, injected per command) and a small screenshot (`SagaTools`).
+  Payments, purchases, form submissions, messages and personal details wait for **Approve** on the phone
+  (`SagaApproval`: the server's request or the phone's own check of the real element); in Shared mode every step
+  that changes the page asks first. In Colon AI the browser panel opens by itself when Saga asks to browse.
 - **Updates** (`UpdateChecker`, `VersionManifest.forApp`): every 12 hours each app reads its own entry of
   `https://chat.apparatus.name.ng/android/version.json` and only accepts an APK named for itself, from the same
   package, newer, and signed with the same key.
@@ -151,6 +156,7 @@ shared by both apps. Per-app files: `app/src/colonai/` (manifest, share-target r
 | `SignInTabs.kt`, `UserAgents.kt`, `Fullscreen.kt`, `PermissionAsker.kt` | Custom Tab sign-in, desktop site, full-screen video, permissions |
 | `ClearDataActivity.kt`, `Handoff.kt` | clear browsing data screen; moving between the two apps |
 | `BrowserSaga.kt`, `ControlState.kt` | AI / Manual / Shared control and bridge commands |
+| `SagaTools.kt`, `assets/saga/tools.js` | Saga's page tools, screenshots and the approval decision (Phase 9) |
 | `BrowserStore.kt`, `BrowserData.kt`, `HomePage.kt`, `EntryList.kt` | history, bookmarks, clear data, new-tab page, lists |
 | `BridgeClient.kt`, `BridgeProtocol.kt`, `Backoff.kt` | backend WebSocket bridge (`docs/android-bridge.md`) |
 | `UpdateChecker.kt`, `VersionManifest.kt` | in-app updates |
@@ -161,11 +167,10 @@ bridge origin check, backoff, update manifest (per app), bridge protocol, contro
 history and downloads lists, home-page escaping, tab persistence, private-tab rules, Custom Tab hosts, desktop user
 agent, panel layouts, clear-data rules and the app handoff.
 
-## Next steps (not in 0.8.0)
+## Next steps (not in 0.9.0)
 
-- **Backend:** the server-side reader and the browser session manager (`docs/phase8-backend-contract.md`), and the
-  bridge server with Saga commands (`docs/android-bridge.md`, Phase 9). Saga can't drive the native panel yet; the
-  chat's AI Browse still runs in the web reader panel.
+- **Saga on real phones:** run multi-step tasks, injection pages and approvals on low, mid and high-end devices
+  (the Phase 9 Kotlin code was written without a local Android build; CI builds it).
 - **Push notifications** (FCM: Firebase project, `google-services.json` as a CI secret, token endpoint).
 - **Native dictation** with Android's SpeechRecognizer.
 - **App Links:** `/.well-known/assetlinks.json` on chat.apparatus.name.ng with the release certificate fingerprint.

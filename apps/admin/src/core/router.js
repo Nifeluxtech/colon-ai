@@ -37,7 +37,7 @@ var SECTIONS = [
   ['/evaluation', 'list', 'Evaluation', 'Benchmark runs and model feedback', 'admin'],
   ['/registry', 'globe', 'African AI registry', 'Language models and datasets', 'admin'],
   ['/voice', 'mic', 'Voice', 'STT and TTS engines', 'admin'],
-  ['/browser', 'compass', 'Browser', 'Live sessions (coming)', 'admin'],
+  ['/browser', 'compass', 'Browser', 'Saga tasks and replays', 'admin'],
   ['/system', 'settings', 'System settings', 'Branding, flags, maintenance, banner, web search', 'super_admin'],
   ['/safety', 'alert', 'Safety', 'Refusals, stopped replies, injection attempts', 'admin'],
   ['/security', 'shield', 'Security', 'Staff 2FA, sign-ins, audit trail', 'admin'],

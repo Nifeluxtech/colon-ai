@@ -34,7 +34,7 @@ function cors(req, res) {
     res.setHeader('Vary', 'Origin');
     res.setHeader('Access-Control-Allow-Credentials', 'true');
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type, X-Colon-Client');
-    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PATCH, DELETE, OPTIONS');
+    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS');
     res.setHeader('Access-Control-Max-Age', '600');
   }
 }
@@ -86,11 +86,12 @@ async function handle(req, res) {
     const status = e.status || 500;
     if (status >= 500) log.error('request_failed', { path, err: e.message, code: e.code });
     if (res.headersSent) { if (!res.writableEnded) res.end(); return; }
+    // e.extra: contract fields beside error/message (retry_after, upstream_status, the current session on 409).
     send(res, status, {
       error: e.code || 'server_error',
       message: status >= 500 && !e.code ? 'Something went wrong. Please try again.' : e.message,
-      field: e.field,
-    });
+      field: e.field, ...(e.extra && typeof e.extra === 'object' ? e.extra : {}),
+    }, e.headers || {});
   }
 }
 

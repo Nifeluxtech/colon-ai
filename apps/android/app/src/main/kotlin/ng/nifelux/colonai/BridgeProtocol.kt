@@ -10,10 +10,13 @@ import org.json.JSONObject
 object BridgeProtocol {
     const val VERSION = 1
 
-    /** Commands this build can run on a browser tab. Anything else is answered with ack error "unsupported". */
+    /** Commands this build can run on a browser tab. Anything else is answered with ack error "unsupported".
+     *  Sent in hello as `capabilities`; the server only starts Saga tasks on apps that list get_page_content. */
     val COMMANDS = listOf(
         "open_url", "new_tab", "back", "forward", "reload", "stop",
         "switch_tab", "close_tab", "get_page_state", "get_tabs",
+        // Phase 9 (v0.9.0): Saga's page tools (SagaTools), with approval on the phone for risky steps
+        "get_page_content", "get_links", "click", "fill", "scroll", "screenshot",
     )
 
     sealed class Incoming {

@@ -1,10 +1,13 @@
-# Phase 8 backend contract (v0.8.0)
+# Phase 8 backend contract (v0.8.0 clients, v0.8.1 server)
 
-v0.8.0 ships the **client side** of Phase 8 (Colon Browser standalone). Two server pieces are not built yet and
-`services/api` was not changed (only its version number). The clients already call or are ready to call the
-endpoints below, and fall back gracefully while they are missing. This file is the contract the API has to meet.
+v0.8.0 shipped the **client side** of Phase 8 (Colon Browser standalone). **v0.8.1 builds both server pieces** in
+`services/api` (`src/modules/browser`, `src/http/routes/browser.js`, `src/ws/index.js`, migration
+`0008_browser_sessions.sql`). The clients already call these endpoints, so they use the server as soon as it is
+deployed; the fallbacks below still apply to an API that has the reader switched off (`BROWSER_READER=off` ->
+`501`) or is older. This file stays the contract; "Server notes (v0.8.1)" at the end lists the choices made where
+the contract was silent.
 
-| Piece | Client today | Until the server exists |
+| Piece | Client | Fallback when the server lacks it |
 |---|---|---|
 | Server-side reader / proxy (web light mode) | `packages/ui/js/browser/reader-proxy.js` calls `GET /browser/fetch` after the browser's own fetch fails with `needs_proxy` | A `404`/`501` marks it unavailable for the session; the page shows "Can't open this site in reader preview" with the **Open in the app for full browsing** prompt. `localStorage['colon.reader'] = 'mock'` shows a labelled **Preview** page instead, for UI testing. |
 | Browser session manager (tabs, URLs, history, control owner per user and device) | Web: `RemoteBrowserData` (`/browser/session`, `/browser/history`, …) behind `localStorage['colon.data'] = 'remote'`. Android: `page_state` / `control` frames on the existing bridge (`docs/android-bridge.md`). | Web keeps its session in IndexedDB on the device; Android keeps tabs and history on the phone only (never sent). |
@@ -136,3 +139,47 @@ characters dropped, sessions idle for 30 days deleted.
 fields are Colon AI (unchanged since v0.7.1, so older apps keep updating); `browser` is Colon Browser. Each app
 reads only its own entry and only accepts an APK named for itself (`colon-ai-<v>.apk` / `colon-browser-<v>.apk`, or
 the fixed names). `scripts/deploy/android-version.test.js` keeps it in step with `package.json` and the workflow.
+
+---
+
+## Server notes (v0.8.1)
+
+Status: **§1 and §2 are live in `services/api`** (tests: `tests/security/browser-reader.test.js`,
+`tests/unit/browser-html.test.js`, `tests/unit/browser-session.test.js`, `tests/unit/browser-bridge.test.js`).
+Where the contract was silent:
+
+- **Extra reader errors:** `403 blocked_site` (block list, with `category`), `403 blocked_robots` (robots.txt
+  `Disallow`), `401 unauthenticated` (guest while `BROWSER_READER_GUESTS=off`). A DNS failure or more than 5
+  redirects is `502 upstream_error` with `upstream_status: null`. The client treats all of these as "can't read".
+- **Size:** a `Content-Length` over 2 MB is `413 too_large`; a body that only turns out larger while streaming is
+  cut at 2 MB and returned with `truncated: true` ("stop reading after that").
+- **Sign-in walls (`422 needs_login`):** upstream `401`/`407`, a password field on a short page, or a redirect to a
+  login path with a password field or little text. Other `4xx`/`5xx` are `502 upstream_error`.
+- **Block list:** adult hosts are refused for everyone in the reader (light mode has no age check), with malware
+  test hosts and `BROWSER_READER_BLOCKLIST` (`modules/safety/hosts.js`; a hosted feed can be added behind it).
+- **robots.txt:** checked on every hop, cached an hour per origin; a missing file allows everything, an unreadable
+  one (5xx, timeout) is treated as allowing (one page a user asked for, never a crawl).
+- **retry_after:** the length of the window that was exceeded (60 or 86 400 seconds); counters are fixed windows
+  in MySQL (`shared/ratelimit.js`).
+- **Cache:** per worker (Passenger recycles workers, so it may be cold); the rate limit counts cache hits too.
+- **REST device:** `?device_id=` (or `device_id` in the body); without one, older web builds share one `web` device
+  per app. The app is `web-browser` when `X-Colon-Client: browser`, else `web-chat` (`?app=` overrides).
+- **PUT version:** `version` in the body, else `session.version` (what `RemoteBrowserData` loaded). With neither the
+  write is unconditional. Writing to a session that no longer exists with a version above 0 is a `409` with
+  `session: null`. Tabs keep their `back`/`fwd` stacks (50 each) for the web.
+- **WebSocket auth:** the `colon_sid` cookie, loaded on upgrade like the HTTP routes. Signed-out sockets still
+  connect and get the plain `hello` and `pong`, but every session frame answers `error: unauthenticated`. The
+  bearer-token flow is not built.
+- **hello:** the server's first `hello` (on connect) is unchanged; the phone's `hello` with `app` (missing `app` =
+  `colonai`, for older apps) gets `{ service, bridge: 1, session: 1 }`. A phone that says `manual` while the server
+  holds `ai`/`shared` resets it to manual (audited as `hello`).
+- **session_sync:** throttled by coalescing (one write at most every 2 s; the latest frame inside the window wins).
+  Its `control` can only lower control (to `manual`) and its `paused` only pause; raising needs a `control` frame.
+  A named active tab that was dropped (private, bad URL) leaves no active tab. Frames over 64 KB get
+  `error: frame_too_large`; above 1 MB the socket is closed.
+- **Control:** `return_to_ai` is accepted only after a `consent` on the same socket (cleared by `stop` or
+  `declined`); `resume` clears `paused`. Audit action `browser.control`, target `browser_session`.
+- **Not stored yet:** `page_state` (accepted, ignored). Saga's routing across workers is built since v0.9.0
+  (Phase 9: tasks queued in MySQL and claimed by the worker that holds the phone's socket;
+  `docs/android-bridge.md`, "Saga on the server").
+

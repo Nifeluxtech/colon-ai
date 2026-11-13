@@ -3,6 +3,7 @@
 import { login, newChat } from './chat.js';
 import { Colon } from '../../../../packages/ui/js/colon.js';
 import { renameConv } from '../actions/rename.js';
+import { browseNative } from '../actions/saga-native.js';
 import { send, stopStreaming } from '../actions/send-message.js';
 import { applySplitWidth, openBrowser, renderEmbed, setLayout, setMobileTab, toggleBrowser }
   from '../components/browser-panel.js';
@@ -110,9 +111,13 @@ function bind() {
       'rename-current': function () { if (S.current) renameConv(S.current); },
       attach: function () { S.media.pick(); }, mic: function () { voiceMenu(a); },
       'mode-menu': function () { modeMenu(a); },
-      'browse-web': function () { var v = ta.value.trim(), b = openBrowser(null, { panel: true });
-        if (v) { b.startTask(v);
-        ta.value = ''; autoGrow(); syncComposer(); C.toast('Saga is browsing. Watch every step in the panel.'); } },
+      // AI Browse: in the Android app Saga drives the native panel (it opens at once); elsewhere the web reader.
+      'browse-web': function () {
+        var v = ta.value.trim();
+        if (C.native.hasPanel()) browseNative(v);
+        else { var b = openBrowser(null, { panel: true }); if (v) { b.startTask(v);
+          C.toast('Saga is browsing. Watch every step in the panel.'); } }
+        if (v) { ta.value = ''; autoGrow(); syncComposer(); } },
       browser: toggleBrowser,
       'browser-close': function () { S.browser.full = false; setLayout('none'); },
       'layout-split': function () { S.browser.full = false; setLayout('split'); }, 'layout-embed': function () {

@@ -40,8 +40,9 @@ function browserIndicator() {
 }
 // Inside Colon AI for Android (v0.8.0) the chat's browser is the app's native panel: a real Android WebView beside
 // the chat (embedded, split or full screen; the app draws its header, Saga controls and "Open in Colon Browser").
-// On the web it is the reader panel (light mode). AI Browse ({ panel: true }) still runs in the web panel until
-// Saga drives the native WebView (Phase 9). An older app without the panel opened a native tab instead.
+// On the web it is the reader panel (light mode). AI Browse in the app runs on the native panel since v0.9.0
+// (actions/saga-native.js: Saga drives the WebView through the server); { panel: true } is the web reader's AI
+// Browse, used on the web and as its fallback. An older app without the panel opened a native tab instead.
 function openBrowser(url, opts) {
   if (!(opts && opts.panel)) {
     if (C.native.hasPanel()) { C.native.browser('open', { url: url || '' }).then(syncNative, nativeFailed);
@@ -139,5 +140,5 @@ function startNativeBrowser() {
 function applyTextSize() { document.documentElement.setAttribute('data-text', (S.settings && S.settings.textSize)
   || 'md'); }
 
-export { applySplitWidth, applyTextSize, openBrowser, renderEmbed, setLayout, setMobileTab, startNativeBrowser,
-  syncNative, toggleBrowser };
+export { addBrowseNote, applySplitWidth, applyTextSize, nativeFailed, openBrowser, renderEmbed, setLayout,
+  setMobileTab, startNativeBrowser, syncNative, toggleBrowser };
