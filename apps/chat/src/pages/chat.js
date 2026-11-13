@@ -211,7 +211,9 @@ function setView(v) {
   S.view = v; S.el.setAttribute('data-view', v);
   S.stick = true; syncJump();
   $('.cw-composer').hidden = v !== 'chat' && v !== 'welcome';  // pages and shared chats have no composer
-  $('.cw-embed-host').hidden = v !== 'chat'; $('.cw-native-host').hidden = v !== 'chat';
+  $('.cw-embed-host').hidden = v !== 'chat';
+  // The app's browser card (inline layout) also shows on a new chat, so the Browser button always shows the page.
+  $('.cw-native-host').hidden = v !== 'chat' && v !== 'welcome';
   if (v !== 'chat' && v !== 'welcome' && S.browser.layout === 'split' && isMobile()) setMobileTab('chat');
 }
 function showPage(name, ctx) {
