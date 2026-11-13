@@ -9,13 +9,20 @@
 // Approval: policy.approval() runs on every command the model asks for; when it says so, the command carries
 // `approval` and the phone must answer with result.approval = 'approved' after the user's tap. An ok answer
 // without it ends the task (approval_missing): the server never assumes an approval it didn't see.
+// Phase 10: secret forms (secrets.js). An action on a password, code, card or PIN field, a sign-in or payment page,
+// is never sent: the loop calls handoff({ kind, message }) (the user types it in the panel and taps Return to AI)
+// and goes on only when it resolves 'return_to_ai'. The phone's own refusal (ack error secret_field) does the same.
+// Page snapshots are redacted before the model sees them. mode 'shared' ("AI + me"): pageState() tells the loop
+// where the page is now, so a page the user changed is reported to the model and its old element ids dropped.
 const safety = require('../safety');
+const secrets = require('./secrets');
 const tools = require('./tools');
 const policy = require('./policy');
 const prompt = require('./prompt');
 const { parseDecision } = require('./parse');
 
-const INTERRUPTS = ['manual_control', 'paused', 'disconnected', 'not_ready', 'browser_not_open'];
+const INTERRUPTS = ['manual_control', 'paused', 'disconnected', 'not_ready', 'browser_not_open', 'other_chat'];
+const NAV_GRACE_MS = 3000;                      // page_state after Saga's own navigation is not the user's
 const KEEP_FULL = 2;                            // newest observations kept whole; older ones shrink to one line
 
 function timed(ms, fn) {
@@ -56,7 +63,7 @@ async function run(o) {
   const log = o.log || (async () => {});
   const started = now();
   const pages = [];
-  let elements = null;
+  let elements = null, here = '', seenAt = now();
   let steps = 0, badReplies = 0, phoneTimeouts = 0, modelFails = 0;
   const messages = [{ role: 'user', content: `The user's task: ${String(o.goal).slice(0, 1000)}` }];
   const end = (status, extra = {}) => ({ status, steps, sources: extra.sources || pages.map(cite), flags: guard.flags,
@@ -75,6 +82,13 @@ async function run(o) {
         + (pages.length ? 'These are the pages I read so far.' : 'I hadn\'t read any page yet.') });
     }
     steps++;
+    const moved = userMoved(o, here, seenAt);
+    if (moved) {
+      here = moved.url; seenAt = moved.at; elements = null;
+      messages.push({ role: 'user', observation: true, content: `The user changed the page in the browser: it is now `
+        + `${moved.url}${moved.title ? ` ("${guard.clean(moved.title, 'web').slice(0, 120)}")` : ''}. Your element ids `
+        + 'are out of date: call getPageContent before you click or fill anything.' });
+    }
     let reply;
     try {
       reply = await timed(Math.min(L.modelTimeoutMs, left()), (signal) => o.decide(compact(messages), signal));
@@ -113,6 +127,14 @@ async function run(o) {
       messages.push({ role: 'user', content: 'Colon does not open that site (blocked). Choose another source.' });
       continue;
     }
+    const secret = secrets.check(cmd, { elements, url: here });
+    if (secret) {
+      const back = await handBack(o, log, { ...secret, say: d.say, tool: cmd.tool, name: cmd.name });
+      if (back !== 'return_to_ai') return end('interrupted', { error: back });
+      elements = null;
+      messages.push({ role: 'user', observation: true, content: HANDED_BACK });
+      continue;
+    }
     const need = policy.approval(cmd, { elements });
     const args = need ? { ...cmd.args, approval: { kind: need.kind, reason: need.reason } } : cmd.args;
     const t0 = now();
@@ -126,6 +148,16 @@ async function run(o) {
         ? 'denied' : 'none') : null,
       ok: Boolean(ack.ok), error: ack.ok ? null : String(ack.error || 'error').slice(0, 40), ms: now() - t0,
       url: res.url ? String(res.url).slice(0, 2048) : null, title: res.title ? String(res.title).slice(0, 200) : null };
+    if (!ack.ok && ack.error === 'secret_field') {
+      // The phone's own check of the real element found a secret field: it already gave the page to the user.
+      const s2 = { kind: String(res.kind || 'password').slice(0, 20), reason: 'The phone found a secret field',
+        message: secrets.message(res.kind), say: d.say, tool: cmd.tool, name: cmd.name, phone: true };
+      const back = await handBack(o, log, s2);
+      if (back !== 'return_to_ai') return end('interrupted', { error: back });
+      elements = null;
+      messages.push({ role: 'user', observation: true, content: HANDED_BACK });
+      continue;
+    }
     if (need && ack.ok && !approvedOnPhone) {
       await log({ ...entry, error: 'approval_missing' });
       return end('failed', { error: 'approval_missing' });
@@ -138,7 +170,12 @@ async function run(o) {
       await log(entry);
       if (++phoneTimeouts >= 2) return end('failed', { error: 'phone_timeout' });
     } else phoneTimeouts = 0;
-    const ob = prompt.observe(cmd, ack, { guard, pages });
+    const shown = cmd.name === 'get_page_content' && ack.ok ? { ...ack, result: secrets.redactContent(res) } : ack;
+    const ob = prompt.observe(cmd, shown, { guard, pages });
+    if (res.url) here = String(res.url).slice(0, 2048);
+    else if (ack.ok && cmd.args.url) here = cmd.args.url;
+    // Saga's own navigation is reported by the phone a little later: not the user's doing.
+    seenAt = now() + (ack.ok && tools.NAVIGATES.has(cmd.name) ? NAV_GRACE_MS : 0);
     if (ob.page) { entry.url = entry.url || ob.page.url; entry.title = entry.title || ob.page.title;
       entry.page = ob.page.n; }
     if (ack.error !== 'timeout') await log(entry);
@@ -148,6 +185,26 @@ async function run(o) {
       + 'the same thing another way; continue without it or finish and explain.' : '';
     messages.push({ role: 'user', content: note ? `${ob.text}\n${note}` : ob.text, observation: true });
   }
+}
+
+const HANDED_BACK = 'The user typed the private details in the browser themselves and gave control back. Never type '
+  + 'passwords, codes, card details or PINs yourself. Call getPageContent to see the page now, then continue.';
+
+// Waits while the user types a secret: logged as a 'handoff' step (its say is the prompt the chat shows).
+async function handBack(o, log, s) {
+  await log({ kind: 'handoff', say: s.message, tool: s.tool, name: s.name, error: s.kind });
+  if (typeof o.handoff !== 'function') return 'secret_field';
+  const r = await o.handoff({ kind: s.kind, message: s.message, reason: s.reason }, { phoneStarted: Boolean(s.phone) });
+  if (r !== 'return_to_ai') await log({ kind: 'end', status: 'interrupted', error: String(r).slice(0, 40) });
+  return r === 'return_to_ai' ? r : r === 'timeout' ? 'handoff_timeout' : String(r || 'handoff_ended').slice(0, 40);
+}
+
+// "AI + me": the page the phone reports now differs from the one Saga last acted on (the user moved it).
+function userMoved(o, here, seenAt) {
+  if (o.mode !== 'shared' || typeof o.pageState !== 'function') return null;
+  const p = o.pageState();
+  if (!p || !p.url || p.url === here || !(p.at > seenAt)) return null;
+  return p;
 }
 
 const blocked = (url) => safety.blockedHost(new URL(url).hostname, { extra: [process.env.BROWSER_READER_BLOCKLIST

@@ -6,7 +6,11 @@
    until the next `content`.
    Risk (approval on the phone): the phone's own check of the REAL element, independent of the server's. Kinds:
    payment · purchase · send_message · form_submission · personal_data. Mirrors services/api/src/modules/saga/
-   policy.js; when either side says so, the user must tap Allow. */
+   policy.js; when either side says so, the user must tap Allow.
+   Secret fields (Phase 10): passwords, one-time / 2FA codes, card numbers, CVV and expiry, PINs. `content` marks
+   them (secret: kind) and every field of a form that holds one (form_secret), never with their text or value;
+   `inspect` reports them, and `click` / `fill` refuse them (error secret_field): the user types these, never Saga.
+   Mirrors services/api/src/modules/saga/secrets.js fieldKind (tests/security/saga-secrets.test.js). */
 (function (cmd, args) {
   'use strict';
   var ATTR = 'data-colon-saga';
@@ -43,6 +47,39 @@
   }
   function words(d) { return [d.label, d.text, d.name, d.placeholder, d.autocomplete, d.type, d.href].join(' '); }
 
+  var AUTO = { 'current-password': 'password', 'new-password': 'password', 'one-time-code': 'one_time_code',
+    'cc-number': 'card', 'cc-csc': 'card', 'cc-exp': 'card', 'cc-exp-month': 'card', 'cc-exp-year': 'card' };
+  var SECRET_WORDS = [
+    ['password', /\b(?:password|passwd|pwd|passphrase|secret)\b/],
+    ['one_time_code', new RegExp('\\b(?:otp|totp|2fa|mfa|one ?time(?: pass(?:word|code))?|onetime|verification '
+      + 'code|verify code|auth(?:entication)? code|access code|token code|sms code)\\b')],
+    ['card', new RegExp('\\b(?:cvv2?|cvc2?|csc|security code|card ?(?:number|no|num)|cardnumber|ccnum|cc ?num|pan|'
+      + 'expiry|exp(?:iry)? date|card)\\b')],
+    ['pin', /\b(?:pin|passcode|transaction pin|atm pin)\b/]
+  ];
+  var NOT_CARD = /\b(?:card ?holder|name on (?:the )?card|gift card|id card|card ?type)\b/;
+  var NOT_TYPED = /^(?:submit|button|reset|image|checkbox|radio|hidden|file)$/;
+  function splitWords(s) { return String(s || '').replace(/([a-z])([A-Z])/g, '$1 $2').replace(/[_\-./[\]:]+/g, ' ')
+    .toLowerCase().replace(/\s+/g, ' ').trim(); }
+  /* secretKind(descriptor) -> 'password' | 'one_time_code' | 'card' | 'pin' | null */
+  function secretKind(d) {
+    var type = String(d.type || '').toLowerCase(), tag = String(d.tag || '').toLowerCase();
+    if (type === 'password') return 'password';
+    if (tag && tag !== 'input' && tag !== 'textarea' && tag !== 'select' && !d.contenteditable) return null;
+    if (NOT_TYPED.test(type)) return null;
+    var auto = String(d.autocomplete || '').toLowerCase().split(/\s+/);
+    for (var i = 0; i < auto.length; i++) if (AUTO[auto[i]]) return AUTO[auto[i]];
+    var w = splitWords([d.name, d.id, d.label, d.placeholder].filter(Boolean).join(' '));
+    for (var j = 0; j < SECRET_WORDS.length; j++) {
+      if (!SECRET_WORDS[j][1].test(w)) continue;
+      if (SECRET_WORDS[j][0] === 'card' && NOT_CARD.test(w)) continue;
+      return SECRET_WORDS[j][0];
+    }
+    var max = +d.maxlength || 0;
+    if (/\bcode\b/.test(w) && (d.inputmode === 'numeric' || (max > 0 && max <= 8))) return 'one_time_code';
+    return null;
+  }
+
   /* risk(descriptor, { action: 'click'|'fill', value, submit }) -> { kind, reason } | null */
   function risk(d, a) {
     var w = words(d), named = clip(d.label || d.text || d.name || d.placeholder || d.type || d.tag, 60);
@@ -71,6 +108,7 @@
     return null;
   }
   if (cmd === 'risk') return JSON.stringify({ risk: risk(args.descriptor || {}, args) });
+  if (cmd === 'secret') return JSON.stringify({ secret: secretKind(args.descriptor || {}) });
 
   var doc = document, win = window;
   function visible(el) {
@@ -95,7 +133,25 @@
         .test(el.type) ? el.value : '') : el.textContent, 80),
       name: clip(el.getAttribute('name'), 40), placeholder: clip(el.getAttribute('placeholder'), 60),
       autocomplete: clip(el.getAttribute('autocomplete'), 30), href: tag === 'a' ? clip(el.href, 300) : '',
-      form: !!(el.form || (el.closest && el.closest('form'))), contenteditable: el.isContentEditable === true };
+      form: !!(el.form || (el.closest && el.closest('form'))), contenteditable: el.isContentEditable === true,
+      inputmode: clip(el.getAttribute('inputmode'), 12), maxlength: +(el.getAttribute('maxlength') || 0) || 0,
+      id: '' };
+  }
+  // The element's own id only feeds the secret check (it never leaves the page: the descriptor's id is Saga's).
+  function secretOf(el) { var d = describe(el); d.id = clip(el.id, 40); return secretKind(d); }
+  // The secret a form holds (its first secret field), so Saga types nothing into any of its fields.
+  function formSecret(el) {
+    var form = el.form || (el.closest && el.closest('form'));
+    if (!form || !form.querySelectorAll) return null;
+    var fields = form.querySelectorAll('input,textarea,select');
+    for (var i = 0; i < fields.length; i++) { var k = secretOf(fields[i]); if (k) return k; }
+    return null;
+  }
+  function mark(el, d) {
+    var k = secretOf(el), f = formSecret(el);
+    if (k) { d.secret = k; d.text = ''; d.placeholder = d.placeholder.replace(/\d/g, '•'); }
+    if (f) d.form_secret = f;
+    return d;
   }
   function find(id) {
     return /^c\d{1,4}$/.test(String(id)) ? doc.querySelector('[' + ATTR + '="' + id + '"]') : null;
@@ -111,7 +167,7 @@
       if (el.disabled || !visible(el)) return false;
       var id = 'c' + (++n);
       el.setAttribute(ATTR, id);
-      var d = describe(el); d.id = id; out.push(d);
+      var d = mark(el, describe(el)); d.id = id; out.push(d);
       return out.length >= MAX_ELEMENTS;
     });
     var body = doc.body ? doc.body.innerText || doc.body.textContent || '' : '';
@@ -138,9 +194,12 @@
   }
   var el = find(args.id);
   if (!el) return JSON.stringify({ error: 'no_element' });
-  var d = describe(el);
-  if (cmd === 'inspect') return JSON.stringify({ descriptor: d, risk: risk(d, { action: args.action,
+  var d = mark(el, describe(el));
+  var secret = d.secret || (args.action === 'fill' || cmd === 'fill' ? d.form_secret : null) || null;
+  if (cmd === 'inspect') return JSON.stringify({ descriptor: d, secret: secret, risk: risk(d, { action: args.action,
     value: args.value, submit: args.submit }) });
+  // The last line of defence: whatever the server or the app decided, a secret field is never typed into or clicked.
+  if (secret && (cmd === 'click' || cmd === 'fill')) return JSON.stringify({ error: 'secret_field', kind: secret });
   if (cmd === 'click') {
     el.scrollIntoView({ block: 'center' });
     el.click();
