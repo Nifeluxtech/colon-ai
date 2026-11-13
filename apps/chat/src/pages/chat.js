@@ -6,7 +6,7 @@ import { bind, onKey } from './chat-events.js';
 import { showShared } from './shared.js';
 import { Colon } from '../../../../packages/ui/js/colon.js';
 import { send, stopStreaming } from '../actions/send-message.js';
-import { applyTextSize, setMobileTab } from '../components/browser-panel.js';
+import { applyTextSize, setMobileTab, startNativeBrowser } from '../components/browser-panel.js';
 import { autoGrow, composerHtml, renderModeChips, scrollBottom, syncComposer,
   syncJump } from '../components/composer.js';
 import { renderThread } from '../components/message.js';
@@ -155,9 +155,11 @@ function mount(view, ctx) {
       }),
     data.listModels().then(function (m) { S.models = m; }).catch(function () { S.models = [];
       C.toast('Couldn’t load the model list. Using Colon Saga.', 'bad'); })
-  ]).then(function () { refreshConvs(); route(ctx); S.nativeStop = startNativeShell(); });
+  ]).then(function () { refreshConvs(); route(ctx); S.nativeStop = startNativeShell();
+    C.native.ready().then(function () { if (!S.nativeBrowserStop) S.nativeBrowserStop = startNativeBrowser(); }); });
   return function unmount() {
     if (S.nativeStop) S.nativeStop();
+    if (S.nativeBrowserStop) { S.nativeBrowserStop(); S.nativeBrowserStop = null; }
     if (S.hf) S.hf.stop(); if (S.streaming) S.streaming.ctl.abort(); if (S.media) S.media.destroy();
     document.removeEventListener('keydown', onKey);
     if (S.ro) S.ro.disconnect(); document.documentElement.classList.remove('app-lock');

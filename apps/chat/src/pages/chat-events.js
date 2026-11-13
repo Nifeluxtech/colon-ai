@@ -4,7 +4,8 @@ import { login, newChat } from './chat.js';
 import { Colon } from '../../../../packages/ui/js/colon.js';
 import { renameConv } from '../actions/rename.js';
 import { send, stopStreaming } from '../actions/send-message.js';
-import { applySplitWidth, openBrowser, renderEmbed, setLayout, setMobileTab } from '../components/browser-panel.js';
+import { applySplitWidth, openBrowser, renderEmbed, setLayout, setMobileTab, toggleBrowser }
+  from '../components/browser-panel.js';
 import { autoGrow, devTemplate, modeMenu, onThreadScroll, scrollBottom, setMode, syncComposer,
   trackComposerHeight } from '../components/composer.js';
 import { msgAction } from '../components/message.js';
@@ -112,7 +113,7 @@ function bind() {
       'browse-web': function () { var v = ta.value.trim(), b = openBrowser(null, { panel: true });
         if (v) { b.startTask(v);
         ta.value = ''; autoGrow(); syncComposer(); C.toast('Saga is browsing. Watch every step in the panel.'); } },
-      browser: function () { S.browser.layout === 'none' ? openBrowser() : setLayout('none'); },
+      browser: toggleBrowser,
       'browser-close': function () { S.browser.full = false; setLayout('none'); },
       'layout-split': function () { S.browser.full = false; setLayout('split'); }, 'layout-embed': function () {
         setLayout('embedded'); },
