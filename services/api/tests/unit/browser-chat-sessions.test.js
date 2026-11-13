@@ -29,7 +29,8 @@ test('control rules: consent, AI only <-> AI + me, take control, handoff, Return
   d = C.next('handoff', { control: 'ai', paused: 0 }, { consented: true });
   assert.deepEqual(d.next, { control: 'manual', control_owner: 'user', paused: false });
   assert.equal(d.consented, true, 'consent is kept so Return to AI resumes the task');
-  assert.equal(d.cancel, true);
+  assert.equal(d.cancel, false, 'the phone answered the refused step itself');
+  assert.equal(C.next('take_control', { control: 'ai' }, { consented: true }).cancel, true);
   assert.equal(C.next('return_to_ai', manual, { mode: 'ai', consented: true }).next.control, 'ai');
   assert.equal(C.next('return_to_ai', manual, { mode: 'ai', consented: false }).error, 'needs_consent');
   d = C.next('stop', { control: 'ai' }, { consented: true });

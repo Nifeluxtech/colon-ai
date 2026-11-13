@@ -172,9 +172,11 @@ class BrowserSaga(private val a: BrowserHost, private val bridge: BridgeClient) 
     /** The panel is about to show another chat: Saga's task in this one ends (its browser is put away). */
     fun endForChatSwitch() { approvalDialog?.dismiss(); forgetConsent(); apply(control.stop()) }
 
+    /** The ack goes first: the server must read "secret_field" (wait for the user), not the control change that
+     *  follows (which would read as the user taking over and end the task). */
     private fun refuseSecret(kind: String, reply: Reply) {
-        handOff(kind)
         reply(false, JSONObject().put("kind", kind), "secret_field")
+        handOff(kind)
     }
 
     private fun render() {

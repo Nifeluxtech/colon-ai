@@ -23,8 +23,10 @@ function next(reason, row, o = {}) {
       return out({ control: 'manual', control_owner: 'user', paused: false, task: '' }, false, true);
     // handoff (Phase 10): Saga reached a password, code, card or sign-in field and handed the page to the user. Like
     // take_control, consent is kept so the user's Return to AI resumes the same task.
+    // The phone answers a refused command itself (ack secret_field, sent before this report), so a handoff cancels
+    // nothing; Take control cancels what is pending.
     case 'take_control': case 'handoff':
-      return out({ control: 'manual', control_owner: 'user', paused: Boolean(r.paused) }, was, true);
+      return out({ control: 'manual', control_owner: 'user', paused: Boolean(r.paused) }, was, reason !== 'handoff');
     case 'pause': return out({ control: r.control, control_owner: owner(r.control), paused: true }, was, true);
     case 'resume': return out({ control: r.control, control_owner: owner(r.control), paused: false });
     // mode (Phase 10): the user switched this chat between "AI only" and "AI + me" while Saga had control. It never

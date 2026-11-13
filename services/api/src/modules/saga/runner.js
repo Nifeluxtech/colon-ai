@@ -53,9 +53,10 @@ async function waitHandoff(task, bridge, info, o, L) {
     const reason = await w;
     if (reason === 'return_to_ai') { await store.setPhase(task.id, 'running'); return reason; }
     if (reason !== 'timeout' && !STILL_WAITING.includes(reason)) return reason;
-    if (await store.isStopped(task.id)) return 'stop';
     if (Date.now() >= until) return 'timeout';
+    // Re-armed before anything else is awaited, so a Return to AI tapped meanwhile is never missed.
     w = bridge.waitControl(Math.min(SLICE_MS, until - Date.now()));
+    if (await store.isStopped(task.id)) return 'stop';
   }
 }
 
