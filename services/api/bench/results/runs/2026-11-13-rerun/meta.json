@@ -1,0 +1,45 @@
+{
+  "run": "2026-11-13-rerun",
+  "suite": "colon-bench-1",
+  "started": "2026-11-13T05:09:03.192Z",
+  "models": [
+    "nvidia:nvidia/nemotron-3.5-lightning-30b-a3b",
+    "nvidia:mistralai/mistral-large-4-1t-a52b"
+  ],
+  "settings": {
+    "max_tokens": 2048,
+    "first_token_timeout_ms": 60000,
+    "concurrency_per_model": 1,
+    "gap_ms": 1500,
+    "retries": 2,
+    "temperature": "provider default",
+    "limit_per_set": null,
+    "provider_limits": {
+      "nvidia": {
+        "rpm": 30,
+        "inflight": 4
+      }
+    },
+    "per_model": {
+      "nvidia:nvidia/nemotron-3.5-lightning-30b-a3b": {
+        "body": {
+          "reasoning_budget": 1024
+        },
+        "maxTokens": 4096,
+        "firstTokenTimeoutMs": 120000,
+        "cfg": "03eb8e43a8"
+      },
+      "nvidia:mistralai/mistral-large-4-1t-a52b": {
+        "body": null,
+        "firstTokenTimeoutMs": 180000,
+        "maxMs": 300000,
+        "cfg": "f962ef5175"
+      }
+    }
+  },
+  "cli": {
+    "order": "interleave",
+    "concurrency-nvidia": "2"
+  },
+  "finished": "2026-11-13T05:49:37.658Z"
+}
