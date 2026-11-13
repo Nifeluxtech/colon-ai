@@ -8,6 +8,9 @@ import { ColonURL } from '../url.js';
 
 var U = ColonURL;
 
+// Phase 10: a conversation's own session (?conversation_id=); without a key, the device-wide one.
+function chatQ(key) { return key ? '?conversation_id=' + encodeURIComponent(key) : ''; }
+
 /* ---------- Remote implementation (endpoints documented above) ---------- */
 function RemoteBrowserData() {
   var api = Colon.api, settingsCache = null;
@@ -15,9 +18,11 @@ function RemoteBrowserData() {
   return {
     kind: 'remote',
     describe: 'Synced with your Colon account.',
-    getSession: function () { return api('/browser/session').then(function (d) { return d.session; }); },
-    saveSession: function (s) { return api('/browser/session', { method: 'PUT', body: { session: s } }).then(function (
-      d) { return d.session; }); },
+    getSession: function (key) { return api('/browser/session' + chatQ(key)).then(function (d) {
+      return d.session; }); },
+    saveSession: function (s, key) { return api('/browser/session' + chatQ(key), { method: 'PUT',
+      body: { session: s } }).then(function (d) { return d.session; }); },
+    removeSession: function (key) { return api('/browser/session' + chatQ(key), { method: 'DELETE' }); },
     getSettings: function () { return settingsCache ? Promise.resolve(settingsCache) : api('/browser/settings').then(
       function (d) { settingsCache = Object.assign({}, DEFAULT_SETTINGS, d.settings); return settingsCache; }); },
     saveSettings: function (p) { return api('/browser/settings', { method: 'PATCH', body: p }).then(function (d) {

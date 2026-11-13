@@ -2,6 +2,7 @@
 
 import { autoGrow, renderDevChips, renderModeChips } from './composer.js';
 import { Colon } from '../../../../packages/ui/js/colon.js';
+import { CW } from '../core/cw.js';
 import { $, CAPS, MODES, S, data, mode, modelId, modelName } from '../core/state.js';
 
 var C = Colon, icon = C.icon;
@@ -13,6 +14,7 @@ function updateHeader() {
   $('[data-mode-sub]').textContent = MODES[m].sub;
   var t = $('.cw-title'); t.hidden = !inChat || !S.current;
   $('[data-title]').textContent = S.current ? S.current.title : '';
+  if (CW.syncChat) CW.syncChat();   // Phase 10: this chat's own browser (components/browser-panel.js)
   var titles = { welcome: 'New chat', history: 'History', saved: 'Saved', explore: 'Explore', settings: 'Settings',
     help: 'Help & Support', login: 'Log in', shared: 'Shared chat' };
   document.title = (inChat && S.current ? S.current.title : titles[S.view] || 'Colon AI') + ' · Colon AI';

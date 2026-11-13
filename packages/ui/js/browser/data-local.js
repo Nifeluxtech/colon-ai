@@ -17,8 +17,10 @@ function LocalBrowserData() {
   var self = {
     kind: 'local',
     describe: 'Saved on this device. Web pages open in reader preview.',
-    getSession: function () { return kvGet('session', null); },
-    saveSession: function (s) { s.updated_at = now(); return kvSet('session', s); },
+    // key (Phase 10): a conversation's own reader session in Colon AI ("one browser per chat"); none = the device's.
+    getSession: function (key) { return kvGet(key ? 'session:chat:' + key : 'session', null); },
+    saveSession: function (s, key) { s.updated_at = now(); return kvSet(key ? 'session:chat:' + key : 'session', s); },
+    removeSession: function (key) { return db.del('kv', key ? 'session:chat:' + key : 'session'); },
 
     getSettings: function () { return settingsCache ? Promise.resolve(settingsCache) : kvGet('settings',
       {}).then(function (s) { settingsCache = Object.assign({}, DEFAULT_SETTINGS, s, { permissions: Object.assign({},

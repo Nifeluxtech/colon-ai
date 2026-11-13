@@ -41,8 +41,10 @@ function create(container, opts) {
   ctx.variant = ctx.opts.variant || 'full';
   ctx.subs = {}; ctx.pages = {}; ctx.session = null; ctx.settings = null; ctx.bookmarks = []; ctx.abortNav = null;
     ctx.sideOpen = ctx.variant === 'full' && innerWidth >= 1100; ctx.destroyed = false; ctx.recentHist = [];
-  ctx.persist = C.debounce(function () { if (ctx.session && !ctx.destroyed) ctx.data.saveSession(ctx.session).catch(
-    function () {});
+  // opts.sessionKey (Phase 10): Colon AI keeps one reader session per conversation; none = the device's session.
+  ctx.sessionKey = ctx.opts.sessionKey || null;
+  ctx.persist = C.debounce(function () { if (ctx.session && !ctx.destroyed) ctx.data.saveSession(ctx.session,
+    ctx.sessionKey).catch(function () {});
     }, 400);
 
   /* ---------- Skeleton ---------- */
@@ -71,7 +73,7 @@ function create(container, opts) {
   bindEvents(ctx);
 
   /* ---------- Boot ---------- */
-  ctx.ready = Promise.all([ctx.data.getSettings(), ctx.data.getSession().catch(function () { return null;
+  ctx.ready = Promise.all([ctx.data.getSettings(), ctx.data.getSession(ctx.sessionKey).catch(function () { return null;
     }), ctx.refreshBookmarks(
     ).catch(function () {}), ctx.data.listHistory({ limit: 8 }).catch(function () { return []; })]).then(function (r) {
     ctx.settings = r[0];

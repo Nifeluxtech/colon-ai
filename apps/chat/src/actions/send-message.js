@@ -1,5 +1,6 @@
 /* Colon AI · sending a message and streaming the reply; regenerate, stop and edit-and-resend. */
 
+import { handleBrowserText } from './browser-chat.js';
 import { Colon } from '../../../../packages/ui/js/colon.js';
 import { ColonMarkdown } from '../../../../packages/ui/js/markdown/index.js';
 import { autoGrow, scrollBottom, syncComposer } from '../components/composer.js';
@@ -18,13 +19,15 @@ function send() {
   if (st.uploading) { C.toast('Wait for your files to finish uploading.'); return; }
   if (!text && !atts.length) return;
   if (S.media.voiceActive()) S.media.stopVoice();
+  // Phase 10: "open the browser", "open google.com", "scroll down"… go to this chat's browser (actions/browser-chat).
+  if (!atts.length && handleBrowserText(text)) { ta.value = ''; autoGrow(); syncComposer(); return; }
   var conv = S.current && !S.loadingConv ? Promise.resolve(S.current) : data.createConversation({ mode: S.draftMode,
     model: S.draftModel || defaultModel() });
   ta.value = ''; autoGrow(); S.media.clear(true); syncComposer();
   conv.then(function (c) {
     var fresh = !S.current || S.current.id !== c.id;
     if (fresh) {
-      S.current = c; S.messages = [];
+      S.current = c; S.messages = []; S.browser.createdId = c.id;   // the new chat keeps its browser (adopt)
       var w = $('.cw-welcome'); if (w) w.classList.add('leaving');
       history.replaceState(null, '', '#/c/' + encodeURIComponent(c.id)); setView('chat');
       S.el.querySelectorAll('[data-nav]').forEach(function (a) { a.classList.toggle('active', a.getAttribute(

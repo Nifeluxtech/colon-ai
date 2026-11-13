@@ -113,6 +113,15 @@
 .cw-embed.collapsed .cw-embed-body{display:none}
 .cw-embed.collapsed .cw-embed-head{border-bottom:0}
 .cw-embed.collapsed [data-a=native-collapse] svg{transform:rotate(180deg)}
+/* Phase 10: the chat browser's mode chip (AI only / AI + me / Manual) and Saga's "your turn" prompt. */
+.cw-mode-chip{min-height:30px;padding:0 10px;font-size:12px;font-weight:600;white-space:nowrap}
+.cw-mode-chip[data-state="ai"]{background:var(--primary);border-color:var(--primary);color:#fff}
+.cw-mode-chip[data-state="shared"]{background:var(--cyan,#0891b2);border-color:transparent;color:#fff}
+.cw-mode-chip[data-state="manual"]{border-color:var(--warn,#d97706);color:var(--text)}
+.cw-native-prompt{display:flex;align-items:center;gap:10px;padding:8px 14px;font-size:13px;line-height:1.35;
+  border-bottom:1px solid var(--line);background:var(--primary-soft,rgba(65,105,225,.12))}
+.cw-native-prompt[hidden]{display:none}
+.cw-native-prompt span{flex:1}
 /* The app's own WebView is laid over this box (inline layout, v0.9.1); the text shows only until it is there. */
 .cw-native-body{height:60vh;min-height:320px;display:flex;align-items:center;justify-content:center;
   background:var(--surface-solid)}
