@@ -68,15 +68,28 @@ Each phase ships only when it meets its release standard: tested, secured, deplo
 **Release standard:** every platform setting can be changed from the dashboard, and each role sees only what it is allowed to.
 
 ## Phase 5 — Intelligence & evaluation (Colon Saga)
-- The Colon benchmark: Nigerian everyday questions, WAEC, JAMB and university study, coding, reasoning, and tool use, plus Pidgin, Yorùbá, Hausa and Igbo sets.
-- Test the free candidates (Qwen, Gemma 4, GLM, DeepSeek and newer ones) on accuracy, speed, language quality and cost. The winner becomes Saga's default.
+- The Colon benchmark: Nigerian everyday questions, WAEC, JAMB and university study, coding, reasoning, and tool use, plus Pidgin, Yorùbá, Hausa and Igbo sets. **Done in v0.5.2, rerun complete in v0.5.11**
+  (`docs/phases/phase-5-benchmark.md`, `npm run bench`, results in `services/api/bench/results/`).
+- Test the free candidates (Qwen, Gemma 4, GLM, DeepSeek and newer ones) on accuracy, speed, language quality and cost. The winner becomes Saga's default. **Done**
+  (bench 2026-11-12): Gemma 4 26B 98 (default, ~1 s first token), Gemini 3.5 Flash Lite 96.8 (reference only),
+  MiniMax M3.1 Flash 88.9, Gemma 4 31B 88.5, Mistral Large 4 88.2, Nemotron 73.9; DeepSeek V4.1 Flash and GLM-5.3
+  Flash on NVIDIA's free tier timed out (incomplete, kept as last fallbacks). Model/routing changes need a <30-day
+  imported benchmark (`409 needs_benchmark`).
 - Specialist routing, where a model clearly beats Saga on a task, such as code or a particular language. **Done in v0.5.10**
   (`docs/phases/phase-5-specialist-routing.md`): a rule-based classifier (language + code / reasoning / exam /
   research / everyday) picks a category; the category's specialist is derived from the last imported benchmark
   (complete models only, ≥5 points better plus a latency penalty, first token ≤15 s) and only reorders the head of
   the chain; weak models (and MiniMax for Yorùbá/Hausa/Igbo) go last. Admin › Routing shows the table and an on/off
   switch (`AI_SPECIALIST_ROUTING`); Admin › Evaluation imports a benchmark file.
-- Integrate Nigerian language models (for example N-ATLaS) where their licences allow.
+- Integrate Nigerian language models (for example N-ATLaS) where their licences allow. **Done in v0.5.11, off by default**:
+  the `natlas` provider (OpenAI-compatible, default host Langa `https://langa.julimer.com/v1`, model `n-atlas`,
+  output capped by `NATLAS_MAX_TOKENS`, 2048) sits third in the African-language chain and turns on when
+  `NATLAS_API_KEY` is set. Not enabled in production: Langa's free plan (12,500 tokens/month) covers only ~10-15
+  replies, and a small bench (2 items each in Hausa, Igbo, Yorùbá) scored 3/6 against Gemma 4 26B's 4/6. Licence:
+  non-commercial, ≤1,000 active users per 30 days, credit Awarri and the Federal Ministry.
+
+**Phase 5 complete (v0.5.11, 2026-11-13).** Open follow-ups: native-speaker review of the safety language lists; Exa
+search adapter and a search cache; rerun DeepSeek/GLM when NVIDIA's free tier answers in time.
 - Web search with cited sources for Research mode. **Done in v0.5.3** (`docs/phases/phase-5-research.md`).
 - Study mode: step-by-step explanations, quizzes, flashcards, past-question practice and a timed CBT practice test (10 questions, 5 minutes). **Done in v0.5.7**
   (prompt only): quizzes one question at a time with A–D options, feedback and a score; flashcards as a table;

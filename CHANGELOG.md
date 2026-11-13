@@ -1,5 +1,21 @@
 # Changelog
 
+## [0.5.11] — 2026-11-13 · N-ATLaS and Phase 5 complete
+Closes Phase 5 (Intelligence & evaluation).
+### Added
+- **N-ATLaS on Langa**: the `natlas` provider defaults to `https://langa.julimer.com/v1` (model `n-atlas`); it turns on
+  only when `NATLAS_API_KEY` is set and stays third in the African-language chain. New env `NATLAS_MAX_TOKENS`
+  (default 2048): a provider-level output cap (`client.capTokens`), so Developer mode's 8192 never reaches the host.
+- Small N-ATLaS bench `bench/results/natlas-2026-11-13` (Hausa, Igbo, Yorùbá, 2 items each): 3/6, ~0.9 s first token
+  (Gemma 4 26B: 4/6 on the same items). Not enabled in production: Langa's free plan is 12,500 tokens/month.
+- Benchmark 2026-11-12 complete (Mistral Large 4 with `reasoning_effort: 'low'`; `'none'` answers 400).
+### Changed
+- Built-in specialist table: Everyday no longer goes to MiniMax; after the complete rerun Gemma 4 26B leads every
+  category (MiniMax still last for Yorùbá, Hausa, Igbo).
+### Fixed
+- Two stale unit tests (Mistral body, specialist table) that failed after the benchmark rerun.
+- Version 0.5.11 everywhere.
+
 ## [0.5.10] — 2026-11-13 · Specialist routing
 Phase 5 specialist routing: where a model clearly beats Saga's default on a kind of request, it leads the chain for
 those requests. Details: `docs/phases/phase-5-specialist-routing.md`.
