@@ -5,6 +5,7 @@ const LETTERS = ['A', 'B', 'C', 'D'];
 const MAX_Q = 1200;
 const MAX_OPTION = 400;
 const MAX_EXPLANATION = 600;
+const { fingerprint, nearAny } = require('./similar');
 
 // LaTeX commands that start with a valid JSON escape letter (b f n r t u): "\frac" must stay a backslash + "frac".
 const LATEX = new Set(('frac,dfrac,tfrac,forall,flat,frown,times,theta,tau,tan,tanh,text,textbf,textit,textrm,to,top,'
@@ -146,15 +147,22 @@ function shuffleItem(item, rng = Math.random) {
   return { ...item, options: order.map(k => item.options[k]), answer: LETTERS[order.indexOf(correct)] };
 }
 
-// Model reply -> valid, de-duplicated questions (at most `max`). `seen` carries question keys across attempts.
-function parseQuestions(text, { max = 10, seen = new Set(), rng } = {}) {
+// Model reply -> valid, de-duplicated questions (at most `max`). `seen` carries exact question keys across attempts;
+// `accepted` (fingerprints, see ./similar.js) the questions already in this test, so near-duplicates within the test
+// are dropped; `avoid` (fingerprints of questions from the student's earlier tests) drops near-repeats of those too.
+// Items dropped only because of `avoid` go to `held` (when given): the handler's last resort when a test is short.
+function parseQuestions(text, { max = 10, seen = new Set(), rng, accepted = [], avoid = [], held } = {}) {
   const out = [];
   for (const raw of listOf(extractJson(text))) {
     const item = normalizeItem(raw);
     if (!item) continue;
     const key = norm(item.q);
     if (seen.has(key)) continue;
+    const fp = fingerprint(item);
+    if (nearAny(fp, accepted)) continue;
     seen.add(key);
+    if (avoid.length && nearAny(fp, avoid)) { if (held) held.push({ item: shuffleItem(item, rng), fp }); continue; }
+    accepted.push(fp);
     out.push(shuffleItem(item, rng));
     if (out.length >= max) break;
   }

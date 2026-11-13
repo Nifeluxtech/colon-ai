@@ -57,7 +57,7 @@ pressed (Log in or Sign up) and offers a link to switch.
 | GET · PATCH | `/chat/settings` | settings object (validated keys only) | `{ settings }` |
 | GET | `/chat/stats` · `/chat/usage` | | counts and storage · `{ used, limit, remaining, guest, provider_configured }` |
 | POST | `/chat/guest` (sets an anonymous `colon_gid` cookie for the guest daily limit) | `{ messages: [{ role, content, attachments: [{ name, kind, text }] }], mode, model, language }` (signed-in temporary chats may send `attachment_ids`) | `text/event-stream`, nothing saved |
-| POST | `/study/cbt` | `{ subject, topic?, exam: 'waec'\|'neco'\|'jamb'\|'university'\|'general', language }` | `{ questions: [{ q, options[4], answer, explanation }], durationSec: 300, count, exam, examLabel, subject, topic }` (CBT practice test, v0.5.7; counted as one Study reply; nothing saved. Preview rejects with `offline` and the CBT screen says it needs a connection) |
+| POST | `/study/cbt` | `{ subject, topic?, exam: 'waec'\|'neco'\|'jamb'\|'university'\|'general', language, avoid?: string[≤40] }` | `{ questions: [{ q, options[4], answer, explanation }], durationSec: 300, count, exam, examLabel, subject, topic }` (CBT practice test, v0.5.7; counted as one Study reply; nothing saved. Preview rejects with `offline` and the CBT screen says it needs a connection) |
 | POST | `/chat/guest/extract` | multipart `file` | `{ attachment: { id, name, kind, text, pages?, note? } }` (read once, not stored; images → `login_required`) |
 
 **Streaming (SSE).** Events, each `event: <name>\ndata: <json>\n\n`:

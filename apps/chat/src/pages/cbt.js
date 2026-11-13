@@ -112,12 +112,13 @@ function generate(page, q) {
   }, 1000);
   page.querySelector('[data-cbt=cancel]').addEventListener('click', function () { clearInterval(timer);
     showSetup(page, q); });
-  ColonChatData.get().cbt({ exam: q.exam, subject: q.subject, topic: q.topic,
+  ColonChatData.get().cbt({ exam: q.exam, subject: q.subject, topic: q.topic, avoid: CbtStore.avoidFor(q),
     language: (C.user && C.user.language) || 'en' }).then(function (test) {
     clearInterval(timer);
     if (cur.token !== token || !here(page)) return;   // cancelled, or the user left the page
     if (!test || !Array.isArray(test.questions) || !test.questions.length) throw new Error(
       'Colon couldn’t put a full test together just now. Please try again in a moment.');
+    CbtStore.remember(q, test.questions);   // the next test for this subject steers clear of these (v0.5.8)
     showExam(page, CbtStore.start(test));
   }).catch(function (e) {
     clearInterval(timer);

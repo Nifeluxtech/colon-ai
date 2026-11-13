@@ -1,5 +1,27 @@
 # Changelog
 
+## [0.5.8] — 2026-11-13 · CBT: fresh questions every test
+### Fixed
+- **CBT tests no longer repeat themselves.** The same exam + subject + topic used to send the model the identical
+  prompt with no memory of earlier tests and no temperature, and only exact-text duplicates were removed, so tests
+  came back nearly the same. Now:
+  - **Memory of recent tests** (app, `core/cbt-store.js`): the last 40 question stems (140 characters each) per
+    exam + subject + topic are kept in `localStorage` (12 kinds, ~40 KB at most; oldest rotate out; bad JSON is
+    ignored) and sent with every new test and Retake as `avoid`.
+  - **`POST /study/cbt` accepts `avoid`** (optional; up to 40 strings, one line, 160 characters each, 5000 in total).
+    They reach the prompt as quoted data items, never as instructions: "do not repeat or closely paraphrase these;
+    if you test the same concept, change the angle, numbers, context and options".
+  - **A random focus per request** (`modules/study/variety.js`): a shuffled set of syllabus areas to spread over (at
+    least 6; built-in lists for the quick subjects, otherwise a random starting area in the model's own syllabus
+    order), or with a topic, at least 6 angles on it; a random mix of question types (recall, application,
+    calculation, interpretation, error-spotting) and a random variety token. Temperature 0.9 for CBT generation.
+  - **Near-duplicate filter** (`modules/study/similar.js`): stems are compared as token sets (no punctuation or stop
+    words, plurals folded; Jaccard ≥ 0.6, or ≥ 0.4 with the same correct option). Different numbers = a new
+    question. Applied within the test and against `avoid`. A short first answer is topped up by the second call,
+    which also avoids the stems already accepted; still short after two calls, items held back only for resembling
+    an earlier test fill the gap (never an in-test duplicate) and `cbt_short` is logged.
+- Unit tests for the avoid input, the similarity filter, the focused prompt (fixed rng), temperature and top-up.
+
 ## [0.5.7] — 2026-11-13 · Study mode tools
 ### Added
 - **Quizzes** in Study mode: Colon Saga settles the subject and level, asks one WAEC/JAMB-style A–D question at a

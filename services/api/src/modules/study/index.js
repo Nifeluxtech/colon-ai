@@ -3,6 +3,8 @@
 module.exports = {
   cbt: require('./cbt'),
   parse: require('./parse'),
+  similar: require('./similar'),
+  variety: require('./variety'),
   handlers: {
     cbt: require('./handlers/cbt'),
   },

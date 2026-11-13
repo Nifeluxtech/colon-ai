@@ -150,9 +150,9 @@ Inside `chat/reply.js`, after `start` and before routing, quota, web search or a
 
 Every system prompt carries the safety section (`ai/prompts.js` ← `safety.SYSTEM`).
 
-### Study: CBT practice test (v0.5.7, `modules/study`)
+### Study: CBT practice test (v0.5.7–0.5.8, `modules/study`)
 
-`POST /study/cbt { subject, topic?, exam: waec|neco|jamb|university|general, language }` (guests and signed-in
+`POST /study/cbt { subject, topic?, exam: waec|neco|jamb|university|general, language, avoid? }` (guests and signed-in
 users; `guestOrigin`, the `guestChat` switch for guests, 5 per 10 minutes per IP) returns
 `{ questions: [{ q, options[4], answer: 'A'…'D', explanation }] ×10, durationSec: 300, exam, examLabel, subject, topic }`.
 Nothing is saved: the app keeps the test, answers and absolute end time in `sessionStorage` and marks it itself.
@@ -166,6 +166,12 @@ Nothing is saved: the app keeps the test, answers and absolute end time in `sess
 4. `parse.js` repairs and checks the reply (fences, LaTeX backslashes, trailing commas, salvage of complete items),
    drops bad or duplicate items, corrects a numeric key that contradicts the explanation's working, and shuffles the
    options. Fewer than 10 → one more generation (pooled), then 502 `bad_output`.
+5. Fresh questions every test (v0.5.8): the app keeps the last 40 stems per exam + subject + topic in
+   `localStorage` (`core/cbt-store.js`) and sends them as `avoid` (≤ 40 × 160 chars, ≤ 5000 in total, quoted as
+   data in the prompt). `variety.js` gives each request a random focus (≥ 6 syllabus areas or topic angles, a mix of
+   question types, a variety token; injectable `rng`), generation runs at temperature 0.9, and `similar.js` drops
+   near-duplicates (token-set Jaccard ≥ 0.6, same numbers) within the test and against `avoid`. The second call
+   also avoids the stems already accepted; if still short, avoid-list near-matches fill the gap (`cbt_short`).
 
 ### Research mode: search → reader → cited answer
 
