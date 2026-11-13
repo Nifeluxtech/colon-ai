@@ -1,0 +1,48 @@
+/* Colon UI · v0.7.1 polish and the Android app shell. Loaded after the other UI kit sheets: it only refines states,
+   spacing and motion of existing components (no layout changes, so the v0.3.1 floating composer and the
+   min-height:0 scroll chain are untouched). */
+
+/* ---------- Android app shell (html[data-shell="android"], set by Colon.native) ---------- */
+/* The app pads the WebView for the status bar, cut-out, navigation bar and keyboard itself, so CSS safe areas
+   must be zero there (newer WebViews can report them too, which would pad twice). */
+[data-shell="android"]{--safe-t:0px;--safe-b:0px;--safe-l:0px;--safe-r:0px}
+[data-shell="android"] body{overscroll-behavior:none}
+/* No long-press "copy link / save image" menu on controls; text in messages stays selectable. */
+[data-shell="android"] :is(button,.btn,.icon-btn,.chip,.row,nav a,[data-a]){-webkit-touch-callout:none;
+  -webkit-user-select:none;user-select:none}
+[data-shell="android"] [data-web-only]{display:none!important}
+html:not([data-shell="android"]) [data-app-only]{display:none!important}
+
+/* ---------- States: pressed, focus, loading ---------- */
+a.row,button.row{transition:background .15s,transform .12s var(--ease)}
+a.row:active,button.row:active{transform:scale(.995)}
+.row:focus-visible{outline:2px solid var(--cyan);outline-offset:-2px;border-radius:0}
+.list .row:first-child:focus-visible{border-radius:var(--r-lg) var(--r-lg) 0 0}
+.row .ico{transition:background .15s,transform .15s var(--ease)}
+a.row:hover .ico,button.row:hover .ico{background:var(--primary-line)}
+[data-theme="dark"] a.row:hover .ico,[data-theme="dark"] button.row:hover .ico{color:#fff}
+.row.is-loading{pointer-events:none}
+.row.is-loading .ico{animation:colon-breathe 1s ease-in-out infinite}
+.row.is-loading .chev{opacity:0}
+@keyframes colon-breathe{50%{opacity:.45;transform:scale(.92)}}
+.chip{transition:background .15s,border-color .15s,color .15s,transform .12s var(--ease)}
+.chip:active{transform:scale(.97)}
+.faq-item{transition:border-color .2s,background .2s}
+.faq-item[open]{border-color:var(--primary-line)}
+.faq-item summary:focus-visible{outline:2px solid var(--cyan);outline-offset:-2px}
+.faq-item p{animation:colon-reveal .22s var(--ease) both}
+@keyframes colon-reveal{from{opacity:0;transform:translateY(-4px)}}
+
+/* ---------- Spacing: list rows breathe a little more on phones; FAQ answers read as paragraphs ---------- */
+@media (max-width:480px){.row{padding:13px 14px;gap:12px}}
+.faq-item p{line-height:1.6}
+
+/* ---------- Thin themed scrollbars on desktop (phones keep overlay scrollbars) ---------- */
+@media (pointer:fine){
+  .scroll-y,.cw-scroll{scrollbar-width:thin;scrollbar-color:var(--line-2) transparent}
+}
+
+@media (prefers-reduced-motion:reduce){
+  a.row:active,button.row:active,.chip:active{transform:none}
+  .row.is-loading .ico,.faq-item p{animation:none}
+}
