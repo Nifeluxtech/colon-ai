@@ -125,7 +125,8 @@ function create(o) {
       bar.hidden = true; bar.innerHTML = ''; if (o.onVoiceState) o.onVoiceState(false);
       if (e.code === 'no_speech') return C.toast('I didn’t catch any speech. Try again a little closer to the mic.');
       var guest = data.kind === 'guest';
-      C.toast((e.message || 'Couldn’t transcribe that.') + (guest ? '' : ' Added it as a voice note instead.'), 'bad');
+      C.toast((e.message || 'Couldn’t transcribe that.') + (guest ? '' : ' Added it as a voice note instead.'),
+        'bad');
       if (!guest) addFiles([file], { fromRecorder: true, duration: dur });
     });
   }
@@ -166,7 +167,7 @@ function create(o) {
     if (method === 'dictation' && SR) {
       var rec = new SR(); rec.lang = (s.voice && s.voice.lang) || 'en-NG'; rec.interimResults = true;
         rec.continuous = true;
-      voice = { kind: 'dictation', rec: rec, finalText: '', cancelled: false };
+      voice = { kind: 'dictation', rec: rec, finalText: '', cancelled: false, stopping: false, restarts: 0 };
       rec.onresult = function (e) {
         var interim = '';
         for (var i = e.resultIndex; i < e.results.length; i++) { if (e.results[i].isFinal) voice.finalText += e.results[
@@ -175,18 +176,29 @@ function create(o) {
           || 'Listening…';
         if (o.onTranscript) o.onTranscript((voice.finalText + interim).trim(), false);
       };
+      // Android Chrome ends a dictation session after a short pause even with continuous on, so keep
+      // restarting until the user taps Done (or the 5-minute cap), and keep the words heard so far.
       rec.onerror = function (e) {
-        var v = voice; cleanup();
+        if (!voice || voice.kind !== 'dictation') return;
+        if ((e.error === 'no-speech' || e.error === 'network') && !voice.stopping && voice.restarts < 40) return;
+        var v = voice; v.failed = true; cleanup();
         if (e.error === 'not-allowed' || e.error === 'service-not-allowed') voiceError('denied');
         else if (e.error === 'audio-capture') voiceError('nomic');
         else if (e.error === 'network') voiceError('network');
-        else if (e.error === 'no-speech') { C.toast('I didn’t hear anything. Try again.'); }
+        else if (e.error === 'no-speech') { if (!v.finalText) C.toast('I didn’t hear anything. Try again.'); }
         else if (e.error !== 'aborted') voiceError('other');
-        void v;
+        if (v.finalText && o.onTranscript) o.onTranscript(v.finalText.trim(), true);
       };
-      rec.onend = function () { if (!voice || voice.kind !== 'dictation') return; var v = voice; cleanup();
-        if (!v.cancelled && o.onTranscript) o.onTranscript(v.finalText.trim(), true); };
-      try { rec.start(); showRecording('Listening in ' + langLabel(rec.lang) + '… speak now'); } catch (e) {
+      rec.onend = function () {
+        if (!voice || voice.kind !== 'dictation' || voice.rec !== rec) return;
+        if (!voice.stopping && !voice.cancelled && voice.restarts < 40) {
+          voice.restarts++; try { rec.start(); return; } catch (err) { /* fall through and finish */ }
+        }
+        var v = voice; cleanup();
+        if (!v.cancelled && o.onTranscript) o.onTranscript(v.finalText.trim(), true);
+      };
+      try { rec.start(); showRecording('Listening in ' + langLabel(rec.lang) + '… tap Done when you finish'); }
+      catch (e) {
         cleanup(); voiceError('other'); }
       return;
     }
@@ -231,10 +243,11 @@ function create(o) {
     voice = null; bar.hidden = true; bar.innerHTML = '';
     if (o.onVoiceState) o.onVoiceState(false);
   }
-  function stopVoice() { if (!voice) return; if (voice.kind === 'dictation') voice.rec.stop();
+  function stopVoice() { if (!voice) return;
+    if (voice.kind === 'dictation') { voice.stopping = true; voice.rec.stop(); }
     else if (voice.kind === 'recorder') voice.mr.stop(); }
   function cancelVoice() { if (!voice) return; voice.cancelled = true; if (voice.kind === 'dictation') {
-    voice.rec.abort(); cleanup(); if (o.onTranscript) o.onTranscript('', 'cancel');
+    voice.stopping = true; voice.rec.abort(); cleanup(); if (o.onTranscript) o.onTranscript('', 'cancel');
     } else if (voice.kind === 'recorder') voice.mr.stop(); }
   // Permission check for Settings → Voice.
   function testMic() {

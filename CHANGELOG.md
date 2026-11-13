@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.6.2] — 2026-11-13 · Voice fix
+### Fixed
+- **English dictation stopped after about 5 seconds** on Android: Chrome ends a speech session at the first short
+  pause even with `continuous` on. The mic now restarts the session quietly and keeps the words heard so far until
+  you tap Done (5-minute cap). A pause with no speech no longer ends the recording. The bar says "tap Done when you
+  finish" for dictation too.
+
 ## [0.6.1] — 2026-11-13 · Spoken replies
 ### Added
 - **Read aloud in Nigerian voices:** `POST /voice/speak` (`{ text, lang, speaker }` → MP3, ≤ 900 characters) with

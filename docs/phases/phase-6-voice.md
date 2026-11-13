@@ -30,5 +30,6 @@ on low-end Android phones.
 - Budget: Naija Speech allows 10 requests a minute per key for the whole app; read-aloud takes at most 7.
 
 ## Next
-- 0.6.2 Hands-free mode: silence detection, auto-send, speak the reply, listen again.
-- 0.6.3 Evaluation: real recorded clips per language (WER), low-end Android timing (Infinix SMART class).
+- 0.6.2 Fix: English dictation no longer stops at the first pause on Android (auto-restart until Done).
+- 0.6.3 Hands-free mode: silence detection, auto-send, speak the reply, listen again.
+- 0.6.4 Evaluation: real recorded clips per language (WER), low-end Android timing (Infinix SMART class).
