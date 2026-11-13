@@ -131,7 +131,8 @@ search adapter and a search cache; rerun DeepSeek/GLM when NVIDIA's free tier an
 - [x] Share-to-Colon, splash with logo animation, adaptive icons, notification channels and permission
 - [x] Signed APK with in-app update prompt (`version.json`)
 - [ ] Push notifications (FCM: Firebase project, token registration endpoint, messaging service)
-- [ ] Backend bridge server on `/ws` (sessions, page state, commands) and Saga commands (Phase 9)
+- [ ] Backend bridge server on `/ws` (sessions, page state, commands) and Saga commands (Phase 9) — sessions since
+  v0.8.1 and Saga's commands since v0.9.0 are built; storing `page_state` is still open
 - [ ] Release signing key actually set up in the repository and first published release
 - [ ] Real-device testing on low, mid and high-end phones, including the bridge on mobile data
 - [ ] Crash reporting and crash-free rate measurement (target above 99%)
@@ -173,6 +174,25 @@ search adapter and a search cache; rerun DeepSeek/GLM when NVIDIA's free tier an
 - Every action is logged and replayable for the user and admins.
 **Release standard:** a test suite of multi-step tasks passes, injection attacks fail, and approvals can't be bypassed.
 
+**Progress (v0.9.0, 13 Nov 2026):**
+- [x] Saga controls the phone's WebView through the bridge with the controlled tool set (openUrl, getPageContent,
+  getLinks, click, fill, scroll, screenshot, back, forward, refresh, tabs); page actions are injected JavaScript
+  shipped in the app (`assets/saga/tools.js`), screenshots and navigation are native (`SagaTools`, `BrowserSaga`)
+- [x] Decision -> action -> observation loop in the API (`modules/saga`) with step limit, task, model and phone
+  timeouts; structured-JSON actions that work with the free models in the router; tasks routed to the worker that
+  holds the phone's socket (queued in MySQL)
+- [x] Saga explains each step (shown in the chat and kept in the log) and its answer cites the pages it read
+- [x] Web pages are untrusted: neutralised and fenced like Research mode's sources, flags logged as safety events
+- [x] Approval tapped on the phone before payments, purchases, form submissions, sending messages and personal
+  data, from the server's check and the phone's own check of the real element; no pre-approval possible; Shared
+  mode asks before every changing step
+- [x] Every action logged (`saga_actions`) and replayable by the user (`GET /browser/agent/:id`) and admins
+  (Admin › Browser)
+- [x] Tests: multi-step tasks, limits and timeouts, injection attacks, approval bypass attempts, bridge commands and
+  acks, the phone's approval check (`services/api/tests/unit/saga-*.test.js`, `tests/security/saga-*.test.js`)
+- [ ] Release standard on real phones: multi-step tasks on real sites, injection pages and approvals checked on a
+  device (the Android code is not compiled or run in CI here yet for this release)
+
 ## Phase 10 — Browser inside chat & control modes
 - The browser appears automatically in the conversation when Saga browses.
 - Embedded layout (expandable) and split-screen layout (stacked with a resizable divider on phones).
@@ -184,9 +204,10 @@ search adapter and a search cache; rerun DeepSeek/GLM when NVIDIA's free tier an
 **Early progress (v0.8.0, from Phase 8):** in the Colon AI Android app the in-chat browser is a native WebView panel
 with embedded (collapsible), split (stacked with a draggable divider on phones, side by side on wide screens) and
 full-screen layouts that switch without reloading, plus AI / Manual / Shared control with Take control, Return to
-AI, Pause and Stop. Still to do: the panel opening automatically when Saga browses (needs Phase 9), and one shared
-session between Colon Browser and Colon AI (the backend session manager exists since v0.8.1; the apps'
-"Sync my tabs" setting and Saga's use of it are still to do).
+AI, Pause and Stop. Since v0.9.0 the panel opens automatically when Saga browses (AI Browse in the app, or any Saga
+control request while the panel is closed). Still to do: one shared session between Colon Browser and Colon AI (the
+backend session manager exists since v0.8.1; the apps' "Sync my tabs" setting and Saga's use of it are still to
+do).
 
 ## Phase 11 — Launch readiness
 - Plans and billing: free tier plus paid plans through a Nigerian gateway (Paystack or AfrStar), with limits enforced per plan.

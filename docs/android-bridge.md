@@ -1,4 +1,4 @@
-# Android bridge (v0.8.0, Phases 7–8)
+# Android bridge (v0.9.0, Phases 7–9)
 
 The Colon AI Android app (`apps/android`, flavor `colonai`) has two bridges. Colon Browser (flavor `colonbrowser`)
 shows no Colon page, so it has only the backend bridge (2).
@@ -110,8 +110,42 @@ Every frame has `type`; app frames also carry `v: 1` and `ts` (ms since epoch).
 control or never agreed), `paused`, `browser_not_open`, `bad_url`, `no_tab`, `no_history`, `tab_limit`,
 `unsupported` (any other name), `private_tab` (v0.8.0: Saga can't read or drive private tabs; they are also left out
 of `get_tabs` and `page_state`). In Colon AI the commands run on the in-chat browser panel while it is open; in
-Colon Browser on its tabs. Phase 9 adds `get_page_content`, `get_links`, `click`, `fill`, `scroll`,
-`screenshot` (injected JavaScript in the tab, with on-phone approval for payments, forms and messages).
+Colon Browser on its tabs.
+
+**Saga's page tools (Phase 9, v0.9.0):** run as JavaScript injected into the tab (`app/src/main/assets/saga/
+tools.js`, evaluated fresh for each command with `evaluateJavascript`, nothing left on the page's `window`) or
+natively (`SagaTools.kt`). The app lists them in `hello.capabilities`; the server only starts Saga tasks on an app
+that has `get_page_content`.
+
+| Command | Args | `ack.result` |
+|---|---|---|
+| `get_page_content` | | `{ url, title, text (≤ 12 000 chars), truncated, elements: [{ id: "c1"…, tag, type, role, label, text, name, placeholder, autocomplete, href, form, contenteditable }] }` (≤ 60 visible interactive elements; ids are written to `data-colon-saga` and are valid until the next read; typed values are never sent) |
+| `get_links` | | `{ links: [{ text, url }] }` (http(s), unique, ≤ 80) |
+| `click` | `id`, `approval?` | `{ url, title }` |
+| `fill` | `id`, `value` (≤ 500), `submit?` (Enter + form submit), `approval?` | `{ url, title }` |
+| `scroll` | `direction`: `up` · `down` · `top` · `bottom` | `{ y, max }` |
+| `screenshot` | | `{ mime: "image/jpeg", width, height, base64 }` (≤ 480 px wide, ≤ 40 KB, so the ack fits the 64 KB frame) |
+
+New errors: `no_element` (the id is not on the page any more), `page_error` (the script returned nothing),
+`no_view`, and `approval_denied`.
+
+**Approvals on the phone (Phase 9).** Before `click` and `fill` the phone inspects the **real** element
+(`inspect`) and classifies it (payment · purchase · send_message · form_submission · personal_data, the same rules
+as the server's `modules/saga/policy.js`; `tests/security/saga-phone-tools.test.js` keeps them in step). The server
+also sends `args.approval: { kind, reason }` when its own check says so. If either side asks (the stronger kind
+wins), a dialog "Approve Saga's next step?" waits for the user's tap; the step runs only after **Approve**, and its
+`ack.result` then carries `approval: "approved"` and `approval_kind`. **Don't allow**, dismissing the dialog, or
+Saga losing control (Take control, Pause, Stop) answers `ack` `ok: false, error: "approval_denied"` (or
+`manual_control` / `paused`). There is no argument that pre-approves anything: the server can add an approval,
+never remove one, and it treats an `ok` answer without `approval: "approved"` to a step it flagged as a broken
+promise (the task stops with `approval_missing`). In **Shared** mode every command that changes the page
+(everything except `get_page_content`, `get_links`, `get_tabs`, `get_page_state`, `screenshot`) asks first
+(`approval_kind: "shared"`).
+
+**Consent (v0.9.0):** when the user taps **Allow** on "Let Saga browse?" while the phone is already in that mode,
+the app still answers `control` with `reason: consent`, so the server never waits for an answer that can't come.
+In Colon AI, a `control` request for AI or Shared **opens the in-chat browser panel** if it is closed (Phase 10:
+the browser appears when Saga browses) and then shows the prompt.
 
 **Control on the phone:** AI mode puts a shield over the page with **Take control**; the bar under the address
 shows Pause/Resume, Take control / Return to AI and Stop. Commands run only in AI or Shared mode and not paused.
@@ -121,8 +155,27 @@ shows Pause/Resume, Take control / Return to AI and Stop. Commands run only in A
 **Status (v0.8.1):** items 1 (cookie only; signed-out sockets still connect but get no session features), 2, 3, 6
 (control changes) and the 64 KB frame limit of 7 are built, together with Phase 8's `session_sync` /
 `session_request` frames and `hello.app` (`services/api/src/modules/browser/bridge.js`; details and choices in
-`docs/phase8-backend-contract.md`, "Server notes"). Still open: bearer tokens, routing (4), storing `page_state`
-(5), command audit (6), sockets per user (7) and push (8).
+`docs/phase8-backend-contract.md`, "Server notes").
+**Status (v0.9.0):** routing (4) and command audit (6) are built for Saga (`services/api/src/modules/saga`, below).
+Still open: bearer tokens, storing `page_state` (5), sockets per user (7) and push (8).
+
+### Saga on the server (v0.9.0)
+
+`POST /browser/agent { goal, language?, conversation_id? }` (signed in; 20 an hour per user by default; the goal passes the
+safety layer's input check, `422 refused` otherwise) creates a task (`202 { task, phone }`). The worker that holds
+a Colon AI socket of the user (Colon Browser if there is none) claims it; a task nobody claims within a minute
+fails with `no_phone`. That worker sends `control { mode: "ai", task }`, waits up to `SAGA_APPROVAL_TIMEOUT_MS` for
+the phone's `consent` (`declined` stops the task), then runs the loop: the model picks one tool
+(`openUrl, getPageContent, getLinks, click, fill, scroll, screenshot, back, forward, refresh, tabs, finish`) as a
+JSON object, the server validates it and sends one `command`, and the `ack` becomes the next observation. Page
+content reaches the model only neutralised and fenced as untrusted. Limits: `SAGA_MAX_STEPS`,
+`SAGA_TASK_TIMEOUT_MS`, `SAGA_MODEL_TIMEOUT_MS`, `SAGA_STEP_TIMEOUT_MS` (per command; approvals wait
+`SAGA_APPROVAL_TIMEOUT_MS`). Take control, Pause, Stop or a dropped socket end the task (`interrupted`); at the end
+the server sends `control { mode: "manual" }` to hand the browser back. Follow and replay: `GET /browser/agent/:id
+?after=<seq>` (`{ task, actions }`), `POST /browser/agent/:id/stop`, `GET /browser/agent`; admins:
+`GET /admin/saga/tasks`, `GET /admin/saga/tasks/:id` (Admin › Browser). Every step is a row in `saga_actions`
+(explanation, command, arguments with typed personal data hidden, approval asked and given, result, page, time);
+page text is never stored.
 
 1. **Authenticate the socket:** in the `upgrade` handler, load the session from the `colon_sid` cookie (the same
    `sessions.load(req)` the HTTP routes use; `req.cookies` must be parsed for upgrade requests) or from

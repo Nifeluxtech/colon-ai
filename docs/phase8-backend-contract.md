@@ -179,5 +179,7 @@ Where the contract was silent:
   `error: frame_too_large`; above 1 MB the socket is closed.
 - **Control:** `return_to_ai` is accepted only after a `consent` on the same socket (cleared by `stop` or
   `declined`); `resume` clears `paused`. Audit action `browser.control`, target `browser_session`.
-- **Not stored yet:** `page_state` (accepted, ignored); Saga's routing across workers is Phase 9.
+- **Not stored yet:** `page_state` (accepted, ignored). Saga's routing across workers is built since v0.9.0
+  (Phase 9: tasks queued in MySQL and claimed by the worker that holds the phone's socket;
+  `docs/android-bridge.md`, "Saga on the server").
 

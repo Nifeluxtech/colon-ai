@@ -46,7 +46,7 @@ colon-ai/
 │       │   │                    admin,chat}/ and routes/{study,voice,browser}.js (wiring only)
 │       │   ├── ws/              WebSocket gateway (/ws; signed-in sockets get the browser session bridge)
 │       │   ├── modules/         account, admin, ai, auth, bench, browser, chat, developer, extract, health,
-│       │   │                    safety, search, study, voice; each has an index.js facade and its handlers/ where it serves
+│       │   │                    saga, safety, search, study, voice; each has an index.js facade and its handlers/ where it serves
 │       │   │                    routes (developer: project-files context; extract/zip.js: the one ZIP reader)
 │       │   ├── shared/          logger, request-context, crypto, audit, settings, mailer, validate,
 │       │   │                    ratelimit, security-headers, multipart
@@ -225,6 +225,18 @@ Before the model answers in Research mode (`modules/search`):
    tab, control and its owner, optimistic `version`), REST for the web apps and opt-in web history.
 3. **Bridge** (`bridge.js`, wired in `ws/index.js`): `hello` with `app` -> `session: 1`, throttled `session_sync`,
    `session_request`, and the control-owner rules (consent first; the user always wins), audited.
+
+### Saga browser automation (Phase 9, v0.9.0, `modules/saga`, ADR 0005)
+
+`POST /browser/agent` stores a task (`saga_tasks`) after the safety layer's input check. The worker holding the
+user's phone socket (`modules/browser/bridge.js`; `ws/index.js` starts the queue sweep) claims it, asks the phone
+for control (the user taps Allow), then runs `loop.js`: the model (`ai.generate`, mode general, Saga's browsing
+rules as extra system context) answers one JSON action, `tools.js` validates it into one bridge command,
+`policy.js` decides whether the user must approve it on the phone, the `ack` becomes a fenced, neutralised
+observation (`prompt.js`), and each step is appended to `saga_actions`. Limits: steps, task time, model time and
+phone time (`SAGA_*`). The answer cites the pages Saga read; at the end control goes back to the user. The chat
+follows the task with `GET /browser/agent/:id?after=` and adds the answer as a note; admins replay tasks in
+Admin › Browser.
 
 ### Configuration validated at boot
 

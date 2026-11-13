@@ -1,5 +1,46 @@
 # Changelog
 
+## [0.9.0] — 2026-11-13 · Phase 9: Saga browser automation
+Saga browses for the user on their phone: it drives the Colon AI browser panel (a real WebView with the user's own
+cookies) through the WebSocket bridge, explains every step, cites the pages it read, and waits for the user's tap
+before anything risky. Every version number moves to 0.9.0 (apps, `Colon.version`, `version.json` for both APKs).
+### Added
+- **Saga module** (`services/api/src/modules/saga`, ADR 0005): a decision -> action -> observation loop over the
+  existing model router (one JSON action per step, the usual model deviations repaired), the controlled tool set
+  `openUrl, getPageContent, getLinks, click, fill, scroll, screenshot, back, forward, refresh, tabs, finish` with
+  arguments rebuilt from per-tool allow-lists, blocked hosts refused, element ids only from the latest page read.
+  Limits: `SAGA_MAX_STEPS`, `SAGA_TASK_TIMEOUT_MS`, `SAGA_MODEL_TIMEOUT_MS`, `SAGA_STEP_TIMEOUT_MS`,
+  `SAGA_APPROVAL_TIMEOUT_MS`; Take control, Pause, Stop or a dropped socket end a task at once.
+- **Untrusted pages:** page text, titles, element labels, links and tab titles are neutralised by the safety
+  layer's injection guard and fenced with random-id markers; flags are recorded as safety events (route `saga`).
+- **Approvals tapped on the phone** for payments, purchases, form submissions, sending messages and personal data:
+  the server's policy (`policy.js`) and the phone's check of the real element (`assets/saga/tools.js`) both count,
+  the stronger wins; the model can't pre-approve; an `ok` answer without the user's approval stops the task
+  (`approval_missing`); a decline is respected. Shared mode asks before every changing step.
+- **Action log and replay:** migration `0009_saga_tasks.sql` (`saga_tasks`, `saga_actions`; typed personal data
+  hidden, page text never stored), audit entries `saga.task_created` / `saga.task_finished` /
+  `admin.saga_replay_viewed`. REST: `POST /browser/agent`, `GET /browser/agent`, `GET /browser/agent/:id?after=`,
+  `POST /browser/agent/:id/stop`; admin: `GET /admin/saga/tasks`, `GET /admin/saga/tasks/:id`. Admin › Browser
+  lists tasks with a step-by-step replay (it was a placeholder).
+- **Bridge:** `command(name, args, tab, { timeoutMs })`, `waitControl()`, `hasControl()`, the phone's
+  `capabilities` kept from `hello` (`supports()`); tasks are queued in MySQL and claimed by the worker that holds
+  the phone's socket (`ws/index.js` starts the sweep); unclaimed tasks fail with `no_phone` after a minute.
+- **Android (both apps):** `get_page_content`, `get_links`, `click`, `fill`, `scroll`, `screenshot` (`SagaTools`,
+  `BrowserSaga`), advertised in `hello.capabilities`; the "Approve Saga's next step?" dialog; Allow on "Let Saga
+  browse?" always answers `consent`. Colon AI opens its browser panel by itself when Saga asks to browse (Phase 10).
+- **Chat:** AI Browse in the Android app (`Colon.native.hasPanel()`) runs on the native panel through Saga
+  (`apps/chat/src/actions/saga-native.js`): the panel opens at once, each step's explanation is shown, and the
+  answer with "How Saga browsed" and its cited pages is added to the chat. The web reader's AI Browse stays for the
+  web, guests, older apps and servers without Saga.
+- Config: the seven `SAGA_*` keys (`config/api.env.example`, `config/README.md`).
+- Tests (30): `tests/unit/saga-loop.test.js`, `tests/unit/saga-runner.test.js`, `tests/security/
+  saga-approval.test.js`, `tests/security/saga-injection.test.js`, `tests/security/saga-phone-tools.test.js`;
+  Kotlin `SagaPhase9Test.kt` (runs in the Android CI).
+### Not yet
+- The Phase 9 release standard on real phones (multi-step tasks on real sites, injection pages, approvals); the
+  Kotlin changes were written without a local Android build.
+- Screenshots are not given to the model; no push to wake a phone whose app is closed; `page_state` not stored.
+
 ## [0.8.1] — 2026-11-13 · Phase 8 server pieces: reader and session manager
 The two server pieces Phase 8 left open, built to `docs/phase8-backend-contract.md`. API only: the web clients
 already call these endpoints, so no client change was needed. (Version numbers in `package.json` and the apps stay
