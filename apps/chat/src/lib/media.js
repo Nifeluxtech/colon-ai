@@ -194,14 +194,18 @@ function create(o) {
         else if (e.error !== 'aborted') voiceError('other');
         if (v.finalText && o.onTranscript) o.onTranscript(v.finalText.trim(), true);
       };
+      voice.finish = function () {
+        if (!voice || voice.rec !== rec) return;
+        var v = voice; cleanup(); v.finalText = (v.finalText + ' ' + (v.session || '')).trim();
+        if (!v.cancelled && o.onTranscript) o.onTranscript(v.finalText, true);
+      };
       rec.onend = function () {
         if (!voice || voice.kind !== 'dictation' || voice.rec !== rec) return;
         if (!voice.stopping && !voice.cancelled && voice.restarts < 40) {
           voice.finalText = (voice.finalText + ' ' + (voice.session || '')).trim(); voice.session = '';
           voice.restarts++; try { rec.start(); return; } catch (err) { /* fall through and finish */ }
         }
-        var v = voice; cleanup(); v.finalText = (v.finalText + ' ' + (v.session || '')).trim();
-        if (!v.cancelled && o.onTranscript) o.onTranscript(v.finalText, true);
+        voice.finish();
       };
       try { rec.start(); showRecording('Listening in ' + langLabel(rec.lang) + '… tap Done when you finish'); }
       catch (e) {
@@ -250,7 +254,10 @@ function create(o) {
     if (o.onVoiceState) o.onVoiceState(false);
   }
   function stopVoice() { if (!voice) return;
-    if (voice.kind === 'dictation') { voice.stopping = true; voice.rec.stop(); }
+    // Done may land between two restarts, when Chrome has no session to end and never fires onend, so finish
+    // with the words so far if onend hasn't come within a second.
+    if (voice.kind === 'dictation') { var v = voice; v.stopping = true; try { v.rec.stop(); } catch (e) { /* idle */ }
+      setTimeout(function () { if (voice === v) v.finish(); }, 1000); }
     else if (voice.kind === 'recorder') voice.mr.stop(); }
   function cancelVoice() { if (!voice) return; voice.cancelled = true; if (voice.kind === 'dictation') {
     voice.stopping = true; voice.rec.abort(); cleanup(); if (o.onTranscript) o.onTranscript('', 'cancel');

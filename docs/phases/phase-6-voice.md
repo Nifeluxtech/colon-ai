@@ -32,5 +32,6 @@ on low-end Android phones.
 ## Next
 - 0.6.2 Fix: English dictation no longer stops at the first pause on Android (auto-restart until Done).
 - 0.6.3 Fix: dictation text no longer repeated on Android.
-- 0.6.4 Hands-free mode: silence detection, auto-send, speak the reply, listen again.
-- 0.6.5 Evaluation: real recorded clips per language (WER), low-end Android timing (Infinix SMART class).
+- 0.6.4 Fix: Done always finishes dictation.
+- 0.6.5 Hands-free mode: silence detection, auto-send, speak the reply, listen again.
+- 0.6.6 Evaluation: real recorded clips per language (WER), low-end Android timing (Infinix SMART class).

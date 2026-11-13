@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.6.4] — 2026-11-13 · Done button fix
+### Fixed
+- **Tapping Done could leave the mic stuck** on Android: if Done landed between two dictation restarts, Chrome had
+  no session to end and never fired `onend`, so the bar stayed open and nothing reached the message box. Done now
+  finishes with the words so far if `onend` hasn't arrived within a second.
+
 ## [0.6.3] — 2026-11-13 · Dictation text fix
 ### Fixed
 - **Spoken words appeared several times** in the message box on Android ("hi hi how hi how are you…"): Chrome
