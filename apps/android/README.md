@@ -1,67 +1,94 @@
-# Colon AI for Android
+# Colon AI and Colon Browser for Android
 
-The Android app (ROADMAP Phase 7): Colon AI chat in a native shell, plus **Colon Browser** on Android System WebView
-(Chromium) with one WebView per tab. Built in the cloud by GitHub Actions, so you never need Android Studio or a PC.
+Two Android apps from one Gradle project (ROADMAP Phases 7–8), both on Android System WebView (Chromium) and built
+in the cloud by GitHub Actions, so you never need Android Studio or a PC. The code is shared (`app/src/main`); each
+app is a **product flavor** with its own manifest, name, icon and splash.
 
-| | |
-|---|---|
-| App name | Colon AI (launcher), Colon Browser (browser screen) |
-| Application id | `ng.nifelux.colonai` (debug builds: `ng.nifelux.colonai.debug`) |
-| Android | 7.0 and newer (minSdk 24), targets Android 16 (API 36) |
-| Version | from the root `package.json`; versionCode = major × 10000 + minor × 100 + patch (0.7.1 → 701) |
-| Size | about 2 MB (release, shrunk with R8) |
+| | Colon AI (`colonai`) | Colon Browser (`colonbrowser`) |
+|---|---|---|
+| What it is | the chat, with a real browser panel beside it | the full standalone browser |
+| Application id | `ng.nifelux.colonai` (debug: `….colonai.debug`) | `ng.nifelux.colonbrowser` (debug: `….colonbrowser.debug`) |
+| Opens into | `MainActivity` (chat) | `BrowserActivity` (browser) |
+| Sources | `app/src/main` + `app/src/colonai` | `app/src/main` + `app/src/colonbrowser` |
+| Release APK | `colon-ai-<version>.apk` / `colon-ai.apk` | `colon-browser-<version>.apk` / `colon-browser.apk` |
+| Update entry | top level of `version.json` | `browser` in `version.json` |
 
-## What is in the app (v0.7.1)
+Both: Android 7.0 and newer (minSdk 24), target Android 16 (API 36), version from the root `package.json` with
+versionCode = major × 10000 + minor × 100 + patch (0.8.0 → 800), same release signing key, a few MB each (release,
+shrunk with R8).
 
-- **Colon AI shell** (`MainActivity`, `ShellWeb`, `NativeBridge`): loads `https://chat.apparatus.name.ng` with the
-  `window.ColonNative` bridge (only on Colon's own pages), file picker for uploads, microphone for voice (Phase 6
-  voice uses Colon speech in the app), Android back button, offline screen with retry, downloads (including chat
-  exports), edge-to-edge with proper insets, system bars that follow the chat's light/dark theme. If the WebView's
-  renderer is killed on a low-memory phone, the app rebuilds it instead of crashing.
-- **Colon Browser** (`BrowserActivity`, `TabManager`, `BrowserWeb`): native address bar (URL or search), back,
-  forward, reload/stop, home page with bookmarks, tabs (open, close, switch; 10 tabs on low-RAM phones, 30
-  otherwise), only 2–5 live WebViews at once (older background tabs are discarded and reload when opened), history
-  and bookmarks stored on the phone only, downloads through Android's DownloadManager, full-screen video, file
-  uploads, camera/microphone asked per site, "Clear browsing data" that keeps you signed in to Colon AI.
-  Colon Browser also appears in Android's "Open with" list for web links.
-- **Saga control** (`BrowserSaga`, `ControlState`): AI / Manual / Shared indicator, Take control, Return to AI,
-  Pause, Stop, a consent prompt before Saga may drive, and the commands in `docs/android-bridge.md`.
-- **Backend bridge** (`BridgeClient`): WebSocket to `wss://api.apparatus.name.ng/ws` with reconnect, heartbeats and
-  network awareness. Today's API only says hello (no Saga commands yet); the app shows that and keeps working.
-- **Share to Colon** (`ShareReceiverActivity`, `ShareIntake`): share text, links or up to 5 images from any app →
-  "Ask Colon AI" → they appear in the message box and upload tray.
-- **Splash** (Android 12 SplashScreen API, backported to Android 7–11) with the Colon flame rising, then the web
-  intro animation. Adaptive and themed launcher icons from `packages/brand`.
-- **Updates** (`UpdateChecker`): every 12 hours the app reads
-  `https://chat.apparatus.name.ng/android/version.json` (`apps/chat/public/android/version.json`). When there is a
-  newer version it offers to download the APK, checks it is Colon AI, newer and signed with the same key, then opens
-  Android's installer. Settings › App › "Check for updates" checks at once.
-- **Notifications:** channels (updates, Saga browsing, general) and the Android 13 permission, asked only when
-  needed. **Push (FCM) is not wired yet** — it needs a Firebase project, see "Next steps".
+## What is in the apps (v0.8.0)
+
+**Colon AI**
+- **Chat shell** (`MainActivity`, `ShellWeb`, `NativeBridge`): loads `https://chat.apparatus.name.ng` with the
+  `window.ColonNative` bridge (only on Colon's own pages), file picker, microphone (Colon speech), back button,
+  offline screen, downloads and chat exports, edge-to-edge insets, system bars that follow the chat theme, and
+  recovery when a low-memory phone kills the renderer.
+- **In-chat browser panel** (`ChatBrowserPanel`, `PanelLayout`): web pages from the chat (links, the Browser button,
+  `ColonNative.browser('open', …)`) open in a real WebView **beside the chat**, not in a separate screen.
+  Layouts: **embedded** (above the chat, collapsible to its header), **split** (draggable divider; stacked on phones,
+  side by side on wide landscape screens) and **full screen**; switching only resizes views, so nothing reloads.
+  Header: Saga mode chip, address bar, back, reload/stop, expand, menu (forward, layouts, tabs, desktop site, share,
+  downloads, Saga status, clear data, close all tabs) and close. **Open in Colon Browser** hands the page to the
+  browser app, or offers its download when it isn't installed. Saga's AI / Manual / Shared control, consent prompt,
+  shield and Take control / Return to AI / Pause / Stop work in the panel exactly as in Colon Browser.
+  Up to 6 tabs, with their own history and downloads list (`BrowserStore("colon.panel")`).
+- **Share to Colon** (`ShareReceiverActivity`, `ShareIntake`) and chat links from other apps.
+
+**Colon Browser**
+- **Browser** (`BrowserActivity`, `BrowserMenu`, `TabManager`, `BrowserWeb`): address and search bar, back, forward,
+  reload/stop, home page with bookmarks, tabs (10 on low-RAM phones, 30 otherwise, only 2–5 live WebViews), history,
+  bookmarks, downloads (DownloadManager, plus an in-app **downloads list**), file uploads, camera/microphone per
+  site, **full-screen video**, **desktop site** per tab, share, "Ask Colon AI about this page" (shares it into
+  Colon AI), web searches from other apps (`WEB_SEARCH`), and Android's "Open with" for web links.
+- **Tabs and history survive restarts** (`TabSnapshot`): open tabs (URL, title, desktop flag, active tab) are saved
+  as they change and restored as lightweight tabs that load when opened.
+- **Private tabs** (`PrivateBrowsing`, `PrivateProfiles`): violet address bar and "Private" in the tab list, no
+  history, no cache, never saved for the next launch, never readable by Saga. On WebViews with profile support
+  (androidx.webkit `MULTI_PROFILE`) they get their own cookie jar and site storage in a throwaway profile, deleted
+  when the last private tab closes (or on the next launch if the app was killed). On older WebViews the app says
+  plainly that cookies can't be separated before it opens one.
+- **Clear browsing data** screen (`ClearDataActivity`): history, cookies, cached files, site storage and the
+  downloads list, each on its own; your Colon AI sign-in is kept.
+- **Google and bank sign-in** (`SignInTabs`, `UrlRules.CUSTOM_TAB_HOSTS`): `accounts.google.com`,
+  `accounts.youtube.com` and the internet-banking hosts of GTBank, Access, Zenith, UBA and First Bank open in a
+  Chrome Custom Tab (never in Colon Browser itself), and the tab reloads when you come back. Add hosts in
+  `UrlRules.BANK_SIGNIN_HOSTS`, or at build time: `./gradlew -Pcolon.customTabHosts=ibank.example.ng,.bank.example`.
+  Sign-ins made in the Custom Tab belong to that browser, not to the WebView.
+- Cookies, logins, history and bookmarks stay on the phone (nothing is uploaded).
+
+**Both apps**
+- **Saga control** (`BrowserSaga`, `ControlState`) and the **backend bridge** (`BridgeClient`, `docs/android-bridge.md`).
+- **Updates** (`UpdateChecker`, `VersionManifest.forApp`): every 12 hours each app reads its own entry of
+  `https://chat.apparatus.name.ng/android/version.json` and only accepts an APK named for itself, from the same
+  package, newer, and signed with the same key.
+- **Splash** (SplashScreen API, backported) and adaptive/themed launcher icons: the Colon flame for Colon AI, a cyan
+  globe around the flame for Colon Browser.
+- **Notifications:** channels and the Android 13 permission; **push (FCM) is not wired yet**.
 
 ## Build in the cloud (GitHub Actions)
 
 `.github/workflows/android.yml` runs on every push to `main` that touches `apps/android/**`, on tags `v*`, and by
-hand (Actions › Android › Run workflow). It runs the unit tests and Android lint, builds the release APK, and keeps
-it as an artifact for 30 days.
+hand (Actions › Android › Run workflow). It runs the unit tests and Android lint **for both apps**, builds both
+release APKs, and keeps them as one artifact for 30 days.
 
-**Get the APK from a build:** GitHub › Actions › the latest "Android" run › scroll to Artifacts ›
-`colon-ai-<version>-release` (or `-debug`) › download. It is a zip containing `colon-ai-<version>.apk`; open it with
-your phone's file manager.
+**Get the APKs from a build:** GitHub › Actions › the latest "Android" run › scroll to Artifacts ›
+`colon-android-<version>-release` (or `-debug`) › download. The zip holds `colon-ai-<version>.apk` and
+`colon-browser-<version>.apk` (plus fixed-name copies and `.sha256` files); open them with your phone's file manager.
 
-**Publish a release** (this is what the app's update prompt and the web "Get the Android app" link use): Actions ›
-Android › Run workflow › tick **Publish a release** › Run. It creates the GitHub Release `v<version>` with
-`colon-ai-<version>.apk`, its `.sha256`, and `colon-ai.apk` (same file, fixed name for
-`releases/latest/download/colon-ai.apk`). Pushing a tag `v<version>` does the same. The tag must match
-`package.json`, or the build stops.
+**Publish a release** (what the apps' update prompts and the web "Get the app" links use): Actions › Android ›
+Run workflow › tick **Publish a release** › Run. It creates the GitHub Release `v<version>` with
+`colon-ai-<version>.apk`, `colon-browser-<version>.apk`, the fixed-name copies `colon-ai.apk` and
+`colon-browser.apk` (for `releases/latest/download/…`), and a `.sha256` for each. Pushing a tag `v<version>` does the
+same. The tag must match `package.json`, or the build stops.
 
 ## Install on a phone
 
-1. Download `colon-ai-<version>.apk` from the release page on the phone.
+1. Download `colon-ai-<version>.apk` and/or `colon-browser-<version>.apk` from the release page on the phone.
 2. Open it. Android asks to allow your browser (or file manager) to "Install unknown apps": allow it, go back,
    then tap Install.
-3. Open Colon AI. Later updates are offered inside the app; Android asks once more to allow Colon AI to install
-   updates.
+3. Open the app. Later updates are offered inside each app; Android asks once more to allow the app to install
+   updates. The two apps install side by side and update separately.
 
 **If Android says "App not installed":** the installed copy was signed with a different key (for example a test
 build signed with a debug key). Uninstall Colon AI, then install the new APK. Set up the release key (below) before
@@ -98,41 +125,50 @@ Advanced (with a PC): create a PKCS12 keystore with `keytool`, base64 it, and ad
 
 ## Build on a computer (optional)
 
-JDK 17 and the Android SDK (platform 36): `cd apps/android && ./gradlew testDebugUnitTest lintDebug assembleDebug`.
-The APK is in `app/build/outputs/apk/`. With `ANDROID_KEYSTORE_FILE` and the three password/alias variables set,
-`assembleRelease` signs with your key.
+JDK 17 and the Android SDK (platform 36), from `apps/android`:
+`./gradlew testColonaiDebugUnitTest testColonbrowserDebugUnitTest lintColonaiDebug lintColonbrowserDebug
+assembleColonaiDebug assembleColonbrowserDebug`. APKs are in `app/build/outputs/apk/<flavor>/<type>/`. With
+`ANDROID_KEYSTORE_FILE` and the three password/alias variables set, `assembleColonaiRelease
+assembleColonbrowserRelease` sign with your key. On an ARM64 Linux machine pass an ARM64 `aapt2` with
+`-Pandroid.aapt2FromMavenOverride=<path>` (Google's build-tools ship x86-64 binaries only).
 
 ## Code map
 
-All Kotlin is in one package, `app/src/main/kotlin/ng/nifelux/colonai/` (one folder keeps GitHub web uploads short).
+All Kotlin is in one package, `app/src/main/kotlin/ng/nifelux/colonai/` (one folder keeps GitHub web uploads short),
+shared by both apps. Per-app files: `app/src/colonai/` (manifest, share-target resources) and `app/src/colonbrowser/`
+(manifest, name, icon, splash, update texts).
 
 | File | What it does |
 |---|---|
 | `ColonApplication.kt` | OkHttp client, bridge, network monitor, notification channels |
 | `MainActivity.kt`, `ShellWeb.kt` | Colon AI shell, WebView settings and navigation policy |
+| `ChatBrowserPanel.kt`, `PanelLayout.kt` | Colon AI's in-chat browser panel and its layouts |
 | `NativeBridge.kt` | `window.ColonNative` (origin-restricted) |
 | `ShareReceiverActivity.kt`, `ShareIntake.kt` | Share-to-Colon and chat links from other apps |
-| `BrowserActivity.kt`, `BrowserWeb.kt`, `TabManager.kt` | Colon Browser, tab WebViews, tab memory policy |
+| `BrowserActivity.kt`, `BrowserMenu.kt` | Colon Browser screen, menu and lists |
+| `BrowserHost.kt`, `BrowserWeb.kt`, `TabManager.kt`, `TabSnapshot.kt` | shared tab engine, WebView clients, memory policy, saved tabs |
+| `PrivateBrowsing.kt`, `PrivateProfiles.kt` | private tab rules and their throwaway WebView profile |
+| `SignInTabs.kt`, `UserAgents.kt`, `Fullscreen.kt`, `PermissionAsker.kt` | Custom Tab sign-in, desktop site, full-screen video, permissions |
+| `ClearDataActivity.kt`, `Handoff.kt` | clear browsing data screen; moving between the two apps |
 | `BrowserSaga.kt`, `ControlState.kt` | AI / Manual / Shared control and bridge commands |
 | `BrowserStore.kt`, `BrowserData.kt`, `HomePage.kt`, `EntryList.kt` | history, bookmarks, clear data, new-tab page, lists |
 | `BridgeClient.kt`, `BridgeProtocol.kt`, `Backoff.kt` | backend WebSocket bridge (`docs/android-bridge.md`) |
 | `UpdateChecker.kt`, `VersionManifest.kt` | in-app updates |
 | `Downloads.kt`, `FileChooser.kt`, `External.kt`, `Notifications.kt`, `UrlRules.kt` | platform helpers |
 
-Unit tests (JVM, no emulator): `app/src/test/kotlin/ng/nifelux/colonai/` — URL rules and the bridge origin check,
-backoff, update manifest, bridge protocol, control state machine, tab discarding, history list, home-page escaping.
+Unit tests (JVM, no emulator, run for both flavors): `app/src/test/kotlin/ng/nifelux/colonai/` — URL rules and the
+bridge origin check, backoff, update manifest (per app), bridge protocol, control state machine, tab discarding,
+history and downloads lists, home-page escaping, tab persistence, private-tab rules, Custom Tab hosts, desktop user
+agent, panel layouts, clear-data rules and the app handoff.
 
-## Next steps (not in 0.7.1)
+## Next steps (not in 0.8.0)
 
-- **Backend side of the bridge** (`docs/android-bridge.md`, "What the backend must add") and Saga commands that
-  read and act on pages (Phase 9).
-- **Push notifications:** create a Firebase project, add `google-services.json` as a base64 repository secret that
-  CI writes before building (never committed), add the FCM dependency and a messaging service, and an API endpoint
-  to register tokens. Until then the app has channels and permission plumbing only.
-- **Native dictation** with Android's SpeechRecognizer for live English captions (the app uses Colon speech now).
-- **Google sign-in inside the app:** Google blocks sign-in in WebViews; use a Chrome Custom Tab and return to the app
-  (Phase 8). Email and password sign-in works today.
-- **App Links:** publish `/.well-known/assetlinks.json` on chat.apparatus.name.ng with the release certificate
-  fingerprint so chat links open the app without asking.
-- Incognito tabs, find in page, site settings, and syncing tabs to the backend session manager (Phase 8).
-- Crash reporting to measure the >99% crash-free release standard, and testing on low/mid/high-end phones.
+- **Backend:** the server-side reader and the browser session manager (`docs/phase8-backend-contract.md`), and the
+  bridge server with Saga commands (`docs/android-bridge.md`, Phase 9). Saga can't drive the native panel yet; the
+  chat's AI Browse still runs in the web reader panel.
+- **Push notifications** (FCM: Firebase project, `google-services.json` as a CI secret, token endpoint).
+- **Native dictation** with Android's SpeechRecognizer.
+- **App Links:** `/.well-known/assetlinks.json` on chat.apparatus.name.ng with the release certificate fingerprint.
+- Find in page, site settings, per-site permissions list, and syncing tabs to the session manager (opt-in).
+- Crash reporting for the >99% crash-free standard, and testing on low/mid/high-end phones (including private tabs
+  on old WebViews, Custom Tab sign-in round trips and the split divider on small screens).
