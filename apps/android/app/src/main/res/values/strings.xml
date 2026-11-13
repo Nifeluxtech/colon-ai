@@ -146,4 +146,16 @@
     <string name="pause">Pause</string>
     <string name="resume">Resume</string>
     <string name="stop">Stop</string>
+    <!-- Saga approvals (Phase 9) -->
+    <string name="saga_approval_title">Approve Saga\'s next step?</string>
+    <string name="saga_approval_text">%1$s\n\n%2$s\n\nSaga only does this if you tap Approve.</string>
+    <string name="saga_approve">Approve</string>
+    <string name="saga_decline">Don\'t allow</string>
+    <string name="saga_kind_payment">Saga wants to make a payment.</string>
+    <string name="saga_kind_purchase">Saga wants to buy or order something.</string>
+    <string name="saga_kind_message">Saga wants to send or post a message.</string>
+    <string name="saga_kind_form">Saga wants to submit a form.</string>
+    <string name="saga_kind_personal">Saga wants to use your personal details.</string>
+    <string name="saga_kind_step">Shared mode: Saga asks before each step.</string>
+    <string name="saga_step">%1$s %2$s</string>
 </resources>

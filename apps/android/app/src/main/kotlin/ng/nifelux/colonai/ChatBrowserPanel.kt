@@ -52,6 +52,16 @@ class ChatBrowserPanel(private val a: MainActivity) : BrowserHost, TabManager.Ho
     private val fullscreen = Fullscreen(a)
     private val main = Handler(Looper.getMainLooper())
     private val emitState = Runnable { a.nativeBridge.emit("browser", state()) }
+    private val bridge = ColonApplication.of(a).bridge
+    /** Phase 10: the panel opens by itself when Saga asks to browse while it is closed (BrowserSaga only listens
+     *  while the panel is open, so this request is handed to it once it is). */
+    private val opener = object : BridgeClient.Listener {
+        override fun onControlRequest(request: BridgeProtocol.Incoming.Control) {
+            if (isOpen || request.mode == ControlState.Mode.MANUAL) return
+            open(null)
+            saga.onControlRequest(request)
+        }
+    }
 
     var isOpen = false
         private set
@@ -83,6 +93,7 @@ class ChatBrowserPanel(private val a: MainActivity) : BrowserHost, TabManager.Ho
         panel.findViewById<View>(R.id.btn_close).setOnClickListener { close() }
         panel.findViewById<View>(R.id.panel_header).setOnClickListener { if (collapsed) setCollapsed(false) }
         wireDivider()
+        bridge.addListener(opener)
     }
 
     /* ---------- the page's commands (NativeBridge "browser") ---------- */
@@ -202,6 +213,7 @@ class ChatBrowserPanel(private val a: MainActivity) : BrowserHost, TabManager.Ho
     fun onTrimMemory() { tabs.trim(1) }
 
     fun destroy() {
+        bridge.removeListener(opener)
         if (isOpen) saga.detach()
         tabs.tabs.forEach { t -> t.webView?.let { ShellWeb.destroy(it) }; t.webView = null }
     }
