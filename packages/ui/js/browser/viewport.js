@@ -2,6 +2,7 @@
 
 import { Colon } from '../colon.js';
 import { ColonURL } from '../url.js';
+import { appPromptHtml, bindAppPrompt } from './app-prompt.js';
 import { QUICK, siteLetter } from './shared.js';
 
 var C = Colon, U = ColonURL, icon = C.icon, esc = C.esc;
@@ -21,16 +22,19 @@ export function installViewport(ctx) {
         && pg.by === 'ai' ? 'Saga is opening ' : 'Opening ') + esc(U.displayUrl(t.url)) + '…</p></div>';
       return;
     }
-    if (pg.status === 'error') { ctx.vp.innerHTML = errorPage(t.url, pg.error); return; }
+    if (pg.status === 'error') { ctx.vp.innerHTML = errorPage(t.url, pg.error); bindAppPrompt(ctx.vp); return; }
     var p = pg.page;
     if (p.internal) { ctx.vp.innerHTML = newTabPage(); bindNewTab(); return; }
     if (p.search) { ctx.vp.innerHTML = searchPage(p.search); return; }
-    ctx.vp.innerHTML = '<article class="cb-reader" data-size="' + esc(ctx.settings.readerFont)
-      + '"><header class="cb-reader-head"><span class="badge">' + icon('reader')
-      + 'Reader preview</span><span class="tiny muted">' + esc(p.source || U.hostOf(p.url)) + '</span>' +
+    // Web light mode: the app prompt above the page; a mocked server-reader page says "Preview".
+    ctx.vp.innerHTML = appPromptHtml(false) + '<article class="cb-reader" data-size="' + esc(ctx.settings.readerFont)
+      + '"><header class="cb-reader-head"><span class="badge' + (p.preview ? ' warn' : '') + '">' + icon('reader')
+      + (p.preview ? 'Preview' : 'Reader preview') + '</span><span class="tiny muted">'
+      + esc(p.source || U.hostOf(p.url)) + '</span>' +
       '<a class="btn xs ghost" href="' + esc(p.url) + '" target="_blank" rel="noopener noreferrer">' + icon('external')
         + 'Original</a></header>' +
       '<h1>' + esc(p.title) + '</h1><div class="cb-reader-body">' + p.html + '</div></article>';
+    bindAppPrompt(ctx.vp, renderViewport);
   }
   function newTabPage() {
     var recent = ctx.recentHist.slice(0, 5);
@@ -47,10 +51,12 @@ export function installViewport(ctx) {
         h.url) + '">' + esc(siteLetter(h.url)) + '</span><span class="cb-ellipsis">' + esc(h.title)
         + '</span></button>'; }).join('') + '</div>' : '') +
       '<div class="banner info cb-engine-note">' + icon('info')
-        + ('<span><b>Web reader preview.</b> Pages that allow it open here as clean, script-free text. Others open '
-        + 'in a new tab. Full browsing with logins runs in the Colon Android app.</span></div></div>');
+        + ('<span><b>Light mode (web reader).</b> Pages open here as clean, script-free text. Full browsing with '
+        + 'logins, video and downloads runs in the Colon Browser app.</span></div>') + appPromptHtml(false)
+        + '</div>';
   }
   function bindNewTab() {
+    bindAppPrompt(ctx.vp, renderViewport);
     var f = ctx.vp.querySelector('.cb-home-search');
     if (f) f.addEventListener('submit', function (e) { e.preventDefault(); ctx.navigate(f.querySelector(
       'input').value); });
@@ -76,7 +82,8 @@ export function installViewport(ctx) {
     var title = blocked ? 'This address is blocked' : proxy ? 'Can’t open this site in reader preview' : file
       ? 'This link is a file' : code === 'timeout' ? 'The page took too long' : code === 'not_found'
       ? 'Page not found' : 'This page didn’t load';
-    return '<div class="cb-error"><span class="cb-error-ico">' + icon(blocked ? 'shield' : proxy ? 'reader' : file
+    return (proxy ? appPromptHtml(true) : '') + '<div class="cb-error"><span class="cb-error-ico">'
+      + icon(blocked ? 'shield' : proxy ? 'reader' : file
       ? 'download' : 'wifiOff') + '</span><h1>' + esc(title) + '</h1>' +
       '<p class="muted">' + esc((e && e.message) || 'Something went wrong.') + '</p><div class="cb-url mono">'
         + esc(U.displayUrl(url)) + '</div><div class="cb-error-acts">' +
@@ -87,8 +94,8 @@ export function installViewport(ctx) {
         + 'Ask Saga about it</button>' :
         '') +
       '</div>' + (proxy
-        ? ('<p class="tiny muted" style="margin-top:16px">Full browsing of every site comes with the Colon Android '
-        + 'app (Android WebView engine).</p>') : '') + '</div>';
+        ? ('<p class="tiny muted" style="margin-top:16px">Full browsing of every site comes with the Colon Browser '
+        + 'app for Android (Android System WebView engine).</p>') : '') + '</div>';
   }
   ctx.renderViewport = renderViewport; ctx.newTabPage = newTabPage; ctx.bindNewTab = bindNewTab;
     ctx.searchPage = searchPage; ctx.errorPage = errorPage;

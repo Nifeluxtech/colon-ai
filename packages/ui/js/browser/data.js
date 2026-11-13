@@ -22,6 +22,7 @@
      POST /browser/uploads (multipart file) -> { upload:{id,name,type,size,status} } GET/DELETE /browser/uploads[/:id]
      GET    /browser/settings  PATCH /browser/settings { ... }
      GET    /browser/fetch?url=                 -> { url, final_url, title, html (server-sanitised), text, status }
+            (the web light-mode reader, reader-proxy.js; full contract in docs/phase8-backend-contract.md)
             Server must: allow http/https only, resolve DNS and refuse private/loopback/link-local/metadata
             IPs (re-check after every redirect, max 5), cap 2 MB and 10 s, strip scripts/styles/iframes/forms.
      GET    /browser/search?q=&engine=          -> { results:[{title,url,snippet}], provider }
@@ -31,14 +32,16 @@
 import { DEFAULT_SETTINGS } from './data-common.js';
 import { LocalBrowserData } from './data-local.js';
 import { RemoteBrowserData } from './data-remote.js';
+import { createProxyReader } from './reader-proxy.js';
 import { sanitize } from './sanitize.js';
 import { wikiLang } from './wikipedia.js';
 
 function mode() { try { return window.COLON_DATA || window.localStorage.getItem('colon.data') || 'local';
   } catch (e) { return 'local'; } }
 var instance = null;
-function get() { if (!instance) instance = mode() === 'remote' ? RemoteBrowserData() : LocalBrowserData();
-  return instance; }
+// Pages that block cross-origin reads go through the server-side reader when it exists (reader-proxy.js).
+function get() { if (!instance) instance = createProxyReader().wrap(mode() === 'remote' ? RemoteBrowserData()
+  : LocalBrowserData()); return instance; }
 
 const ColonBrowserData = { get: get, sanitize: sanitize, DEFAULT_SETTINGS: DEFAULT_SETTINGS, wikiLang: wikiLang };
 window.ColonBrowserData = ColonBrowserData;
