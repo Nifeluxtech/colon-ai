@@ -8,14 +8,16 @@ const SET_LABEL = { everyday: 'Everyday', waec: 'WAEC', jamb: 'JAMB', university
   reasoning: 'Reason', tooluse: 'Tools', pidgin: 'Pidgin', yoruba: 'Yorùbá', hausa: 'Hausa', igbo: 'Igbo' };
 
 /**
- * buildReport({ run, suite, started, finished, settings, models: [{ provider, model, note, rows, unreliable, expected
- * }] })
+ * buildReport({ run, suite, started, finished, settings, models: [{ provider, model, note, rows, unreliable, failed,
+ * expected }] }). failed = the reason a model was stopped for good (wrong key or model id).
  */
 function buildReport({ run, suite, started, finished, settings = {}, models }) {
   const out = models.map((m) => {
     const agg = aggregate(m.rows);
-    const status = m.unreliable ? 'unreliable' : (m.expected && m.rows.length < m.expected ? 'incomplete' : 'done');
+    const status = m.failed ? 'failed' : m.unreliable ? 'unreliable' : (m.expected && m.rows.length < m.expected
+      ? 'incomplete' : 'done');
     return { key: `${m.provider}:${m.model}`, provider: m.provider, model: m.model, note: m.note || '', status,
+      errors_by_reason: errorsByReason(m.rows), ...(m.failed ? { failed_reason: m.failed } : {}),
       items: m.rows.length, expected: m.expected || m.rows.length, ...agg,
       failures: m.rows.filter(r => !r.pass).map(r => ({ id: r.id, set: r.set, detail: r.error || r.detail })) };
   });
@@ -32,6 +34,16 @@ function buildReport({ run, suite, started, finished, settings = {}, models }) {
       d.key) * 1000) / 1000;
   }
   return { run, suite, started, finished, settings, ranking: ranked.map(m => m.key), models: ranked };
+}
+
+// Error rows grouped by code and where they stalled, e.g. { "timeout/connect": 12, "rate_limited": 2 }.
+function errorsByReason(rows) {
+  const out = {};
+  for (const r of rows.filter(x => x.error)) {
+    const k = `${r.error_code || String(r.error).split(/[\s:]/)[0]}${r.error_phase ? `/${r.error_phase}` : ''}`;
+    out[k] = (out[k] || 0) + 1;
+  }
+  return out;
 }
 
 const pct = (x) => (x === null || x === undefined ? '–' : `${Math.round(x * 100)}`);
@@ -69,6 +81,9 @@ function markdown(rep) {
   lines.push('', '## Failures', '');
   for (const m of rep.models) {
     lines.push(`### ${m.key} — ${m.failures.length} of ${m.items} not fully correct`, '');
+    if (m.failed_reason) lines.push(`Stopped: ${m.failed_reason}`, '');
+    const why = Object.entries(m.errors_by_reason || {});
+    if (why.length) lines.push(`Errors by reason: ${why.map(([k, n]) => `${k} ×${n}`).join(', ')}`, '');
     for (const f of m.failures) lines.push(`- \`${f.id}\`: ${String(f.detail).replace(/\s+/g, ' ').slice(0, 160)}`);
     lines.push('');
   }

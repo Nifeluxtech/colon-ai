@@ -7,21 +7,11 @@ const { streamChat } = require('../ai').client;
 const { systemPrompt } = require('../ai').prompts;
 const routing = require('../ai').routing;
 const { grade } = require('./graders');
+const { CANDIDATES, bodyOf, cfgOf, parseCandidate, keyOf } = require('./candidates');
+const retry = require('./retry');
 
 const SETS_DIR = path.resolve(__dirname, '../../../bench/sets');
 const SUITE_VERSION = 'colon-bench-1';
-
-// The candidates Phase 5 compares (Nov 2026 free tiers). "body" carries per-model request options, like routing.js.
-const CANDIDATES = [
-  { provider: 'gemini', model: 'gemma-4-26b-a4b-it' },
-  { provider: 'gemini', model: 'gemma-4-31b-it' },
-  { provider: 'gemini', model: 'gemini-3.5-flash-lite', note: 'reference only (not wanted as primary)' },
-  { provider: 'nvidia', model: 'deepseek-ai/deepseek-v4.1-flash', body: { chat_template_kwargs: { thinking: false } } },
-  { provider: 'nvidia', model: 'z-ai/glm-5.3-flash' },
-  { provider: 'nvidia', model: 'minimaxai/minimax-m3.1-flash' },
-  { provider: 'nvidia', model: 'nvidia/nemotron-3.5-lightning-30b-a3b' },
-  { provider: 'nvidia', model: 'mistralai/mistral-large-4-1t-a52b' },
-];
 
 // Default answer-format instruction per grader type (an item or set "instruction" overrides it).
 const FORMAT = {
@@ -32,15 +22,7 @@ const FORMAT = {
     + 'calls).'),
 };
 
-const keyOf = (c) => `${c.provider}:${c.model}`;
 const slug = (s) => String(s).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
-
-function parseCandidate(s) {
-  const i = String(s).indexOf(':');
-  if (i < 1) throw new Error(`Use provider:model, got "${s}"`);
-  const provider = s.slice(0, i), model = s.slice(i + 1);
-  return CANDIDATES.find(c => c.provider === provider && c.model === model) || { provider, model };
-}
 
 /** loadSets(dir, only?) -> [{ set, title, mode, language, judge, items:[{ id, set, prompt, grade, mode, language }] }]
    */
@@ -83,62 +65,74 @@ function providerConfig(id, overrides = {}) {
   return { ...p, ...(overrides[id] || {}), apiKey: (overrides[id] && overrides[id].apiKey) || p.apiKey || 'bench' };
 }
 
-const sleep = (ms) => new Promise(r => setTimeout(r, ms));
-const RETRY = new Set(['rate_limited', 'upstream_error', 'network', 'timeout', 'empty']);
+const realSleep = (ms) => new Promise(r => setTimeout(r, ms));
 
 /**
  * runItem(candidate, item, opts) -> result row
- * opts: { fetch, providers (overrides), firstTokenTimeoutMs, maxMs, maxTokens, temperature, retries, backoffMs }
+ * opts: { fetch, providers (overrides), limiter ({ acquire }), firstTokenTimeoutMs, idleTimeoutMs, maxMs, maxTokens,
+ *   temperature, retries, backoffMs, rateRetries, rateBackoffMs, jitter, sleep, force }. A candidate's own "opts"
+ *   win over the run defaults; "force" (options given explicitly on the command line) wins over both.
+ * Error rows carry error (one-line reason), error_code, error_status, error_phase and attempt_log.
  */
 async function runItem(c, item, opts = {}) {
-  const provider = providerConfig(c.provider, opts.providers);
+  const o = { ...opts, ...(c.opts || {}), ...(opts.force || {}) };   // explicit CLI flags win over the model's own
+  const sleep = o.sleep || realSleep;
+  const provider = providerConfig(c.provider, o.providers);
   const messages = [{ role: 'system', content: systemPrompt({ mode: item.mode, language: item.language }) },
     { role: 'user', content: item.prompt }];
-  const retries = opts.retries !== undefined ? opts.retries : 2;
-  const backoff = opts.backoffMs || [10000, 30000];
-  // A 429 is the free tier asking us to slow down, not a wrong answer: wait longer and try more often.
-  const rateRetries = opts.rateRetries !== undefined ? opts.rateRetries : 5;
-  const rateBackoff = opts.rateBackoffMs || [20000, 40000, 60000];
-  let last = null, limited = 0;
-  for (let attempt = 0; attempt <= retries; attempt++) {
+  const state = { errors: 0, limited: 0 };
+  const log = [];
+  let last = null, waited = 0;
+  for (;;) {
     const t0 = Date.now();
-    let first = null;
+    let first = null, release = null, t1 = t0;
     try {
+      release = o.limiter ? await o.limiter.acquire() : null;
+      t1 = Date.now();                       // time spent waiting for the limiter is not the model's
       const r = await streamChat({
-        provider, model: c.model, body: c.body || null, messages, fetch: opts.fetch,
-        maxTokens: opts.maxTokens || 2048, temperature: opts.temperature,
-        firstTokenTimeoutMs: opts.firstTokenTimeoutMs || 60000, idleTimeoutMs: opts.idleTimeoutMs || 60000,
-          maxMs: opts.maxMs || 240000,
-        onDelta: () => { if (first === null) first = Date.now() - t0; },
+        provider, model: c.model, body: bodyOf(c), messages, fetch: o.fetch,
+        maxTokens: o.maxTokens || 2048, temperature: o.temperature,
+        firstTokenTimeoutMs: o.firstTokenTimeoutMs || 60000, idleTimeoutMs: o.idleTimeoutMs || 60000,
+        maxMs: o.maxMs || 240000,
+        onDelta: () => { if (first === null) first = Date.now() - t1; },
       });
       const g = grade(r.text, item.grade);
+      const cut = r.finishReason === 'length';
       return {
         set: item.set, id: item.id, pass: g.pass, score: Math.round(g.score * 1000) / 1000, ...(g.lang !== undefined
           ? { lang: Math.round(g.lang * 1000) / 1000 } : {}),
-        detail: g.detail, first_token_ms: first, total_ms: Date.now() - t0, attempts: attempt + 1,
-          finish: r.finishReason || null,
+        detail: cut && !g.pass ? `cut off at max_tokens (${o.maxTokens || 2048}) | ${g.detail}` : g.detail,
+        first_token_ms: first, total_ms: Date.now() - t1, attempts: log.length + 1, finish: r.finishReason || null,
+        ...(waited ? { waited_ms: waited } : {}), ...(log.length ? { attempt_log: log } : {}), cfg: cfgOf(c, o),
         tokens: (r.usage && (r.usage.total_tokens || 0)) || 0, cost_usd: 0, reply: String(r.text).slice(0, 8000),
       };
     } catch (e) {
-      last = { code: e.code || 'error', status: e.status || 0, message: String(e.message || e).slice(0, 200),
-        ms: Date.now() - t0 };
-      if (last.code === 'rate_limited' && limited < rateRetries) {
-        await sleep(rateBackoff[Math.min(limited, rateBackoff.length - 1)]);
-        limited++; attempt--;            // does not use up one of the normal retries
-        continue;
-      }
-      if (!RETRY.has(last.code) || attempt === retries) break;
-      await sleep(backoff[Math.min(attempt, backoff.length - 1)]);
-    }
+      last = e;
+      const ms = Date.now() - t1;
+      log.push({ code: e.code || 'error', ...(e.status ? { status: e.status } : {}), ...(e.phase ? { phase: e.phase }
+        : {}), ms });
+      const next = retry.nextWait(e, state, o);
+      if (!next.retry) break;
+      if (next.rate) state.limited++; else state.errors++;
+      waited += next.waitMs;
+      await sleep(next.waitMs);
+    } finally { if (release) release(); }
   }
-  return { set: item.set, id: item.id, pass: false, score: 0, detail: 'error', first_token_ms: null, total_ms: last.ms,
-    attempts: retries + 1 + limited, error: `${last.code}${last.status ? ` ${last.status}` : ''}: ${last.message}` };
+  const ms = log.length ? log[log.length - 1].ms : 0;
+  return { set: item.set, id: item.id, pass: false, score: 0, detail: 'error', first_token_ms: null, total_ms: ms,
+    attempts: log.length, error: retry.reason(last, { ms, attempts: log.length }), error_code: last.code || 'error',
+    error_status: last.status || 0, ...(last.phase ? { error_phase: last.phase } : {}), attempt_log: log,
+    ...(waited ? { waited_ms: waited } : {}), cfg: cfgOf(c, o) };
 }
 
+// Errors that will not go away by asking again (wrong key, wrong model id): the model stops at the first one.
+const FATAL = new Set(['auth', 'model_not_found', 'payment_required']);
+
 /**
- * runModel(candidate, items, { done: Set(ids), onResult(row), concurrency, gapMs, unreliableAfter, ...runItem opts })
- * -> { rows, unreliable }
- * Stops early (unreliable) when more than half of the first `unreliableAfter` (default 20) results are errors.
+ * runModel(candidate, items, { done: Set(ids), prior, onResult(row), concurrency, gapMs, unreliableAfter, limiter,
+ *   ...runItem opts }) -> { rows, unreliable, fatal }
+ * Stops early (unreliable) when more than half of the first `unreliableAfter` (default 20) results are errors, and
+ * at once (fatal = the error reason) on a 401/403/404/402.
  */
 async function runModel(c, items, opts = {}) {
   const todo = items.filter(it => !(opts.done && opts.done.has(it.id)));
@@ -146,24 +140,25 @@ async function runModel(c, items, opts = {}) {
   const prior = opts.prior || [];
   const conc = Math.max(1, Math.min(4, opts.concurrency || 1));
   const after = opts.unreliableAfter || 20;
-  let unreliable = false, next = 0;
+  let unreliable = false, fatal = null, next = 0;
   const check = () => {
     const all = prior.concat(rows);
     if (all.length >= after && all.filter(r => r.error).length / all.length > 0.5) unreliable = true;
   };
   check();
   async function worker() {
-    while (!unreliable && next < todo.length) {
+    while (!unreliable && !fatal && next < todo.length) {
       const it = todo[next++];
       const row = await runItem(c, it, opts);
       rows.push(row);
       if (opts.onResult) opts.onResult(row);
+      if (row.error && FATAL.has(row.error_code)) fatal = row.error;
       check();
-      if (opts.gapMs) await sleep(opts.gapMs);
+      if (opts.gapMs) await (opts.sleep || realSleep)(opts.gapMs);
     }
   }
   await Promise.all(Array.from({ length: conc }, worker));
-  return { rows, unreliable };
+  return { rows, unreliable, fatal };
 }
 
 // Re-grades a stored row from its saved reply with the current graders (after a grader fix, no new API calls).
@@ -196,4 +191,4 @@ async function judgeItem(judge, item, row, opts = {}) {
 }
 
 module.exports = { loadSets, runItem, regrade, runModel, judgeItem, sandboxFetch, parseCandidate, keyOf, slug,
-  CANDIDATES, SUITE_VERSION, SETS_DIR, FORMAT };
+  CANDIDATES, SUITE_VERSION, SETS_DIR, FORMAT, cfgOf, bodyOf, providerConfig };

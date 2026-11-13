@@ -66,6 +66,7 @@ const SCHEMA = [
   str('NVIDIA_DEEPSEEK_THINKING', 'off', '"on" = hidden reasoning first (slower)'),
   str('NVIDIA_GEMMA_MODEL', '', 'NVIDIA Gemma id (empty = off)'),
   str('NVIDIA_GLM_MODEL', 'z-ai/glm-5.3-flash', 'NVIDIA GLM id'),
+  str('NVIDIA_GLM_REASONING', 'low', 'GLM reasoning_effort: low, high, max, or "default" (host default = max)'),
   str('NVIDIA_MINIMAX_MODEL', 'minimaxai/minimax-m3.1-flash', 'NVIDIA MiniMax id'),
   url('NATLAS_BASE_URL', '', 'OpenAI-compatible host serving N-ATLaS'), secret('NATLAS_API_KEY', 'N-ATLaS key'),
   str('NATLAS_MODEL', 'n-atlas', 'N-ATLaS model id'),

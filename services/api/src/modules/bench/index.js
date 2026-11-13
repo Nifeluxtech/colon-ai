@@ -6,4 +6,9 @@ module.exports = {
   aggregate: require('./aggregate'),
   report: require('./report'),
   gate: require('./gate'),
+  candidates: require('./candidates'),
+  checkpoint: require('./checkpoint'),
+  limiter: require('./limiter'),
+  retry: require('./retry'),
+  probe: require('./probe'),
 };

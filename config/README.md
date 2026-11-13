@@ -114,6 +114,7 @@ committed: this repository is public.
 | `NVIDIA_DEEPSEEK_THINKING` | string | no | `off` | "on" = hidden reasoning first (slower) |
 | `NVIDIA_GEMMA_MODEL` | string | no | (empty) | NVIDIA Gemma id (empty = off) |
 | `NVIDIA_GLM_MODEL` | string | no | `z-ai/glm-5.3-flash` | NVIDIA GLM id |
+| `NVIDIA_GLM_REASONING` | string | no | `low` | GLM reasoning_effort: low, high, max, or "default" (host default = max) |
 | `NVIDIA_MINIMAX_MODEL` | string | no | `minimaxai/minimax-m3.1-flash` | NVIDIA MiniMax id |
 | `NATLAS_BASE_URL` | url | no | (empty) | OpenAI-compatible host serving N-ATLaS |
 | `NATLAS_API_KEY` | secret | no | (empty) | N-ATLaS key |
