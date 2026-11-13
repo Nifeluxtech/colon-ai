@@ -4,6 +4,8 @@ import android.content.res.ColorStateList
 import android.os.Handler
 import android.os.Looper
 import android.view.View
+import android.view.ViewGroup
+import android.widget.FrameLayout
 import android.widget.Button
 import android.widget.TextView
 import androidx.appcompat.app.AlertDialog
@@ -34,6 +36,9 @@ class BrowserSaga(private val a: BrowserHost, private val bridge: BridgeClient) 
     BridgeClient.Listener, BridgeClient.CommandHandler {
     val control = ControlState()
     private val tools = SagaTools(a)
+    private val clicks = SagaClicks(tools)
+    /** 0.10.1: Saga's pointer over the page (SagaPointer); null until bind(). */
+    private var pointer: SagaPointer? = null
     private var approvalDialog: AlertDialog? = null
     private val main = Handler(Looper.getMainLooper())
     private var status = BridgeClient.Status.OFF
@@ -59,6 +64,11 @@ class BrowserSaga(private val a: BrowserHost, private val bridge: BridgeClient) 
         btnControl = root.findViewById(R.id.btn_control)
         btnStop = root.findViewById(R.id.btn_stop)
         shield = root.findViewById(R.id.ai_shield)
+        // Added last to the content frame (WebViews go in at index 0), so it draws over the page and the shield.
+        pointer = SagaPointer(root.context).also {
+            root.findViewById<FrameLayout>(R.id.content).addView(it, FrameLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT))
+        }
         chip.setOnClickListener { showStatus() }
         btnPause.setOnClickListener { apply(if (control.paused) control.resume() else control.pause()) }
         btnControl.setOnClickListener {
@@ -122,6 +132,7 @@ class BrowserSaga(private val a: BrowserHost, private val bridge: BridgeClient) 
     private fun apply(reason: String?) {
         reason ?: return
         if (!control.canRunCommands()) approvalDialog?.dismiss() // a pending approval is declined when Saga stops
+        if (!control.canRunCommands() || control.handoff != null) pointer?.hide()
         bridge.reportControl(control.mode, control.paused, reason)
         render()
         reportState()
@@ -175,6 +186,7 @@ class BrowserSaga(private val a: BrowserHost, private val bridge: BridgeClient) 
     /** The ack goes first: the server must read "secret_field" (wait for the user), not the control change that
      *  follows (which would read as the user taking over and end the task). */
     private fun refuseSecret(kind: String, reply: Reply) {
+        pointer?.hide()
         reply(false, JSONObject().put("kind", kind), "secret_field")
         handOff(kind)
     }
@@ -331,6 +343,7 @@ class BrowserSaga(private val a: BrowserHost, private val bridge: BridgeClient) 
                     "get_links" -> "links"
                     else -> "scroll"
                 }
+                if (command.name == "scroll") pointer?.swipe(wv, args.optString("direction", "down"))
                 tools.exec(wv, js, args) { r -> pageResult(r, reply) }
             }
             "screenshot" -> {
@@ -375,12 +388,25 @@ class BrowserSaga(private val a: BrowserHost, private val bridge: BridgeClient) 
             val kind = SagaApproval.decide(SagaApproval.serverKind(args), risk?.optString("kind"), control.mode,
                 command.name)
             val perform: (Reply) -> Unit = { done ->
-                tools.exec(wv, command.name, probe) { res ->
-                    // tools.js refuses a secret field itself (the page may have changed since inspect).
-                    val refused = res?.takeIf { it.optString("error") == "secret_field" }
-                    if (refused != null) refuseSecret(refused.optString("kind").ifBlank { SecretFields.PASSWORD }, done)
-                    else pageResult(res, done)
+                // tools.js refuses a secret field itself at every step (the page may have changed since inspect).
+                val answer: (JSONObject?, String?, String?) -> Unit = { res, err, secretKind ->
+                    when {
+                        secretKind != null -> refuseSecret(secretKind, done)
+                        err != null -> done(false, null, err)
+                        else -> done(true, res, null)
+                    }
                     reportState()
+                }
+                if (command.name == "click") {
+                    // 0.10.1: a real tap at the element, with the pointer, and what it changed (SagaClicks).
+                    clicks.click(wv, probe, pointer, { (tab?.progress ?: 100) < 100 }, ::halted, answer)
+                } else clicks.aim(wv, probe, pointer, ::halted, answer) {
+                    tools.exec(wv, command.name, probe) { res ->
+                        val refused = res?.takeIf { it.optString("error") == "secret_field" }
+                        if (refused != null) answer(null, null, refused.optString("kind")
+                            .ifBlank { SecretFields.PASSWORD })
+                        else pageResult(res) { ok, r, e -> answer(if (ok) r else null, if (ok) null else e, null) }
+                    }
                 }
             }
             if (kind == null) { perform(reply); return@exec }
@@ -395,6 +421,10 @@ class BrowserSaga(private val a: BrowserHost, private val bridge: BridgeClient) 
             }
         }
     }
+
+    /** Why Saga may not act right now (it lost control while its pointer moved), or null. */
+    private fun halted(): String? = if (control.canRunCommands()) null
+        else if (control.paused) "paused" else "manual_control"
 
     private fun pageResult(r: JSONObject?, reply: Reply) {
         when {

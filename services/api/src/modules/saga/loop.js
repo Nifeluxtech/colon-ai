@@ -180,7 +180,9 @@ async function run(o) {
       entry.page = ob.page.n; }
     if (ack.error !== 'timeout') await log(entry);
     if (ob.elements) elements = ob.elements;
-    else if (ack.ok && tools.NAVIGATES.has(cmd.name)) elements = null;   // the old element ids are gone
+    // The old element ids are gone, unless the phone saw that a click changed nothing on the page (0.10.1).
+    else if (ack.ok && tools.NAVIGATES.has(cmd.name) && !(cmd.name === 'click'
+      && prompt.KEEPS_ELEMENTS.has(res.changed))) elements = null;
     const note = ack.error === 'approval_denied' ? 'The user declined this action on the phone. Do not try to do '
       + 'the same thing another way; continue without it or finish and explain.' : '';
     messages.push({ role: 'user', content: note ? `${ob.text}\n${note}` : ob.text, observation: true });

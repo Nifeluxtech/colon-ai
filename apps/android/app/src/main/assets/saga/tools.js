@@ -1,8 +1,9 @@
 /* Colon AI · Saga's page tools (Phase 9). Injected by SagaTools.kt with WebView.evaluateJavascript into the tab
    Saga drives, as one function expression called with (command, args); it returns a JSON string. It is evaluated
    fresh for every command and keeps nothing on window, so a page can't swap these functions out.
-   Commands: content · links · inspect (the element and its risk, before click/fill) · click · fill · scroll ·
-   risk (pure, for tests). Element ids (c1, c2, …) are written to data-colon-saga by `content` and are only valid
+   Commands: content · links · inspect (the element and its risk, before click/fill) · point (where to tap) ·
+   click (script fallback) · outcome (did the click change anything) · fill · scroll · risk, secret, changed
+   (pure). Element ids (c1, c2, …) are written to data-colon-saga by `content` and are only valid
    until the next `content`.
    Risk (approval on the phone): the phone's own check of the REAL element, independent of the server's. Kinds:
    payment · purchase · send_message · form_submission · personal_data. Mirrors services/api/src/modules/saga/
@@ -192,18 +193,87 @@
     else win.scrollBy(0, args.direction === 'up' ? -h2 : h2);
     return JSON.stringify({ y: Math.round(win.scrollY), max: doc.documentElement.scrollHeight });
   }
+  /* 0.10.1: real clicks. `point` scrolls the element to the middle of the view and says where it is, as fractions
+     of the visible viewport (Kotlin multiplies by the WebView's size, so zoom and density need no maths there), and
+     what is under that point; SagaTools taps there with real touch events. `click` is the script fallback: the
+     pointer / mouse sequence a finger makes, then focus and click. `outcome` compares the page with `before` (from
+     point) so Saga hears whether its click did anything. */
+  function viewport() {
+    var vv = win.visualViewport;
+    return vv && vv.width > 0 ? { x: vv.offsetLeft, y: vv.offsetTop, w: vv.width, h: vv.height }
+      : { x: 0, y: 0, w: win.innerWidth || 1, h: win.innerHeight || 1 };
+  }
+  function frac(n) { return Math.round(n * 10000) / 10000; }
+  function where(el) {
+    var r = el.getBoundingClientRect(), v = viewport();
+    var px = r.left + r.width / 2, py = r.top + r.height / 2, cx = (px - v.x) / v.w, cy = (py - v.y) / v.h;
+    return { x: frac((r.left - v.x) / v.w), y: frac((r.top - v.y) / v.h), w: frac(r.width / v.w),
+      h: frac(r.height / v.h), cx: frac(cx), cy: frac(cy), in_view: cx >= 0 && cx <= 1 && cy >= 0 && cy <= 1,
+      px: px, py: py };
+  }
+  function targetState(el) {
+    if (!el) return 'gone';
+    return [el.checked, el.open, el.getAttribute('aria-expanded'), el.getAttribute('aria-pressed'),
+      el.getAttribute('aria-selected'), el.getAttribute('aria-checked')].join('|');
+  }
+  function sig(el) {
+    var b = doc.body, t = b ? String(b.innerText || b.textContent || '') : '', h = 0, a = doc.activeElement;
+    for (var i = 0; i < t.length && i < 200000; i++) h = (h * 31 + t.charCodeAt(i)) | 0;
+    return { url: String(win.location.href), title: clip(doc.title, 200), len: t.length, hash: h,
+      nodes: doc.getElementsByTagName ? doc.getElementsByTagName('*').length : 0, el: targetState(el),
+      focus: a && a !== b && a.getAttribute ? a.getAttribute(ATTR) || a.tagName : '' };
+  }
+  /* changed(before, after) -> navigated · url_changed (same page, new #hash or history state) · page_changed ·
+     element_changed (checked, expanded, pressed, selected, open) · focused · none · unknown */
+  function changed(b, a) {
+    if (!b || typeof b !== 'object') return 'unknown';
+    if (a.url !== b.url) return a.url.split('#')[0] === String(b.url).split('#')[0] ? 'url_changed' : 'navigated';
+    if (a.title !== b.title || a.hash !== b.hash || a.len !== b.len || a.nodes !== b.nodes) return 'page_changed';
+    if (a.el !== b.el) return 'element_changed';
+    return a.focus !== b.focus ? 'focused' : 'none';
+  }
+  if (cmd === 'changed') return JSON.stringify({ changed: changed(args.before, args.after) });
+  if (cmd === 'outcome') {
+    var now = sig(find(args.id));
+    return JSON.stringify({ url: now.url, title: now.title, changed: changed(args.before, now) });
+  }
+  function press(el, p) {
+    var o = { bubbles: true, cancelable: true, composed: true, view: win, clientX: p.px, clientY: p.py, button: 0,
+      pointerId: 1, pointerType: 'touch', isPrimary: true };
+    function fire(C, type, buttons) {
+      if (typeof C !== 'function') return;
+      try { o.buttons = buttons; el.dispatchEvent(new C(type, o)); } catch (e) { /* an old engine: skip it */ }
+    }
+    fire(win.PointerEvent || win.MouseEvent, 'pointerdown', 1); fire(win.MouseEvent, 'mousedown', 1);
+    if (el.focus) el.focus({ preventScroll: true });
+    fire(win.PointerEvent || win.MouseEvent, 'pointerup', 0); fire(win.MouseEvent, 'mouseup', 0);
+    el.click();
+  }
+
   var el = find(args.id);
   if (!el) return JSON.stringify({ error: 'no_element' });
   var d = mark(el, describe(el));
   var secret = d.secret || (args.action === 'fill' || cmd === 'fill' ? d.form_secret : null) || null;
   if (cmd === 'inspect') return JSON.stringify({ descriptor: d, secret: secret, risk: risk(d, { action: args.action,
     value: args.value, submit: args.submit }) });
-  // The last line of defence: whatever the server or the app decided, a secret field is never typed into or clicked.
-  if (secret && (cmd === 'click' || cmd === 'fill')) return JSON.stringify({ error: 'secret_field', kind: secret });
-  if (cmd === 'click') {
-    el.scrollIntoView({ block: 'center' });
-    el.click();
-    return JSON.stringify(here());
+  // The last line of defence: whatever the server or the app decided, a secret field is never typed into, clicked,
+  // tapped (point comes right before every native tap) or pointed at.
+  if (secret && /^(click|fill|point)$/.test(cmd)) return JSON.stringify({ error: 'secret_field', kind: secret });
+  if (cmd === 'point' || cmd === 'click') {
+    el.scrollIntoView({ block: 'center', inline: 'center', behavior: 'instant' });
+    var p = where(el), hit = doc.elementFromPoint ? doc.elementFromPoint(p.px, p.py) : null;
+    var lab = hit && hit.closest ? hit.closest('label') : null;
+    var onIt = !hit || hit === el || (el.contains && el.contains(hit)) || (!!lab && lab.control === el);
+    // What a tap at that point would really reach: never a secret field, even one laid over the element.
+    var under = hit && hit !== el ? secretOf(hit) : null;
+    if (under) return JSON.stringify({ error: 'secret_field', kind: under });
+    if (cmd === 'click') {
+      var before = sig(el);
+      press(el, p);
+      return JSON.stringify(Object.assign(here(), { method: 'script', before: before }));
+    }
+    return JSON.stringify({ x: p.x, y: p.y, w: p.w, h: p.h, cx: p.cx, cy: p.cy, in_view: p.in_view, hit: onIt,
+      covered: onIt ? '' : clip(labelOf(hit) || hit.textContent, 60), before: sig(el) });
   }
   if (cmd === 'fill') {
     el.scrollIntoView({ block: 'center' });

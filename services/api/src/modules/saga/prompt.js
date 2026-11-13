@@ -102,8 +102,30 @@ function observe(cmd, ack, o) {
   }
   const where = r.url ? ` Now at ${String(r.url).slice(0, 300)}${r.title ? ` ("${clean(guard, r.title, 120)}")`
     : ''}.` : '';
-  return { text: `Result of ${cmd.tool}: done.${where}${cmd.name === 'click' || cmd.name === 'fill'
-    ? ' Call getPageContent to see the page now.' : ''}` };
+  if (cmd.name === 'click') return { text: `Result of click: ${clicked(guard, r)}${where}` };
+  return { text: `Result of ${cmd.tool}: done.${where}${cmd.name === 'fill' ? ' Call getPageContent to see the page '
+    + 'now.' : ''}` };
 }
 
-module.exports = { system, observe, MAX_TEXT, MAX_ELEMENTS };
+// What a click did, from the phone's before/after comparison (result.changed, 0.10.1). Older phones send nothing.
+const CLICKED = {
+  navigated: 'tapped; a new page opened. Call getPageContent to read it.',
+  url_changed: 'tapped; the page address changed (same page). Call getPageContent to see it now.',
+  page_changed: 'tapped; the page content changed. Call getPageContent to see it now (element ids may have changed).',
+  element_changed: 'tapped; the element changed state (opened, checked or selected). Your element ids still work.',
+  focused: 'tapped; the element took focus but nothing else changed. Your element ids still work.',
+  none: 'tapped, but NOTHING on the page changed: the click may not have worked. Do not assume it did. Try another '
+    + 'element (a nearby link or button for the same thing), scroll, or call getPageContent to check. Your element '
+    + 'ids still work.',
+};
+function clicked(guard, r) {
+  const base = CLICKED[r.changed] || 'done. Call getPageContent to see the page now.';
+  const cover = r.covered ? ` Something was over the element ("${clean(guard, r.covered, 60)}"), maybe a banner or `
+    + 'pop-up; close it if the click did nothing.' : '';
+  return base + cover;
+}
+
+/** Click results after which the element ids from the last getPageContent still name the same elements. */
+const KEEPS_ELEMENTS = new Set(['none', 'focused', 'element_changed']);
+
+module.exports = { system, observe, KEEPS_ELEMENTS, MAX_TEXT, MAX_ELEMENTS };

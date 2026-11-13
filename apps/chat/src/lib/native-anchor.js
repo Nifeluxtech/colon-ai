@@ -26,18 +26,33 @@ function same(a, b) {
   return true;
 }
 
-// The part of the thread the user sees: the scroller's box, cut by the window and the visual viewport (keyboard).
-function viewOf(scroller, win) {
+// The top of the floating composer (v0.10.1): the thread scrolls UNDER it (.cw-scroll is padded by its height), so
+// the band the user sees ends where the composer starts. A hidden composer (pages, height 0) cuts nothing.
+function coverTop(cover) {
+  if (!cover || cover.hidden || cover.isConnected === false || typeof cover.getBoundingClientRect !== 'function') {
+    return Infinity;
+  }
+  var c = cover.getBoundingClientRect();
+  return c && c.height > 0 ? c.top : Infinity;
+}
+
+// The part of the thread the user sees: the scroller's box, cut by the window, the visual viewport (keyboard) and,
+// since 0.10.1, the floating composer (cover). Before 0.10.1 the band ran to the scroller's bottom, which is under
+// the composer, so the app's WebView was clipped only at the screen's edge and slid over the message box and its
+// "Synced" line whenever the card was near the bottom of the thread.
+function viewOf(scroller, win, cover) {
   var r = scroller.getBoundingClientRect(), bottom = r.bottom, vv = win.visualViewport;
   if (win.innerHeight > 0) bottom = Math.min(bottom, win.innerHeight);
   if (vv && vv.height > 0) bottom = Math.min(bottom, (vv.offsetTop || 0) + vv.height);
+  bottom = Math.min(bottom, coverTop(cover));
   return { top: Math.max(r.top, 0), bottom: bottom };
 }
 
 /**
- * opts: { el (the body box), scroller (the thread), watch (more elements whose size moves the box), send(payload),
- * collapsed() -> bool, onKeyboard() (the keyboard opened: the visual viewport lost more than KEYBOARD_PX), win
- * (window), raf, caf }. Returns { update(), stop(), last() }.
+ * opts: { el (the body box), scroller (the thread), cover (the floating composer over the thread's bottom),
+ * watch (more elements whose size moves the box), send(payload), collapsed() -> bool, onKeyboard() (the keyboard
+ * opened: the visual viewport lost more than KEYBOARD_PX), win (window), raf, caf }.
+ * Returns { update(), stop(), last() }.
  */
 var KEYBOARD_PX = 120;
 function createAnchor(opts) {
@@ -53,7 +68,7 @@ function createAnchor(opts) {
     frame = null;
     if (stopped) return;
     var el = opts.el, shown = el && el.isConnected !== false && !(opts.collapsed && opts.collapsed());
-    var p = shown ? anchorRect(el.getBoundingClientRect(), viewOf(opts.scroller, win), win.devicePixelRatio,
+    var p = shown ? anchorRect(el.getBoundingClientRect(), viewOf(opts.scroller, win, opts.cover), win.devicePixelRatio,
       false) : { visible: false };
     if (same(p, last)) return; // nothing moved (and a second "hidden" says nothing new)
     last = p;
@@ -66,7 +81,7 @@ function createAnchor(opts) {
   if (vv) { vv.addEventListener('resize', onViewport, on); vv.addEventListener('scroll', update, on); }
   if (typeof win.ResizeObserver === 'function') {
     ro = new win.ResizeObserver(update);
-    [opts.el, opts.scroller].concat(opts.watch || []).forEach(function (e) { if (e) ro.observe(e); });
+    [opts.el, opts.scroller, opts.cover].concat(opts.watch || []).forEach(function (e) { if (e) ro.observe(e); });
   }
   update();
   return {
@@ -86,4 +101,4 @@ function createAnchor(opts) {
   };
 }
 
-export { anchorRect, createAnchor, viewOf };
+export { anchorRect, coverTop, createAnchor, viewOf };

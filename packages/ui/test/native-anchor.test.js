@@ -119,3 +119,40 @@ test('a keyboard opening (visual viewport loses > 120 px) is reported once; smal
   win.visualViewport.height = 800; win.visualViewport.fire('resize'); assert.equal(kb, 1);  // closing: no
   assert.equal(frames.length, 1);                                                               // one frame queued
 });
+
+// v0.10.1: the thread scrolls under the floating composer, so the band ends at the composer's top; the app's WebView
+// is clipped there and never covers the message box or its "Synced" line.
+test('the band ends at the floating composer (cover), not at the scroller bottom under it', () => {
+  const s = el({ left: 0, top: 56, width: 400, height: 744 });            // runs to the screen's bottom (800)
+  const composer = el({ left: 0, top: 668, width: 400, height: 132 });
+  assert.deepEqual(viewOf(s, { innerHeight: 800 }, composer), { top: 56, bottom: 668 });
+  composer.hidden = true;                                                  // pages: no composer, nothing cut
+  assert.deepEqual(viewOf(s, { innerHeight: 800 }, composer), { top: 56, bottom: 800 });
+  const gone = el({ left: 0, top: 0, width: 0, height: 0 });
+  assert.deepEqual(viewOf(s, { innerHeight: 800 }, gone), { top: 56, bottom: 800 });
+  // keyboard open: the composer moved up with the visual viewport and still cuts the band
+  const up = el({ left: 0, top: 300, width: 400, height: 120 });
+  assert.deepEqual(viewOf(s, { innerHeight: 800, visualViewport: { height: 420, offsetTop: 0 } }, up),
+    { top: 56, bottom: 300 });
+});
+
+test('createAnchor with cover: viewportBottom is the composer top, and the composer is observed', () => {
+  const frames = [], sent = [], observed = [];
+  const win = Object.assign(target(), { innerHeight: 800, devicePixelRatio: 2, visualViewport: null,
+    ResizeObserver: class { observe(e) { observed.push(e); } disconnect() {} } });
+  const scroller = el({ left: 0, top: 56, width: 400, height: 744 });
+  const cover = el({ left: 0, top: 668, width: 400, height: 132 });
+  const body = el({ left: 10, top: 400, width: 380, height: 480 });        // runs under the composer
+  const a = createAnchor({ el: body, scroller, cover, win, send: (p) => sent.push(p),
+    raf: (f) => { frames.push(f); return frames.length; }, caf: () => {} });
+  frames.splice(0).forEach((f) => f());
+  assert.equal(sent[0].visible, true);
+  assert.equal(sent[0].viewportTop, 56); assert.equal(sent[0].viewportBottom, 668);
+  assert.ok(observed.includes(cover));
+  cover.rect = { left: 0, top: 620, width: 400, height: 180 };              // composer grew (attachments)
+  a.update(); frames.splice(0).forEach((f) => f());
+  assert.equal(sent[1].viewportBottom, 620);
+  body.rect = { left: 10, top: 640, width: 380, height: 480 };              // card now entirely behind the composer
+  a.update(); frames.splice(0).forEach((f) => f());
+  assert.deepEqual(sent[2], { visible: false });
+});
