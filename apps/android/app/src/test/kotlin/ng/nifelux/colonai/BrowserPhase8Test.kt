@@ -124,7 +124,7 @@ class UserAgentsTest {
 
 class PanelLayoutTest {
     @Test fun modesAndShares() {
-        assertEquals(PanelLayout.Mode.EMBEDDED, PanelLayout.defaultMode(360))
+        assertEquals(PanelLayout.Mode.INLINE, PanelLayout.defaultMode(360))  // v0.9.1: phones open in the thread
         assertEquals(PanelLayout.Mode.SPLIT, PanelLayout.defaultMode(800))
         assertEquals(PanelLayout.Mode.FULL, PanelLayout.Mode.from("full"))
         assertNull(PanelLayout.Mode.from("floating"))

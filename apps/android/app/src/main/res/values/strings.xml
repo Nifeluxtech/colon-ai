@@ -114,6 +114,7 @@
     <string name="panel_full">Full screen</string>
     <string name="panel_exit_full">Exit full screen</string>
     <string name="panel_close">Close browser</string>
+    <string name="panel_inline">In the conversation</string>
     <string name="panel_embedded">Embedded in chat</string>
     <string name="panel_split">Split screen</string>
     <string name="panel_collapse">Collapse</string>

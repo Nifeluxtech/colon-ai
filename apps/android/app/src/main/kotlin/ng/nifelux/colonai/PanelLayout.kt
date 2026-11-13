@@ -2,6 +2,9 @@ package ng.nifelux.colonai
 
 /**
  * Layouts of Colon AI's in-chat browser panel (ROADMAP Phase 10). Pure, unit-tested in PanelLayoutTest.
+ * - inline (v0.9.1, phones' default): the panel sits in the chat thread, in the Colon Browser card the chat page
+ *   draws (the page reports the card's box with browser('anchor'), InlineGeometry places the panel over it). Only
+ *   with a page that says it can draw the card ({inline: true} on its browser calls); otherwise it is embedded;
  * - embedded: the panel sits above the chat at a fixed share of the height; it can collapse to its header;
  * - split: panel and chat share the screen with a draggable divider (stacked on phones, side by side on wide
  *   screens in landscape);
@@ -10,7 +13,7 @@ package ng.nifelux.colonai
  */
 object PanelLayout {
     enum class Mode(val wire: String) {
-        EMBEDDED("embedded"), SPLIT("split"), FULL("full");
+        INLINE("inline"), EMBEDDED("embedded"), SPLIT("split"), FULL("full");
 
         companion object {
             fun from(s: String?): Mode? = entries.firstOrNull { it.wire == s }
@@ -22,8 +25,21 @@ object PanelLayout {
     const val MAX_SHARE = 0.75f
     const val WIDE_DP = 720
 
-    /** Phones open embedded; tablets and wide landscape screens open split. */
-    fun defaultMode(widthDp: Int): Mode = if (widthDp >= WIDE_DP) Mode.SPLIT else Mode.EMBEDDED
+    /** Phones open in the thread (inline); tablets and wide landscape screens open split. */
+    fun defaultMode(widthDp: Int): Mode = if (widthDp >= WIDE_DP) Mode.SPLIT else Mode.INLINE
+
+    /** The layout actually used. [webInline]: the chat page can draw the inline card (true), can't (false: an
+     *  older page, so embedded as before), or is loading and hasn't said yet (null: stay inline, hidden). */
+    fun effective(mode: Mode, webInline: Boolean?): Mode =
+        if (mode == Mode.INLINE && webInline == false) Mode.EMBEDDED else mode
+
+    /** Collapsing leaves full screen and split for a layout that can collapse: back to the thread when full screen
+     *  was entered from it, otherwise embedded. */
+    fun collapseTarget(mode: Mode, beforeFull: Mode): Mode = when (mode) {
+        Mode.INLINE, Mode.EMBEDDED -> mode
+        Mode.FULL -> if (beforeFull == Mode.INLINE) Mode.INLINE else Mode.EMBEDDED
+        Mode.SPLIT -> Mode.EMBEDDED
+    }
 
     /** Side by side (browser beside the chat) only on wide landscape screens; otherwise stacked. */
     fun sideBySide(mode: Mode, widthDp: Int, heightDp: Int): Boolean =
@@ -35,6 +51,7 @@ object PanelLayout {
     /** The panel's share of the space (0 = header only, 1 = everything). */
     fun panelShare(mode: Mode, collapsed: Boolean, splitShare: Float): Float = when (mode) {
         Mode.FULL -> 1f
+        Mode.INLINE -> 0f // not in the stacked box: the panel is over the chat, in the thread
         Mode.EMBEDDED -> if (collapsed) 0f else EMBEDDED_SHARE
         Mode.SPLIT -> clampShare(splitShare)
     }

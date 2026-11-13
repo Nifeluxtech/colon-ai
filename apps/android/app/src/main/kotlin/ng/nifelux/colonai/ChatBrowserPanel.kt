@@ -6,6 +6,7 @@ import android.content.Intent
 import android.content.res.Configuration
 import android.os.Handler
 import android.os.Looper
+import android.view.Gravity
 import android.view.KeyEvent
 import android.view.MotionEvent
 import android.view.View
@@ -26,10 +27,11 @@ import org.json.JSONObject
 
 /**
  * Colon AI's in-chat browser (Phase 8 separation, Phase 10 layouts): a real Android System WebView panel inside
- * MainActivity, driven by the chat page through window.ColonNative.browser(...) and by the user. Embedded, split
- * or full screen (PanelLayout); back / forward / reload / close; "Open in Colon Browser" hands the page to the
- * standalone app (or offers its download). Saga's AI / Manual / Shared control and consent work here exactly as in
- * Colon Browser (BrowserSaga). Every change is sent to the page as the "browser" event (state()).
+ * MainActivity, driven by the chat page through window.ColonNative.browser(...) and by the user. In the chat thread
+ * (inline, v0.9.1: over the card the page draws, InlineGeometry / InlineLayer), embedded, split or full screen
+ * (PanelLayout); switching moves or resizes the same views, so the page never reloads. Back / forward / reload /
+ * close; "Open in Colon Browser" hands the page to the standalone app (or offers its download). Saga's AI / Manual /
+ * Shared control and consent work here exactly as in Colon Browser (BrowserSaga). Every change is sent to the page as the "browser" event (state()).
  */
 class ChatBrowserPanel(private val a: MainActivity) : BrowserHost, TabManager.Host {
     override val activity: AppCompatActivity get() = a
@@ -41,7 +43,14 @@ class ChatBrowserPanel(private val a: MainActivity) : BrowserHost, TabManager.Ho
     private val box: LinearLayout = a.findViewById(R.id.split_box)
     private val panel: View = a.findViewById(R.id.browser_panel)
     private val divider: View = a.findViewById(R.id.panel_divider)
-    private val web: View = a.findViewById(R.id.web_container)
+    private val web: FrameLayout = a.findViewById(R.id.web_container)
+    private val header: View = panel.findViewById(R.id.panel_header)
+    /** Inline layout: the layer over the chat WebView that holds the panel (added after the WebView, so on top). */
+    private val layer = InlineLayer(a).also {
+        it.visibility = View.INVISIBLE
+        web.addView(it, FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT,
+            ViewGroup.LayoutParams.MATCH_PARENT))
+    }
     private val content: FrameLayout = panel.findViewById(R.id.content)
     private val address: EditText = panel.findViewById(R.id.address)
     private val progress: ProgressBar = panel.findViewById(R.id.progress)
@@ -65,10 +74,21 @@ class ChatBrowserPanel(private val a: MainActivity) : BrowserHost, TabManager.Ho
 
     var isOpen = false
         private set
-    var mode: PanelLayout.Mode = PanelLayout.Mode.from(prefs.getString("mode", null))
+    /** The layout asked for (saved under "layout" since 0.9.1, so phones start in the thread once); what is shown is
+     *  [effectiveMode] (inline needs a chat page that draws the card). */
+    var mode: PanelLayout.Mode = PanelLayout.Mode.from(prefs.getString(PREF_LAYOUT, null))
         ?: PanelLayout.defaultMode(a.resources.configuration.screenWidthDp)
         private set
-    private var beforeFull = PanelLayout.Mode.EMBEDDED
+    private var beforeFull = PanelLayout.defaultMode(a.resources.configuration.screenWidthDp)
+    /** The chat page can draw the inline card: true, false (an older page), null (the page is reloading). */
+    private var webInline: Boolean? = false
+    /** The page's last report of the card's body box (inline); null until it reports after the panel docks. */
+    private var anchor: InlineGeometry.Anchor? = null
+    /** True while the panel lives in [layer] (inline) rather than in the stacked box. */
+    private var docked = false
+    private val inlineGrace = Runnable {
+        if (webInline == null) { webInline = false; if (isOpen) applyLayout(); changed() }
+    }
     var collapsed = false
         private set
     private var share = PanelLayout.clampShare(prefs.getFloat("share", PanelLayout.EMBEDDED_SHARE))
@@ -94,6 +114,10 @@ class ChatBrowserPanel(private val a: MainActivity) : BrowserHost, TabManager.Ho
         panel.findViewById<View>(R.id.panel_header).setOnClickListener { if (collapsed) setCollapsed(false) }
         wireDivider()
         bridge.addListener(opener)
+        // The chat area changed size (keyboard, rotation): the clip follows (posted: never re-lay out mid-layout).
+        layer.addOnLayoutChangeListener { _, l, t, r, b, oldL, oldT, oldR, oldB ->
+            if (r - l != oldR - oldL || b - t != oldB - oldT) layer.post { placeInline() }
+        }
     }
 
     /* ---------- the page's commands (NativeBridge "browser") ---------- */
@@ -101,7 +125,10 @@ class ChatBrowserPanel(private val a: MainActivity) : BrowserHost, TabManager.Ho
     /** Opens the panel (in [layout] when given) and loads [url] in a new tab, or shows the current tab. */
     fun open(url: String?, layout: String? = null) {
         if (!restored) { restored = true; tabs.restore(store.tabsJson)?.let { if (url == null) tabs.switchTo(it) } }
-        PanelLayout.Mode.from(layout)?.let { mode = it }
+        PanelLayout.Mode.from(layout)?.let {
+            if (it == PanelLayout.Mode.FULL && mode != PanelLayout.Mode.FULL) beforeFull = mode
+            mode = it
+        }
         if (!isOpen) { isOpen = true; saga.attach() }
         collapsed = false
         applyLayout()
@@ -140,16 +167,49 @@ class ChatBrowserPanel(private val a: MainActivity) : BrowserHost, TabManager.Ho
         if (m == PanelLayout.Mode.FULL && mode != PanelLayout.Mode.FULL) beforeFull = mode
         mode = m
         collapsed = false
-        if (m != PanelLayout.Mode.FULL) prefs.edit().putString("mode", m.wire).apply()
+        if (m != PanelLayout.Mode.FULL) prefs.edit().putString(PREF_LAYOUT, m.wire).apply()
         if (isOpen) applyLayout()
         changed()
     }
 
     fun setCollapsed(c: Boolean) {
-        if (mode != PanelLayout.Mode.EMBEDDED && c) setMode(PanelLayout.Mode.EMBEDDED)
+        val m = effectiveMode()
+        if (c && m != PanelLayout.Mode.EMBEDDED && m != PanelLayout.Mode.INLINE) {
+            setMode(PanelLayout.effective(PanelLayout.collapseTarget(m, beforeFull), webInline))
+        }
         collapsed = c
         applyLayout()
         changed()
+    }
+
+    /** The layout shown now (inline falls back to embedded with a page that can't draw the card). */
+    fun effectiveMode(): PanelLayout.Mode = PanelLayout.effective(mode, webInline)
+
+    /** The chat page said it draws the inline card ({inline: true} on its browser calls). */
+    fun setWebInline() {
+        main.removeCallbacks(inlineGrace)
+        if (webInline == true) return
+        webInline = true
+        if (isOpen) { applyLayout(); changed() }
+    }
+
+    /** browser('anchor'): where the card's body box is now. Called up to once a frame while the thread scrolls, so
+     *  it only moves the panel (translation; a relayout only when the box's size changed). */
+    fun setAnchor(next: InlineGeometry.Anchor) {
+        anchor = next
+        placeInline()
+    }
+
+    /** The chat page is reloading: its card is gone until the new page reports. Inline stays (hidden) while it loads;
+     *  if the new page never says it can draw the card, the panel falls back to embedded. */
+    fun onShellPageStarted() {
+        anchor = null
+        if (webInline == true) {
+            webInline = null
+            main.removeCallbacks(inlineGrace)
+            main.postDelayed(inlineGrace, INLINE_GRACE_MS)
+        }
+        placeInline()
     }
 
     fun goBack(): Boolean = tabs.active?.webView?.takeIf { it.canGoBack() }?.let { it.goBack(); true } ?: false
@@ -170,7 +230,7 @@ class ChatBrowserPanel(private val a: MainActivity) : BrowserHost, TabManager.Ho
         val wv = t?.webView
         return JSONObject()
             .put("open", isOpen)
-            .put("layout", mode.wire)
+            .put("layout", effectiveMode().wire)
             .put("collapsed", collapsed)
             .put("url", t?.url?.takeIf { UrlRules.isWebUrl(it) } ?: "")
             .put("title", t?.title ?: "")
@@ -196,7 +256,9 @@ class ChatBrowserPanel(private val a: MainActivity) : BrowserHost, TabManager.Ho
     }
 
     fun contains(ev: MotionEvent): Boolean {
-        if (!isOpen || panel.visibility != View.VISIBLE) return false
+        if (!isOpen) return false
+        if (docked) return layer.hits(ev.rawX, ev.rawY, panel)
+        if (panel.visibility != View.VISIBLE) return false
         val loc = IntArray(2)
         panel.getLocationOnScreen(loc)
         return ev.rawX >= loc[0] && ev.rawX < loc[0] + panel.width && ev.rawY >= loc[1] && ev.rawY < loc[1] + panel.height
@@ -214,6 +276,7 @@ class ChatBrowserPanel(private val a: MainActivity) : BrowserHost, TabManager.Ho
 
     fun destroy() {
         bridge.removeListener(opener)
+        main.removeCallbacks(inlineGrace)
         if (isOpen) saga.detach()
         tabs.tabs.forEach { t -> t.webView?.let { ShellWeb.destroy(it) }; t.webView = null }
     }
@@ -221,24 +284,29 @@ class ChatBrowserPanel(private val a: MainActivity) : BrowserHost, TabManager.Ho
     /* ---------- layout ---------- */
 
     private fun applyLayout() {
+        val m = effectiveMode()
+        dock(m == PanelLayout.Mode.INLINE)
         val cfg = a.resources.configuration
-        val side = PanelLayout.sideBySide(mode, cfg.screenWidthDp, cfg.screenHeightDp)
+        val side = PanelLayout.sideBySide(m, cfg.screenWidthDp, cfg.screenHeightDp)
         box.orientation = if (side) LinearLayout.HORIZONTAL else LinearLayout.VERTICAL
         // Side by side, the panel goes on the right: the box is laid out right-to-left, its children left-to-right.
         box.layoutDirection = if (side) View.LAYOUT_DIRECTION_RTL else View.LAYOUT_DIRECTION_LTR
         listOf(panel, divider, web).forEach { it.layoutDirection = View.LAYOUT_DIRECTION_LOCALE }
+        // Inline: the chat page draws the header (status, address, collapse, full screen, close) in its card.
+        header.visibility = if (docked) View.GONE else View.VISIBLE
         panel.visibility = if (isOpen) View.VISIBLE else View.GONE
-        divider.visibility = if (isOpen && mode == PanelLayout.Mode.SPLIT) View.VISIBLE else View.GONE
-        web.visibility = if (isOpen && mode == PanelLayout.Mode.FULL) View.GONE else View.VISIBLE
-        content.visibility = if (collapsed) View.GONE else View.VISIBLE
+        divider.visibility = if (isOpen && m == PanelLayout.Mode.SPLIT) View.VISIBLE else View.GONE
+        web.visibility = if (isOpen && m == PanelLayout.Mode.FULL) View.GONE else View.VISIBLE
+        // Inline and collapsed, the whole layer hides (placeInline); the content stays ready for the expand.
+        content.visibility = if (collapsed && !docked) View.GONE else View.VISIBLE
         progress.visibility = if (collapsed) View.GONE else progress.visibility
-        val s = PanelLayout.panelShare(mode, collapsed, share)
+        val s = PanelLayout.panelShare(m, collapsed, share)
         fun lp(weight: Float, wrap: Boolean = false) = LinearLayout.LayoutParams(
             if (side) (if (wrap) ViewGroup.LayoutParams.WRAP_CONTENT else 0) else ViewGroup.LayoutParams.MATCH_PARENT,
             if (side) ViewGroup.LayoutParams.MATCH_PARENT else (if (wrap) ViewGroup.LayoutParams.WRAP_CONTENT else 0),
             weight)
-        panel.layoutParams = if (collapsed) lp(0f, wrap = true) else lp(s)
-        web.layoutParams = lp(if (mode == PanelLayout.Mode.FULL) 0f else 1f - s.coerceAtMost(.99f))
+        if (!docked) panel.layoutParams = if (collapsed) lp(0f, wrap = true) else lp(s)
+        web.layoutParams = lp(if (m == PanelLayout.Mode.FULL) 0f else 1f - s.coerceAtMost(.99f))
         val d = (16 * a.resources.displayMetrics.density).toInt()
         divider.layoutParams = LinearLayout.LayoutParams(if (side) d else ViewGroup.LayoutParams.MATCH_PARENT,
             if (side) ViewGroup.LayoutParams.MATCH_PARENT else d)
@@ -246,6 +314,48 @@ class ChatBrowserPanel(private val a: MainActivity) : BrowserHost, TabManager.Ho
         expand.contentDescription = a.getString(if (mode == PanelLayout.Mode.FULL) R.string.panel_exit_full
             else R.string.panel_full)
         box.requestLayout()
+        placeInline()
+    }
+
+    /** Moves the panel (the same view, with the same WebViews: nothing reloads) into the inline layer or back into
+     *  the stacked box. Entering the layer forgets the old anchor: the page reports the new card's box. */
+    private fun dock(inline: Boolean) {
+        if (inline == docked) return
+        docked = inline
+        (panel.parent as? ViewGroup)?.removeView(panel)
+        if (inline) {
+            anchor = null
+            layer.addView(panel, FrameLayout.LayoutParams(0, 0, Gravity.TOP or Gravity.START))
+        } else {
+            panel.translationX = 0f
+            panel.translationY = 0f
+            layer.clearClip()
+            layer.visibility = View.INVISIBLE
+            box.addView(panel, 0, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0,
+                PanelLayout.EMBEDDED_SHARE))
+        }
+    }
+
+    /** Inline: lays the panel over the card's body box, clipped to the visible thread; hidden when the card is off
+     *  screen, collapsed, not reported yet, or the panel is closed. Scrolling only changes translation and clip. */
+    private fun placeInline() {
+        if (!docked) return
+        val p = if (isOpen && !collapsed) InlineGeometry.place(anchor, a.resources.displayMetrics.density,
+            a.webView.left, a.webView.top, layer.width, layer.height) else InlineGeometry.NOWHERE
+        if (!p.visible) {
+            if (layer.visibility != View.INVISIBLE) layer.visibility = View.INVISIBLE
+            return
+        }
+        val lp = panel.layoutParams as FrameLayout.LayoutParams
+        if (lp.width != p.width || lp.height != p.height) {
+            lp.width = p.width
+            lp.height = p.height
+            panel.layoutParams = lp
+        }
+        panel.translationX = p.left.toFloat()
+        panel.translationY = p.top.toFloat()
+        layer.setClip(p.clipTop, p.clipBottom)
+        if (layer.visibility != View.VISIBLE) layer.visibility = View.VISIBLE
     }
 
     @SuppressLint("ClickableViewAccessibility")
@@ -278,8 +388,10 @@ class ChatBrowserPanel(private val a: MainActivity) : BrowserHost, TabManager.Ho
         fun add(id: Int, res: Int) = m.add(0, id, order++, res)
         if (t?.webView?.canGoForward() == true) add(1, R.string.forward)
         add(2, R.string.open_in_browser_app)
-        if (mode != PanelLayout.Mode.EMBEDDED) add(3, R.string.panel_embedded)
-        if (mode != PanelLayout.Mode.SPLIT) add(4, R.string.panel_split)
+        val shown = effectiveMode()
+        if (shown != PanelLayout.Mode.INLINE && webInline == true) add(14, R.string.panel_inline)
+        if (shown != PanelLayout.Mode.EMBEDDED) add(3, R.string.panel_embedded)
+        if (shown != PanelLayout.Mode.SPLIT) add(4, R.string.panel_split)
         add(5, if (collapsed) R.string.panel_expand else R.string.panel_collapse)
         add(6, R.string.new_tab)
         if (tabs.tabs.size > 1) add(7, R.string.tabs_title_short)
@@ -305,6 +417,7 @@ class ChatBrowserPanel(private val a: MainActivity) : BrowserHost, TabManager.Ho
                 12 -> a.startActivity(Intent(a, ClearDataActivity::class.java)
                     .putExtra(ClearDataActivity.EXTRA_STORE, BrowserStore.PANEL))
                 13 -> { tabs.closeAll(); close() }
+                14 -> setMode(PanelLayout.Mode.INLINE)
             }
             true
         }
@@ -412,5 +525,8 @@ class ChatBrowserPanel(private val a: MainActivity) : BrowserHost, TabManager.Ho
 
     companion object {
         const val MAX_TABS = 6
+        private const val PREF_LAYOUT = "layout"
+        /** How long a reloading chat page has to say it draws the inline card before the panel goes embedded. */
+        private const val INLINE_GRACE_MS = 4000L
     }
 }

@@ -170,6 +170,11 @@ class MainActivity : AppCompatActivity() {
         if (offline.visibility == View.VISIBLE && ColonApplication.of(this).online) offline.visibility = View.GONE
     }
 
+    /** The chat page is (re)loading: the in-thread browser card it drew is gone until the new page reports one. */
+    fun onShellPageStarted() {
+        if (::browserPanel.isInitialized) browserPanel.onShellPageStarted()
+    }
+
     fun onProgress(p: Int) {
         progress.progress = p
         progress.visibility = if (p in 1..99) View.VISIBLE else View.GONE

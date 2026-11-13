@@ -165,13 +165,17 @@ class NativeBridge(private val host: MainActivity, private val webView: WebView)
 
     /**
      * The in-chat browser panel (ChatBrowserPanel): {action: open|navigate|layout|collapse|close|back|forward|
-     * reload|handoff|state, url?, layout?, collapsed?}. Every action answers with the panel's state.
+     * reload|handoff|state|anchor, url?, layout?, collapsed?, inline?}. Every action answers with the panel's state,
+     * except anchor (sent up to once a frame while the thread scrolls), which answers null. inline: true says the
+     * page draws the in-thread card, so the "inline" layout may be used (feature "browserInline", v0.9.1).
      */
     private fun browser(a: JSONObject, done: (Boolean, Any?, String?) -> Unit) {
         val p = host.browserPanel
         val url = a.optString("url")
         if (url.isNotEmpty() && !UrlRules.isWebUrl(url)) { done(false, null, "bad_url"); return }
+        if (a.optBoolean("inline", false)) p.setWebInline()
         when (a.optString("action")) {
+            "anchor" -> { p.setAnchor(InlineGeometry.anchorOf(a)); done(true, null, null); return }
             "open" -> p.open(url.ifEmpty { null }, a.optString("layout").ifEmpty { null })
             "navigate" -> if (url.isEmpty()) { done(false, null, "bad_url"); return } else p.open(url)
             "layout" -> {
@@ -230,7 +234,8 @@ class NativeBridge(private val host: MainActivity, private val webView: WebView)
         const val LEGACY = "ColonNativeLegacy"
         private const val MAX_SAVE_B64 = 34 * 1024 * 1024 // about 25 MB of file
         val FEATURES = listOf("share", "download", "saveFile", "openTab", "openExternal", "haptic",
-            "requestPermission", "checkUpdate", "setTheme", "setSession", "takeShare", "fileInput", "mic", "browserPanel")
+            "requestPermission", "checkUpdate", "setTheme", "setSession", "takeShare", "fileInput", "mic", "browserPanel",
+            "browserInline")
 
         /** Defines window.ColonNative (promise API) on top of the channel. Runs once per page, before page scripts. */
         private val SHIM = """
