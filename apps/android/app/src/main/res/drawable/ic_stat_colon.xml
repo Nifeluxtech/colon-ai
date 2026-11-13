@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Notification icon: the Colon flame, white on transparent. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp" android:height="24dp" android:viewportWidth="24" android:viewportHeight="24">
+    <group android:translateX="-2.4" android:translateY="-0.3" android:scaleX="0.6" android:scaleY="0.6">
+        <path android:fillColor="#FFFFFFFF" android:pathData="M24,5c5,6 11,11 11,20a11,11 0,0 1,-22 0c0,-4 1.6,-7.4 4.2,-10.2 0.4,3.2 2,5.3 4.4,6.3C20.7,15 21.6,9.6 24,5z"/>
+    </group>
+</vector>
