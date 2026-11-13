@@ -1,9 +1,17 @@
 {
-  "versionName": "0.7.1",
-  "versionCode": 701,
-  "apkUrl": "https://github.com/Nifeluxtech/colon-ai/releases/download/v0.7.1/colon-ai-0.7.1.apk",
-  "releaseUrl": "https://github.com/Nifeluxtech/colon-ai/releases/tag/v0.7.1",
-  "notes": "First Colon AI Android app: chat with voice, Colon Browser tabs, downloads, Share to Colon and in-app updates.",
+  "versionName": "0.8.0",
+  "versionCode": 800,
+  "apkUrl": "https://github.com/Nifeluxtech/colon-ai/releases/download/v0.8.0/colon-ai-0.8.0.apk",
+  "releaseUrl": "https://github.com/Nifeluxtech/colon-ai/releases/tag/v0.8.0",
+  "notes": "Web pages now open in a real browser panel beside the chat (embedded, split or full screen). Colon Browser is now its own app.",
   "minSupportedVersionCode": 0,
-  "publishedAt": "2026-11-13"
+  "publishedAt": "2026-11-13",
+  "browser": {
+    "versionName": "0.8.0",
+    "versionCode": 800,
+    "apkUrl": "https://github.com/Nifeluxtech/colon-ai/releases/download/v0.8.0/colon-browser-0.8.0.apk",
+    "releaseUrl": "https://github.com/Nifeluxtech/colon-ai/releases/tag/v0.8.0",
+    "notes": "First Colon Browser app: tabs and history that survive restarts, private tabs, desktop site, downloads list, clear browsing data, and Google and bank sign-in in a Custom Tab.",
+    "minSupportedVersionCode": 0
+  }
 }
