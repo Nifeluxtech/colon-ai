@@ -176,7 +176,7 @@ that has `get_page_content`.
 |---|---|---|
 | `get_page_content` | | `{ url, title, text (≤ 12 000 chars), truncated, elements: [{ id: "c1"…, tag, type, role, label, text, name, placeholder, autocomplete, href, form, contenteditable }] }` (≤ 60 visible interactive elements; ids are written to `data-colon-saga` and are valid until the next read; typed values are never sent) |
 | `get_links` | | `{ links: [{ text, url }] }` (http(s), unique, ≤ 80) |
-| `click` | `id`, `approval?` | `{ url, title }` |
+| `click` | `id`, `approval?` | `{ url, title, method, changed, covered? }` (v0.10.1; see "Real clicks" below. Older apps: `{ url, title }`) |
 | `fill` | `id`, `value` (≤ 500), `submit?` (Enter + form submit), `approval?` | `{ url, title }` |
 | `scroll` | `direction`: `up` · `down` · `top` · `bottom` | `{ y, max }` |
 | `screenshot` | | `{ mime: "image/jpeg", width, height, base64 }` (≤ 480 px wide, ≤ 40 KB, so the ack fits the 64 KB frame) |
@@ -184,6 +184,37 @@ that has `get_page_content`.
 New errors: `no_element` (the id is not on the page any more), `page_error` (the script returned nothing),
 `no_view`, and `approval_denied`; v0.10.0 adds `secret_field` (the phone refused to fill or click a secret field
 and handed the page to the user; `result: { kind }`).
+
+**Real clicks and Saga's pointer (v0.10.1).** Up to 0.10.0 `click` ran `el.click()` in the page and answered at
+once with the URL it was already on: an untrusted synthetic click with nothing on screen, which sites that listen
+for `pointerdown` / `mousedown` / `touchstart` or check `isTrusted` silently ignore, and an `ok` that said nothing
+about whether anything happened. Now (`SagaClicks.kt`, pure parts in `SagaTap.kt`):
+
+1. `tools.js point` refuses a secret field (`secret_field`), scrolls the element to the middle of the page
+   (`behavior: "instant"`), and returns its box and centre `cx, cy` as **fractions of the visible viewport**
+   (`visualViewport`, so pinch zoom is included), `in_view`, `hit` (is the element what `elementFromPoint` finds
+   there), `covered` (the label of whatever lies over it) and `before`, a snapshot of the page (URL, title, text
+   hash and length, node count, focus, the element's checked / expanded / pressed / selected / open state). A secret
+   field lying over the element is refused too: no tap reaches one.
+2. Saga's pointer (`SagaPointer.kt`: a Colon-blue arrow with the brand's two cyan dots) glides to the centre. It is
+   a view added last to the browser's `content` frame (over the WebView and the AI shield), not clickable or
+   focusable, and answers every touch with `false`, so in **AI + me** the user's fingers reach the page and the
+   shield's Take control button as before. It hides at once when Saga loses control or hands a secret to the user.
+3. `point` runs again right before the tap (the page may have moved while the pointer glided; a secret field is
+   refused here as well), and Saga stops with `manual_control` / `paused` if it lost control meanwhile.
+4. **A real tap:** `MotionEvent` `ACTION_DOWN` then `ACTION_UP` 60 ms later (finger, touchscreen source) dispatched
+   to the WebView at `cx × width, cy × height` px, with a ripple. When that can't be done (`off_screen`, `covered`,
+   no laid-out view) `tools.js click` acts on the element itself: `pointerdown`, `mousedown`, `focus`, `pointerup`,
+   `mouseup`, `click()` (still refusing secret fields).
+5. After 0.7 s (and once more after 1.2 s when nothing changed yet) `tools.js outcome` compares the page with
+   `before`. `ack.result.changed` is `navigated` · `url_changed` (same page, new `#hash` / history state) ·
+   `page_changed` · `element_changed` · `focused` · `none` · `unknown` (the page answered nothing and the URL did
+   not move); `method` is `tap` or `script`. The server tells the model plainly when a click changed nothing ("the
+   click may not have worked… try another element") and keeps the element ids usable after `none`, `focused` and
+   `element_changed`; after any other change it asks for `getPageContent` first.
+
+`fill` and `scroll` move the pointer too (`fill` aims with `point`, so a secret form is refused before the pointer
+moves); typing still uses the native value setter and `input` / `change` events.
 
 **Approvals on the phone (Phase 9).** Before `click` and `fill` the phone inspects the **real** element
 (`inspect`) and classifies it (payment · purchase · send_message · form_submission · personal_data, the same rules

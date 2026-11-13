@@ -1,6 +1,6 @@
 # Changelog
 
-## [0.10.1] — 2026-11-13 · Composer pinned with the in-chat browser open
+## [0.10.1] — 2026-11-13 · Composer pinned with the in-chat browser open; Saga clicks for real
 A fix from the owner's phone (Infinix SMART 20, app 0.10.0, inline browser card open): the message box ("Ask Colon
 anything…") and its "Synced" line seemed to scroll away with the thread instead of staying at the bottom of the
 screen. Every version number moves to 0.10.1 (apps, `Colon.version`, `version.json` versionCode 1001 for both APKs).
@@ -17,6 +17,22 @@ screen. Every version number moves to 0.10.1 (apps, `Colon.version`, `version.js
   (opening the card, the web's embedded card, and the keyboard opening for the panel's page); `pinFrame()` puts the
   frame and the window back at 0 if anything else moves them. Older WebViews without `dvh` keep a full-height frame.
 - Tests: `packages/ui/test/thread-scroll.test.js` and the composer band in `native-anchor.test.js`.
+- **Saga's clicks are real taps, and you can see them** (owner's report: no pointer in the in-chat browser, and Saga
+  didn't seem able to click). Clicks did run, but as `el.click()`: an untrusted synthetic click that sites listening
+  for pointer, mouse or touch events (or checking `isTrusted`) ignore, with nothing on screen, answered `ok` with
+  the URL from before the click, so Saga was told "done" even when nothing happened. Now the phone taps the element's
+  centre with real `MotionEvent`s (`SagaClicks.kt`, `SagaTap.kt`; tools.js `point` gives the spot as fractions of
+  the visible viewport), falling back to a pointer / mouse / focus / click sequence when the element is off screen
+  or covered. The secret-field refusal runs right before every tap path, including a secret field laid over the
+  element.
+- **Saga's pointer.** A Colon-blue arrow with the brand's two dots glides to the element before each click, fill and
+  scroll, ripples where it taps, then fades (`SagaPointer.kt`). It never takes a touch, so "AI + me" works as before,
+  and it hides when Saga loses control or hands a secret field to you.
+- **Saga hears what a click did.** `ack.result.changed` (`navigated`, `url_changed`, `page_changed`,
+  `element_changed`, `focused`, `none`, `unknown`) from tools.js `outcome`; the model is told plainly when nothing
+  changed so it retries another element instead of assuming success, and keeps its element ids when the page did not
+  change (`modules/saga/prompt.js`, `loop.js`). `docs/android-bridge.md`, "Real clicks and Saga's pointer".
+- Tests: `tests/security/saga-phone-click.test.js`, `tests/unit/saga-click.test.js`, `SagaTapTest.kt`.
 
 ## [0.10.0] — 2026-11-13 · One browser per chat
 Phase 10, the owner's design: every conversation has its own in-chat browser, driven from the chat, instead of the
