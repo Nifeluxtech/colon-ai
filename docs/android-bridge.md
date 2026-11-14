@@ -222,7 +222,7 @@ that has `get_page_content`.
 
 | Command | Args | `ack.result` |
 |---|---|---|
-| `get_page_content` | | `{ url, title, text (≤ 12 000 chars), truncated, elements: [{ id: "c1"…, tag, type, role, label, text, name, placeholder, autocomplete, href, form, contenteditable }] }` (≤ 60 visible interactive elements; ids are written to `data-colon-saga` and are valid until the next read; typed values are never sent) |
+| `get_page_content` | | `{ url, title, text (≤ 8 000 chars since 0.11.2, was 12 000), truncated, elements: [{ id: "c1"…, tag, type, role, label, text, name, placeholder, autocomplete, href, form, contenteditable, in_popup?, blocked? }], overlay? }` (≤ 60 visible interactive elements; ids are written to `data-colon-saga` and are valid until the next read; typed values are never sent. 0.11.2: `overlay: { label, kind: modal · banner, frame }` when a pop-up is on top; its elements come first with `in_popup`, what it covers has `blocked` (at most 15)) |
 | `get_links` | | `{ links: [{ text, url }] }` (http(s), unique, ≤ 80) |
 | `click` | `id`, `approval?` | `{ url, title, method, changed, covered? }` (v0.10.1; see "Real clicks" below. Older apps: `{ url, title }`). `method` `tap+script` since 0.10.2 |
 | `fill` | `id`, `value` (≤ 500), `submit?` (Enter, then the form unless the page handled Enter), `approval?` | `{ url, title, typed, method, submitted? }` (0.10.2: `typed` says the text is really in the field; `method` `insert` · `setter` · `select`; error `no_option` for a `<select>` without that option. Older apps: `{ url, title }`) |
@@ -231,7 +231,8 @@ that has `get_page_content`.
 
 New errors: `no_element` (the id is not on the page any more), `page_error` (the script returned nothing),
 `no_view`, and `approval_denied`; v0.10.0 adds `secret_field` (the phone refused to fill or click a secret field
-and handed the page to the user; `result: { kind }`).
+and handed the page to the user; `result: { kind }`); 0.11.2 adds `covered` (`click` / `fill` on an element a
+pop-up covers: refused before the pointer moves or anything is tapped; `assets/saga/overlay.js`).
 
 **Real clicks and Saga's pointer (v0.10.1).** Up to 0.10.0 `click` ran `el.click()` in the page and answered at
 once with the URL it was already on: an untrusted synthetic click with nothing on screen, which sites that listen
