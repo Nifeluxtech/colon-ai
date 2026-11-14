@@ -7,7 +7,7 @@ const ai = require('../../src/modules/ai');
 const routing = require('../../src/modules/ai/routing');
 
 const KEYS = ['GEMINI_API_KEY', 'NVIDIA_API_KEY', 'GROQ_API_KEY', 'OPENROUTER_API_KEY', 'NATLAS_API_KEY',
-  'NVIDIA_GEMMA_MODEL', 'AI_MODEL_SET'];
+  'NVIDIA_GEMMA_MODEL', 'AI_MODEL_SET', 'AI_SUPPORT_MODELS', 'GEMINI_SUPPORT_MODELS'];
 function withEnv(t, vars) {
   const was = Object.fromEntries(KEYS.map(k => [k, process.env[k]]));
   for (const k of KEYS) delete process.env[k];
@@ -34,7 +34,10 @@ test('default: every mode, language and category is Gemma 4 26B then 31B on Goog
   for (const o of [{}, { mode: 'developer', category: 'code' }, { language: 'ha', category: 'hausa' },
     { mode: 'study', category: 'exam' }, { model: 'colon-saga-fast' }]) {
     const chain = ai.chainFor(o, routing);
-    assert.deepEqual(ids(chain), ['gemini:gemma-4-26b-a4b-it', 'gemini:gemma-4-31b-it'], JSON.stringify(o));
+    // 0.11.0: then the support models (support.js), never MiniMax, Qwen, DeepSeek, GLM, NVIDIA.
+    assert.deepEqual(ids(chain), ['gemini:gemma-4-26b-a4b-it', 'gemini:gemma-4-31b-it',
+      'gemini:gemini-flash-lite-latest', 'gemini:gemini-3.5-flash-lite', 'gemini:gemini-2.5-flash',
+      'groq:openai/gpt-oss-120b', 'openrouter:google/gemma-4-31b-it:free'], JSON.stringify(o));
     assert.match(chain.route, /^gemma/);
   }
 });
