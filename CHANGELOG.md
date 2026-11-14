@@ -1,5 +1,34 @@
 # Changelog
 
+## [0.11.1] — 2026-11-14 · The browser card appears where you opened it, and full screen has a way back
+Owner's report on 0.11.0 (Infinix SMART 20, Colon AI app). Every version number moves to 0.11.1 (apps,
+`Colon.version`, `?v=` cache-busting, `version.json` versionCode 1101 for both APKs). No migration, no API change.
+### Fixed
+- **"Open browser" showed no card until you left the chat and came back.** The page told the app which chat is on
+  screen (`browser('chat')`) once per chat and never again, so when that call was lost or the app switched chats by
+  itself, every state named another chat and `liveHere` hid the card. The page now checks each state against the
+  chat on screen and tells the app again (at most twice per chat, one call at a time: `needsChatResync` in
+  `lib/native-panel.js`, `healChat` / `ensureChat` in the new `components/browser-chats.js`), and every open from
+  the chat (the instruction, the Browser button, `openBrowser`) makes sure the app shows this chat's browser first.
+  The card shows at once under the instruction, moves under the reply when it lands, and the anchor reports again
+  (`createAnchor().force()`).
+- **The card came back at the bottom of the thread, next to an old task's picture (a duplicate).** The reply that
+  opened the browser was kept in memory only and dropped whenever the chat changed, so after coming back the live
+  card fell back to the last task's message (beside that task's "Done" picture, whose id didn't always match the
+  task) or to "now", which followed every new message to the bottom. It is kept per chat in the page's storage now
+  (`lib/browser-opener.js`), and `liveSpot` (`lib/saga-card.js`) places the card: a running task keeps its message;
+  an idle browser goes under the reply that opened it; after a task ended it takes that task's place and replaces
+  its picture (`layout(…{ replaces })`), so there is one browser card per chat; never "now".
+- **Full screen had no way back to the card.** The corner button stays in full screen as **Minimise** (where the
+  finger already is), beside the top bar's "back to the chat"; the phone's **Back** collapses full screen first,
+  also in the stacked FULL layout, where 0.11.0 walked the page's history first and the card's collapse did nothing
+  because it only checked the inline view (`FocusRules`, `ChatBrowserPanel.setFocus` / `handleBack`). The app's
+  `focus` state covers both layouts, and the page re-reports the card's box when full screen ends, so the card is
+  re-attached in place; the overlay watch and steady scrolling work as before.
+### Tests
+- `packages/ui/test/browser-opener.test.js` (opener store, `liveSpot`, `layout` replaces, `needsChatResync`),
+  `native-anchor.test.js` (`force()`), Android `FocusRulesTest`.
+
 ## [0.11.0] — 2026-11-14 · Saga grows up: timeline, Colon Secured Login, approvals, background, schedules
 Every version number moves to 0.11.0 (apps, `Colon.version`, `?v=` cache-busting, `version.json` versionCode 1100
 for both APKs). **Migration `0011_saga_schedules_routines.sql`** (scheduled checks and routines). Design and limits:
