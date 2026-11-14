@@ -1,5 +1,42 @@
 # Changelog
 
+## [0.11.2] — 2026-11-14 · Saga clears pop-ups first, works faster, and Minimise really minimises
+Owner's report on 0.11.1 (Infinix SMART 20, Colon AI app). Every version number moves to 0.11.2 (apps,
+`Colon.version`, `?v=` cache-busting, `version.json` versionCode 1102 for both APKs). No migration, no API change,
+no new config key.
+### Fixed
+- **Saga couldn't get past pop-ups** (Google's "Before you continue to Google" cookie dialog: Saga kept pointing at
+  a result behind it, "I'm checking the current search results…", and got nowhere). The page snapshot listed
+  elements in document order and stopped at 60, so the dialog's buttons (at the end of the page) were never seen,
+  nothing said the results were covered, and the prompt told Saga that a cookie choice was the user's to make. Now
+  the phone finds the topmost pop-up (new `assets/saga/overlay.js`: open `<dialog>`, role dialog / alertdialog,
+  aria-modal, consent iframes such as consent.google.com, and fixed boxes on top at a few points of the screen,
+  checked with `elementFromPoint`; a full-screen app shell is not one). `content` lists the pop-up's elements first
+  (`in_popup`), marks what it covers (`blocked`, at most 15 of them) and says `overlay {label, kind, frame}`; `point`
+  / `click` refuse an element behind it (`error covered`) before the pointer moves or anything is tapped. The server
+  shows the pop-up to the model, refuses a click or fill on a blocked element without a round trip, explains a
+  refused tap, and the rules say: pop-ups first; for cookie or consent banners "Reject all" / "Only necessary" /
+  close unless the user asked to accept; a consent frame Saga can't read goes to the user (requestUserControl).
+  A pop-up's decline or close button needs no approval (same list in `overlay.js` and `policy.js`, only inside a
+  pop-up); "Accept all" in a form still asks. Secret-field refusals are unchanged and checked first.
+- **Saga was slow.** Per step it waited for a model call that only said "getPageContent" after every page change,
+  then a fixed 0.7 s after each tap (1.9 s when the page answered late), and load polls of 0.75 s. Now: the server
+  reads the page for Saga after any step that opens, changes or scrolls it, or submits a fill, in every mode
+  (`autoRead`, was speed mode only): one model call fewer per page change, typically 2–6 s each on Gemma's free
+  tier; the tap's outcome is read at 150 / 350 / 700 ms and the wait ends at the first change (`SagaTap.QUICK_LOOKS_MS`:
+  most taps save ~0.4–0.5 s); load polls every 350 ms (up to ~2.8 s); the screenshot tool is no longer offered (its
+  picture never reached the model, so each one was a wasted step); page text from the phone is capped at 8,000
+  characters (the server uses 6,000) and a pop-up's page behind it at 15 elements. Thinking stays `minimal`.
+- **Minimise in full screen did nothing.** The full-screen view is placed exactly, outside `InlineSteady`, which
+  still remembered the card's box as applied; on Minimise the card's box was "no move" (same as before), so the
+  panel stayed full size with the card's "expand" button and no top bar (the owner's screenshot). Full-screen
+  placements are now recorded (`InlineSteady.placedElsewhere`), so the card's box is applied again at once; a chat
+  switch out of full screen re-places the panel too.
+### Tests
+- `services/api/tests/security/saga-phone-overlay.test.js` (new fake DOM with stacking, `tests/helpers/fake-dom.js`),
+  `tests/unit/saga-popups.test.js`, `saga-runner.test.js` (autoRead); Android `InlineSteadyTest`, `FocusRulesTest`
+  (minimise round trip), `SagaTapTest` (quick looks).
+
 ## [0.11.1] — 2026-11-14 · The browser card appears where you opened it, and full screen has a way back
 Owner's report on 0.11.0 (Infinix SMART 20, Colon AI app). Every version number moves to 0.11.1 (apps,
 `Colon.version`, `?v=` cache-busting, `version.json` versionCode 1101 for both APKs). No migration, no API change.
