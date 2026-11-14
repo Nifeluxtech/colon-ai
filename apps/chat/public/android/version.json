@@ -1,17 +1,17 @@
 {
-  "versionName": "0.11.1",
-  "versionCode": 1101,
-  "apkUrl": "https://github.com/Nifeluxtech/colon-ai/releases/download/v0.11.1/colon-ai-0.11.1.apk",
-  "releaseUrl": "https://github.com/Nifeluxtech/colon-ai/releases/tag/v0.11.1",
-  "notes": "Fixes from your report: \"Open browser\" shows the browser card at once, under the reply that opened it (no more leaving the chat and coming back, and no second copy next to an old task's picture). In full screen the corner button now minimises the browser back into the chat, and the phone's Back does the same.",
+  "versionName": "0.11.2",
+  "versionCode": 1102,
+  "apkUrl": "https://github.com/Nifeluxtech/colon-ai/releases/download/v0.11.2/colon-ai-0.11.2.apk",
+  "releaseUrl": "https://github.com/Nifeluxtech/colon-ai/releases/tag/v0.11.2",
+  "notes": "Fixes from your report: Saga now deals with pop-ups first (cookie banners such as Google's \"Before you continue\", dialogs and overlays): it declines cookies with \"Reject all\" and never taps something hidden behind a pop-up. Saga is quicker: it reads the page for itself after each change and stops waiting as soon as a page answers a tap. Minimise in full screen now really puts the browser back into the chat.",
   "minSupportedVersionCode": 0,
   "publishedAt": "2026-11-14",
   "browser": {
-    "versionName": "0.11.1",
-    "versionCode": 1101,
-    "apkUrl": "https://github.com/Nifeluxtech/colon-ai/releases/download/v0.11.1/colon-browser-0.11.1.apk",
-    "releaseUrl": "https://github.com/Nifeluxtech/colon-ai/releases/tag/v0.11.1",
-    "notes": "Released alongside Colon AI 0.11.1 (no browser changes; version kept in step).",
+    "versionName": "0.11.2",
+    "versionCode": 1102,
+    "apkUrl": "https://github.com/Nifeluxtech/colon-ai/releases/download/v0.11.2/colon-browser-0.11.2.apk",
+    "releaseUrl": "https://github.com/Nifeluxtech/colon-ai/releases/tag/v0.11.2",
+    "notes": "Released alongside Colon AI 0.11.2: Saga deals with pop-ups and cookie banners first and answers taps sooner here too.",
     "minSupportedVersionCode": 0
   }
 }
