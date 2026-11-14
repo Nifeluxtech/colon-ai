@@ -89,6 +89,19 @@ test('scrolled out of view or collapsed sends one { visible: false }', () => {
   assert.equal(r.sent.length, 4);                                  // detached box: hidden, already said
 });
 
+test('force() reports again though nothing moved (0.11.1: back from full screen, card re-attached)', () => {
+  const r = rig(); r.flush();
+  assert.equal(r.sent.length, 1);
+  r.a.update(); r.flush();
+  assert.equal(r.sent.length, 1);                                  // same box: nothing new
+  r.a.force(); r.flush();
+  assert.equal(r.sent.length, 2);
+  assert.deepEqual(r.sent[1], r.sent[0]);                          // the same box, said again
+  r.a.stop(); r.a.force(); r.flush();
+  assert.equal(r.sent.length, 3);                                  // stop's { visible: false } only
+  assert.deepEqual(r.sent[2], { visible: false });
+});
+
 test('the keyboard shrinks the viewport through visualViewport events', () => {
   const r = rig({ vv: 800 }); r.flush();
   assert.equal(r.sent[0].viewportBottom, 696);
