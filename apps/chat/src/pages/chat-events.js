@@ -124,8 +124,9 @@ function bind() {
         setLayout('embedded'); },
       'native-collapse': function () { nativeInlineAction(act); }, 'native-full': function () {
         nativeInlineAction(act); }, 'native-close': function () { nativeInlineAction(act); },
-      'native-mode': function () { nativeInlineAction(act, a); }, 'native-return': function () {
-        nativeInlineAction(act); },
+      'native-return': function () { nativeInlineAction(act); },
+      // 0.10.3: a finished Saga card in the thread brings the live browser back.
+      'saga-card-open': function () { nativeInlineAction(act); },
       'embed-collapse': function () { S.browser.collapsed = !S.browser.collapsed; renderEmbed(); },
       'embed-full': function () { S.browser.full = !S.browser.full; S.browser.collapsed = false; renderEmbed();
         document.body.classList.toggle('cw-noscroll', S.browser.full); },

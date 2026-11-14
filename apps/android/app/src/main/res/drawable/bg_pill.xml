@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 0.10.3: the in-chat browser card's floating status pill (ChatCard); tinted per state in code. -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="rectangle">
+    <solid android:color="#FFFFFFFF"/>
+    <corners android:radius="999dp"/>
+</shape>

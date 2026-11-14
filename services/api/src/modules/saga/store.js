@@ -5,7 +5,10 @@ const db = require('../../db');
 
 const TERMINAL = ['done', 'step_limit', 'timeout', 'stopped', 'interrupted', 'failed'];
 // handoff (Phase 10): Saga is waiting for the user to type a secret (password, code, card, PIN) and tap Return to AI.
-const STATUSES = ['queued', 'consent', 'running', 'handoff', ...TERMINAL];
+// 0.10.3: while Saga waits for the user it is 'handoff' (Saga asked: needs_user), 'user_control' (the user took the
+// browser) or 'paused'.
+const WAITING = ['handoff', 'user_control', 'paused'];
+const STATUSES = ['queued', 'consent', 'running', ...WAITING, ...TERMINAL];
 const MODES = ['ai', 'shared'];
 
 const json = (v) => (v == null ? null : JSON.stringify(v));
@@ -45,9 +48,10 @@ async function setStatus(id, status, o = {}) {
       new Date(), fin ? new Date() : null, id]);
 }
 
-/** Only the status (running <-> handoff), keeping steps and everything else. */
+/** Only the status (running <-> handoff / user_control / paused), keeping steps and everything else. */
 const setPhase = (id, status) => db.query(
-  "UPDATE saga_tasks SET status = ?, updated_at = ? WHERE id = ? AND status IN ('consent', 'running', 'handoff')",
+  `UPDATE saga_tasks SET status = ?, updated_at = ? WHERE id = ? AND status IN ('consent', 'running', ${
+    WAITING.map((w) => `'${w}'`).join(', ')})`,
   [status, new Date(), id]);
 
 /** A deleted conversation takes its Saga tasks and their action logs (saga_actions cascade) with it (Phase 10). */
@@ -91,9 +95,14 @@ async function actions(taskId, after = 0) {
   return rows.map((r) => ({ ...r, args: parse(r.args), ok: r.ok == null ? null : Boolean(Number(r.ok)) }));
 }
 
-const list = (userId, limit = 20) => db.query(
-  `SELECT id, goal, status, error, steps, created_at, finished_at FROM saga_tasks WHERE user_id = ?
-    ORDER BY id DESC LIMIT ?`, [userId, limit]);
+// 0.10.3: with the conversation (the chat's task cards) and the result line (the finish step's words, the card's
+// status pill); conv narrows it to one chat.
+const list = (userId, limit = 20, conv = null) => db.query(
+  `SELECT id, goal, status, error, steps, conversation_id, created_at, finished_at,
+     (SELECT a.say FROM saga_actions a WHERE a.task_id = saga_tasks.id AND a.kind = 'finish' ORDER BY a.seq DESC
+       LIMIT 1) AS result
+     FROM saga_tasks WHERE user_id = ?${conv ? ' AND conversation_id = ?' : ''} ORDER BY id DESC LIMIT ?`,
+  conv ? [userId, String(conv), limit] : [userId, limit]);
 
 // Queued tasks of these users, newest first (the worker holding their phone picks them up).
 async function queuedFor(userIds, since) {
@@ -126,9 +135,9 @@ function view(row) {
   const iso = (v) => (v ? new Date(v).toISOString() : null);
   return { id: Number(row.id), goal: row.goal, status: row.status, error: row.error || null, steps: Number(row.steps)
     || 0, answer: row.answer || '', sources: parse(row.sources) || [], conversation_id: row.conversation_id || null,
-  mode: MODES.includes(row.mode) ? row.mode : 'ai',
+  mode: MODES.includes(row.mode) ? row.mode : 'ai', result: row.result ? String(row.result).slice(0, 80) : '',
   created_at: iso(row.created_at), finished_at: iso(row.finished_at) };
 }
 
 module.exports = { create, get, getFor, claim, setStatus, setPhase, removeConversation, requestStop, isStopped,
-  addAction, actions, list, queuedFor, expireQueued, adminList, view, TERMINAL, STATUSES, MODES };
+  addAction, actions, list, queuedFor, expireQueued, adminList, view, TERMINAL, STATUSES, WAITING, MODES };

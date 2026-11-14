@@ -116,7 +116,13 @@ class SagaPointer(context: Context) : View(context) {
         }
     }
 
+    /** [target]'s point in this view's px. 0.10.3: through the shared parent when there is one (SagaTap.toSibling:
+     *  no ancestor scale, so the arrow stays on the element while the card animates); window coordinates else. */
     private fun local(target: View, x: Float, y: Float): Pair<Float, Float> {
+        if (target.parent != null && target.parent === parent) {
+            return SagaTap.toSibling(x, y, target.left + target.translationX, target.top + target.translationY,
+                left + translationX, top + translationY)
+        }
         val a = IntArray(2); val b = IntArray(2)
         target.getLocationInWindow(a); getLocationInWindow(b)
         return Pair(x + a[0] - b[0], y + a[1] - b[1])

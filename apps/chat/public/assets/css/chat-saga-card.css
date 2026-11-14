@@ -1,0 +1,39 @@
+/* Colon AI · Saga's browser cards in the thread (0.10.3, docs/decisions/0006-inline-ai-browser.md).
+   A landscape card (16:10, capped to the visible thread by components/browser-card.js) under the message that asked
+   for the task. Live: the Android app lays its WebView, status pill and buttons over .cw-saga-body. Finished: the
+   page's picture with the result pill and an open button. Web: the same shape, the status and a note. */
+.cw-saga-group{margin:4px 0 14px}
+.cw-saga-group .cw-native-host{padding:0;max-width:none;margin:0}
+.cw-saga-card{position:relative;display:block;width:100%;margin:6px 0 0;border-radius:14px;overflow:hidden;
+  border:1px solid var(--line-2);background:var(--surface-solid);box-shadow:var(--sh)}
+.cw-saga-body,.cw-saga-card img,.cw-saga-blank{display:block;width:100%;height:56vw;max-height:520px;min-height:150px}
+@supports (aspect-ratio:16/10){
+  .cw-saga-body,.cw-saga-card img,.cw-saga-blank{height:auto;aspect-ratio:16/10}
+}
+.cw-saga-body{display:flex;align-items:center;justify-content:center}
+.cw-saga-card img{object-fit:cover;object-position:top center;background:#fff}
+.cw-saga-blank{display:flex;align-items:center;justify-content:center;color:var(--muted);
+  background:linear-gradient(135deg,var(--surface-solid),var(--primary-soft,rgba(65,105,225,.12)))}
+.cw-saga-blank svg{width:40px;height:40px;opacity:.5}
+.cw-saga-card.snap{cursor:pointer}
+.cw-saga-card.web{cursor:default}
+.cw-saga-pill{position:absolute;left:50%;bottom:10px;transform:translateX(-50%);display:flex;align-items:center;
+  gap:8px;max-width:calc(100% - 72px);padding:7px 14px;border-radius:999px;background:rgba(8,15,36,.9);color:#fff;
+  font-size:13px;line-height:1.3;box-shadow:0 4px 16px rgba(0,0,0,.25)}
+.cw-saga-pill span:last-child{overflow:hidden;text-overflow:ellipsis;display:-webkit-box;-webkit-line-clamp:2;
+  -webkit-box-orient:vertical}
+.cw-saga-pill[data-icon="error"]{background:rgba(127,29,29,.94)}
+.cw-saga-pill[data-icon="turn"]{background:rgba(65,105,225,.95)}
+.cw-saga-mark{display:inline-flex;flex:none;width:18px;height:18px;border-radius:50%;align-items:center;
+  justify-content:center;background:#22c55e;color:#fff}
+.cw-saga-pill[data-icon="error"] .cw-saga-mark{background:#f87171}
+.cw-saga-mark svg{width:12px;height:12px;stroke-width:3}
+.cw-saga-spin{flex:none;width:14px;height:14px;border-radius:50%;border:2px solid rgba(56,189,248,.35);
+  border-top-color:#38bdf8;animation:cw-saga-spin .8s linear infinite}
+@keyframes cw-saga-spin{to{transform:rotate(360deg)}}
+@media (prefers-reduced-motion:reduce){.cw-saga-spin{animation-duration:2.4s}}
+.cw-saga-open{position:absolute;right:10px;bottom:10px;width:36px;height:36px;border-radius:50%;border:0;
+  display:flex;align-items:center;justify-content:center;background:rgba(8,15,36,.85);color:#fff}
+.cw-saga-open svg{width:18px;height:18px}
+.cw-saga-note{position:absolute;left:0;right:0;top:0;padding:8px 12px;font-size:12px;color:var(--muted);
+  background:var(--surface-solid);border-bottom:1px solid var(--line)}

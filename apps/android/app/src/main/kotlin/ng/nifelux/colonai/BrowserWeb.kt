@@ -20,6 +20,8 @@ import android.webkit.WebView
 import android.webkit.WebViewClient
 import android.net.Uri
 import android.util.Log
+import androidx.webkit.WebViewCompat
+import androidx.webkit.WebViewFeature
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 
 /**
@@ -45,6 +47,9 @@ object BrowserWeb {
             useWideViewPort = true
             if (tab.incognito) cacheMode = WebSettings.LOAD_NO_CACHE
         }
+        // 0.10.3: the chat's AI-only browser always shows the desktop site, laid out wide and zoomed out to fit.
+        val desktopWidth = a.desktopLayoutWidth()?.takeIf { !tab.incognito }
+        if (desktopWidth != null) { tab.desktop = true; desktopPages(wv, desktopWidth) }
         applyUserAgent(wv, tab.desktop)
         CookieManager.getInstance().setAcceptThirdPartyCookies(wv, false) // privacy default for tabs
         wv.webViewClient = TabClient(a, tab)
@@ -63,6 +68,18 @@ object BrowserWeb {
             }
         }
         return wv
+    }
+
+    /** Every page of [wv] lays out [width] CSS px wide (DesktopView.script): at document start where WebView can,
+     *  else as each page starts loading (TabClient.onPageStarted, TabWebView.desktopScript). */
+    private fun desktopPages(wv: TabWebView, width: Int) {
+        val js = DesktopView.script(width)
+        val atStart = try {
+            WebViewFeature.isFeatureSupported(WebViewFeature.DOCUMENT_START_SCRIPT).also {
+                if (it) WebViewCompat.addDocumentStartJavaScript(wv, js, setOf("*"))
+            }
+        } catch (_: Exception) { false }
+        if (!atStart) wv.desktopScript = js
     }
 
     /** Mobile or desktop site: the user agent (always ending with the app's ColonAndroid token). */
@@ -94,6 +111,7 @@ object BrowserWeb {
                 return
             }
             if (url != null && !url.startsWith("about:")) tab.url = url
+            (view as? TabWebView)?.desktopScript?.let { view.evaluateJavascript(it, null) }
             tab.progress = 0
             a.onTabUpdated(tab)
         }

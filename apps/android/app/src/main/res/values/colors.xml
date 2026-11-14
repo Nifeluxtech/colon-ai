@@ -20,4 +20,10 @@
     <!-- Private tabs: a violet top bar so a private tab is never mistaken for a normal one. -->
     <color name="colon_private">#EDE5FF</color>
     <color name="colon_private_field">#DCCEFF</color>
+    <!-- 0.10.3: the in-chat browser card's status pill (ChatCard): the same in both themes, over the page. -->
+    <color name="colon_pill">#E6080F24</color>
+    <color name="colon_pill_turn">#F24169E1</color>
+    <color name="colon_pill_bad">#F27F1D1D</color>
+    <color name="colon_pill_text">#FFFFFFFF</color>
+    <color name="colon_focus_bar">#FF080F24</color>
 </resources>

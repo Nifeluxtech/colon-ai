@@ -1,4 +1,4 @@
-# Android bridge (v0.10.2, Phases 7–10)
+# Android bridge (v0.10.3, Phases 7–10)
 
 The Colon AI Android app (`apps/android`, flavor `colonai`) has two bridges. Colon Browser (flavor `colonbrowser`)
 shows no Colon page, so it has only the backend bridge (2).
@@ -110,6 +110,40 @@ profile and the state says `profiles: "shared"`). This replaces sharing Colon Br
   payment pages: the server and the phone each check, and the page is handed to the user ("Your turn" on the card)
   until they tap Return to AI (section 2, "Handoff").
 
+**Saga's AI-only card (v0.10.3, feature `browserCard`; ADR 0006).** The in-chat browser is a card per Saga task
+in the thread, always Saga's: the user's touches reach the page only after Take control.
+
+- `browser('task', { op: 'start', goal, anchor, id? })`: the chat starts a task. Sent **before** `POST
+  /browser/agent` (so the chat's own instruction counts as the user's consent for this chat and no "Let Saga
+  browse?" dialog shows) and again with the task's `id` once known. `anchor` is the chat message the card goes
+  under. `{ op: 'end', id, kind: done·error·stopped, result }`: the chat saw the task end (from its poll) with the
+  result line. Answers with the panel state.
+- `browser('cards')` → `[{ id, goal, anchor, state, result, at, snapshot? }]`: this chat's finished task cards,
+  oldest first, `snapshot` a `data:image/jpeg;base64,…` picture of the page when the task ended (the app keeps at
+  most 6 pictures, 600 KB and 20 cards per chat; they go with the chat's browser).
+- `browser('control', { op, note? })`: `take_control` opens the full-screen view with the page unlocked;
+  `return_to_ai` (Give back to Saga) carries the user's words as `note` (from the composer: "I've logged in,
+  continue"); the app adds the page's host and path, hides anything secret-looking (HandoffNote) and sends it on
+  the `control` frame. `stop` also ends the task.
+- `browser('layout', { layout: 'full' })` in the thread opens the full-screen view read-only (`inline` closes it).
+- The state adds `run` (`{ state: idle·running·paused·needs_user·user_control·done·error·stopped, task, goal,
+  anchor, step, request: { kind, message } | null, result, since, deadline, resumes, pill: { icon, text,
+  takeControl, giveBack, retry, stop } }`, kept per chat across app restarts) and `focus` (the full-screen view is
+  open). `chatMode` is always `ai`; `mode` calls are kept and change nothing.
+- Event `browserRetry` (`{ goal, anchor }`): the card's Retry; the chat runs the goal again.
+- The anchor may carry `band: true` reports: a hidden report then still has `viewportTop`, `viewportBottom`,
+  `pageHeight` and `dpr`, so the full-screen view can stop above the composer while the card is off screen.
+
+In the thread the app draws over the card: the status pill (Saga's step with a spinner; "Saga needs you: …" with
+Take control; a check and the result; an error with Retry; a stop button while it runs) and the expand button at
+the bottom-right. The locked page answers a tap by opening the full-screen view. Full screen is the same WebView
+laid over the chat from the top of the screen to the top of the composer (it follows the keyboard), with a slim bar:
+back, the page's title and host, reload (while the user has it), Take control or Give back to Saga, more (Stop, Open
+in Colon Browser, share, downloads, clear data) and back to the chat. Android's Back closes the full-screen view.
+Pages are the desktop site: a desktop user agent, wide viewport, overview mode and a document-start script that keeps
+the viewport at `width=1280` (`DesktopView`; less on phones narrower than 320 dp). When Saga asks for the user and
+the app is in the background, a notification says so (channel `saga`).
+
 **Native paths that need no call:** `<input type="file">` opens Android's file picker (accept types and multiple
 files honoured); `getUserMedia({ audio })` asks for the microphone permission and is granted only to Colon's
 pages; links to other sites open in the in-chat browser panel; `mailto:`, `tel:`, `intent://` and other app links leave
@@ -154,7 +188,7 @@ Every frame has `type`; app frames also carry `v: 1` and `ts` (ms since epoch).
 | `hello` | `client: "android"`, `app_version`, `version_code`, `device_id` (random per install), `sdk`, `low_ram`, `control` (`manual`·`ai`·`shared`), `capabilities[]` (command names below), `conversation_id?` (v0.10.0: the chat the panel shows) | right after connecting |
 | `ping` | | every 25 s |
 | `page_state` | `tab_id`, `url`, `title`, `loading`, `progress`, `can_go_back`, `can_go_forward`, `tabs`, `mode`, `paused`, `conversation_id?` (v0.10.0) | **only while Saga has AI or Shared control**, throttled to one per 400 ms. Manual browsing is never reported. |
-| `control` | `mode`, `paused`, `reason`: `consent` · `declined` · `take_control` · `return_to_ai` · `pause` · `resume` · `stop` · `handoff` (v0.10.0: the page went to the user for a secret field) · `mode` (v0.10.0: the user switched AI only / AI + me while Saga had control) | whenever the user changes who is in control |
+| `control` | `mode`, `paused`, `reason`: `consent` · `declined` · `take_control` · `return_to_ai` · `pause` · `resume` · `stop` · `handoff` (v0.10.0: the page went to the user for a secret field) · `mode` (v0.10.0: the user switched AI only / AI + me while Saga had control); `note?` (v0.10.3, with `return_to_ai`: the user's hand-back words, ≤ 500 characters, no field values; the server hides secret-looking words again) | whenever the user changes who is in control |
 | `ack` | `ref` (the command id), `ok`, `result?`, `error?` | answer to every command |
 | `chat` | `conversation_id` (`""` = a new chat with no id yet) | v0.10.0: the in-chat panel now shows this conversation's browser; the server keeps session and control per device **and** conversation, and Saga must ask this chat for consent again |
 
@@ -166,8 +200,8 @@ Every frame has `type`; app frames also carry `v: 1` and `ts` (ms since epoch).
 | `pong` | | keeps the link alive |
 | `control` | `mode` (`ai` · `shared` · `manual`), `task` (≤ 200 characters, shown to the user), `conversation_id?` (v0.10.0) | `ai`/`shared`: the phone asks the user "Let Saga browse?" and answers with `control` (`consent` or `declined`). `manual`: Saga's task stops. |
 | `command` | `id` (≤ 64 chars), `name`, `args`, `tab_id?`, `conversation_id?` (v0.10.0), `say?` (v0.10.2: Saga's one-line explanation, ≤ 160 characters, shown in "AI + me"; never part of what the step does) | runs on the open Colon Browser (in Colon AI: on that chat's browser); always answered with `ack` |
-| `handoff` | `kind` (`password` · `one_time_code` · `card` · `pin` · `sign_in` · `payment`), `message` (≤ 200 characters, shown to the user), `conversation_id?` | v0.10.0: Saga reached a secret field; the phone switches to Manual, shows "Your turn" with the message and answers `control` `handoff` |
-| `notice` | `text` (≤ 160 characters, one line), `kind` (`step` · `ask` · `done`), `conversation_id?` | v0.10.2: a line for the user on the page, shown in "AI + me" (the server sends "Done. Saga's answer is in the chat." when a task ends). Older apps ignore it |
+| `handoff` | `kind` (`password` · `one_time_code` · `card` · `pin` · `sign_in` · `payment`; v0.10.3 also Saga's own requests: `captcha` · `consent` · `other`), `message` (≤ 200 characters, shown to the user), `timeout_ms?` (v0.10.3: how long Saga waits), `conversation_id?` | v0.10.0: Saga reached a secret field; the phone switches to Manual, shows "Your turn" with the message and answers `control` `handoff` |
+| `notice` | `text` (≤ 160 characters, one line), `kind` (`step` · `ask` · `done`; v0.10.3 `error` · `stopped`; on `done` the text is Saga's result line), `conversation_id?` | v0.10.2: a line for the user on the page, shown in "AI + me" (the server sends "Done. Saga's answer is in the chat." when a task ends). Older apps ignore it |
 | `error` | `code`, `message` | logged |
 
 **Commands (since v0.7.1):** `open_url {url, new_tab?}`, `new_tab {url?}`, `back`, `forward`, `reload`, `stop`,
@@ -298,6 +332,17 @@ already answered the refused step); Take control still does. The server then wai
 `SAGA_HANDOFF_TIMEOUT_MS` (default 600000) for `control` `return_to_ai`; `take_control`, `pause`, `resume` and
 `mode` keep it waiting, Stop or a dropped socket end the task. Saga's page snapshots are redacted
 (`modules/saga/secrets.js`): typed secret values never reach the model or the logs.
+
+**The AI-only browser on the server (v0.10.3, ADR 0006).** The model has `requestUserControl { reason, instructions
+}` to hand the browser to the user (it becomes a `handoff` frame; the phone shows "Saga needs you" with Take
+control) and `finish` takes a short `result` for the status pill. Take control and Pause no longer end a task: the
+step in flight is answered `manual_control` / `paused` and the loop waits (task status `user_control` / `paused`,
+up to `SAGA_USER_CONTROL_TIMEOUT_MS`, default 900000) for `return_to_ai` or `resume`; Saga's requests wait up to
+`SAGA_HANDOFF_TIMEOUT_MS` (status `handoff`). The user's `note` is folded into the next observation ("The user's
+message when they gave it back: …"). Waiting for the user doesn't count against `SAGA_TASK_TIMEOUT_MS`. A wait that
+runs out ends the task with `handoff_timeout` / `user_timeout`, and the phone gets `control manual` and a `stopped`
+notice; the phone's Stop (consent withdrawn) ends it at once. `GET /browser/agent?conversation_id=` lists one chat's
+tasks with `conversation_id` and `result` (the web's cards).
 
 ### What the backend must add
 

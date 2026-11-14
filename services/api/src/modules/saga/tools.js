@@ -68,9 +68,30 @@ const TOOLS = {
     }
     throw bad('tabs action is list, new, switch or close.');
   } },
-  finish: { doc: 'finish {"answer": "…", "sources": [1, 2]} - stop and answer; sources are page numbers you read',
-    build: null },
+  // 0.10.3: the browser is AI-only; this is how Saga hands it to the user for what only they can do (the loop runs
+  // it: the phone shows "Saga needs you" with Take control, and Saga continues when the user gives it back).
+  requestUserControl: { doc: 'requestUserControl {"reason": "sign_in|one_time_code|captcha|payment|consent|other", '
+    + '"instructions": "one short sentence: what the user should do in the browser"} - hand the browser to the user '
+    + 'for something only they can do; you continue when they give it back', build: null },
+  finish: { doc: 'finish {"answer": "…", "result": "a few words for the status line, like Deployed Colon AI '
+    + 'v0.10.2", "sources": [1, 2]} - stop and answer; sources are page numbers you read', build: null },
 };
+// Names some models write for the same tool.
+const ALIASES = { request_user_control: 'requestUserControl', requestUser: 'requestUserControl' };
+const canonical = (action) => ALIASES[action] || action;
+
+// requestUserControl's arguments, rebuilt: { kind, message, reason }. The message is shown to the user as is.
+const USER_REASONS = ['sign_in', 'one_time_code', 'captcha', 'payment', 'consent', 'other'];
+const USER_DEFAULT = { sign_in: 'Sign in here, then tell me in the chat.', one_time_code: 'Enter the code you got, '
+  + 'then tell me in the chat.', captcha: 'Solve the check on the page, then tell me in the chat.', payment: 'Review '
+  + 'and complete the payment yourself, then tell me in the chat.', consent: 'Make this choice on the page, then tell '
+  + 'me in the chat.', other: 'Please do this step yourself, then tell me in the chat.' };
+function userRequest(args) {
+  const a = args && typeof args === 'object' && !Array.isArray(args) ? args : {};
+  const reason = USER_REASONS.includes(a.reason) ? a.reason : 'other';
+  const said = text(a.instructions || a.message || '', 200).replace(/\s+/g, ' ').trim();
+  return { kind: reason, reason: `Saga asked: ${reason}`, message: said || USER_DEFAULT[reason] };
+}
 const NAMES = Object.keys(TOOLS);
 const COMMANDS = ['open_url', 'get_page_content', 'get_links', 'click', 'fill', 'scroll', 'screenshot', 'back',
   'forward', 'reload', 'get_tabs', 'new_tab', 'switch_tab', 'close_tab'];
@@ -78,6 +99,7 @@ const COMMANDS = ['open_url', 'get_page_content', 'get_links', 'click', 'fill', 
 const NAVIGATES = new Set(['open_url', 'click', 'back', 'forward', 'reload', 'new_tab', 'switch_tab', 'close_tab']);
 
 function toCommand(action, args, ctx = {}) {
+  action = canonical(action);
   const tool = TOOLS[action];
   if (!tool || !tool.build) {
     throw bad(`Unknown tool "${String(action).slice(0, 40)}". Use one of: ${NAMES.join(', ')}.`);
@@ -87,4 +109,5 @@ function toCommand(action, args, ctx = {}) {
   return { tool: action, name: out.name, args: out.args };
 }
 
-module.exports = { TOOLS, NAMES, COMMANDS, NAVIGATES, toCommand, webUrl, EL_ID };
+module.exports = { TOOLS, NAMES, COMMANDS, NAVIGATES, toCommand, webUrl, EL_ID, canonical, userRequest,
+  USER_REASONS };

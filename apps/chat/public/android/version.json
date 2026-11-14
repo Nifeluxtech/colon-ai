@@ -1,17 +1,17 @@
 {
-  "versionName": "0.10.2",
-  "versionCode": 1002,
-  "apkUrl": "https://github.com/Nifeluxtech/colon-ai/releases/download/v0.10.2/colon-ai-0.10.2.apk",
-  "releaseUrl": "https://github.com/Nifeluxtech/colon-ai/releases/tag/v0.10.2",
-  "notes": "Saga can really click, type and scroll in the chat's browser, with its pointer moving to each spot. In AI only the page is Saga's until you tap Take control; in AI + me Saga's steps and requests show at the top of the browser. The browser is a little shorter and never covers the message box.",
+  "versionName": "0.10.3",
+  "versionCode": 1003,
+  "apkUrl": "https://github.com/Nifeluxtech/colon-ai/releases/download/v0.10.3/colon-ai-0.10.3.apk",
+  "releaseUrl": "https://github.com/Nifeluxtech/colon-ai/releases/tag/v0.10.3",
+  "notes": "Saga's browser is now a card in the chat, under the message that asked for it: a live desktop page with Saga's step, a check and the result when it's done. It's AI-only: tap Take control (or Saga asks you to sign in or enter a code) to use the page full screen, then send a message or tap Give back to Saga and it carries on.",
   "minSupportedVersionCode": 0,
   "publishedAt": "2026-11-14",
   "browser": {
-    "versionName": "0.10.2",
-    "versionCode": 1002,
-    "apkUrl": "https://github.com/Nifeluxtech/colon-ai/releases/download/v0.10.2/colon-browser-0.10.2.apk",
-    "releaseUrl": "https://github.com/Nifeluxtech/colon-ai/releases/tag/v0.10.2",
-    "notes": "Released alongside Colon AI 0.10.2: Saga's taps, typing and scrolling work for real, AI only keeps your fingers off the page while Saga drives, and AI + me shows what Saga is doing.",
+    "versionName": "0.10.3",
+    "versionCode": 1003,
+    "apkUrl": "https://github.com/Nifeluxtech/colon-ai/releases/download/v0.10.3/colon-browser-0.10.3.apk",
+    "releaseUrl": "https://github.com/Nifeluxtech/colon-ai/releases/tag/v0.10.3",
+    "notes": "Released alongside Colon AI 0.10.3 (Saga's AI-only browser card in the chat). Colon Browser itself is unchanged: its modes and controls stay as they were.",
     "minSupportedVersionCode": 0
   }
 }

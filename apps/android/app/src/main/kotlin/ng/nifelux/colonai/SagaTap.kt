@@ -33,6 +33,27 @@ object SagaTap {
         return Plan(native = why == null, x = x, y = y, shown = inView && hasView, why = why)
     }
 
+    /**
+     * 0.10.3: where a point in the WebView's own px ([x], [y]) is for a sibling view in the same parent (Saga's
+     * pointer, laid over the WebView in the browser's content frame): the WebView's and the pointer's positions in
+     * that parent (left/top plus translation). Up to 0.10.2 the pointer went through getLocationInWindow, which
+     * includes every ancestor's scale: with the card animating to full screen (a scaled panel) the arrow landed off
+     * the element. Both views live in the same scaled parent, so parent coordinates need no scale at all.
+     */
+    fun toSibling(x: Float, y: Float, targetX: Float, targetY: Float, siblingX: Float, siblingY: Float):
+        Pair<Float, Float> = Pair(x + targetX - siblingX, y + targetY - siblingY)
+
+    /**
+     * The same tap point from CSS px, for checking [plan]'s fractions (SagaTapTest): an element centre at
+     * ([cssX], [cssY]) in the layout viewport, the visual viewport at ([vvLeft], [vvTop]) of [vvWidth] × [vvHeight]
+     * CSS px, shown in a [width] × [height] px WebView. In the desktop card (a 1280 CSS px layout zoomed out to fit,
+     * DesktopView) the visual viewport is the whole layout width, so 1 CSS px is width / 1280 device px; in full
+     * screen with pinch zoom it is the zoomed-in part. Fractions of the visual viewport cover both, with no density.
+     */
+    fun fromCss(cssX: Float, cssY: Float, vvLeft: Float, vvTop: Float, vvWidth: Float, vvHeight: Float, width: Int,
+                height: Int): Pair<Float, Float> =
+        Pair((cssX - vvLeft) / vvWidth * width, (cssY - vvTop) / vvHeight * height)
+
     /** 0.10.2: a real tap that changed nothing at all (not even focus) is tried once more as a script click, unless
      *  the step needed the user's approval ([retry] false): a payment, purchase, message or form never runs twice. */
     fun retryWithScript(result: JSONObject, method: String, retry: Boolean): Boolean =

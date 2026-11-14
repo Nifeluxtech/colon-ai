@@ -1,5 +1,54 @@
 # Changelog
 
+## [0.10.3] — 2026-11-14 · Saga's browser is an AI-only card in the chat, with Take control
+The owner's redesign of the in-chat browser (ADR 0006, `docs/decisions/0006-inline-ai-browser.md`): instead of a
+second browser squeezed into the chat that the user could also drive, each Saga task is a "Manus-style" card in the
+thread, always Saga's, and the user steps in only with Take control. Every version number moves to 0.10.3 (apps,
+`Colon.version`, `version.json` versionCode 1003 for both APKs). No migration (the new task statuses fit the
+existing `saga_tasks.status` column and the result line is read from the task's `finish` step).
+### Changed
+- **One card per Saga task, in the thread.** The card sits under the message that started the task and scrolls with
+  the thread: a landscape (16:10) live desktop page scaled down, capped to fit above the composer, with a status pill
+  (Saga's step with a spinner; "Saga needs you: …" with Take control; a check and the result line; an error with
+  Retry; Stop while it runs) and an expand button. Only the newest task holds the live WebView; finished cards keep
+  a small picture of the page (at most 6 pictures, 600 KB and 20 cards per chat) and a tap reloads the live page.
+  Cards no longer jump: the chat page re-places them only when the cards themselves change, not on every page
+  load or step (`components/browser-card.js`).
+- **Always the desktop site.** A desktop user agent, wide viewport and a document-start script that keeps the page
+  at `width=1280` (`DesktopView`; less on phones narrower than 320 dp).
+- **Always AI-only.** The page takes the user's touches, scrolls and keys only after Take control. The "AI only /
+  AI + me" choice is gone from Settings and from the browser's status dialog; "let me help" in the chat explains
+  Take control instead of switching modes. Colon Browser keeps its own modes.
+- **Take control opens full screen over the chat**, the same WebView (no reload) from the top of the screen to the
+  top of the composer, which stays pinned and follows the keyboard. A slim bar has back, title and host, reload,
+  Give back to Saga and a more menu (Stop, Open in Colon Browser, share, downloads, clear data). Whatever the user
+  sends from the composer is their hand-back: it goes to Saga as a note ("I've logged in, continue") with the page's
+  host and path and anything secret-looking hidden (`HandoffNote`; the server hides it again).
+- **A task started from the chat is the user's consent** for that chat: no "Let Saga browse?" dialog. A task the
+  server starts any other way still asks.
+- **The server waits instead of ending.** Take control and Pause no longer end a task (`interrupted`): the loop waits
+  (task status `user_control` / `paused`) for Give back / Resume and folds the user's note into the next step. Time
+  spent waiting for the user doesn't count against `SAGA_TASK_TIMEOUT_MS`. A wait that runs out stops the task
+  cleanly (`handoff_timeout` / `user_timeout`; the phone gets `control manual` and a `stopped` notice).
+- **The web shows the same card shape** with the task's status or result and "Open in the Colon AI app for the live
+  browser" (no snapshot: the server keeps no page pictures). `GET /browser/agent?conversation_id=` lists one chat's
+  tasks with `conversation_id` and `result`.
+### Added
+- **`requestUserControl { reason, instructions }`**, a new Saga tool to hand the browser to the user for a sign-in,
+  code, captcha, payment or consent (a `handoff` frame with `timeout_ms`; "Saga needs you" with Take control).
+  `finish` takes a short `result` for the status pill. Secret fields still hand over by themselves.
+- **`SAGA_USER_CONTROL_TIMEOUT_MS`** (default `900000`, 15 minutes): how long Saga waits for the user to give the
+  browser back after Take control or Pause before it stops the task. Saga's own requests keep
+  `SAGA_HANDOFF_TIMEOUT_MS` (10 minutes).
+- Stop in the card's more menu while Saga runs; a notification (channel `saga`) when Saga needs the user and the app
+  is in the background.
+- If the app is killed mid-task the card shows "Saga stopped when the app closed" with Retry; a dropped connection
+  ends the server's task (`disconnected`) and the card offers Retry, which runs the same goal under the same message.
+- Docs: ADR 0006, `docs/android-bridge.md` (`browser('task' | 'cards' | 'control')`, `run` and `focus` in the state,
+  `browserRetry`, `note` on `control`, the new `handoff` kinds and `timeout_ms`, `notice` kinds `error` · `stopped`).
+- Tests: `services/api/tests/unit/saga-user-control.test.js`, `saga-user-control-runner.test.js`,
+  `packages/ui/test/saga-card.test.js`, `ChatRunTest.kt`.
+
 ## [0.10.2] — 2026-11-14 · Saga really clicks, types and scrolls; AI only locks the page; AI + me shows Saga's words
 The owner's report from the phone (Colon AI, in-chat browser): the browser panel covered the message box while
 scrolling, Saga's touch and pointer did not work, "AI only" still let the user's fingers in, and "AI + me" showed

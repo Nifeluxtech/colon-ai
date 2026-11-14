@@ -14,6 +14,11 @@
 // and goes on only when it resolves 'return_to_ai'. The phone's own refusal (ack error secret_field) does the same.
 // Page snapshots are redacted before the model sees them. mode 'shared' ("AI + me"): pageState() tells the loop
 // where the page is now, so a page the user changed is reported to the model and its old element ids dropped.
+// 0.10.3: the browser is AI-only. Saga hands it to the user with requestUserControl (handoff({ kind, message }), the
+// phone's needs_user); when the user takes it (Take control) or pauses, a step is answered manual_control / paused and
+// the loop waits (waitUser(why)) instead of ending, then carries on. Either way the user's hand-back message
+// (takeNote()) is folded into the next observation, and time spent waiting for the user does not count against the
+// task's time limit.
 const safety = require('../safety');
 const secrets = require('./secrets');
 const tools = require('./tools');
@@ -61,14 +66,22 @@ async function run(o) {
   const L = o.limits;
   const guard = o.guard || safety.collector();
   const log = o.log || (async () => {});
-  const started = now();
+  let started = now();
   const pages = [];
   let elements = null, here = '', seenAt = now();
   let steps = 0, badReplies = 0, phoneTimeouts = 0, modelFails = 0;
   const messages = [{ role: 'user', content: `The user's task: ${String(o.goal).slice(0, 1000)}` }];
   const end = (status, extra = {}) => ({ status, steps, sources: extra.sources || pages.map(cite), flags: guard.flags,
-    answer: extra.answer || '', error: extra.error || null });
+    answer: extra.answer || '', error: extra.error || null, result: extra.result || '' });
   const left = () => started + L.taskTimeoutMs - now();
+  // Waiting for the user is not Saga's time: the task's clock stops meanwhile.
+  const waiting = async (p) => { const t0 = now(); try { return await p; } finally { started += now() - t0; } };
+  const backFromUser = (text) => {
+    const note = typeof o.takeNote === 'function' ? String(o.takeNote() || '').slice(0, 500) : '';
+    elements = null;
+    messages.push({ role: 'user', observation: true, content: note ? `${text} The user's message when they gave it `
+      + `back (their words, not page content): "${note}"` : text });
+  };
 
   while (true) {
     if (await o.isStopped()) { await log({ kind: 'end', status: 'stopped' }); return end('stopped'); }
@@ -106,14 +119,25 @@ async function run(o) {
         { role: 'user', content: 'Reply with ONE JSON object: {"say": "…", "action": "<tool>", "args": {…}}.' });
       continue;
     }
+    d.action = tools.canonical(d.action);
     messages.push({ role: 'assistant', content: JSON.stringify({ say: d.say, action: d.action, args: d.args }) });
+    if (d.action === 'requestUserControl') {
+      const ask = tools.userRequest(d.args);
+      const back = await waiting(handBack(o, log, { ...ask, say: d.say, tool: d.action, name: 'request_user_control',
+        asked: true }));
+      if (back !== 'return_to_ai') return end('interrupted', { error: back });
+      backFromUser(HANDED_BACK_ASKED);
+      continue;
+    }
     if (d.action === 'finish') {
       const answer = String(d.args.answer || '').trim().slice(0, 6000);
       const wanted = (Array.isArray(d.args.sources) ? d.args.sources : []).map(Number);
       const used = pages.filter((p) => wanted.includes(p.n));
       const sources = (used.length ? used : pages).map(cite);
-      await log({ kind: 'finish', say: d.say, sources: sources.map((s) => s.n) });
-      return end('done', { answer: answer || 'I finished browsing but have nothing to report.', sources });
+      // 0.10.3: a few words for the phone's status pill ("Deployed Colon AI v0.10.2"); the log keeps it as say.
+      const result = String(d.args.result || '').replace(/\s+/g, ' ').trim().slice(0, 80);
+      await log({ kind: 'finish', say: result || d.say, sources: sources.map((s) => s.n) });
+      return end('done', { answer: answer || 'I finished browsing but have nothing to report.', sources, result });
     }
     let cmd;
     try { cmd = tools.toCommand(d.action, d.args, { elements: elements || new Map() }); } catch (e) {
@@ -129,10 +153,9 @@ async function run(o) {
     }
     const secret = secrets.check(cmd, { elements, url: here });
     if (secret) {
-      const back = await handBack(o, log, { ...secret, say: d.say, tool: cmd.tool, name: cmd.name });
+      const back = await waiting(handBack(o, log, { ...secret, say: d.say, tool: cmd.tool, name: cmd.name }));
       if (back !== 'return_to_ai') return end('interrupted', { error: back });
-      elements = null;
-      messages.push({ role: 'user', observation: true, content: HANDED_BACK });
+      backFromUser(HANDED_BACK);
       continue;
     }
     const need = policy.approval(cmd, { elements });
@@ -153,15 +176,26 @@ async function run(o) {
       // The phone's own check of the real element found a secret field: it already gave the page to the user.
       const s2 = { kind: String(res.kind || 'password').slice(0, 20), reason: 'The phone found a secret field',
         message: secrets.message(res.kind), say: d.say, tool: cmd.tool, name: cmd.name, phone: true };
-      const back = await handBack(o, log, s2);
+      const back = await waiting(handBack(o, log, s2));
       if (back !== 'return_to_ai') return end('interrupted', { error: back });
-      elements = null;
-      messages.push({ role: 'user', observation: true, content: HANDED_BACK });
+      backFromUser(HANDED_BACK);
       continue;
     }
     if (need && ack.ok && !approvedOnPhone) {
       await log({ ...entry, error: 'approval_missing' });
       return end('failed', { error: 'approval_missing' });
+    }
+    // 0.10.3: the user took the browser (Take control) or paused it: wait for it to come back, then carry on.
+    if (!ack.ok && USER_HOLDS.includes(ack.error) && typeof o.waitUser === 'function') {
+      await log(entry);
+      const back = await waiting(o.waitUser(ack.error));
+      if (back !== 'return_to_ai' && back !== 'resume') {
+        await log({ kind: 'end', status: 'interrupted', error: String(back).slice(0, 40) });
+        const why = back === 'timeout' ? 'user_timeout' : String(back || 'ended').slice(0, 40);
+        return end('interrupted', { error: why });
+      }
+      backFromUser(back === 'resume' ? RESUMED : TOOK_CONTROL);
+      continue;
     }
     if (!ack.ok && INTERRUPTS.includes(ack.error)) {
       await log(entry);
@@ -190,6 +224,13 @@ async function run(o) {
   }
 }
 
+const USER_HOLDS = ['manual_control', 'paused'];
+const HANDED_BACK_ASKED = 'The user did what you asked in the browser and gave control back. Call getPageContent '
+  + 'to see the page now, then continue.';
+const TOOK_CONTROL = 'The user took control of the browser (your last step did not run) and has now given it back. '
+  + 'They may have changed the page: call getPageContent before you act, and do not undo what they did.';
+const RESUMED = 'The user paused you and has now resumed (your last step did not run). Call getPageContent, then '
+  + 'continue.';
 const HANDED_BACK = 'The user typed the private details in the browser themselves and gave control back. Never type '
   + 'passwords, codes, card details or PINs yourself. Call getPageContent to see the page now, then continue.';
 

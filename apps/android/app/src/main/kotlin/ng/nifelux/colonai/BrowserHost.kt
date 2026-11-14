@@ -38,6 +38,17 @@ interface BrowserHost {
      *  (SagaNotice). */
     fun sharedMode(): Boolean = false
 
+    /** 0.10.3 (Colon AI's chat): Saga's words for the user ([kind] step · ask · done · error · stopped): the
+     *  command's `say` and the server's `notice`. The chat's card shows them on its status pill. */
+    fun onSagaWords(text: String, kind: String) {}
+
+    /** 0.10.3: Saga handed the page to the user; it waits [timeoutMs] (0: the server didn't say) for it back. */
+    fun onSagaHandoff(timeoutMs: Long) {}
+
+    /** 0.10.3: the CSS width a new tab lays its pages out at, always as the desktop site (the chat's AI-only
+     *  browser, DesktopView); null = the tab's own mobile / desktop setting (Colon Browser). */
+    fun desktopLayoutWidth(): Int? = null
+
     /** The WebView profile a new normal tab uses (Phase 10: the chat's own, ChatSessions); null = the default. */
     fun tabProfile(): String? = null
 

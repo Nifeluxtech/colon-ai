@@ -119,10 +119,7 @@ CW.pages.settings = function (page, ctx) {
         toggle('linksInPanel', 'Open links in the browser panel',
           'Links and sources open beside your chat instead of a new tab.', s.linksInPanel) +
         select('browserLayout', 'Browser panel layout', 'On phones the panel always opens inside the chat first.',
-          s.browserLayout, [['split', 'Split screen'], ['embedded', 'Inside the conversation']]) +
-        select('browserMode', 'How Saga uses a chat\u2019s browser',
-          'Each chat has its own browser. Change it for one chat from the browser card or by saying “let me help”.',
-          s.browserMode || 'ai', [['ai', 'AI only: Saga browses, you watch'], ['shared', 'AI + me: we both browse']])) +
+          s.browserLayout, [['split', 'Split screen'], ['embedded', 'Inside the conversation']])) +
       section('privacy', 'Privacy and security', 'shield',
         toggle('saveHistory', 'Save chat history',
           'When off, new chats are temporary: not saved to your account, and gone when you close the tab.',

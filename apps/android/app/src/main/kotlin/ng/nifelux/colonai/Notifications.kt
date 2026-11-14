@@ -43,6 +43,36 @@ object Notifications {
     fun canPost(context: Context): Boolean =
         !permissionNeeded(context) && NotificationManagerCompat.from(context).areNotificationsEnabled()
 
+    private const val ID_SAGA = 7101
+
+    /** 0.10.3: "Saga needs you" while Colon AI is in the background (sign-in, code, captcha, payment, consent); a
+     *  tap brings the chat back. Silently skipped when notifications are off. The message is Saga's request only. */
+    fun sagaNeedsUser(context: Context, message: String) {
+        if (!canPost(context)) return
+        val open = context.packageManager.getLaunchIntentForPackage(context.packageName)
+            ?.addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_REORDER_TO_FRONT) ?: return
+        val pi = PendingIntent.getActivity(context, 2, open,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
+        val n = NotificationCompat.Builder(context, CHANNEL_SAGA)
+            .setSmallIcon(R.drawable.ic_stat_colon)
+            .setColor(ContextCompat.getColor(context, R.color.colon_primary))
+            .setContentTitle(context.getString(R.string.saga_needs_you_title))
+            .setContentText(context.getString(R.string.saga_needs_you_text, message.take(160)))
+            .setStyle(NotificationCompat.BigTextStyle().bigText(context.getString(R.string.saga_needs_you_text,
+                message.take(160))))
+            .setCategory(NotificationCompat.CATEGORY_REMINDER)
+            .setPriority(NotificationCompat.PRIORITY_HIGH)
+            .setContentIntent(pi)
+            .setAutoCancel(true)
+            .build()
+        try { NotificationManagerCompat.from(context).notify(ID_SAGA, n) } catch (_: SecurityException) { }
+    }
+
+    /** The request was answered (or the task ended): its notification goes. */
+    fun cancelSaga(context: Context) {
+        try { NotificationManagerCompat.from(context).cancel(ID_SAGA) } catch (_: Exception) { }
+    }
+
     /** "Update downloaded: tap to install". Silently skipped when notifications are off. */
     fun updateReady(context: Context, versionName: String, install: Intent) {
         if (!canPost(context)) return
