@@ -6,6 +6,8 @@
    0.10.2: every number is measured from the visual viewport's corner (what the app's WebView shows on screen; the
    frame follows it with --vvt), and pageHeight (the visible page's height) lets the app keep the composer's gap
    when its WebView resized before the next report (the keyboard), so the panel never slides over the composer.
+   0.10.3 (option band): a hidden report still says where the composer is (viewportTop, viewportBottom, pageHeight,
+   dpr), so the app's full-screen browser can stop above the composer while the card itself is off screen.
    No imports and every dependency injected, so it is unit-tested with a fake DOM (packages/ui/test). */
 
 function round(n) { return Math.round(Number(n) * 100) / 100; }
@@ -29,6 +31,15 @@ function anchorRect(box, view, dpr, collapsed, screen) {
     dpr: Math.round(d * 1e4) / 1e4 };
   if (screen && screen.height > 0) p.pageHeight = round(screen.height);
   return p;
+}
+
+// 0.10.3: the band alone (no box): where the thread's visible part ends (the composer's top), measured like
+// anchorRect, for a { visible: false } report.
+function bandOf(view, dpr, screen) {
+  if (!view || !(view.bottom > view.top) || !screen || !(screen.height > 0)) return {};
+  var sy = Number(screen.y) || 0, scale = screen.scale > 0 ? screen.scale : 1, d = dpr > 0 ? dpr * scale : 1;
+  return { viewportTop: round(view.top - sy), viewportBottom: round(view.bottom - sy), pageHeight: round(screen.height),
+    dpr: Math.round(d * 1e4) / 1e4 };
 }
 
 // The visual viewport (what is on screen) in layout-viewport CSS px; the window when there is none.
@@ -94,8 +105,10 @@ function createAnchor(opts) {
     frame = null;
     if (stopped) return;
     var el = opts.el, shown = el && el.isConnected !== false && !(opts.collapsed && opts.collapsed());
-    var p = shown ? anchorRect(el.getBoundingClientRect(), viewOf(opts.scroller, win, opts.cover), win.devicePixelRatio,
-      false, screenOf(win)) : { visible: false };
+    var view = viewOf(opts.scroller, win, opts.cover), screen = screenOf(win);
+    var p = shown ? anchorRect(el.getBoundingClientRect(), view, win.devicePixelRatio, false, screen)
+      : { visible: false };
+    if (!p.visible && opts.band) p = Object.assign(p, bandOf(view, win.devicePixelRatio, screen));
     if (same(p, last)) return; // nothing moved (and a second "hidden" says nothing new)
     last = p;
     opts.send(p);
@@ -128,4 +141,4 @@ function createAnchor(opts) {
   };
 }
 
-export { anchorRect, coverTop, createAnchor, screenOf, viewOf };
+export { anchorRect, bandOf, coverTop, createAnchor, screenOf, viewOf };

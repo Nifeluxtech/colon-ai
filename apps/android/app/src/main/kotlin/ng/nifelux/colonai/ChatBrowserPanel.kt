@@ -13,6 +13,9 @@ import android.view.View
 import android.view.ViewGroup
 import android.view.inputmethod.EditorInfo
 import android.view.inputmethod.InputMethodManager
+import android.graphics.Outline
+import android.view.ViewOutlineProvider
+import android.view.animation.DecelerateInterpolator
 import android.webkit.WebChromeClient
 import android.webkit.WebView
 import android.widget.EditText
@@ -39,6 +42,15 @@ import org.json.JSONObject
  * with a clean browser (a draft that the conversation adopts once it exists); deleting a chat deletes its browser
  * (browser('forget')); at most BuildConfig.CHAT_PROFILES_MAX chats keep one (least recently used go first). Without
  * MULTI_PROFILE every chat shares one cookie jar, cleared (except Colon's own cookies) when the chat changes.
+ *
+ * 0.10.3 (ADR 0006): the browser is a card in the thread, AI-only. Pages are always the desktop site, laid out about
+ * 1280 CSS px wide and zoomed out to fit (DesktopView); the user's touches, scrolls and keys never reach the page
+ * except in user_control (ChatRun), which they enter with Take control: the card then grows into a full-screen view
+ * over the chat (the same WebView, nothing reloads) with the chat's composer still below it. Sending a message there,
+ * or Give back to Saga, hands the browser back with a note (HandoffNote) and Saga carries on. The expand button opens
+ * the same view read-only. The card's controls and status pill are ChatCard; the task state and the finished cards
+ * (with a picture of the page, after which the WebView is let go) are kept per chat by ChatRunKeeper. Free browsing,
+ * the address bar, tabs and the "AI + me" / Manual modes are gone from the chat (Colon Browser keeps its own).
  */
 class ChatBrowserPanel(private val a: MainActivity) : BrowserHost, TabManager.Host {
     override val activity: AppCompatActivity get() = a
@@ -49,7 +61,8 @@ class ChatBrowserPanel(private val a: MainActivity) : BrowserHost, TabManager.Ho
         ?: ChatSessionRules.draftKey(System.currentTimeMillis())
     private var chatStore = BrowserStore(a, BrowserStore.PANEL, chats.historyName(chatKey))
     override val store: BrowserStore get() = chatStore
-    override val tabs = TabManager(this, 2, MAX_TABS)
+    // One live WebView on low-RAM phones (two elsewhere, so a sign-in pop-up's opener stays alive).
+    override val tabs = TabManager(this, if (a.isLowRam()) 1 else 2, MAX_TABS)
     private var sharedNoticeShown = false
     val saga = BrowserSaga(this, ColonApplication.of(a).bridge)
 
@@ -114,6 +127,20 @@ class ChatBrowserPanel(private val a: MainActivity) : BrowserHost, TabManager.Ho
     }
     var collapsed = false
         private set
+    /* ---------- 0.10.3: the AI-only card ---------- */
+    private val keeper = ChatRunKeeper(a)
+    private var run: ChatRun.Run = keeper.run(chatKey)
+    /** Full screen over the chat (Take control, or the expand button), the composer still below. */
+    private var focus = false
+    private var band: InlineGeometry.Band? = null
+    private var askTimeoutMs = 0L
+    private var userStopped = false
+    private var lockedFor: Boolean? = null
+    private var animating = false
+    private val radius = 14 * a.resources.displayMetrics.density
+    private val waitCheck = Runnable { checkWait() }
+    private val releaseLater = Runnable { releaseAfterEnd() }
+    private lateinit var card: ChatCard
     private var share = PanelLayout.clampShare(prefs.getFloat("share", PanelLayout.EMBEDDED_SHARE))
     private var reloadOnReturn = false
     private var restored = false
@@ -124,6 +151,16 @@ class ChatBrowserPanel(private val a: MainActivity) : BrowserHost, TabManager.Ho
         ChatProfiles.deleteStale(chats.profiles(), null)
         bridge.setConversation(conversationOf(chatKey))
         saga.bind(panel)
+        saga.chatUi = true
+        card = ChatCard(content, cardActions())
+        // AI-only: no address bar to type in (the header shows only as the older pages' fallback).
+        address.isFocusable = false
+        address.isLongClickable = false
+        panel.outlineProvider = object : ViewOutlineProvider() {
+            override fun getOutline(view: View, outline: Outline) {
+                outline.setRoundRect(0, 0, view.width, view.height, if (docked && !focus) radius else 0f)
+            }
+        }
         address.setOnEditorActionListener { _, id, e ->
             val go = id == EditorInfo.IME_ACTION_GO || (e?.keyCode == KeyEvent.KEYCODE_ENTER &&
                 e.action == KeyEvent.ACTION_DOWN)
@@ -180,7 +217,12 @@ class ChatBrowserPanel(private val a: MainActivity) : BrowserHost, TabManager.Ho
                 else tabs.open(url)
             }
         }
+        // The WebView was let go when the last task ended (low memory): it comes back with its page.
+        tabs.active?.takeIf { it.webView == null }?.let { tabs.switchTo(it) }
         tabs.active?.webView?.onResume()
+        main.removeCallbacks(releaseLater)
+        applyLock()
+        renderCard()
         changed()
     }
 
@@ -188,6 +230,7 @@ class ChatBrowserPanel(private val a: MainActivity) : BrowserHost, TabManager.Ho
     fun close() {
         if (!isOpen) return
         isOpen = false
+        focus = false
         fullscreen.exit()
         tabs.active?.webView?.onPause()
         tabs.trim(1)
@@ -199,6 +242,9 @@ class ChatBrowserPanel(private val a: MainActivity) : BrowserHost, TabManager.Ho
     }
 
     fun setMode(m: PanelLayout.Mode) {
+        // 0.10.3: in the thread, "full screen" is the full-screen view over the chat (view only until Take control).
+        if (m == PanelLayout.Mode.FULL && docked) { setFocus(true); return }
+        if (m == PanelLayout.Mode.INLINE && focus) { setFocus(false); return }
         if (m == PanelLayout.Mode.FULL && mode != PanelLayout.Mode.FULL) beforeFull = mode
         mode = m
         collapsed = false
@@ -232,9 +278,11 @@ class ChatBrowserPanel(private val a: MainActivity) : BrowserHost, TabManager.Ho
     }
 
     /** browser('anchor'): where the card's body box is now. Called up to once a frame while the thread scrolls, so
-     *  it only moves the panel (translation; a relayout only when the box's size changed). */
-    fun setAnchor(next: InlineGeometry.Anchor) {
+     *  it only moves the panel (translation; a relayout only when the box's size changed). [band] (0.10.3): where
+     *  the composer is, from any report (full screen stops above it). */
+    fun setAnchor(next: InlineGeometry.Anchor, band: InlineGeometry.Band? = null) {
         anchor = next
+        if (band != null) this.band = band
         placeInline()
     }
 
@@ -291,7 +339,10 @@ class ChatBrowserPanel(private val a: MainActivity) : BrowserHost, TabManager.Ho
             .put("browserApp", Handoff.installedPartner(a) != null)
             // Phase 10: whose browser this is, its mode, and Saga's request to the user for a secret field.
             .put("chat", conversationOf(chatKey) ?: JSONObject.NULL)
-            .put("chatMode", ChatSessionRules.mode(chats.mode(chatKey)))
+            // 0.10.3: AI only, always; the card's task state and whether it is full screen.
+            .put("chatMode", "ai")
+            .put("run", ChatRun.toJson(run).put("pill", pillJson()))
+            .put("focus", focus)
             .put("resumable", saga.control.resumable?.wire ?: JSONObject.NULL)
             .put("handoff", saga.control.handoff?.let { JSONObject().put("kind", it.kind).put("message", it.message) }
                 ?: JSONObject.NULL)
@@ -304,11 +355,37 @@ class ChatBrowserPanel(private val a: MainActivity) : BrowserHost, TabManager.Ho
 
     override fun tabProfile(): String? = if (ChatProfiles.supported()) chats.profileOf(chatKey) else null
 
-    override fun onControlChanged() = changed()
+    /** Saga's control changed (the server's request, a hand-off, the user's Take control / Give back / Stop). */
+    override fun onControlChanged() {
+        val c = saga.control
+        setRun(ChatRun.fromControl(run, c.mode, c.paused, c.handoff, c.resumable, System.currentTimeMillis(),
+            askTimeoutMs, userStopped))
+        userStopped = false
+        changed()
+    }
 
-    override fun userInputBlocked(): Boolean = saga.blocksUser()
+    /** 0.10.3: AI-only. The page is the user's only in user_control (Take control). */
+    override fun userInputBlocked(): Boolean = !ChatRun.touchesPage(run.state)
 
-    override fun sharedMode(): Boolean = ChatSessionRules.mode(chats.mode(chatKey)) == "shared"
+    override fun sharedMode(): Boolean = false
+
+    override fun desktopLayoutWidth(): Int =
+        DesktopView.layoutWidth(a.resources.configuration.smallestScreenWidthDp - CARD_MARGIN_DP)
+
+    override fun onSagaWords(text: String, kind: String) {
+        when (kind) {
+            "done", "error", "stopped" -> {
+                val id = cardId(run)
+                setRun(ChatRun.end(run, kind, text, System.currentTimeMillis()))
+                keeper.finishCard(chatKey, id, run.state.wire, run.result)
+            }
+            "ask" -> Unit // the hand-off itself is the control change
+            else -> setRun(ChatRun.step(run, text))
+        }
+        changed()
+    }
+
+    override fun onSagaHandoff(timeoutMs: Long) { askTimeoutMs = timeoutMs }
 
     /** browser('chat'): the chat page now shows [conversationId] (null: a new chat). [adopt]: the new chat just got
      *  its id, so the browser it already has becomes the conversation's (nothing reloads). */
@@ -319,6 +396,7 @@ class ChatBrowserPanel(private val a: MainActivity) : BrowserHost, TabManager.Ho
             val draft = chatKey
             chats.setTabs(draft, if (restored) tabs.toJson() else chats.tabs(draft))
             chats.adopt(draft, key)
+            keeper.adopt(draft, key)
             chatKey = key
             chats.current = key
             chatStore = BrowserStore(a, BrowserStore.PANEL, chats.historyName(key))
@@ -337,6 +415,7 @@ class ChatBrowserPanel(private val a: MainActivity) : BrowserHost, TabManager.Ho
     fun forgetChat(conversationId: String?) {
         val key = ChatSessionRules.keyOf(conversationId) ?: return
         if (key == chatKey) switchTo(ChatSessionRules.draftKey(System.currentTimeMillis()))
+        keeper.forget(key)
         val profile = chats.forget(key)
         // Its WebViews were just destroyed; the profile is deleted once WebView lets go of it (else at next launch).
         main.postDelayed({ ChatProfiles.delete(profile) }, 1500)
@@ -345,26 +424,36 @@ class ChatBrowserPanel(private val a: MainActivity) : BrowserHost, TabManager.Ho
     /** browser('forget', {all: true}): every conversation was deleted; so is every chat's browser. */
     fun forgetAllChats() {
         if (!ChatSessionRules.isDraft(chatKey)) switchTo(ChatSessionRules.draftKey(System.currentTimeMillis()))
-        val profiles = chats.order().filter { it != chatKey }.mapNotNull { chats.forget(it) }
+        val profiles = chats.order().filter { it != chatKey }.mapNotNull { keeper.forget(it); chats.forget(it) }
         main.postDelayed({ profiles.forEach { ChatProfiles.delete(it) } }, 1500)
     }
 
-    /** browser('mode'): this chat's "AI only" (ai) or "AI + me" (shared); a running Saga task switches too. */
+    /** browser('mode'): kept for older chat pages. 0.10.3: the chat's browser is AI only; "AI + me" is not offered
+     *  any more, so the request is remembered and changes nothing. */
     fun setChatMode(mode: String) {
-        val m = ChatSessionRules.mode(mode)
-        chats.setMode(chatKey, m)
-        saga.switchMode(if (m == "shared") ControlState.Mode.SHARED else ControlState.Mode.AI)
+        chats.setMode(chatKey, ChatSessionRules.mode(mode))
         changed()
     }
 
-    /** browser('control'): Take control / Return to AI / Pause / Resume / Stop from the chat page. */
-    fun userControl(op: String): Boolean = saga.userControl(op).also { changed() }
+    /** browser('control'): Take control / Return to AI (with the user's [note]) / Pause / Resume / Stop from the
+     *  chat page (the card, or the composer while the user has the browser). */
+    fun userControl(op: String, note: String? = null): Boolean {
+        val before = run
+        when (op) {
+            "take_control" -> takeControl()
+            "return_to_ai" -> giveBack(note)
+            "stop" -> stopSaga()
+            else -> saga.userControl(op)
+        }
+        changed()
+        return run != before || op == "pause" || op == "resume"
+    }
 
     private fun touch(key: String) {
         val (order, evicted) = ChatSessionRules.touch(chats.order(), key,
             BuildConfig.CHAT_PROFILES_MAX.takeIf { it > 0 } ?: ChatSessionRules.DEFAULT_MAX)
         chats.setOrder(order)
-        evicted.filter { it != chatKey }.forEach { ChatProfiles.delete(chats.forget(it)) }
+        evicted.filter { it != chatKey }.forEach { keeper.forget(it); ChatProfiles.delete(chats.forget(it)) }
     }
 
     /** Puts the current chat's browser away and shows [next]'s: same panel and layout, other tabs and profile. */
@@ -378,8 +467,17 @@ class ChatBrowserPanel(private val a: MainActivity) : BrowserHost, TabManager.Ho
         for (i in content.childCount - 1 downTo 0) if (content.getChildAt(i) is WebView) content.removeViewAt(i)
         tabs.clearSilently()
         // A new chat left behind without a conversation is gone for good.
-        if (ChatSessionRules.isDraft(old)) { val p = chats.forget(old); main.postDelayed({ ChatProfiles.delete(p) }, 1500) }
+        if (ChatSessionRules.isDraft(old)) {
+            keeper.forget(old)
+            val p = chats.forget(old); main.postDelayed({ ChatProfiles.delete(p) }, 1500)
+        }
+        focus = false
+        main.removeCallbacks(waitCheck)
+        main.removeCallbacks(releaseLater)
+        Notifications.cancelSaga(a)
         chatKey = next
+        run = keeper.run(next)
+        lockedFor = null
         chats.current = next
         chatStore = BrowserStore(a, BrowserStore.PANEL, chats.historyName(next))
         touch(next)
@@ -392,6 +490,8 @@ class ChatBrowserPanel(private val a: MainActivity) : BrowserHost, TabManager.Ho
                 tabs.restore(chats.tabs(next))?.let { tabs.switchTo(it) } ?: tabs.open(UrlRules.HOME)
             }
             refresh()
+            applyLock()
+            renderCard()
             changed()
         }
         if (ChatProfiles.supported()) show.run()
@@ -412,6 +512,8 @@ class ChatBrowserPanel(private val a: MainActivity) : BrowserHost, TabManager.Ho
     fun handleBack(panelFocused: Boolean): Boolean {
         if (fullscreen.active) { exitFullscreen(); return true }
         if (!isOpen) return false
+        // 0.10.3: full screen over the chat goes back to the card (the page's own back is in its top bar).
+        if (focus) { setFocus(false); return true }
         if (mode == PanelLayout.Mode.FULL) { if (!goBack()) setMode(beforeFull); return true }
         return panelFocused && goBack()
     }
@@ -433,13 +535,216 @@ class ChatBrowserPanel(private val a: MainActivity) : BrowserHost, TabManager.Ho
 
     fun onPause() { tabs.active?.webView?.onPause(); if (restored) chats.setTabs(chatKey, tabs.toJson()) }
     fun onConfigurationChanged() { if (isOpen) applyLayout() }
-    fun onTrimMemory() { tabs.trim(1) }
+    fun onTrimMemory() {
+        tabs.trim(1)
+        // Nothing running: the finished card's picture stands in for the page.
+        if (!ChatRun.live(run.state) && !focus) tabs.active?.let { tabs.discard(it) }
+    }
 
     fun destroy() {
         bridge.removeListener(opener)
         main.removeCallbacks(inlineGrace)
+        main.removeCallbacks(waitCheck)
+        main.removeCallbacks(releaseLater)
         if (isOpen) saga.detach()
         tabs.tabs.forEach { t -> t.webView?.let { ShellWeb.destroy(it) }; t.webView = null }
+    }
+
+    /* ---------- 0.10.3: the AI-only card, Take control and the full-screen view ---------- */
+
+    /** What the card's buttons do (a function: the card is made in init, above this declaration). */
+    private fun cardActions(): ChatCard.Actions = object : ChatCard.Actions {
+        override fun expand() = setFocus(true)
+        override fun collapse() = setFocus(false)
+        override fun takeControl() { this@ChatBrowserPanel.takeControl(); changed() }
+        override fun giveBack() { this@ChatBrowserPanel.giveBack(null); changed() }
+        override fun stop() { stopSaga(); changed() }
+        override fun retry() {
+            a.nativeBridge.emit("browserRetry", JSONObject().put("goal", run.goal)
+                .put("anchor", run.anchor ?: JSONObject.NULL))
+        }
+        override fun back() { goBack() }
+        override fun reload() { reloadPage() }
+        override fun menu(anchor: View) = showMenu(anchor)
+    }
+
+    /** The full-screen view over the chat (true) or the card in the thread; the same WebView grows or shrinks. */
+    fun setFocus(on: Boolean) {
+        if (focus == on) return
+        if (on && !isOpen) open(null)
+        if (!isOpen) return
+        if (!docked) { setMode(if (on) PanelLayout.Mode.FULL else beforeFull); return }
+        val from = if (layer.visibility == View.VISIBLE) floatArrayOf(panel.translationX, panel.translationY,
+            panel.width.toFloat(), panel.height.toFloat()) else null
+        focus = on
+        if (!on) hideKeyboard()
+        panel.invalidateOutline()
+        panel.clipToOutline = !on
+        placeInline()
+        animateFrom(from)
+        applyLock()
+        renderCard()
+        changed()
+    }
+
+    /** A short grow (or shrink) from where the panel was, scaled about its corner: nothing is re-laid out per frame. */
+    private fun animateFrom(from: FloatArray?) {
+        val lp = panel.layoutParams
+        if (from == null || lp.width <= 0 || lp.height <= 0 || from[2] <= 0f || from[3] <= 0f) return
+        val toX = panel.translationX
+        val toY = panel.translationY
+        animating = true
+        panel.pivotX = 0f
+        panel.pivotY = 0f
+        panel.scaleX = from[2] / lp.width
+        panel.scaleY = from[3] / lp.height
+        panel.translationX = from[0]
+        panel.translationY = from[1]
+        panel.animate().scaleX(1f).scaleY(1f).translationX(toX).translationY(toY).setDuration(ANIM_MS)
+            .setInterpolator(DecelerateInterpolator()).withEndAction { animating = false; placeInline() }.start()
+    }
+
+    /** Take control: Saga pauses where it is (its step is not run) and the page is the user's, full screen. */
+    fun takeControl() {
+        if (!isOpen) open(null)
+        if (run.state == ChatRun.State.RUNNING || run.state == ChatRun.State.PAUSED) saga.userControl("take_control")
+        setRun(ChatRun.takeControl(run, System.currentTimeMillis()))
+        setFocus(true)
+    }
+
+    /** Give back to Saga (the button, or the user's message from the composer: [message]): Saga carries on with a
+     *  note of what the user said and where the page is (never what they typed in the page). */
+    fun giveBack(message: String?) {
+        val t = tabs.active
+        val note = HandoffNote.build(message, t?.url, t?.title)
+        val asked = run.state == ChatRun.State.NEEDS_USER || run.resumes
+        val back = asked && (run.state == ChatRun.State.USER_CONTROL || run.state == ChatRun.State.NEEDS_USER) &&
+            saga.userControl("return_to_ai", note)
+        val now = System.currentTimeMillis()
+        setRun(if (asked && !back && ChatRun.live(run.state)) ChatRun.end(run, "stopped", null, now)
+            else ChatRun.giveBack(run, now))
+        setFocus(false)
+    }
+
+    /** Stop: Saga's task ends here and on the server (the chat page also asks the server to stop it). */
+    fun stopSaga() {
+        userStopped = true
+        if (!saga.userControl("stop")) {
+            userStopped = false
+            if (ChatRun.live(run.state)) setRun(ChatRun.end(run, "stopped", null, System.currentTimeMillis()))
+        }
+        if (focus) setFocus(false)
+    }
+
+    /** browser('task', {op: start}): the chat started a Saga task here ([id], [goal], the message [anchor] it was
+     *  asked in). Its own instruction is the user's consent for this chat. */
+    fun taskStarted(id: String?, goal: String, anchor: String?) {
+        saga.preAllow(conversationOf(chatKey))
+        setRun(ChatRun.named(run, id, goal, anchor, System.currentTimeMillis()))
+        if (!isOpen) open(null)
+        changed()
+    }
+
+    /** browser('task', {op: end}): the chat page saw the task end ([kind] done · error · stopped) with [result]. */
+    fun taskEnded(id: String?, kind: String, result: String) {
+        if (id == null || run.task == null || run.task == id) setRun(ChatRun.end(run, kind, result,
+            System.currentTimeMillis()))
+        if (id != null) keeper.finishCard(chatKey, id, ChatRun.end(ChatRun.IDLE, kind, null, 0L).state.wire, result)
+        changed()
+    }
+
+    /** browser('cards'): the chat's finished task cards, each with its picture (ChatRunKeeper.cardsJson). */
+    fun cardsJson(): org.json.JSONArray = keeper.cardsJson(chatKey)
+
+    private fun setRun(next: ChatRun.Run) {
+        val before = run
+        run = next
+        if (next != before) keeper.setRun(chatKey, next)
+        if (next.state == ChatRun.State.NEEDS_USER && before.state != ChatRun.State.NEEDS_USER) needsUser(next)
+        if (before.state == ChatRun.State.NEEDS_USER && next.state != ChatRun.State.NEEDS_USER) {
+            Notifications.cancelSaga(a)
+        }
+        if (ChatRun.ended(next.state) && !ChatRun.ended(before.state)) ended(next)
+        if (ChatRun.live(next.state)) main.removeCallbacks(releaseLater)
+        // Saga has the browser again: the full-screen view the user drove goes back to the card.
+        if (before.state == ChatRun.State.USER_CONTROL && next.state == ChatRun.State.RUNNING && focus) setFocus(false)
+        armWait()
+        applyLock()
+        renderCard()
+    }
+
+    /** Saga asked for the user: the card says so (and the chat page adds it to the thread); in the background, a
+     *  notification too. */
+    private fun needsUser(r: ChatRun.Run) {
+        if (!a.foreground) Notifications.sagaNeedsUser(a, card.words.needsYou(r.request?.message ?: ""))
+        if (!isOpen) open(null)
+    }
+
+    /** The task ended: the card keeps a picture of the page and its result; the live WebView is let go soon after
+     *  (the server's last words, the result line, may still be on their way). */
+    private fun ended(r: ChatRun.Run) {
+        Notifications.cancelSaga(a)
+        val shot = ChatRunKeeper.capture(tabs.active?.webView)
+        keeper.saveCard(chatKey, CardRules.Card(cardId(r), r.goal, r.anchor, r.state.wire, r.result,
+            System.currentTimeMillis()), shot)
+        if (focus && !ChatRun.touchesPage(r.state)) setFocus(false)
+        main.removeCallbacks(releaseLater)
+        main.postDelayed(releaseLater, RELEASE_MS)
+    }
+
+    /** One live WebView at most, and none once the task is over: the card shows its picture; a tap reopens it. */
+    private fun releaseAfterEnd() {
+        if (ChatRun.live(run.state) || focus || !isOpen) return
+        close()
+        if (a.isLowRam()) tabs.active?.let { tabs.discard(it) }
+        changed()
+    }
+
+    private fun cardId(r: ChatRun.Run): String = r.task ?: "local-${r.since.toString(36)}"
+
+    /** A wait for the user that ran out: the phone stops Saga cleanly (the server does the same on its side). */
+    private fun checkWait() {
+        if (!ChatRun.expired(run, System.currentTimeMillis())) { armWait(); return }
+        stopSaga()
+        setRun(ChatRun.end(run, "stopped", a.getString(R.string.card_stopped), System.currentTimeMillis()))
+        changed()
+    }
+
+    private fun armWait() {
+        main.removeCallbacks(waitCheck)
+        if (run.deadline <= 0L || (run.state != ChatRun.State.NEEDS_USER && run.state != ChatRun.State.USER_CONTROL)) {
+            return
+        }
+        val wait = run.deadline + ChatRun.GRACE_MS - System.currentTimeMillis() + 50
+        main.postDelayed(waitCheck, wait.coerceAtLeast(1000L))
+    }
+
+    /** The page takes the user's touches, scrolls and keys only in user_control (and screen readers can reach it
+     *  only then: an accessibility click would be a touch by another name). */
+    private fun applyLock() {
+        val locked = userInputBlocked()
+        if (locked == lockedFor) return
+        lockedFor = locked
+        tabs.tabs.forEach { t ->
+            (t.webView as? TabWebView)?.let {
+                it.onGuardChanged(locked)
+                it.importantForAccessibility = if (locked) View.IMPORTANT_FOR_ACCESSIBILITY_NO_HIDE_DESCENDANTS
+                    else View.IMPORTANT_FOR_ACCESSIBILITY_AUTO
+            }
+        }
+    }
+
+    private fun renderCard() {
+        if (!::card.isInitialized) return
+        val t = tabs.active
+        card.render(run, focus, t?.title ?: "", t?.url ?: "", t?.webView?.canGoBack() == true, true)
+        content.contentDescription = a.getString(R.string.card_live, ChatRun.pill(run, card.words).text)
+    }
+
+    private fun pillJson(): JSONObject {
+        val p = ChatRun.pill(run, if (::card.isInitialized) card.words else PLAIN)
+        return JSONObject().put("icon", p.icon).put("text", p.text).put("takeControl", p.takeControl)
+            .put("giveBack", p.giveBack).put("retry", p.retry).put("stop", p.stop)
     }
 
     /* ---------- layout ---------- */
@@ -472,6 +777,9 @@ class ChatBrowserPanel(private val a: MainActivity) : BrowserHost, TabManager.Ho
         divider.layoutParams = LinearLayout.LayoutParams(if (side) d else ViewGroup.LayoutParams.MATCH_PARENT,
             if (side) ViewGroup.LayoutParams.MATCH_PARENT else d)
         expand.setImageResource(if (mode == PanelLayout.Mode.FULL) R.drawable.ic_fullscreen_exit else R.drawable.ic_fullscreen)
+        // 0.10.3: the card in the thread has rounded corners; full screen and the older layouts don't.
+        panel.clipToOutline = docked && !focus
+        panel.invalidateOutline()
         expand.contentDescription = a.getString(if (mode == PanelLayout.Mode.FULL) R.string.panel_exit_full
             else R.string.panel_full)
         box.requestLayout()
@@ -501,8 +809,15 @@ class ChatBrowserPanel(private val a: MainActivity) : BrowserHost, TabManager.Ho
      *  screen, collapsed, not reported yet, or the panel is closed. Scrolling only changes translation and clip. */
     private fun placeInline() {
         if (!docked) return
-        val p = if (isOpen && !collapsed) InlineGeometry.place(anchor, a.resources.displayMetrics.density,
-            a.webView.left, a.webView.top, layer.width, layer.height, a.webView.height) else InlineGeometry.NOWHERE
+        val density = a.resources.displayMetrics.density
+        val p = when {
+            !isOpen -> InlineGeometry.NOWHERE
+            focus -> InlineGeometry.focus(band, density, a.webView.top, layer.width, layer.height, a.webView.height,
+                (FALLBACK_COMPOSER_DP * density).toInt())
+            collapsed -> InlineGeometry.NOWHERE
+            else -> InlineGeometry.place(anchor, density, a.webView.left, a.webView.top, layer.width, layer.height,
+                a.webView.height)
+        }
         if (!p.visible) {
             if (layer.visibility != View.INVISIBLE) layer.visibility = View.INVISIBLE
             return
@@ -513,8 +828,10 @@ class ChatBrowserPanel(private val a: MainActivity) : BrowserHost, TabManager.Ho
             lp.height = p.height
             panel.layoutParams = lp
         }
-        panel.translationX = p.left.toFloat()
-        panel.translationY = p.top.toFloat()
+        if (!animating) {
+            panel.translationX = p.left.toFloat()
+            panel.translationY = p.top.toFloat()
+        }
         layer.setClip(p.clipTop, p.clipBottom)
         if (layer.visibility != View.VISIBLE) layer.visibility = View.VISIBLE
     }
@@ -547,21 +864,16 @@ class ChatBrowserPanel(private val a: MainActivity) : BrowserHost, TabManager.Ho
         val m = menu.menu
         var order = 0
         fun add(id: Int, res: Int) = m.add(0, id, order++, res)
-        if (t?.webView?.canGoForward() == true) add(1, R.string.forward)
+        // 0.10.3: AI-only, so no new tabs, tab list, address, desktop toggle or layouts: forward only while the
+        // user has the browser; the rest are about the page, not driving it.
+        val mine = ChatRun.touchesPage(run.state)
+        if (mine && t?.webView?.canGoForward() == true) add(1, R.string.forward)
+        if (ChatRun.live(run.state)) add(15, R.string.card_stop)
         add(2, R.string.open_in_browser_app)
-        val shown = effectiveMode()
-        if (shown != PanelLayout.Mode.INLINE && webInline == true) add(14, R.string.panel_inline)
-        if (shown != PanelLayout.Mode.EMBEDDED) add(3, R.string.panel_embedded)
-        if (shown != PanelLayout.Mode.SPLIT) add(4, R.string.panel_split)
-        add(5, if (collapsed) R.string.panel_expand else R.string.panel_collapse)
-        add(6, R.string.new_tab)
-        if (tabs.tabs.size > 1) add(7, R.string.tabs_title_short)
-        if (t != null) add(8, R.string.desktop_site).apply { isCheckable = true; isChecked = t.desktop }
         if (page != null) add(9, R.string.share_page)
         add(10, R.string.downloads)
         add(11, R.string.saga_status)
         add(12, R.string.clear_data)
-        add(13, R.string.panel_close_tabs)
         menu.setOnMenuItemClickListener { item ->
             when (item.itemId) {
                 1 -> goForward()
@@ -579,6 +891,7 @@ class ChatBrowserPanel(private val a: MainActivity) : BrowserHost, TabManager.Ho
                     .putExtra(ClearDataActivity.EXTRA_STORE, BrowserStore.PANEL))
                 13 -> { tabs.closeAll(); close() }
                 14 -> setMode(PanelLayout.Mode.INLINE)
+                15 -> { stopSaga(); changed() }
             }
             true
         }
@@ -625,6 +938,8 @@ class ChatBrowserPanel(private val a: MainActivity) : BrowserHost, TabManager.Ho
                 ViewGroup.LayoutParams.MATCH_PARENT))
         }
         if (tab == null && isOpen) tabs.open(UrlRules.HOME)
+        lockedFor = null
+        applyLock()
         refresh()
         saga.reportState()
         changed()
@@ -674,6 +989,7 @@ class ChatBrowserPanel(private val a: MainActivity) : BrowserHost, TabManager.Ho
         progress.progress = t?.progress ?: 100
         reload.setImageResource(if (loading) R.drawable.ic_close else R.drawable.ic_refresh)
         reload.contentDescription = a.getString(if (loading) R.string.stop_loading else R.string.reload)
+        renderCard()
     }
 
     private fun changed() { main.removeCallbacks(emitState); main.postDelayed(emitState, 120) }
@@ -686,6 +1002,14 @@ class ChatBrowserPanel(private val a: MainActivity) : BrowserHost, TabManager.Ho
 
     companion object {
         const val MAX_TABS = 6
+        /** The thread's side padding: the card is this much narrower than the screen (DesktopView width). */
+        private const val CARD_MARGIN_DP = 20
+        private const val FALLBACK_COMPOSER_DP = 120
+        private const val ANIM_MS = 220L
+        /** After a task ends, the live page stays this long (its result line may still arrive), then goes. */
+        private const val RELEASE_MS = 1800L
+        private val PLAIN = ChatRun.Words("Saga is working…", "Saga is paused", "Your turn", "You're in control",
+            "Done", "Saga stopped", "Saga couldn't finish", "Saga stopped when the app closed") { "Saga needs you: $it" }
         private const val PREF_LAYOUT = "layout"
         /** How long the chat page (loading, or slow on a cheap phone) has to say it draws the inline card before
          *  the panel shows embedded; a later browser call from the page still moves it into the thread. */

@@ -38,7 +38,9 @@ function create() {
     }
     if (/^UPDATE saga_tasks SET status = \?, updated_at = \? WHERE id = \? AND status IN/.test(s)) {
       const x = task(p[2]);
-      if (x && ['consent', 'running', 'handoff'].includes(x.status)) { x.status = p[0]; x.updated_at = p[1]; }
+      if (x && ['consent', 'running', 'handoff', 'user_control', 'paused'].includes(x.status)) {
+        x.status = p[0]; x.updated_at = p[1];
+      }
       return {};
     }
     if (/^DELETE FROM saga_tasks WHERE user_id = \? AND conversation_id = \?/.test(s)) {
@@ -72,8 +74,13 @@ function create() {
       return t.actions.filter((a) => a.task_id === p[0] && a.seq > p[1]).sort((a, b) => a.seq - b.seq)
         .map((a) => ({ ...a }));
     }
-    if (/^SELECT id, goal, status, error, steps, created_at, finished_at FROM saga_tasks WHERE user_id/.test(s)) {
-      return t.tasks.filter((x) => x.user_id === p[0]).sort((a, b) => b.id - a.id).slice(0, p[1]);
+    if (/^SELECT id, goal, status, error, steps, conversation_id, created_at, finished_at,/.test(s)) {
+      const conv = p.length === 3 ? p[1] : null;
+      const finish = (id) => t.actions.filter((a) => a.task_id === id && a.kind === 'finish').sort((a, b) => b.seq
+        - a.seq)[0];
+      return t.tasks.filter((x) => x.user_id === p[0] && (conv === null || x.conversation_id === conv))
+        .sort((a, b) => b.id - a.id).slice(0, p[p.length - 1])
+        .map((x) => ({ ...x, result: finish(x.id) ? finish(x.id).say : null }));
     }
     if (/^SELECT id, user_id, goal, language, conversation_id, mode FROM saga_tasks WHERE status = 'queued'/.test(s)) {
       return t.tasks.filter((x) => x.status === 'queued' && p[0].includes(x.user_id) && x.created_at > p[1]);

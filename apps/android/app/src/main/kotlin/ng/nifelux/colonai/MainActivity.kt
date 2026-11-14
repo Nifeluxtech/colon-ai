@@ -46,6 +46,9 @@ class MainActivity : AppCompatActivity() {
         private set
     val permissions = PermissionAsker(this)
     @Volatile var currentUrl: String? = null
+    /** 0.10.3: the chat is on screen (started); "Saga needs you" is a notification only when it isn't. */
+    var foreground = false
+        private set
     private var lastTouchInPanel = false
 
     private lateinit var container: FrameLayout
@@ -103,11 +106,13 @@ class MainActivity : AppCompatActivity() {
 
     override fun onStart() {
         super.onStart()
+        foreground = true
         ColonApplication.of(this).bridge.acquire()
         ColonApplication.of(this).addNetworkListener(onNetwork)
     }
 
     override fun onStop() {
+        foreground = false
         ColonApplication.of(this).bridge.release()
         ColonApplication.of(this).removeNetworkListener(onNetwork)
         super.onStop()

@@ -7,13 +7,19 @@
    the web reader panel (ColonSagaBrowse), as before.
    Phase 10: the task runs on this chat's own browser in the chat's mode (AI only / AI + me), and when Saga reaches
    a password, code, card or PIN it hands the page to the user: the step's prompt ("Enter your password here, then
-   tap Return to AI") is added to the thread and shown on the browser card until the user returns control. */
+   tap Return to AI") is added to the thread and shown on the browser card until the user returns control.
+   0.10.3 (ADR 0006): the browser is AI-only and the task is a card under the message that asked for it. The app is
+   told the task (browser('task'): start before the request, so the user's own instruction counts as consent; its
+   id once known; its end with the result line) and draws it; Saga's requests for the user ("Saga needs you") land
+   in the thread with how to take control; the card's Retry runs the same goal again; Stop also stops it on the
+   server. */
 
 import { addBrowseNote, addThreadNote, nativeBrowser, nativeFailed, openBrowser, syncNative }
   from '../components/browser-panel.js';
 import { Colon } from '../../../../packages/ui/js/colon.js';
+import { CW } from '../core/cw.js';
 import { S, data, signedIn } from '../core/state.js';
-import { chatMode } from '../lib/browser-modes.js';
+import { endOf } from '../lib/saga-card.js';
 
 var C = Colon, POLL_MS = 1500, active = null;
 var TERMINAL = ['done', 'step_limit', 'timeout', 'stopped', 'interrupted', 'failed'];
@@ -64,12 +70,14 @@ function poll(t) {
       (d.actions || []).forEach(function (a) {
         t.seq = Math.max(t.seq, a.seq); t.steps.push(a);
         if (a.kind === 'action' && a.say && a.say !== t.lastSay) { t.lastSay = a.say; C.toast('Saga: ' + a.say); }
-        // Saga needs the user for a secret: the prompt goes in the thread (the card shows it too).
-        if (a.kind === 'handoff' && a.say) { C.toast(a.say); addThreadNote('**Your turn:** ' + line(a.say)
-          + ' Saga never sees what you type there. You can also say “done” here.', {}).catch(function () {}); }
+        // Saga needs the user (a secret, a sign-in, a code, a captcha…): the request goes in the thread too.
+        if (a.kind === 'handoff' && a.say) { C.toast(a.say); addThreadNote('**Saga needs you:** ' + line(a.say)
+          + ' Tap **Take control** on the browser card, do it there (Saga never sees what you type in the page), '
+          + 'then tell me here, like “I’ve logged in, continue”.', {}).catch(function () {}); }
       });
       if (TERMINAL.indexOf(d.task.status) < 0) return poll(t);
       active = null;
+      tellCard(t, d.task);
       if (d.task.status === 'failed' && FALLBACK.indexOf(d.task.error) >= 0) {
         return webFallback(t.goal, d.task.error === 'app_update_needed' ? 'Update Colon AI to let Saga drive the '
           + 'browser panel. Using the web reader for now.' : 'Saga couldn’t reach the browser panel. Using the web '
@@ -83,11 +91,24 @@ function poll(t) {
   }, POLL_MS);
 }
 
+// The card's last word on the task: done with the result line, stopped, or failed.
+function tellCard(t, task) {
+  if (!C.native.can('browserCard')) return;
+  var fin = t.steps.filter(function (a) { return a.kind === 'finish'; }).pop();
+  var e = endOf(task, fin && fin.say);
+  nativeBrowser('task', { op: 'end', id: String(task.id), kind: e.kind, result: e.result }).then(syncNative,
+    function () {});
+}
+
 /** AI Browse in the app: opens the native panel (in the thread on phones since 0.9.1) and, with a goal, has Saga
-    browse there. */
+    browse there. o.anchor (0.10.3): the chat message the task's card goes under. */
 function browseNative(goal, o) {
   o = o || {};
-  nativeBrowser('open', {}).then(syncNative, nativeFailed);
+  var card = C.native.can('browserCard');
+  if (goal && card && signedIn() && data.kind === 'remote' && !active) {
+    // Before the request: the app counts the chat's own instruction as consent (no "Let Saga browse?").
+    nativeBrowser('task', { op: 'start', goal: goal, anchor: o.anchor || '' }).then(syncNative, nativeFailed);
+  } else nativeBrowser('open', {}).then(syncNative, nativeFailed);
   if (!goal) return;
   // Saga's tasks belong to an account; signed-out (guest) chats keep the web reader.
   if (!signedIn() || data.kind !== 'remote') return webFallback(goal);
@@ -95,12 +116,15 @@ function browseNative(goal, o) {
   if (active) { C.toast('Saga is already browsing. Stop it in the panel first.', 'bad'); return; }
   var conv = S.current && !S.current.temporary ? S.current.id : null;
   C.api('/browser/agent', { method: 'POST', body: { goal: goal, conversation_id: conv,
-    mode: chatMode(S.current, S.settings), language: (C.user && C.user.language) || 'en' } }).then(function (d) {
+    mode: 'ai', language: (C.user && C.user.language) || 'en' } }).then(function (d) {
     active = { id: d.task.id, goal: goal, seq: 0, steps: [], errors: 0, lastSay: '', chat: !!o.chat };
+    if (card) nativeBrowser('task', { op: 'start', id: String(d.task.id), goal: goal, anchor: o.anchor || '' })
+      .then(syncNative, function () {});
     C.toast(o.chat ? 'Saga is on it in this chat’s browser.' : 'Saga is browsing in the panel. Tap Allow on your '
       + 'phone to let it start.');
     poll(active);
   }, function (e) {
+    if (card) nativeBrowser('task', { op: 'end', kind: 'error', result: '' }).then(syncNative, function () {});
     if (e.code === 'refused') { C.toast(e.message, 'bad'); return; }
     if (FALLBACK.indexOf(e.code) >= 0 || e.status === 404 || e.status === 501) return webFallback(goal);
     C.toast(e.message || 'Saga couldn’t start browsing.', 'bad');
@@ -110,4 +134,15 @@ function browseNative(goal, o) {
 /** True while a Saga task started from this page is running. */
 function sagaActive() { return !!active; }
 
-export { browseNative, sagaActive };
+/** Stop from the chat: the server stops the task too (the app's Stop already tells it through the phone). */
+function stopSaga() {
+  if (!active) return;
+  C.api('/browser/agent/' + encodeURIComponent(active.id) + '/stop', { method: 'POST' }).catch(function () {});
+}
+
+// The card's Retry (the app's "browserRetry" event): the same goal again, under the same message.
+CW.sagaRetry = function (d) {
+  if (d && d.goal && !active) browseNative(String(d.goal), { chat: true, anchor: d.anchor || '' });
+};
+
+export { browseNative, sagaActive, stopSaga };

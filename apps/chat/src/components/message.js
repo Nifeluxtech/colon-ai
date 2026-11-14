@@ -7,6 +7,7 @@ import { Colon } from '../../../../packages/ui/js/colon.js';
 import { ColonMarkdown } from '../../../../packages/ui/js/markdown/index.js';
 import { editMessage, regenerate } from '../actions/send-message.js';
 import { ReadAloud } from '../lib/read-aloud.js';
+import { CW } from '../core/cw.js';
 import { $, MODES, S, STAGES, data, ephemeral, modelName, signedIn } from '../core/state.js';
 
 var C = Colon, icon = C.icon, esc = C.esc, MD = ColonMarkdown;
@@ -16,12 +17,14 @@ function renderThread() {
   var page = $('#cw-page'); page.className = 'cw-page cw-page-chat';
   if (!S.messages.length) { page.innerHTML = '<div class="empty">' + icon('chat')
     + ('<div class="h3">Say hello to Colon Saga</div><p class="small">Ask anything to start this '
-    + 'conversation.</p></div>'); return; }
+    + 'conversation.</p></div>'); if (CW.placeCards) CW.placeCards(); return; }
   var lastA = lastAssistant();
   page.innerHTML = '<div class="cw-thread" role="log" aria-live="off">' + S.messages.map(function (m) { return msgHtml(
     m, m === lastA); }).join('') + '</div>';
   S.messages.forEach(function (m) { S.seen[m.id] = 1; });
   loadAttachmentThumbs(page);
+  // 0.10.3: Saga's task cards sit under the messages that asked for them (components/browser-card.js).
+  if (CW.placeCards) CW.placeCards();
 }
 function lastAssistant() { for (var i = S.messages.length - 1; i >= 0; i--) if (S.messages[
   i].role === 'assistant') return S.messages[i]; return null; }

@@ -32,7 +32,8 @@ object BridgeProtocol {
         data class Control(val mode: ControlState.Mode, val task: String?, val conversationId: String? = null) :
             Incoming()
         /** Phase 10: Saga reached a secret field; the user types it ([message]) and taps Return to AI. */
-        data class Handoff(val kind: String, val message: String, val conversationId: String?) : Incoming()
+        data class Handoff(val kind: String, val message: String, val conversationId: String?,
+                           val timeoutMs: Long = 0L) : Incoming()
         /** 0.10.2: something Saga tells the user on the page ([kind] step · ask · done), e.g. its task finished. */
         data class Notice(val text: String, val kind: String, val conversationId: String?) : Incoming()
         data class Error(val code: String, val message: String) : Incoming()
@@ -56,7 +57,7 @@ object BridgeProtocol {
                 ?.let { Incoming.Control(it, o.optString("task").ifEmpty { null }?.take(200), conv(o)) }
                 ?: Incoming.Unknown
             "handoff" -> Incoming.Handoff(o.optString("kind").ifEmpty { "password" }.take(20),
-                o.optString("message").take(200), conv(o))
+                o.optString("message").take(200), conv(o), o.optLong("timeout_ms").coerceIn(0L, MAX_WAIT_MS))
             "notice" -> line(o.optString("text"), MAX_SAY)?.let {
                 Incoming.Notice(it, o.optString("kind").takeIf { k -> k in NOTICE_KINDS } ?: "step", conv(o))
             } ?: Incoming.Unknown
@@ -68,7 +69,12 @@ object BridgeProtocol {
     private fun conv(o: JSONObject): String? = o.optString("conversation_id").ifEmpty { null }?.take(64)
 
     const val MAX_SAY = 160
-    val NOTICE_KINDS = setOf("step", "ask", "done")
+    /** 0.10.3: `error` and `stopped` end a task that didn't finish (the chat card's pill). */
+    val NOTICE_KINDS = setOf("step", "ask", "done", "error", "stopped")
+    /** The longest wait for the user a handoff may announce (an hour). */
+    const val MAX_WAIT_MS = 3_600_000L
+    /** 0.10.3: the user's hand-back message to Saga (HandoffNote), at most this long. */
+    const val MAX_NOTE = 500
 
     /** One short line of text for the screen: control characters and runs of spaces collapsed, at most [max]. */
     fun line(s: String?, max: Int): String? =
@@ -127,8 +133,9 @@ object BridgeProtocol {
 
     private fun bytes(s: String): Int = s.toByteArray(Charsets.UTF_8).size
 
-    fun control(mode: ControlState.Mode, paused: Boolean, reason: String): String =
-        base("control").put("mode", mode.wire).put("paused", paused).put("reason", reason).toString()
+    fun control(mode: ControlState.Mode, paused: Boolean, reason: String, note: String? = null): String =
+        base("control").put("mode", mode.wire).put("paused", paused).put("reason", reason)
+            .apply { note?.take(MAX_NOTE)?.takeIf { it.isNotBlank() }?.let { put("note", it) } }.toString()
 
     /** Page state of one tab. Only sent while Saga has AI or Shared control (privacy: manual browsing stays local). */
     fun pageState(state: JSONObject): String {

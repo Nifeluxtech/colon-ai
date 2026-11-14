@@ -54,6 +54,15 @@
         <item name="tint">@color/colon_text</item>
     </style>
 
+    <!-- 0.10.3: the in-chat browser's full-screen top bar (view_saga_card.xml), light icons on the dark bar. -->
+    <style name="Colon.CardButton" parent="">
+        <item name="android:layout_width">40dp</item>
+        <item name="android:layout_height">48dp</item>
+        <item name="android:background">?attr/selectableItemBackgroundBorderless</item>
+        <item name="android:scaleType">center</item>
+        <item name="tint">@color/colon_pill_text</item>
+    </style>
+
     <style name="Colon.IconButton" parent="">
         <item name="android:layout_width">0dp</item>
         <item name="android:layout_height">match_parent</item>

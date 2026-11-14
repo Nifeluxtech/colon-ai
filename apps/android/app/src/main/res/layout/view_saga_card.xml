@@ -1,0 +1,176 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 0.10.3: Colon AI's in-chat browser card (ChatCard), laid over the page in the panel's content frame. In the
+     thread: the floating status pill at the bottom and the expand button at the bottom-right; the page itself is
+     locked (AI-only), so a tap on it opens the full-screen view instead (card_catcher). Full screen: a slim top bar
+     (back, page title and host, reload, Take control / Give back to Saga, more, back to the chat) over the page.
+     Only the buttons take touches: in "user_control" the page under them is the user's. -->
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:id="@+id/card_overlay"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    tools:ignore="Overdraw">
+
+    <View
+        android:id="@+id/card_catcher"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:background="@android:color/transparent"
+        android:clickable="true"
+        android:contentDescription="@string/card_expand"
+        android:focusable="true" />
+
+    <LinearLayout
+        android:id="@+id/focus_bar"
+        android:layout_width="match_parent"
+        android:layout_height="52dp"
+        android:layout_gravity="top"
+        android:background="@color/colon_focus_bar"
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
+        android:paddingStart="4dp"
+        android:paddingEnd="4dp"
+        android:visibility="gone">
+
+        <ImageButton android:id="@+id/focus_back" style="@style/Colon.CardButton"
+            android:contentDescription="@string/back" android:src="@drawable/ic_back" />
+
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:layout_marginStart="4dp"
+            android:orientation="vertical">
+
+            <TextView
+                android:id="@+id/focus_title"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:ellipsize="end"
+                android:singleLine="true"
+                android:textColor="@color/colon_pill_text"
+                android:textSize="14sp"
+                android:textStyle="bold" />
+
+            <TextView
+                android:id="@+id/focus_host"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:ellipsize="middle"
+                android:singleLine="true"
+                android:textColor="#B3FFFFFF"
+                android:textSize="12sp" />
+        </LinearLayout>
+
+        <ImageButton android:id="@+id/focus_reload" style="@style/Colon.CardButton"
+            android:contentDescription="@string/reload" android:src="@drawable/ic_refresh" />
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/focus_action"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="4dp"
+            android:minHeight="40dp"
+            android:paddingHorizontal="12dp"
+            android:text="@string/take_control"
+            android:textAllCaps="false"
+            android:textSize="13sp"
+            app:backgroundTint="@color/colon_primary"
+            app:cornerRadius="999dp" />
+
+        <ImageButton android:id="@+id/focus_more" style="@style/Colon.CardButton"
+            android:contentDescription="@string/card_more" android:src="@drawable/ic_more" />
+        <ImageButton android:id="@+id/focus_close" style="@style/Colon.CardButton"
+            android:contentDescription="@string/card_collapse" android:src="@drawable/ic_fullscreen_exit" />
+    </LinearLayout>
+
+    <LinearLayout
+        android:id="@+id/card_pill"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="bottom|center_horizontal"
+        android:layout_marginStart="12dp"
+        android:layout_marginEnd="56dp"
+        android:layout_marginBottom="10dp"
+        android:accessibilityLiveRegion="polite"
+        android:background="@drawable/bg_pill"
+        android:backgroundTint="@color/colon_pill"
+        android:elevation="6dp"
+        android:gravity="center_vertical"
+        android:minHeight="36dp"
+        android:orientation="horizontal"
+        android:paddingStart="12dp"
+        android:paddingEnd="6dp"
+        android:visibility="gone">
+
+        <ProgressBar
+            android:id="@+id/pill_spinner"
+            style="?android:attr/progressBarStyleSmall"
+            android:layout_width="16dp"
+            android:layout_height="16dp"
+            android:indeterminateTint="@color/colon_cyan"
+            android:importantForAccessibility="no" />
+
+        <ImageView
+            android:id="@+id/pill_icon"
+            android:layout_width="18dp"
+            android:layout_height="18dp"
+            android:importantForAccessibility="no"
+            android:src="@drawable/ic_check"
+            android:visibility="gone" />
+
+        <TextView
+            android:id="@+id/pill_text"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="8dp"
+            android:layout_marginEnd="6dp"
+            android:ellipsize="end"
+            android:maxLines="2"
+            android:paddingVertical="6dp"
+            android:textColor="@color/colon_pill_text"
+            android:textSize="13sp" />
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/pill_action"
+            style="@style/Widget.Material3.Button.TonalButton"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:insetTop="0dp"
+            android:insetBottom="0dp"
+            android:minHeight="32dp"
+            android:minWidth="0dp"
+            android:paddingHorizontal="12dp"
+            android:text="@string/take_control"
+            android:textAllCaps="false"
+            android:textSize="12sp"
+            android:visibility="gone"
+            app:cornerRadius="999dp" />
+
+        <ImageButton
+            android:id="@+id/pill_stop"
+            android:layout_width="32dp"
+            android:layout_height="32dp"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:contentDescription="@string/card_stop"
+            android:scaleType="center"
+            android:src="@drawable/ic_close"
+            android:visibility="gone"
+            app:tint="@color/colon_pill_text" />
+    </LinearLayout>
+
+    <ImageButton
+        android:id="@+id/card_expand"
+        android:layout_width="36dp"
+        android:layout_height="36dp"
+        android:layout_gravity="bottom|end"
+        android:layout_margin="10dp"
+        android:background="@drawable/bg_card_button"
+        android:contentDescription="@string/card_expand"
+        android:elevation="6dp"
+        android:padding="8dp"
+        android:scaleType="fitCenter"
+        android:src="@drawable/ic_fullscreen"
+        app:tint="@color/colon_pill_text" />
+</FrameLayout>

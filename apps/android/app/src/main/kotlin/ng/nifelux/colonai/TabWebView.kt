@@ -22,6 +22,9 @@ import android.webkit.WebView
 class TabWebView(context: Context) : WebView(context) {
     /** True while the user must not drive this page (Saga has it in "AI only"). */
     var guard: () -> Boolean = { false }
+    /** 0.10.3: the desktop-layout script (DesktopView) to run as each page starts, on WebViews that can't inject it
+     *  at document start; null otherwise. */
+    var desktopScript: String? = null
     private var sagaDepth = 0
 
     /** Runs [block] (a dispatch of Saga's own MotionEvents) as Saga's input, which the lock lets through. */

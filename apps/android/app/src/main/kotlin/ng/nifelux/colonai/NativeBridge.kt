@@ -179,7 +179,20 @@ class NativeBridge(private val host: MainActivity, private val webView: WebView)
         if (a.optBoolean("inline", false)) p.setWebInline()
         when (a.optString("action")) {
             // Only a page that draws the card reports its box: that says it can too (v0.9.2).
-            "anchor" -> { p.setWebInline(); p.setAnchor(InlineGeometry.anchorOf(a)); done(true, null, null); return }
+            "anchor" -> {
+                p.setWebInline(); p.setAnchor(InlineGeometry.anchorOf(a), InlineGeometry.bandOf(a))
+                done(true, null, null); return
+            }
+            // 0.10.3: the chat's Saga tasks on the card ({op: start, id, goal, anchor} · {op: end, id, kind, result})
+            // and its finished cards with their pictures.
+            "task" -> {
+                val id = a.optString("id").takeIf { it.isNotBlank() && it.length <= 40 }
+                if (a.optString("op") == "end") {
+                    val kind = a.optString("kind").takeIf { it in END_KINDS } ?: "error"
+                    p.taskEnded(id, kind, a.optString("result"))
+                } else p.taskStarted(id, a.optString("goal"), a.optString("anchor").ifBlank { null })
+            }
+            "cards" -> { done(true, p.cardsJson(), null); return }
             "open" -> p.open(url.ifEmpty { null }, a.optString("layout").ifEmpty { null })
             "navigate" -> if (url.isEmpty()) { done(false, null, "bad_url"); return } else p.open(url)
             "layout" -> {
@@ -201,7 +214,9 @@ class NativeBridge(private val host: MainActivity, private val webView: WebView)
                 if (m != "ai" && m != "shared") { done(false, null, "bad_mode"); return }
                 p.setChatMode(m)
             }
-            "control" -> if (!p.userControl(a.optString("op"))) { done(false, null, "no_change"); return }
+            "control" -> if (!p.userControl(a.optString("op"), a.optString("note").ifBlank { null })) {
+                done(false, null, "no_change"); return
+            }
             else -> { done(false, null, "unknown_action"); return }
         }
         done(true, p.state(), null)
@@ -246,9 +261,10 @@ class NativeBridge(private val host: MainActivity, private val webView: WebView)
         const val CHANNEL = "ColonNativeChannel"
         const val LEGACY = "ColonNativeLegacy"
         private const val MAX_SAVE_B64 = 34 * 1024 * 1024 // about 25 MB of file
+        private val END_KINDS = setOf("done", "error", "stopped")
         val FEATURES = listOf("share", "download", "saveFile", "openTab", "openExternal", "haptic",
             "requestPermission", "checkUpdate", "setTheme", "setSession", "takeShare", "fileInput", "mic", "browserPanel",
-            "browserInline", "browserChats")
+            "browserInline", "browserChats", "browserCard")
 
         /** Defines window.ColonNative (promise API) on top of the channel. Runs once per page, before page scripts. */
         private val SHIM = """

@@ -61,6 +61,8 @@ async function waitHandoff(task, bridge, info, o, L) {
 
 /** 0.10.3: the user took the browser (why: manual_control) or paused it (paused): wait for it to come back. */
 function waitUser(task, bridge, why, L) {
+  // The phone's Stop (or a declined consent) also cancels the step in flight: that is not a wait, it's the end.
+  if (bridge.state && bridge.state.consented === false) return Promise.resolve('stop');
   const phase = why === 'paused' ? 'paused' : 'user_control';
   return waitBack(task, bridge, phase, L.userControlTimeoutMs, bridge.waitControl(Math.min(SLICE_MS,
     L.userControlTimeoutMs)));

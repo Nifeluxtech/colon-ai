@@ -193,7 +193,7 @@ search adapter and a search cache; rerun DeepSeek/GLM when NVIDIA's free tier an
 - [ ] Release standard on real phones: multi-step tasks on real sites, injection pages and approvals checked on a
   device (the Android code is not compiled or run in CI here yet for this release)
 
-## Phase 10 — Browser inside chat & control modes ✅ (v0.10.0, 13 Nov 2026)
+## Phase 10 — Browser inside chat & control modes ✅ (v0.10.0, 13 Nov 2026; AI-only card v0.10.3)
 - The browser appears automatically in the conversation when Saga browses.
 - Embedded layout (expandable) and split-screen layout (stacked with a resizable divider on phones).
 - Switching layouts never restarts or loses the session.
@@ -211,11 +211,18 @@ sessions replace sharing Colon Browser's tabs with Colon AI (Colon Browser keeps
   browser; anything else asked of it becomes a Saga task in the chat
 - [x] Two modes per chat: **AI only** (Saga drives, the user watches) and **AI + me** (both act; Saga sees the
   user's changes), with Take control, Return to AI, Pause and Stop; the default in Settings, a mode chip on the card
+  (Colon AI is AI-only since v0.10.3, below; Colon Browser keeps its modes)
 - [x] Saga never fills passwords, codes, card numbers, PINs, or sign-in and payment pages: the page is handed to
   the user ("Your turn") and Saga resumes on Return to AI (`SAGA_HANDOFF_TIMEOUT_MS`)
 - [x] Embedded, split, full-screen and inline layouts switch without reloading (since v0.8.0–v0.9.2); the panel
   opens in the conversation when Saga browses (since v0.9.0)
 - [x] Tests: control rules, per-chat sessions, handoff ordering, secret-field refusals, chat intents and modes
+- [x] **The AI-only browser card (v0.10.3, ADR 0006):** the owner's "Manus-style" redesign. Each Saga task is a
+  card in the thread under the message that asked for it: a live desktop page scaled down with a status pill (step,
+  "Saga needs you", the result line, Retry, Stop); finished cards keep a picture. The browser is always AI-only (the
+  AI only / AI + me setting is gone); Take control, asked for by the user or by Saga (`requestUserControl`), opens
+  it full screen above the pinned chat composer, and the user's next message gives it back to Saga as a note. The
+  server waits for the user (`SAGA_USER_CONTROL_TIMEOUT_MS`) instead of ending the task
 - [ ] Release standard on real phones: mode, layout and chat switching checked across devices with no lost state
   (the Android code is not compiled or run in CI here yet for this release)
 

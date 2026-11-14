@@ -37,6 +37,10 @@ private typealias Reply = (ok: Boolean, result: JSONObject?, error: String?) -> 
 class BrowserSaga(private val a: BrowserHost, private val bridge: BridgeClient) :
     BridgeClient.Listener, BridgeClient.CommandHandler {
     val control = ControlState()
+    /** 0.10.3: Colon AI's in-chat browser (ChatBrowserPanel): AI only, always. Its card draws the controls and the
+     *  status (ChatCard), so this class's chip, control bar, shield and notices stay hidden, the page's lock is the
+     *  panel's (user_control only), a request for "AI + me" runs as AI only, and Saga's words go to the card. */
+    var chatUi = false
     private val tools = SagaTools(a)
     private val clicks = SagaClicks(tools)
     /** 0.10.1: Saga's pointer over the page (SagaPointer); null until bind(). */
@@ -111,23 +115,25 @@ class BrowserSaga(private val a: BrowserHost, private val bridge: BridgeClient) 
             return
         }
         if (request.mode == ControlState.Mode.MANUAL) { apply(control.stop()); return }
+        val ask = if (chatUi && request.mode == ControlState.Mode.SHARED) request.copy(mode = ControlState.Mode.AI)
+            else request
         // The user allowed Saga in this chat's browser a moment ago and is giving it the next instruction in the chat.
         val chat = bridge.conversationId
         val now = System.currentTimeMillis()
         if (ChatSessionRules.consentStands(allowedChat, allowedAt, chat, now)) {
             allowedAt = now
-            apply(control.grant(request.mode, request.task) ?: "consent")
+            apply(control.grant(ask.mode, ask.task) ?: "consent")
             return
         }
-        val label = request.task ?: a.activity.getString(R.string.saga_task_unknown)
+        val label = ask.task ?: a.activity.getString(R.string.saga_task_unknown)
         MaterialAlertDialogBuilder(a.activity)
             .setTitle(R.string.saga_consent_title)
-            .setMessage(a.activity.getString(if (request.mode == ControlState.Mode.AI) R.string.saga_consent_ai
+            .setMessage(a.activity.getString(if (ask.mode == ControlState.Mode.AI) R.string.saga_consent_ai
                 else R.string.saga_consent_shared, label))
             // Already in that mode (nothing changes on the phone): still tell the server the user said yes.
             .setPositiveButton(R.string.allow) { _, _ ->
                 bridge.conversationId?.let { allowedChat = it; allowedAt = System.currentTimeMillis() }
-                apply(control.grant(request.mode, request.task) ?: "consent")
+                apply(control.grant(ask.mode, ask.task) ?: "consent")
             }
             .setNegativeButton(R.string.not_now) { _, _ ->
                 forgetConsent()
@@ -137,12 +143,12 @@ class BrowserSaga(private val a: BrowserHost, private val bridge: BridgeClient) 
             .show()
     }
 
-    private fun apply(reason: String?) {
+    private fun apply(reason: String?, note: String? = null) {
         reason ?: return
         if (!control.canRunCommands()) approvalDialog?.dismiss() // a pending approval is declined when Saga stops
         if (!control.canRunCommands() || control.handoff != null) pointer?.hide()
         if (control.mode == ControlState.Mode.MANUAL && control.handoff == null) notice?.dismiss()
-        bridge.reportControl(control.mode, control.paused, reason)
+        bridge.reportControl(control.mode, control.paused, reason, note)
         render()
         reportState()
         a.onControlChanged()
@@ -158,18 +164,24 @@ class BrowserSaga(private val a: BrowserHost, private val bridge: BridgeClient) 
         if (!otherChat(notice.conversationId)) notify(notice.text, notice.kind)
     }
 
-    /** "AI + me": a line from Saga at the top of the page for a moment (NoticeRules). */
+    /** "AI + me": a line from Saga at the top of the page for a moment (NoticeRules). 0.10.3: the chat's card. */
     private fun notify(text: String?, kind: String) {
         val line = NoticeRules.text(text) ?: return
+        if (chatUi) { a.onSagaWords(line, kind); return }
         if (NoticeRules.shows(control.mode, control.resumable, a.sharedMode())) notice?.show(line, kind)
     }
 
     /** 0.10.2: the user may not touch, scroll or type in the page now ("AI only" while Saga has it). */
-    fun blocksUser(): Boolean = InputGuard.blocksUser(control.mode)
+    fun blocksUser(): Boolean = if (chatUi) a.userInputBlocked() else InputGuard.blocksUser(control.mode)
+
+    /** 0.10.3: the chat started this task itself (the user's own instruction in this chat): that is the user's
+     *  consent for this chat, so "Let Saga browse?" isn't asked again (ChatSessionRules.consentStands). */
+    fun preAllow(chat: String?) { chat?.let { allowedChat = it; allowedAt = System.currentTimeMillis() } }
 
     /** The server found a secret field first: the user takes over to type it. */
     override fun onHandoff(request: BridgeProtocol.Incoming.Handoff) {
         if (otherChat(request.conversationId)) return
+        a.onSagaHandoff(request.timeoutMs)
         handOff(request.kind, request.message.ifBlank { null })
     }
 
@@ -190,8 +202,9 @@ class BrowserSaga(private val a: BrowserHost, private val bridge: BridgeClient) 
     /** "AI only" (AI) or "AI + me" (SHARED), from the chat, the inline card or the status dialog. */
     fun switchMode(next: ControlState.Mode) { apply(control.switchMode(next)) }
 
-    /** The user's Take control / Return to AI from the chat page (the inline card or a chat message). */
-    fun userControl(op: String): Boolean {
+    /** The user's Take control / Return to AI from the chat page (the inline card or a chat message). [note]
+     *  (0.10.3): with return_to_ai, what the user tells Saga (HandoffNote: their words and the page, no values). */
+    fun userControl(op: String, note: String? = null): Boolean {
         val reason = when (op) {
             "take_control" -> control.takeControl()
             "return_to_ai" -> control.returnToAi()
@@ -200,7 +213,7 @@ class BrowserSaga(private val a: BrowserHost, private val bridge: BridgeClient) 
             "stop" -> { forgetConsent(); control.stop() }
             else -> null
         }
-        apply(reason)
+        apply(reason, if (reason == "return_to_ai") note else null)
         return reason != null
     }
 
@@ -230,7 +243,7 @@ class BrowserSaga(private val a: BrowserHost, private val bridge: BridgeClient) 
         chip.setTextColor(ContextCompat.getColor(a.activity, if (mode == ControlState.Mode.MANUAL) R.color.colon_text
             else android.R.color.white))
         chip.contentDescription = a.activity.getString(R.string.mode_description, chip.text)
-        val showBanner = mode != ControlState.Mode.MANUAL || control.resumable != null
+        val showBanner = !chatUi && (mode != ControlState.Mode.MANUAL || control.resumable != null)
         banner.visibility = if (showBanner) View.VISIBLE else View.GONE
         bannerText.text = when {
             control.handoff != null -> control.handoff?.message
@@ -243,6 +256,8 @@ class BrowserSaga(private val a: BrowserHost, private val bridge: BridgeClient) 
         btnPause.setText(if (control.paused) R.string.resume else R.string.pause)
         btnControl.setText(if (mode == ControlState.Mode.MANUAL) R.string.return_to_ai else R.string.take_control)
         // "AI only": the page is Saga's, paused too (Take control on the shield gives it back to the user).
+        // The chat's card draws its own controls and the panel locks its own page (0.10.3).
+        if (chatUi) { shield.visibility = View.GONE; return }
         val locked = blocksUser()
         shield.visibility = if (locked) View.VISIBLE else View.GONE
         if (locked != lockedFor) {
@@ -267,7 +282,7 @@ class BrowserSaga(private val a: BrowserHost, private val bridge: BridgeClient) 
             .setPositiveButton(R.string.close, null)
             .apply {
                 // Phase 10: switch this task between "AI only" and "AI + me" without stopping it.
-                if (canSwitch) {
+                if (canSwitch && !chatUi) {
                     val toShared = (control.resumable ?: control.mode) != ControlState.Mode.SHARED
                     setNeutralButton(if (toShared) R.string.mode_switch_shared else R.string.mode_switch_ai) { _, _ ->
                         switchMode(if (toShared) ControlState.Mode.SHARED else ControlState.Mode.AI)

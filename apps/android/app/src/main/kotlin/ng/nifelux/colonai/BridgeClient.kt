@@ -137,9 +137,10 @@ class BridgeClient(private val context: Context, val http: OkHttpClient) {
     /** Sends a frame if connected; returns false otherwise (callers never queue: page state is only "now"). */
     fun send(text: String): Boolean = socket?.send(text) ?: false
 
-    fun reportControl(mode: ControlState.Mode, paused: Boolean, reason: String) {
+    /** [note] (0.10.3): the user's words when they give the browser back (return_to_ai), never a field's value. */
+    fun reportControl(mode: ControlState.Mode, paused: Boolean, reason: String, note: String? = null) {
         controlMode = mode
-        send(BridgeProtocol.control(mode, paused, reason))
+        send(BridgeProtocol.control(mode, paused, reason, note))
     }
 
     private fun connect() {

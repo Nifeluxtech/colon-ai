@@ -5,7 +5,8 @@ import { autoGrow, scrollBottom, syncComposer } from './composer.js';
 import { renderThread } from './message.js';
 import { updateHeader } from './model-picker.js';
 import { refreshConvs } from './sidebar.js';
-import { chatCall, chatMode, chip, menu, sessionKey } from '../lib/browser-modes.js';
+import { loadCards, placeCards, resized } from './browser-card.js';
+import { chatCall, sessionKey } from '../lib/browser-modes.js';
 import { createAnchor } from '../lib/native-anchor.js';
 import { needsAnnounce, showsCard, withInline } from '../lib/native-panel.js';
 import { reveal } from '../lib/thread-scroll.js';
@@ -13,7 +14,7 @@ import { ColonBrowser } from '../../../../packages/ui/js/browser/index.js';
 import { Colon } from '../../../../packages/ui/js/colon.js';
 import { ColonURL } from '../../../../packages/ui/js/url.js';
 import { CW } from '../core/cw.js';
-import { $, S, data, defaultModel, isMobile } from '../core/state.js';
+import { $, S, data, defaultModel, isMobile, signedIn } from '../core/state.js';
 import { setView } from '../pages/chat.js';
 
 var C = Colon, icon = C.icon;
@@ -163,20 +164,24 @@ function toggleBrowser() {
 }
 // Follows the panel while the chat is mounted; returns the function that stops following.
 function startNativeBrowser() {
-  if (!C.native.hasPanel()) return function () {};
+  S.browser.host = $('.cw-native-host');
+  CW.placeCards = placeCards;                  // message.js redraws the thread: the cards go back in place
+  window.addEventListener('resize', resized, { passive: true });
+  if (!C.native.hasPanel()) return function () { window.removeEventListener('resize', resized); };
   // The first call says at once that this page draws the inline card (every call does, v0.9.1); the state of a
   // panel the app opened by itself meanwhile comes back with it.
   nativeBrowser('state').then(syncNative, function () {});
   syncChat();                         // Phase 10: the app shows this chat's own browser from the start
   var off = C.native.on('browser', syncNative);
   var offResume = C.native.on('resume', function () { nativeBrowser('state').then(syncNative, function () {}); });
-  return function () { off(); offResume(); stopAnchor(); var h = $('.cw-native-host'); if (h) h.innerHTML = ''; };
+  var offRetry = C.native.on('browserRetry', function (d) { if (CW.sagaRetry) CW.sagaRetry(d); });
+  return function () { off(); offResume(); offRetry(); stopAnchor(); window.removeEventListener('resize', resized);
+    var h = S.browser.host; if (h) h.innerHTML = ''; };
 }
-/* ---------- Native panel inside the thread (v0.9.1, layout "inline") ---------- */
-// Since Colon AI 0.9.1 (feature "browserInline") the phone's panel can sit in the thread where the web card sits:
-// this page draws the card's header and an empty body box, and the app lays its real WebView over that box
-// (lib/native-anchor.js reports where it is). Every call says this page can draw the card ({ inline: true }), so
-// the app uses "inline" only with a page that can; older pages and older apps keep the panel above the chat.
+/* ---------- The live card in the thread (v0.9.1 layout "inline"; 0.10.3 Saga's task card, ADR 0006) ---------- */
+// This page draws the card's box (components/browser-card.js) and the app lays its real WebView over it (lib/
+// native-anchor.js reports where it is), with the status pill, expand and Take control drawn by the app. Every call
+// says this page can draw the card ({ inline: true }); older apps keep the panel above the chat.
 function inlineOk() { return C.native.can('browserInline'); }
 function nativeBrowser(action, o) { return C.native.browser(action, withInline(o, inlineOk())); }
 // Brings a card into view by scrolling the thread only (v0.10.1): scrollIntoView() also scrolled the fixed frame,
@@ -185,81 +190,54 @@ function revealInThread(el, smooth) {
   if (el) reveal($('#cw-scroll'), el, { cover: $('.cw-composer'), smooth: !!smooth });
 }
 function stopAnchor() { if (S.browser.anchor) { S.browser.anchor.stop(); S.browser.anchor = null; } }
-function inlineHtml() {
-  return '<div class="cw-embed cw-native-card" role="region" aria-label="Colon Browser (in the chat)">'
-    + '<div class="cw-embed-head"><span class="status-dot" data-ndot></span><b>Colon Browser</b>'
-    + '<span class="tiny muted cw-ellipsis" data-nurl></span>'
-    + '<button class="chip sm cw-mode-chip" data-a="native-mode" aria-haspopup="menu"></button>'
-    + '<button class="icon-btn sm" data-a="native-collapse" aria-label="Collapse browser" aria-expanded="true" '
-    + 'data-tip="Collapse">' + icon('chevDown') + '</button>'
-    + '<button class="icon-btn sm" data-a="native-full" aria-label="Expand to full screen" data-tip="Full screen">'
-    + icon('expand') + '</button>'
-    + '<button class="icon-btn sm" data-a="native-close" aria-label="Close browser" data-tip="Close">' + icon('x')
-    + '</button></div><div class="cw-native-prompt" role="alert" hidden><span data-nprompt></span>'
-    + '<button class="btn sm primary" data-a="native-return">Return to AI</button></div>'
-    + '<div class="cw-embed-body cw-native-body"><span class="tiny muted">Loading the page…</span>'
-    + '</div></div>';
+function appCards() { return C.native.can('browserCard') ? nativeBrowser('cards') : Promise.resolve([]); }
+// The task ended: its card's picture and result are on the phone a moment later.
+function followRun(run) {
+  var was = S.browser.runState, now = run && run.state;
+  S.browser.runState = now;
+  if (now && now !== was && /^(done|error|stopped)$/.test(now)) {
+    setTimeout(function () { loadCards(sessionKey(S.current), appCards); }, 2400);
+  }
 }
 function renderNativeInline(st) {
-  var host = $('.cw-native-host'); if (!host) return;
-  if (!showsCard(st, inlineOk())) { stopAnchor(); host.innerHTML = ''; return; }
-  var card = host.querySelector('.cw-native-card'), fresh = !card;
-  if (fresh) { host.innerHTML = inlineHtml(); card = host.querySelector('.cw-native-card'); }
-  card.classList.toggle('collapsed', !!st.collapsed);
-  var saga = st.control && st.control !== 'manual';
-  card.querySelector('[data-ndot]').className = 'status-dot' + (saga || st.loading ? ' live' : '')
-    + (st.paused ? ' warn' : '');
-  card.querySelector('[data-nurl]').textContent = (saga ? 'Saga · ' : '') + (st.url ? ColonURL.displayUrl(st.url)
-    : 'New tab');
-  // Phase 10: who drives this chat's browser, and Saga's request to type a password or code here.
-  var c = chip(st, chatMode(S.current, S.settings)), mc = card.querySelector('[data-a=native-mode]');
-  mc.textContent = c.label; mc.setAttribute('data-state', c.state);
-  mc.setAttribute('aria-label', 'Browser mode: ' + c.label + '. Change it');
-  var pr = card.querySelector('.cw-native-prompt');
-  pr.hidden = !c.canReturn; card.querySelector('[data-nprompt]').textContent = c.prompt || 'You’re in control.';
-  var cb = card.querySelector('[data-a=native-collapse]');
-  cb.setAttribute('aria-expanded', !st.collapsed);
-  cb.setAttribute('aria-label', st.collapsed ? 'Expand browser' : 'Collapse browser');
+  var was = S.browser.liveShown, shows = showsCard(st, inlineOk());
+  S.browser.liveShown = shows;
+  followRun(st.run);
+  placeCards();
+  var body = S.browser.host && S.browser.host.querySelector('.cw-native-body');
+  if (!shows || !body) { stopAnchor(); return; }
+  if (S.browser.anchor && S.browser.anchorEl !== body) stopAnchor();
   if (!S.browser.anchor) {
-    S.browser.anchor = createAnchor({ el: card.querySelector('.cw-native-body'), scroller: $('#cw-scroll'),
+    S.browser.anchorEl = body;
+    S.browser.anchor = createAnchor({ el: body, scroller: $('#cw-scroll'), band: true,
       // The app's WebView is clipped to the band above the floating composer, never over it (v0.10.1).
       // 0.10.2: looked up on every measure (a re-drawn composer still counts) and watched for size changes.
       cover: function () { return $('.cw-composer'); }, watch: [$('#cw-page'), $('.cw-composer')],
       collapsed: function () { return !!(S.browser.nativeState && S.browser.nativeState.collapsed); },
-      send: function (p) { nativeBrowser('anchor', p).catch(function () {}); },
-      // The keyboard opened while the chat's own fields aren't focused: it is for the page in the panel, so keep
-      // the card's box on screen (the thread shrank and could have hidden what is typed).
-      onKeyboard: function () { var f = document.activeElement;
-        if (!f || !/^(INPUT|TEXTAREA|SELECT)$/.test(f.tagName)) {
-          revealInThread(card.querySelector('.cw-native-body'), false); } } });
+      send: function (p) { nativeBrowser('anchor', p).catch(function () {}); } });
   } else S.browser.anchor.update();
-  // Saga just took the browser (0.10.2): bring the card into view once, so its pointer and taps can be seen.
-  if (fresh || (saga && !S.browser.sagaShown)) setTimeout(function () { revealInThread(card, true); }, 50);
-  S.browser.sagaShown = !!saga;
+  // A new card, or Saga needs the user: bring it into view once (so its pointer and request can be seen).
+  var run = st.run || {}, wants = run.state === 'running' || run.state === 'needs_user';
+  if (!was || (wants && S.browser.sagaShown !== run.state)) setTimeout(function () {
+    revealInThread(S.browser.host, true); }, 50);
+  S.browser.sagaShown = wants ? run.state : null;
 }
-// The card's header buttons: collapse / expand, full screen (the app's own header there), close.
-function nativeInlineAction(act, el) {
+// Taps in the thread: a finished card brings the live browser back; older pages' header buttons still work.
+function nativeInlineAction(act) {
   var st = S.browser.nativeState || {};
-  if (act === 'native-mode') return modeMenu(el, st);
+  if (act === 'saga-card-open') return nativeBrowser('open').then(syncNative, nativeFailed);
   if (act === 'native-return') return nativeBrowser('control', { op: 'return_to_ai' }).then(syncNative, nativeFailed);
   var call = act === 'native-collapse' ? nativeBrowser('collapse', { collapsed: !st.collapsed })
     : act === 'native-full' ? nativeBrowser('layout', { layout: 'full' }) : nativeBrowser('close');
   call.then(syncNative, nativeFailed);
 }
-/* ---------- Phase 10: one browser per chat, and its mode ---------- */
-function modeMenu(anchor, st) {
-  C.menu(anchor, [{ head: 'This chat’s browser' }].concat(menu(st, chatMode(S.current, S.settings)).map(function (i) {
-    return { label: i.label, checked: i.checked, onClick: function () { if (i.op === 'mode') setChatMode(i.mode);
-      else nativeBrowser('control', { op: i.op }).then(syncNative, nativeFailed); } };
-  })), { label: 'Browser mode', align: 'right' });
-}
-// The chat's mode: saved on the conversation and, in the app, applied to its browser (and Saga's running task).
+/* ---------- Phase 10: one browser per chat (0.10.3: AI only) ---------- */
+// The chat's mode, kept on the conversation for older apps; the in-chat browser is AI-only since 0.10.3.
 function setChatMode(mode) {
   if (S.current && !S.loadingConv) {
     S.current.browser_mode = mode;
     data.updateConversation(S.current.id, { browser_mode: mode }).catch(function () {});
   }
-  if (C.native.can('browserChats')) return nativeBrowser('mode', { mode: mode }).then(syncNative, function () {});
   return Promise.resolve();
 }
 // The chat on screen changed (updateHeader runs on every change): the app shows that chat's browser, a new chat
@@ -271,13 +249,19 @@ function syncChat() {
     if (S.browser.layout !== 'none') setLayout('none');
     S.browser.inst.destroy(); S.browser.inst = null;
   }
+  // 0.10.3: this chat's Saga cards (the app's, with pictures; on the web, the server's tasks for this chat).
+  if (S.browser.cardsKey !== key) {
+    S.browser.cardsKey = key; S.browser.cards = [];
+    loadCards(key, C.native.hasPanel() ? appCards : signedIn() && data.kind === 'remote' ? null
+      : function () { return []; });
+  }
   if (!C.native.can('browserChats')) return;
   var call = chatCall(S.browser.chatSent, key, { created: !!key && key === S.browser.createdId });
-  var mode = chatMode(S.current, S.settings);
   if (call) { S.browser.chatSent = key; S.browser.modeSent = null; nativeBrowser('chat', call).then(syncNative,
     function () {}); }
-  if (S.browser.modeSent !== key + ':' + mode) { S.browser.modeSent = key + ':' + mode;
-    nativeBrowser('mode', { mode: mode }).then(syncNative, function () {}); }
+  // AI only (0.10.3); an older app that still has "AI + me" is told so too.
+  if (S.browser.modeSent !== key) { S.browser.modeSent = key;
+    nativeBrowser('mode', { mode: 'ai' }).then(syncNative, function () {}); }
 }
 CW.syncChat = syncChat;
 // A deleted chat's browser goes with it: the app's profile and tabs, the web reader's session on this device.

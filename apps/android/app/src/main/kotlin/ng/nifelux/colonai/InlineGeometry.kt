@@ -54,6 +54,40 @@ object InlineGeometry {
         return Anchor(true, x, y, width, height, vTop, vBottom, d, page)
     }
 
+    /** 0.10.3: where the composer is, from any report (the card itself may be off screen): the band's bottom
+     *  ([viewportBottom], the composer's top), the visible page's height and the scale, all from the same report. */
+    data class Band(val viewportBottom: Float, val pageHeight: Float, val dpr: Float)
+
+    /** The band of a report, visible or not; null when it doesn't carry one (older pages, a bad message). */
+    fun bandOf(o: JSONObject): Band? {
+        fun f(k: String) = o.optDouble(k, Double.NaN).toFloat()
+        val bottom = f("viewportBottom")
+        val page = f("pageHeight")
+        val dpr = f("dpr")
+        if (!bottom.isFinite() || bottom <= 0f || bottom > MAX_CSS) return null
+        if (!page.isFinite() || page <= 0f || page > MAX_CSS) return null
+        return Band(bottom, page, if (dpr.isFinite() && dpr in MIN_DPR..MAX_DPR) dpr else 0f)
+    }
+
+    /**
+     * 0.10.3: the browser full screen over the chat, the composer still below it (Take control, or the expand
+     * button). The panel fills the layer from its top to the composer's top: the gap the page saw under the band
+     * ([Band.pageHeight] − viewportBottom: the composer and below) is kept from the shell WebView's bottom as it is
+     * now, so when the keyboard opens (the chat shrinks) the browser shrinks above the composer at once. Without a
+     * band yet, [fallbackGap] px are left for the composer.
+     */
+    fun focus(band: Band?, density: Float, offsetY: Int, layerWidth: Int, layerHeight: Int, shellHeight: Int,
+              fallbackGap: Int): Placement {
+        if (layerWidth <= 0 || layerHeight <= 0) return NOWHERE
+        val d = band?.dpr?.takeIf { it > 0f } ?: density
+        val gap = if (band != null && d > 0f) ((band.pageHeight - band.viewportBottom) * d).roundToInt()
+            .coerceAtLeast(0) else fallbackGap.coerceAtLeast(0)
+        val shellBottom = if (shellHeight > 0) offsetY + shellHeight else layerHeight
+        val bottom = min(layerHeight, shellBottom - gap)
+        if (bottom <= 0) return NOWHERE
+        return Placement(true, 0, 0, layerWidth, bottom, 0, bottom)
+    }
+
     /**
      * [density]: the screen's density, used when the page sent no usable dpr. [offsetX]/[offsetY]: the shell
      * WebView's position inside the layer (0 when both fill the same box). [layerWidth]/[layerHeight]: the layer's

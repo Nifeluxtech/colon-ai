@@ -95,9 +95,14 @@ async function actions(taskId, after = 0) {
   return rows.map((r) => ({ ...r, args: parse(r.args), ok: r.ok == null ? null : Boolean(Number(r.ok)) }));
 }
 
-const list = (userId, limit = 20) => db.query(
-  `SELECT id, goal, status, error, steps, created_at, finished_at FROM saga_tasks WHERE user_id = ?
-    ORDER BY id DESC LIMIT ?`, [userId, limit]);
+// 0.10.3: with the conversation (the chat's task cards) and the result line (the finish step's words, the card's
+// status pill); conv narrows it to one chat.
+const list = (userId, limit = 20, conv = null) => db.query(
+  `SELECT id, goal, status, error, steps, conversation_id, created_at, finished_at,
+     (SELECT a.say FROM saga_actions a WHERE a.task_id = saga_tasks.id AND a.kind = 'finish' ORDER BY a.seq DESC
+       LIMIT 1) AS result
+     FROM saga_tasks WHERE user_id = ?${conv ? ' AND conversation_id = ?' : ''} ORDER BY id DESC LIMIT ?`,
+  conv ? [userId, String(conv), limit] : [userId, limit]);
 
 // Queued tasks of these users, newest first (the worker holding their phone picks them up).
 async function queuedFor(userIds, since) {
@@ -130,7 +135,7 @@ function view(row) {
   const iso = (v) => (v ? new Date(v).toISOString() : null);
   return { id: Number(row.id), goal: row.goal, status: row.status, error: row.error || null, steps: Number(row.steps)
     || 0, answer: row.answer || '', sources: parse(row.sources) || [], conversation_id: row.conversation_id || null,
-  mode: MODES.includes(row.mode) ? row.mode : 'ai',
+  mode: MODES.includes(row.mode) ? row.mode : 'ai', result: row.result ? String(row.result).slice(0, 80) : '',
   created_at: iso(row.created_at), finished_at: iso(row.finished_at) };
 }
 

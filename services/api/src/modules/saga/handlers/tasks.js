@@ -54,7 +54,9 @@ async function stopTask(req) {
 }
 
 async function listTasks(req) {
-  const rows = await store.list(req.user.id, 20);
+  // 0.10.3: ?conversation_id= gives one chat's tasks (its cards on the web).
+  const conv = String(req.query.get('conversation_id') || '').slice(0, 64) || null;
+  const rows = await store.list(req.user.id, 20, conv);
   return [200, { tasks: rows.map(store.view) }];
 }
 

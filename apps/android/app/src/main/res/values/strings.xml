@@ -168,4 +168,26 @@
     <string name="saga_kind_personal">Saga wants to use your personal details.</string>
     <string name="saga_kind_step">Shared mode: Saga asks before each step.</string>
     <string name="saga_step">%1$s %2$s</string>
+    <!-- 0.10.3: the in-chat browser card (ChatCard): AI-only, Take control, Give back to Saga. -->
+    <string name="card_working">Saga is working…</string>
+    <string name="card_paused">Saga is paused</string>
+    <string name="card_your_turn">Your turn. Give back to Saga when you\'re done</string>
+    <string name="card_you_control">You\'re in control</string>
+    <string name="card_done">Done</string>
+    <string name="card_stopped">Saga stopped</string>
+    <string name="card_failed">Saga couldn\'t finish</string>
+    <string name="card_app_closed">Saga stopped when the app closed</string>
+    <string name="card_needs_you">Saga needs you: %1$s</string>
+    <string name="card_give_back">Give back to Saga</string>
+    <string name="card_give_back_short">Give back</string>
+    <string name="card_retry">Retry</string>
+    <string name="card_stop">Stop Saga</string>
+    <string name="card_expand">Open the browser full screen</string>
+    <string name="card_collapse">Back to the chat</string>
+    <string name="card_view_only">View only. Tap Take control to use the page</string>
+    <string name="card_more">More options</string>
+    <string name="card_live">Saga\'s browser. %1$s</string>
+    <string name="saga_needs_you_title">Saga needs you</string>
+    <string name="saga_needs_you_text">%1$s Open Colon AI to take control.</string>
+    <string name="card_gave_back">You gave the browser back to Saga</string>
 </resources>
