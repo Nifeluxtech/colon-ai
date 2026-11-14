@@ -5,6 +5,8 @@
 import { bind, onKey } from './chat-events.js';
 import { showShared } from './shared.js';
 import { Colon } from '../../../../packages/ui/js/colon.js';
+import { install as installSaga } from '../actions/saga-extras.js';
+import { loadRoutines } from '../actions/saga-plans.js';
 import { send, stopStreaming } from '../actions/send-message.js';
 import { applyTextSize, setMobileTab, startNativeBrowser } from '../components/browser-panel.js';
 import { autoGrow, composerHtml, renderModeChips, scrollBottom, syncComposer,
@@ -20,9 +22,7 @@ import { ChatMedia } from '../lib/media.js';
 import { startNativeShell } from '../lib/native-shell.js';
 import { pinFrame } from '../lib/thread-scroll.js';
 import { ReadAloud } from '../lib/read-aloud.js';
-
 var C = Colon, icon = C.icon, esc = C.esc;
-
 function noticeBanner() {
   var cfg = C.config || {}, out = '';
   if (cfg.maintenance && cfg.maintenance.on) out += '<div class="banner bad cw-notice" role="status">' + icon('alert')
@@ -157,15 +157,16 @@ function mount(view, ctx) {
     data.listModels().then(function (m) { S.models = m; }).catch(function () { S.models = [];
       C.toast('Couldn’t load the model list. Using Saga.', 'bad'); })
   ]).then(function () { refreshConvs(); route(ctx); S.nativeStop = startNativeShell(); });
-  // The app's browser panel is followed (and told this page draws its in-thread card) as soon as the bridge is
-  // there, not after settings and models load: on a slow phone that took longer than the app waits (v0.9.2).
+  // The app's browser panel is followed as soon as the bridge is there, not after settings and models (v0.9.2).
   var mounted = true;
   C.native.ready().then(function () { if (mounted && !S.nativeBrowserStop) S.nativeBrowserStop = startNativeBrowser();
-  });
+    if (mounted) S.sagaStop = installSaga(S.el); });   // 0.11.0: overlay watch, CSV links, speed mode
+  loadRoutines();
   return function unmount() {
     mounted = false; unpin(); if (S.nativeStop) S.nativeStop();
     if (S.nativeBrowserStop) { S.nativeBrowserStop(); S.nativeBrowserStop = null; }
-    if (S.hf) S.hf.stop(); if (S.streaming) S.streaming.ctl.abort(); if (S.media) S.media.destroy();
+    if (S.sagaStop) { S.sagaStop(); S.sagaStop = null; } if (S.hf) S.hf.stop();
+    if (S.streaming) S.streaming.ctl.abort(); if (S.media) S.media.destroy();
     document.removeEventListener('keydown', onKey);
     if (S.ro) S.ro.disconnect(); document.documentElement.classList.remove('app-lock');
   };
@@ -291,7 +292,6 @@ function renderWelcome() {
 }
 CW.applySettings = function (s) { S.settings = s; applyTextSize(); if (S.view === 'chat') renderThread(); };
 CW.media = function () { return S.media; };
-
 CW.mount = mount;
 CW.newChat = newChat;
 CW.startWith = function (prompt, m) { C.go('/'); setTimeout(function () { S.draftMode = m || 'general'; updateHeader();

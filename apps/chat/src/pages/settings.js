@@ -2,6 +2,7 @@
    privacy, data management and sign out. Account fields use the existing PATCH /account/profile;
    everything else goes through ColonChatData.saveSettings(). */
 import { appRowHtml, bindAppRow } from '../components/app-row.js';
+import { bindSagaSettings, sagaSettingsHtml } from '../components/saga-settings.js';
 import { CW } from '../core/cw.js';
 import { Colon } from '../../../../packages/ui/js/colon.js';
 import { ColonBrowser } from '../../../../packages/ui/js/browser/index.js';
@@ -10,8 +11,8 @@ var C = Colon, icon = C.icon, esc = C.esc;
 CW.pages = CW.pages || {};
 
 var SECTIONS = [['account', 'Account', 'user'], ['appearance', 'Appearance', 'palette'], ['language', 'Language',
-  'language'], ['voice', 'Voice', 'mic'], ['chat', 'Chat', 'chat'], ['privacy', 'Privacy', 'shield'], ['data', 'Data',
-  'database'], ['app', 'App', 'phone']];
+  'language'], ['voice', 'Voice', 'mic'], ['chat', 'Chat', 'chat'], ['saga', 'Saga', 'globe'],
+  ['privacy', 'Privacy', 'shield'], ['data', 'Data', 'database'], ['app', 'App', 'phone']];
 var VOICE_LANGS = [['en-NG', 'English (Nigeria)'], ['pcm-NG', 'Naijá (Pidgin)'], ['yo-NG', 'Yorùbá'], ['ha-NG',
   'Hausa'], ['ig-NG', 'Igbo'], ['auto', 'Mixed / not sure'], ['en-GB', 'English (UK)'], ['en-US', 'English (US)']];
 
@@ -120,6 +121,7 @@ CW.pages.settings = function (page, ctx) {
           'Links and sources open beside your chat instead of a new tab.', s.linksInPanel) +
         select('browserLayout', 'Browser panel layout', 'On phones the panel always opens inside the chat first.',
           s.browserLayout, [['split', 'Split screen'], ['embedded', 'Inside the conversation']])) +
+      section('saga', 'Saga (browsing)', 'globe', sagaSettingsHtml()) +
       section('privacy', 'Privacy and security', 'shield',
         toggle('saveHistory', 'Save chat history',
           'When off, new chats are temporary: not saved to your account, and gone when you close the tab.',
@@ -151,6 +153,7 @@ CW.pages.settings = function (page, ctx) {
         + (data.kind === 'local' ? 'preview data mode' : 'synced') + ' · by Nifelux</p></div></div>';
     bind(s);
     bindAppRow(page);
+    bindSagaSettings(page);
     stats();
     if (ctx && ctx.query && ctx.query.get('s')) jump(ctx.query.get('s'));
   }
