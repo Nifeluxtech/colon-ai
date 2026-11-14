@@ -129,7 +129,11 @@ in the thread, always Saga's: the user's touches reach the page only after Take 
 - The state adds `run` (`{ state: idle·running·paused·needs_user·user_control·done·error·stopped, task, goal,
   anchor, step, request: { kind, message } | null, result, since, deadline, resumes, pill: { icon, text,
   takeControl, giveBack, retry, stop } }`, kept per chat across app restarts) and `focus` (the full-screen view is
-  open). `chatMode` is always `ai`; `mode` calls are kept and change nothing.
+  open; 0.11.1: also the stacked `full` layout, so the page knows when full screen ends and reports the card's box
+  again). `chatMode` is always `ai`; `mode` calls are kept and change nothing.
+- 0.11.1: when a state's `chat` is not the chat on screen (and no task runs in it), the page sends `chat` again (at
+  most twice per chat), and every open from the chat makes sure the app shows this chat's browser first. In full
+  screen the card's corner button is **Minimise** and Back collapses full screen before anything else.
 - Event `browserRetry` (`{ goal, anchor }`): the card's Retry; the chat runs the goal again.
 - The anchor may carry `band: true` reports: a hidden report then still has `viewportTop`, `viewportBottom`,
   `pageHeight` and `dpr`, so the full-screen view can stop above the composer while the card is off screen.
