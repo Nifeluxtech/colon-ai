@@ -1,17 +1,17 @@
 {
-  "versionName": "0.11.0",
-  "versionCode": 1100,
-  "apkUrl": "https://github.com/Nifeluxtech/colon-ai/releases/download/v0.11.0/colon-ai-0.11.0.apk",
-  "releaseUrl": "https://github.com/Nifeluxtech/colon-ai/releases/tag/v0.11.0",
-  "notes": "Saga grows up: tap the browser card for every step with pictures; Colon Secured Login keeps your site logins encrypted on this phone only (never in the chat); Saga asks before it submits, pays, deletes or sends; tasks keep running in the background with a notification; scheduled checks, saved routines, several tabs, tables to CSV, speed mode and messages that steer a running task. The browser card no longer covers the menu or sidebar and stays steady while you scroll.",
+  "versionName": "0.11.1",
+  "versionCode": 1101,
+  "apkUrl": "https://github.com/Nifeluxtech/colon-ai/releases/download/v0.11.1/colon-ai-0.11.1.apk",
+  "releaseUrl": "https://github.com/Nifeluxtech/colon-ai/releases/tag/v0.11.1",
+  "notes": "Fixes from your report: \"Open browser\" shows the browser card at once, under the reply that opened it (no more leaving the chat and coming back, and no second copy next to an old task's picture). In full screen the corner button now minimises the browser back into the chat, and the phone's Back does the same.",
   "minSupportedVersionCode": 0,
   "publishedAt": "2026-11-14",
   "browser": {
-    "versionName": "0.11.0",
-    "versionCode": 1100,
-    "apkUrl": "https://github.com/Nifeluxtech/colon-ai/releases/download/v0.11.0/colon-browser-0.11.0.apk",
-    "releaseUrl": "https://github.com/Nifeluxtech/colon-ai/releases/tag/v0.11.0",
-    "notes": "Released alongside Colon AI 0.11.0 (shared Saga tools: secure sign-in with saved logins, table extraction, approvals before risky steps).",
+    "versionName": "0.11.1",
+    "versionCode": 1101,
+    "apkUrl": "https://github.com/Nifeluxtech/colon-ai/releases/download/v0.11.1/colon-browser-0.11.1.apk",
+    "releaseUrl": "https://github.com/Nifeluxtech/colon-ai/releases/tag/v0.11.1",
+    "notes": "Released alongside Colon AI 0.11.1 (no browser changes; version kept in step).",
     "minSupportedVersionCode": 0
   }
 }
