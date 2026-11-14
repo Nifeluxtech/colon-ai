@@ -10,7 +10,13 @@
    dpr), so the app's full-screen browser can stop above the composer while the card itself is off screen.
    No imports and every dependency injected, so it is unit-tested with a fake DOM (packages/ui/test). */
 
-function round(n) { return Math.round(Number(n) * 100) / 100; }
+// 0.11.0: snapped to whole device pixels (d: device px per CSS px) before the 2-decimal rounding, so sub-pixel
+// scroll positions never make the app's card flicker between two pixel rows (the "shake" during scroll).
+function round(n, d) {
+  var v = Number(n);
+  if (d > 0) v = Math.round(v * d) / d;
+  return Math.round(v * 100) / 100;
+}
 
 // The message for the app. box: the body's client rect; view: { top, bottom } of the visible thread (CSS px of the
 // shell page). Visible only when part of the box is inside the thread's viewport. screen (0.10.2, optional): the
@@ -26,10 +32,10 @@ function anchorRect(box, view, dpr, collapsed, screen) {
   if (bottom <= view.top || top >= view.bottom) return { visible: false };
   var sx = screen ? Number(screen.x) || 0 : 0, sy = screen ? Number(screen.y) || 0 : 0;
   var scale = screen && screen.scale > 0 ? screen.scale : 1, d = dpr > 0 ? dpr * scale : 1;
-  var p = { visible: true, x: round(box.left - sx), y: round(top - sy), width: round(box.width),
-    height: round(box.height), viewportTop: round(view.top - sy), viewportBottom: round(view.bottom - sy),
+  var p = { visible: true, x: round(box.left - sx, d), y: round(top - sy, d), width: round(box.width, d),
+    height: round(box.height, d), viewportTop: round(view.top - sy, d), viewportBottom: round(view.bottom - sy, d),
     dpr: Math.round(d * 1e4) / 1e4 };
-  if (screen && screen.height > 0) p.pageHeight = round(screen.height);
+  if (screen && screen.height > 0) p.pageHeight = round(screen.height, d);
   return p;
 }
 
@@ -38,8 +44,8 @@ function anchorRect(box, view, dpr, collapsed, screen) {
 function bandOf(view, dpr, screen) {
   if (!view || !(view.bottom > view.top) || !screen || !(screen.height > 0)) return {};
   var sy = Number(screen.y) || 0, scale = screen.scale > 0 ? screen.scale : 1, d = dpr > 0 ? dpr * scale : 1;
-  return { viewportTop: round(view.top - sy), viewportBottom: round(view.bottom - sy), pageHeight: round(screen.height),
-    dpr: Math.round(d * 1e4) / 1e4 };
+  return { viewportTop: round(view.top - sy, d), viewportBottom: round(view.bottom - sy, d),
+    pageHeight: round(screen.height, d), dpr: Math.round(d * 1e4) / 1e4 };
 }
 
 // The visual viewport (what is on screen) in layout-viewport CSS px; the window when there is none.
