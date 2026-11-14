@@ -80,7 +80,8 @@ class SagaTapTest {
         assertTrue(SagaTap.pointerShows(canRun = true, handoff = false))
         assertFalse(SagaTap.pointerShows(canRun = true, handoff = true))      // a secret field is the user's
         assertFalse(SagaTap.pointerShows(canRun = false, handoff = false))    // Take control, Pause, Stop, ended
-        assertEquals(SagaTap.GLIDE_MIN_MS, SagaTap.glideMs(10f, 2f))
+        assertEquals(SagaTap.GLIDE_MIN_MS, SagaTap.glideMs(0f, 2f))
+        assertTrue(SagaTap.glideMs(10f, 2f) < SagaTap.glideMs(100f, 2f))       // longer trips take longer
         assertEquals(SagaTap.GLIDE_MAX_MS, SagaTap.glideMs(5000f, 2f))
         val mid = SagaTap.glideMs(400f, 2f)                                     // 200 dp
         assertTrue(mid in (SagaTap.GLIDE_MIN_MS + 1) until SagaTap.GLIDE_MAX_MS)
