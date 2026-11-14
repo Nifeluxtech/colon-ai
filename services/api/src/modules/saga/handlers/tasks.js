@@ -8,6 +8,8 @@ const safety = require('../../safety');
 const store = require('../store');
 const runner = require('../runner');
 const resume = require('../resume');
+const routines = require('../routines');
+const guidance = require('../guidance');
 
 const fail = (status, code, message) => Object.assign(new Error(message), { status, code });
 
@@ -34,7 +36,9 @@ async function earlier(req, b) {
 async function postTask(req) {
   const b = req.body || {};
   const cont = await earlier(req, b);
-  const goal = String(b.goal || (cont ? cont.prev.goal : '')).replace(/[\u0000-\u0008\u000b-\u001f]+/g, ' ')
+  const saved = b.routine_id && !b.goal ? await routines.getFor(req.user.id, Number(b.routine_id)) : null;
+  const goal = String(b.goal || (saved ? saved.goal : '') || (cont ? cont.prev.goal : ''))
+    .replace(/[\u0000-\u0008\u000b-\u001f]+/g, ' ')
     .trim();
   if (!goal || goal.length > 1000) throw fail(422, 'invalid', 'Say what Saga should do (up to 1000 characters).');
   const language = ['en', 'pcm', 'yo', 'ha', 'ig'].includes(b.language) ? b.language : 'en';
@@ -46,8 +50,12 @@ async function postTask(req) {
   if (check.action === 'refuse') {
     throw Object.assign(fail(422, 'refused', check.refusal), { extra: { refusal: check.refusal } });
   }
+  // 0.11.0: speed mode (slow networks) and a saved routine to replay (its goal when none was given).
+  const routine = b.routine_id ? await routines.getFor(req.user.id, Number(b.routine_id)) : null;
+  if (b.routine_id && !routine) throw fail(404, 'not_found', 'Unknown routine.');
   const r = await runner.start(req, { goal, language, conversationId: conv, mode,
-    continueOf: cont ? cont.prev.id : null, history: cont ? cont.history : '' });
+    continueOf: cont ? cont.prev.id : null, history: cont ? cont.history : '', speed: b.speed === true,
+    routineId: routine ? routine.id : null });
   return [202, { task: store.view(await store.getFor(req.user.id, r.id)), phone: r.local ? 'this_server' : 'queued' }];
 }
 
@@ -77,4 +85,16 @@ async function listTasks(req) {
   return [200, { tasks: rows.map(store.view) }];
 }
 
-module.exports = { gate, postTask, getTask, stopTask, listTasks };
+// 0.11.0: POST /browser/agent/:id/guide { text }: the user's message while the task runs, for Saga's next step.
+async function guideTask(req) {
+  const id = taskId(req);
+  const row = await store.getFor(req.user.id, id);
+  if (!row) throw fail(404, 'not_found', 'Unknown task.');
+  if (store.TERMINAL.includes(row.status)) throw fail(409, 'ended', 'That task has already ended.');
+  const text = String((req.body || {}).text || '').slice(0, 1000);
+  const kept = await guidance.add(req.user.id, id, text);
+  if (!kept) throw fail(422, 'invalid', 'Say what Saga should take into account.');
+  return [202, { ok: true, text: kept }];
+}
+
+module.exports = { gate, postTask, getTask, stopTask, listTasks, guideTask };
