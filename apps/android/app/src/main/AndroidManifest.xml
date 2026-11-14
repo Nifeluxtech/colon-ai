@@ -9,6 +9,9 @@
     <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />
     <uses-permission android:name="android.permission.CAMERA" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <!-- 0.11.0: Saga keeps working in the background while a task runs (SagaService, ongoing notification). -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
     <!-- In-app updates of the directly installed APK (the user confirms every install). -->
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
     <!-- Public Downloads folder on Android 7-9 only; newer versions need no permission. -->
@@ -62,6 +65,24 @@
             android:name=".ClearDataActivity"
             android:exported="false"
             android:label="@string/clear_data" />
+
+        <!-- 0.11.0: Colon Secured Login (the phone's vault: the form and the saved-logins screen). -->
+        <activity
+            android:name=".LoginFormActivity"
+            android:exported="false"
+            android:excludeFromRecents="true"
+            android:label="@string/vault_title"
+            android:windowSoftInputMode="adjustResize" />
+        <activity
+            android:name=".VaultActivity"
+            android:exported="false"
+            android:label="@string/vault_list_title" />
+
+        <!-- 0.11.0: a Saga task running while Colon AI is in the background. -->
+        <service
+            android:name=".SagaService"
+            android:exported="false"
+            android:foregroundServiceType="dataSync" />
 
         <provider
             android:name="androidx.core.content.FileProvider"
