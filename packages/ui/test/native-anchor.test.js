@@ -33,7 +33,8 @@ function rig(o = {}) {
 
 test('rect math: CSS px of the body box, the thread viewport and the device pixel ratio', () => {
   const p = anchorRect({ left: 16, top: 300.333, width: 368, height: 480 }, { top: 56, bottom: 696 }, 2.625);
-  assert.deepEqual(p, { visible: true, x: 16, y: 300.33, width: 368, height: 480, viewportTop: 56,
+  // 0.11.0: snapped to whole device pixels (300.333 css * 2.625 = 788.4 -> 788 device px = 300.19 css).
+  assert.deepEqual(p, { visible: true, x: 16, y: 300.19, width: 368, height: 480, viewportTop: 56,
     viewportBottom: 696, dpr: 2.625 });
   assert.equal(anchorRect({ left: 0, top: 0, width: 10, height: 10 }, { top: 0, bottom: 100 }, 0).dpr, 1);
 });
@@ -60,7 +61,7 @@ test('reports on open, then at most once per frame and only when something moved
   const r = rig();
   assert.equal(r.sent.length, 0); assert.equal(r.frames.length, 1);  // first report waits for a frame
   r.flush();
-  assert.deepEqual(r.sent, [{ visible: true, x: 16, y: 300, width: 368, height: 480, viewportTop: 56,
+  assert.deepEqual(r.sent, [{ visible: true, x: 16, y: 300.19, width: 368, height: 480, viewportTop: 56,
     viewportBottom: 696, dpr: 2.625, pageHeight: 800 }]);
   for (let i = 0; i < 5; i++) r.scroller.fire('scroll');           // a burst of scroll events: one frame
   assert.equal(r.frames.length, 1);
@@ -69,7 +70,7 @@ test('reports on open, then at most once per frame and only when something moved
   r.scroller.fire('scroll'); r.flush();                            // nothing moved: nothing sent
   assert.equal(r.sent.length, 2);
   r.win.fire('resize'); r.body.rect = { left: 10, top: 200, width: 380, height: 480 }; r.flush();
-  assert.equal(r.sent[2].width, 380);
+  assert.equal(r.sent[2].width, 380.19);
   assert.ok(r.observed.includes(r.body) && r.observed.includes(r.scroller) && r.observed.length === 3);
   rig.lastRo.cb(); assert.equal(r.frames.length, 1);              // ResizeObserver schedules a frame too
 });
@@ -92,7 +93,7 @@ test('the keyboard shrinks the viewport through visualViewport events', () => {
   const r = rig({ vv: 800 }); r.flush();
   assert.equal(r.sent[0].viewportBottom, 696);
   r.win.visualViewport.height = 380; r.win.visualViewport.fire('resize'); r.flush();
-  assert.equal(r.sent[1].viewportBottom, 380);
+  assert.equal(r.sent[1].viewportBottom, 380.19);  // 997.5 device px rounds to 998 (0.11.0)
 });
 
 test('stop() removes every listener, cancels the frame and hides the panel once', () => {
