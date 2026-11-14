@@ -15,6 +15,7 @@
 import { browseNative, continueNative, sagaActive, stopSaga } from './saga-native.js';
 import { addThreadNote, nativeBrowser, openBrowser, revealInThread, setChatMode, setLayout, syncChat, syncNative }
   from '../components/browser-panel.js';
+import { ensureChat, openedBy } from '../components/browser-chats.js';
 import { placeCards } from '../components/browser-card.js';
 import { Colon } from '../../../../packages/ui/js/colon.js';
 import { ColonURL } from '../../../../packages/ui/js/url.js';
@@ -34,14 +35,17 @@ function nativeCtx() {
 function webCtx() { return { open: S.browser.layout !== 'none' }; }
 function host(u) { return ColonURL.displayUrl(u).replace(/^www\./, '').split('/')[0] || u; }
 function say(text) { return addThreadNote(text, {}).catch(function () {}); }
-// 0.10.5: the reopened browser's live card goes under this reply and scrolls into view.
+// 0.10.5: the reopened browser's live card goes under this reply and scrolls into view. 0.11.1: kept per chat
+// (browser-chats.js openedBy), so it is still there after leaving the chat and coming back; the anchor reports again.
 function showHere(m) {
-  if (!m || !m.id) return;
-  S.browser.liveAnchor = { conv: String((S.current && S.current.id) || ''), id: String(m.id), at: Date.now() };
+  if (!m || !m.id) return m;
+  openedBy(m);
   S.browser.revealNext = true;
   S.browser.cardsSig = null;
   placeCards();
+  if (S.browser.anchor) S.browser.anchor.force();
   if (S.browser.liveShown && S.browser.host) setTimeout(function () { revealInThread(S.browser.host, true); }, 80);
+  return m;
 }
 
 // Saga in the app: the task runs on this chat's browser; its answer (and each step) lands in the thread. anchor: the
@@ -50,7 +54,6 @@ function runTask(goal, anchor) {
   if (sagaActive()) return say('Saga is still working on your last instruction. Say “stop” to end it, or wait '
     + 'for its answer.');
   // Saga's tasks belong to an account; signed out (or offline Preview), the web reader does the browsing.
-  S.browser.liveAnchor = null;
   browseNative(goal, { chat: true, anchor: anchor || '' });
   return Promise.resolve();
 }
@@ -59,14 +62,16 @@ function inApp(i, note) {
   var anchor = note && note.id ? String(note.id) : '';
   switch (i.kind) {
     case 'open':
-      return nativeBrowser('open', i.url ? { url: i.url } : {}).then(function (st) { syncNative(st);
+      // 0.11.1: the app shows this chat's browser first (ensureChat), and the card shows at once under the
+      // instruction (note), then moves under the reply when it lands.
+      return ensureChat().then(function () { return nativeBrowser('open', i.url ? { url: i.url } : {}); })
+        .then(function (st) { syncNative(st); showHere(note);
         var page = st && st.url ? host(st.url) : '';
         return say(i.url ? 'Opened ' + host(i.url) + ' in this chat’s browser.' : page ? 'Here’s this chat’s '
           + 'browser, still on ' + page + '. Tell me what to do next, or say “continue” to carry on.' : 'Opened this '
           + 'chat’s browser. Tell me what to do in it, like “search for…” or “scroll down”.').then(showHere); });
     case 'continue': {
       var run = (S.browser.nativeState || {}).run || {};
-      S.browser.liveAnchor = null;
       continueNative({ task: run.task, goal: run.goal, anchor: anchor || run.anchor || '' });
       return say('Carrying on in this chat’s browser, from where Saga left off.');
     }
