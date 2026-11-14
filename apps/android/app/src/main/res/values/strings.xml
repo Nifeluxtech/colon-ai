@@ -184,6 +184,7 @@
     <string name="card_stop">Stop Saga</string>
     <string name="card_expand">Open the browser full screen</string>
     <string name="card_collapse">Back to the chat</string>
+    <string name="card_minimise">Minimise the browser (back to the chat)</string>
     <string name="card_view_only">View only. Tap Take control to use the page</string>
     <string name="card_more">More options</string>
     <string name="card_live">Saga\'s browser. %1$s</string>
