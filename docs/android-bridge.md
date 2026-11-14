@@ -404,3 +404,28 @@ page text is never stored.
    ping/terminate loop.
 8. **Push (later):** an FCM HTTP v1 sender with a service account stored on the server only, and an endpoint to
    register the app's FCM token, so Saga can wake the phone when the app is closed.
+
+## 0.11.0 additions (ADR 0007)
+
+### JavaScript bridge (`window.ColonNative`)
+New `features`: `vault`, `browserSuspend`, `sagaSchedules`, `sagaTimeline`, `sagaBackground`.
+
+| Call | Arguments | Answer | Notes |
+|---|---|---|---|
+| `vault('form', {site?, trust?})` | site host, `trust`: Saga may sign in there (still asks once) | `{site, login_saved}` | Opens Colon Secured Login (`FLAG_SECURE`). Neither the user name nor the password ever reaches the page. Waits up to 15 min. |
+| `vault('has', {site})` | site | `{site, login_saved}` | |
+| `vault('manage')` | – | – | Opens Saved logins (`VaultActivity`). |
+| `browser('suspend', {on})` | `on`: a web overlay is open | panel state | The inline card hides while the drawer, a menu, sheet, dialog or picker is open (`lib/overlay-watch.js`). Full screen is unaffected. |
+| `browser('schedules', {allow})` | `allow` | `{allow}` | The user set up scheduled browsing from this app: scheduled runs may start without "Let Saga browse?". |
+
+Anchor reports (`browser('anchor')`) are snapped to whole device pixels and sent at most once per frame; the app
+places the card once per vsync (`InlineSteady`).
+
+### WebSocket frames (protocol v1, additive)
+| Frame | New fields | Meaning |
+|---|---|---|
+| `command` | `step` (int) | Saga's step number, for the phone's timeline (`StepLog`). |
+| `command` `sign_in` | `args: {site}` only | The phone fills its saved login for `site` itself (`assets/saga/login.js`) on a trusted https page of that site after the user's one-time approval. Ack: `ok` + `{submitted}` or error `no_login` · `not_trusted` · `wrong_site` · `approval_denied` · `no_form`. No value is ever sent; the server drops anything else in the ack. |
+| `command` `extract` | `args: {what: table\|list, index}` | Ack `{columns, rows, total, caption}` (capped); the chat shows a table with a CSV download. |
+| `command` `new_tab` / `switch_tab` / `close_tab` | `tab_id` | Multi-tab, at most 6 tabs per task. |
+| `control` | `scheduled: {id, name}` | A scheduled run the user set up; the phone switches to that chat's browser when nothing else runs. |
