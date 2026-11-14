@@ -219,7 +219,8 @@ function renderNativeInline(st) {
   } else S.browser.anchor.update();
   // A new card, or Saga needs the user: bring it into view once (so its pointer and request can be seen).
   var run = st.run || {}, wants = run.state === 'running' || run.state === 'needs_user';
-  if (!was || (wants && S.browser.sagaShown !== run.state)) setTimeout(function () {
+  var asked = S.browser.revealNext; S.browser.revealNext = false;
+  if (!was || asked || (wants && S.browser.sagaShown !== run.state)) setTimeout(function () {
     revealInThread(S.browser.host, true); }, 50);
   S.browser.sagaShown = wants ? run.state : null;
 }
@@ -278,5 +279,6 @@ function applyTextSize() { document.documentElement.setAttribute('data-text', (S
   || 'md'); }
 
 export { addBrowseNote, addThreadNote, applySplitWidth, applyTextSize, ensureConv, forgetChat, nativeBrowser,
-  nativeFailed, nativeInlineAction, openBrowser, renderEmbed, setChatMode, setLayout, setMobileTab, startNativeBrowser,
+  nativeFailed, nativeInlineAction, openBrowser, renderEmbed, revealInThread,
+  setChatMode, setLayout, setMobileTab, startNativeBrowser,
   syncChat, syncNative, toggleBrowser };

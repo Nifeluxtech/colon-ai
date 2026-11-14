@@ -1,17 +1,17 @@
 {
-  "versionName": "0.10.4",
-  "versionCode": 1004,
-  "apkUrl": "https://github.com/Nifeluxtech/colon-ai/releases/download/v0.10.4/colon-ai-0.10.4.apk",
-  "releaseUrl": "https://github.com/Nifeluxtech/colon-ai/releases/tag/v0.10.4",
-  "notes": "Saga's browser is sturdier and easy to watch: a task waiting for you to log in survives a dropped connection or the app closing, Give back always works, and \"show the browser\" or Continue brings the chat's browser back on its page so Saga carries on. You can see Saga's pointer move, outline what it clicks and type as it goes, and the card never shows blank.",
+  "versionName": "0.10.5",
+  "versionCode": 1005,
+  "apkUrl": "https://github.com/Nifeluxtech/colon-ai/releases/download/v0.10.5/colon-ai-0.10.5.apk",
+  "releaseUrl": "https://github.com/Nifeluxtech/colon-ai/releases/tag/v0.10.5",
+  "notes": "\"Show the browser\" now brings Saga's live browser card right under your message and scrolls to it. Includes 0.10.4: login handoffs survive dropped connections, Give back always works, Continue, and a visible pointer.",
   "minSupportedVersionCode": 0,
   "publishedAt": "2026-11-14",
   "browser": {
-    "versionName": "0.10.4",
-    "versionCode": 1004,
-    "apkUrl": "https://github.com/Nifeluxtech/colon-ai/releases/download/v0.10.4/colon-browser-0.10.4.apk",
-    "releaseUrl": "https://github.com/Nifeluxtech/colon-ai/releases/tag/v0.10.4",
-    "notes": "Released alongside Colon AI 0.10.4. Saga's pointer stays visible while it works, outlines what it clicks and types text out as it goes; a Saga task survives a dropped connection.",
+    "versionName": "0.10.5",
+    "versionCode": 1005,
+    "apkUrl": "https://github.com/Nifeluxtech/colon-ai/releases/download/v0.10.5/colon-browser-0.10.5.apk",
+    "releaseUrl": "https://github.com/Nifeluxtech/colon-ai/releases/tag/v0.10.5",
+    "notes": "Released alongside Colon AI 0.10.5. No browser changes since 0.10.4.",
     "minSupportedVersionCode": 0
   }
 }

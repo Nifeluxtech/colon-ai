@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.10.5] — 2026-11-14 · "Show the browser" brings the live card to you
+Chat page fix; the APK is rebuilt only to keep versions in step (`version.json` versionCode 1005).
+### Fixed
+- **"Reshow / open the browser" showed nothing.** The chat replied "Here's this chat's browser…" but the live card
+  stayed under the old task's message far up the thread (and, with the panel already open, never scrolled into
+  view). After a task ended, reopening now places the live card under that reply and scrolls it into view
+  (`S.browser.liveAnchor`, `revealNext`); a running task keeps its own message. The old task keeps its picture card.
+
 ## [0.10.4] — 2026-11-14 · Saga's in-chat browser is robust and watchable
 Owner's report on 0.10.3 (Android, Developer chat): after "Login" Saga asked them to sign in, but the card was blank
 with "Saga stopped" and Retry; after logging in Saga "was unable to catch up"; "Reshow the browser" went to the
