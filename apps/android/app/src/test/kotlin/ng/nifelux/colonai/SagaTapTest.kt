@@ -74,4 +74,15 @@ class SagaTapTest {
         assertNull(SagaTap.lookGap(3))
         assertEquals(700L, (0 until SagaTap.QUICK_LOOKS_MS.size).sumOf { SagaTap.lookGap(it)!! })
     }
+
+    /** 0.11.2: the pointer stays on while Saga works and glides at a pace that fits the trip. */
+    @Test fun pointerShowsWhileSagaWorksAndGlidesSmoothly() {
+        assertTrue(SagaTap.pointerShows(canRun = true, handoff = false))
+        assertFalse(SagaTap.pointerShows(canRun = true, handoff = true))      // a secret field is the user's
+        assertFalse(SagaTap.pointerShows(canRun = false, handoff = false))    // Take control, Pause, Stop, ended
+        assertEquals(SagaTap.GLIDE_MIN_MS, SagaTap.glideMs(10f, 2f))
+        assertEquals(SagaTap.GLIDE_MAX_MS, SagaTap.glideMs(5000f, 2f))
+        val mid = SagaTap.glideMs(400f, 2f)                                     // 200 dp
+        assertTrue(mid in (SagaTap.GLIDE_MIN_MS + 1) until SagaTap.GLIDE_MAX_MS)
+    }
 }

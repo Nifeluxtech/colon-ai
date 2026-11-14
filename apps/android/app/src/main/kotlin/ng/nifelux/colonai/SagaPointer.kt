@@ -23,6 +23,10 @@ import androidx.core.content.ContextCompat
  * sees where Saga is between steps; it fades when the task ends or the user takes over (hide). It is drawn larger
  * ([scale], the chat's scaled-down desktop card) with a soft halo, and outlines the element it is about to click or
  * type into ([highlight], from tools.js `point`'s box).
+ * 0.11.2 (owner): visible the whole time Saga works, not only at a tap: BrowserSaga shows it on every command while
+ * Saga has the page ([shows]); between targets it glides (longer for longer trips, [glideMs]) and while Saga thinks
+ * or a page loads it idles near the last target with a slow float ([idle]). Still hidden on a secret field, Take
+ * control, Pause, Stop and when the task ends, and still never takes a touch.
  */
 class SagaPointer(context: Context) : View(context) {
     private val dp = resources.displayMetrics.density
@@ -68,6 +72,9 @@ class SagaPointer(context: Context) : View(context) {
     private var fade: ValueAnimator? = null
     private var pulse: ValueAnimator? = null
     private val hideLater = Runnable { fadeOut() }
+    /** 0.11.2: the idle float (0..1, back and forth) while the pointer waits near its last target. */
+    private var idle: ValueAnimator? = null
+    private var idleAt = 0.5f
 
     init {
         isClickable = false
@@ -85,7 +92,24 @@ class SagaPointer(context: Context) : View(context) {
         removeCallbacks(hideLater); fade?.cancel()
         if (px < 0 || shown < 0.05f) { px = width / 2f; py = height * 0.6f }
         shown = 1f; invalidate()
+        startIdle()
     }
+
+    /** 0.11.2: a slow float near the last target while Saga thinks or the page loads (stopped by every move). */
+    private fun startIdle() {
+        if (idle?.isRunning == true || move?.isRunning == true || !isAttachedToWindow) return
+        idle = ValueAnimator.ofFloat(0f, 1f).apply {
+            duration = IDLE_MS
+            repeatCount = ValueAnimator.INFINITE
+            repeatMode = ValueAnimator.REVERSE
+            interpolator = android.view.animation.AccelerateDecelerateInterpolator()
+            addUpdateListener { idleAt = it.animatedValue as Float; if (shown > 0f) invalidate() }
+            start()
+        }
+    }
+    private fun stopIdle() { idle?.cancel(); idle = null; idleAt = 0.5f }
+
+    override fun onDetachedFromWindow() { stopIdle(); super.onDetachedFromWindow() }
 
     /** 0.10.4: outlines the element at ([x], [y]) of [w] × [h] in [target]'s px; it stays until the next one. */
     fun highlight(target: View, x: Float, y: Float, w: Float, h: Float) {
@@ -99,14 +123,14 @@ class SagaPointer(context: Context) : View(context) {
     /** Glides to ([x], [y]) in [target]'s px (the WebView), then runs [then]. */
     fun moveTo(target: View, x: Float, y: Float, then: () -> Unit) {
         val (tx, ty) = local(target, x, y)
-        removeCallbacks(hideLater); fade?.cancel(); move?.cancel()
+        removeCallbacks(hideLater); fade?.cancel(); move?.cancel(); stopIdle()
         if (px < 0 || shown < 0.05f) { px = width / 2f; py = height * 0.85f }
         shown = 1f
         val fx = px; val fy = py
         var ran = false
-        val finish = { if (!ran) { ran = true; then() } }
+        val finish = { if (!ran) { ran = true; then(); if (stay) startIdle() } }
         move = ValueAnimator.ofFloat(0f, 1f).apply {
-            duration = MOVE_MS
+            duration = glideMs(Math.hypot((tx - fx).toDouble(), (ty - fy).toDouble()).toFloat(), dp)
             interpolator = DecelerateInterpolator(1.6f)
             addUpdateListener { px = fx + (tx - fx) * it.animatedFraction; py = fy + (ty - fy) * it.animatedFraction
                 invalidate() }
@@ -144,12 +168,12 @@ class SagaPointer(context: Context) : View(context) {
 
     /** Gone at once: Saga lost control, or a secret field was handed to the user. */
     fun hide() {
-        removeCallbacks(hideLater); move?.cancel(); fade?.cancel(); pulse?.cancel()
+        removeCallbacks(hideLater); move?.cancel(); fade?.cancel(); pulse?.cancel(); stopIdle()
         shown = 0f; rippleAt = -1f; box = null; invalidate()
     }
 
     private fun fadeOut() {
-        fade?.cancel()
+        fade?.cancel(); stopIdle()
         fade = ValueAnimator.ofFloat(shown, 0f).apply {
             duration = FADE_MS
             addUpdateListener { shown = it.animatedValue as Float; invalidate() }
@@ -194,7 +218,8 @@ class SagaPointer(context: Context) : View(context) {
         canvas.drawCircle(px, py, 11 * dp * scale, halo)
         fill.alpha = alpha; edge.alpha = alpha; dots.alpha = alpha
         canvas.save()
-        canvas.translate(px, py)
+        // 0.11.2: the idle float, a couple of dp up and down (none while it glides or taps).
+        canvas.translate(px, py + if (idle?.isRunning == true) (idleAt - 0.5f) * IDLE_DP * dp * scale else 0f)
         canvas.scale(scale, scale)
         canvas.drawPath(arrow, fill)
         canvas.drawPath(arrow, edge)
@@ -206,6 +231,11 @@ class SagaPointer(context: Context) : View(context) {
 
     companion object {
         const val MOVE_MS = 320L
+        const val IDLE_MS = 1400L
+        const val IDLE_DP = 5f
+        /** 0.11.2: the glide's length and when the pointer shows (pure, in SagaTap: unit-tested in SagaTapTest). */
+        fun glideMs(distPx: Float, density: Float): Long = SagaTap.glideMs(distPx, density)
+        fun shows(canRun: Boolean, handoff: Boolean): Boolean = SagaTap.pointerShows(canRun, handoff)
         const val RIPPLE_MS = 450L
         const val LINGER_MS = 1200L
         const val FADE_MS = 300L

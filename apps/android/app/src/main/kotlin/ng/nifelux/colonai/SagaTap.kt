@@ -119,6 +119,18 @@ object SagaTap {
         else -> QUICK_LOOKS_MS[i] - QUICK_LOOKS_MS[i - 1]
     }
 
+    /** 0.11.2: how long the pointer's glide of [distPx] takes: short hops quick, long trips smooth. */
+    const val GLIDE_MIN_MS = 220L
+    const val GLIDE_MAX_MS = 560L
+    fun glideMs(distPx: Float, density: Float): Long {
+        val dpDist = if (density > 0f) distPx / density else distPx
+        return (GLIDE_MIN_MS + dpDist * 0.9f).toLong().coerceIn(GLIDE_MIN_MS, GLIDE_MAX_MS)
+    }
+
+    /** 0.11.2: the pointer is on the page the whole time Saga may act, and never while the page is the user's (a
+     *  secret field handed over, Take control, Pause, Stop, the task ended: canRun false or a hand-over). */
+    fun pointerShows(canRun: Boolean, handoff: Boolean): Boolean = canRun && !handoff
+
     /** True when a click result is worth checking once more after a longer wait. */
     fun lookAgain(changed: String?): Boolean = changed == null || changed in LOOK_AGAIN
 

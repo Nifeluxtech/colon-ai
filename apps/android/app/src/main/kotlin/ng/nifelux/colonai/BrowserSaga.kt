@@ -170,9 +170,10 @@ class BrowserSaga(private val a: BrowserHost, private val bridge: BridgeClient) 
     private fun apply(reason: String?, note: String? = null) {
         reason ?: return
         if (!control.canRunCommands()) approvalDialog?.dismiss() // a pending approval is declined when Saga stops
-        if (!control.canRunCommands() || control.handoff != null) pointer?.hide()
+        val shows = SagaPointer.shows(control.canRunCommands(), control.handoff != null)
+        if (!shows) pointer?.hide()
         // 0.10.4: the pointer stays on the page while Saga has it; a new socket's hello says what Give back resumes.
-        pointer?.stay = control.canRunCommands()
+        pointer?.stay = shows
         if (chatUi && reason == "consent") pointer?.showIdle()
         bridge.resumable = control.resumable.takeIf { control.mode == ControlState.Mode.MANUAL }
         if (control.mode == ControlState.Mode.MANUAL && control.handoff == null) notice?.dismiss()
@@ -378,6 +379,8 @@ class BrowserSaga(private val a: BrowserHost, private val bridge: BridgeClient) 
             reply(false, null, if (control.paused) "paused" else "manual_control"); return
         }
         notify(command.say, "step")
+        // 0.11.2: the pointer is on the page for every step Saga takes (idling near its last target meanwhile).
+        if (SagaPointer.shows(control.canRunCommands(), control.handoff != null)) pointer?.showIdle()
         val args = command.args
         val tab = command.tabId?.let { a.tabs.find(it) } ?: a.tabs.active
         if (tab?.incognito == true && command.name != "new_tab" && command.name != "get_tabs") {
