@@ -1,17 +1,17 @@
 {
-  "versionName": "0.10.6",
-  "versionCode": 1006,
-  "apkUrl": "https://github.com/Nifeluxtech/colon-ai/releases/download/v0.10.6/colon-ai-0.10.6.apk",
-  "releaseUrl": "https://github.com/Nifeluxtech/colon-ai/releases/tag/v0.10.6",
-  "notes": "A new chat starts clean (no browser card from an earlier chat); Saga only says it reached a page once it really did, and says what it did; the \"Reconnecting to Saga…\" pill no longer gets stuck; Saga answers with Gemma 4 only, so replies are quicker; the assistant is now called Colon (Saga is its model).",
+  "versionName": "0.11.0",
+  "versionCode": 1100,
+  "apkUrl": "https://github.com/Nifeluxtech/colon-ai/releases/download/v0.11.0/colon-ai-0.11.0.apk",
+  "releaseUrl": "https://github.com/Nifeluxtech/colon-ai/releases/tag/v0.11.0",
+  "notes": "Saga grows up: tap the browser card for every step with pictures; Colon Secured Login keeps your site logins encrypted on this phone only (never in the chat); Saga asks before it submits, pays, deletes or sends; tasks keep running in the background with a notification; scheduled checks, saved routines, several tabs, tables to CSV, speed mode and messages that steer a running task. The browser card no longer covers the menu or sidebar and stays steady while you scroll.",
   "minSupportedVersionCode": 0,
   "publishedAt": "2026-11-14",
   "browser": {
-    "versionName": "0.10.6",
-    "versionCode": 1006,
-    "apkUrl": "https://github.com/Nifeluxtech/colon-ai/releases/download/v0.10.6/colon-browser-0.10.6.apk",
-    "releaseUrl": "https://github.com/Nifeluxtech/colon-ai/releases/tag/v0.10.6",
-    "notes": "Released alongside Colon AI 0.10.6 (shared Saga link fix: the link status recovers after a reconnect).",
+    "versionName": "0.11.0",
+    "versionCode": 1100,
+    "apkUrl": "https://github.com/Nifeluxtech/colon-ai/releases/download/v0.11.0/colon-browser-0.11.0.apk",
+    "releaseUrl": "https://github.com/Nifeluxtech/colon-ai/releases/tag/v0.11.0",
+    "notes": "Released alongside Colon AI 0.11.0 (shared Saga tools: secure sign-in with saved logins, table extraction, approvals before risky steps).",
     "minSupportedVersionCode": 0
   }
 }
