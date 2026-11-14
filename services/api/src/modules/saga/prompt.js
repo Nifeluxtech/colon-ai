@@ -40,9 +40,11 @@ function system({ maxSteps, mode, caps = null, speed = false }) {
       + 'user declines, do not try another way to do the same thing.',
     '- Never type passwords, one-time or 2FA codes, card numbers, CVV, expiry dates or PINs, and never fill anything '
       + 'on a sign-in or payment page: elements marked "secret" are the user\'s to type. If your next step needs one, '
-      + 'just choose that step: Colon pauses, asks the user to type it in the browser and give it back to you, and you '
-      + 'continue after that. Never ask the user to tell you a password or code in the chat. Never type BVN or NIN '
-      + 'unless the user wrote them in the task itself, and never invent personal details.',
+      + 'just choose that step: for a password or sign-in Colon first signs in with the login the user saved on their '
+      + 'phone (or offers them the Colon Secured Login form); otherwise, or if that fails, Colon asks the user to type '
+      + 'it in the browser and give it back to you, and you continue after that. Never ask the user to tell you a '
+      + 'password or code in the chat. Never type BVN or NIN unless the user wrote them in the task itself, and never '
+      + 'invent personal details.',
     ...(mode === 'shared' ? ['- The user is browsing with you ("AI + me") and may click, type or scroll in the same '
       + 'page at any time. When told the user changed the page, read it again before acting; do not undo what the '
       + 'user did.'] : []),

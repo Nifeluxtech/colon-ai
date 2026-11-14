@@ -19,15 +19,15 @@
 // login -> a Colon Secured Login hand-over); extract (tables into the chat: r.tables); at most 6 tabs Saga opens;
 // speed mode (o.speed): pages read for Saga after it navigates (waiting for the load), and up to 3 follow-up steps
 // from one decision ("then"), each through the same policy, secret and approval checks as any step.
-// 0.11.2 (latency, o.autoRead, which the runner always sets): every mode reads the page for Saga after a step that
-// opens, changes or scrolls it (no model call just to say "getPageContent"), once the phone says it finished loading
-// (polled every 350 ms, at most ~2.8 s). Without it (older callers and tests), only speed mode does.
-// Pop-ups: the last page's pop-up (prompt.observe -> overlay) names what a refused tap was behind.
+// 0.11.2: o.autoRead (the runner sets it) reads the page for Saga after a step that opens, changes or scrolls it, in
+// every mode, once loaded (polls of 350 ms); pop-ups (prompt.observe -> overlay); before a password / sign-in
+// hand-over, the phone's saved login or its Colon Secured Login form card, once per site (saved-login.js).
 const secrets = require('./secrets');
 const tools = require('./tools');
 const policy = require('./policy');
 const prompt = require('./prompt');
 const goal = require('./goal');
+const saved = require('./saved-login');
 const U = require('./loop-util');
 const safety = require('../safety');
 const { parseDecision } = require('./parse');
@@ -64,6 +64,14 @@ async function run(o) {
   };
   const cmdOpts = (need) => ({ timeoutMs: Math.max(1, Math.min(need ? L.approvalTimeoutMs : L.stepTimeoutMs,
     left())) });
+  const tried = new Set();                      // sites a saved login was tried on (once each)
+  const url = () => here || (typeof o.pageState === 'function' && (o.pageState() || {}).url) || '';
+  // The phone's saved login (or its form card) before a sign-in hand-over (saved-login.js): { site } signed in (the
+  // page is read next), { end } the task ended meanwhile, null: hand over as before.
+  const viaSaved = saved.forLoop({ o, log, tried, url, waiting, handBack: U.handBack,
+    opts: (say) => ({ ...cmdOpts(true), say: say || 'Signing in with your saved login', step: steps }),
+    signed: (r) => { elements = null; acted++; queued = [{ ...READ }]; observe(saved.signedIn(r.site, r.result)); } });
+  const hand = (s) => ({ ...s, message: saved.handoffMessage(s.kind, url(), tried, s.message) });
 
   while (true) {
     if (await o.isStopped()) { await log({ kind: 'end', status: 'stopped' }); return end('stopped'); }
@@ -118,7 +126,9 @@ async function run(o) {
         : d.args }) });
     if (d.action === 'requestUserControl') {
       const ask = tools.userRequest(d.args);
-      const back = await waiting(U.handBack(o, log, { ...ask, say: d.say, tool: d.action,
+      const v = ask.kind === 'sign_in' ? await viaSaved('sign_in', d.say) : null;
+      if (v) { if (v.end) return end('interrupted', { error: v.end }); continue; }
+      const back = await waiting(U.handBack(o, log, { ...hand(ask), say: d.say, tool: d.action,
         name: 'request_user_control', asked: true }));
       if (back !== 'return_to_ai') return end('interrupted', { error: back });
       backFromUser(U.T.HANDED_BACK_ASKED);
@@ -167,16 +177,22 @@ async function run(o) {
       observe(`You already opened ${MAX_TABS} tabs. Close one (tabs close) or reuse a tab.`);
       continue;
     }
+    if (cmd.name === 'sign_in') tried.add(cmd.args.site);
     const secret = secrets.check(cmd, { elements, url: here });
     if (secret) {
-      const back = await waiting(U.handBack(o, log, { ...secret, say: d.say, tool: cmd.tool, name: cmd.name }));
+      queued = [];
+      const v = await viaSaved(secret.kind);
+      if (v) { if (v.end) return end('interrupted', { error: v.end }); continue; }
+      const back = await waiting(U.handBack(o, log, { ...hand(secret), say: d.say, tool: cmd.tool, name: cmd.name }));
       if (back !== 'return_to_ai') return end('interrupted', { error: back });
       backFromUser(U.T.HANDED_BACK);
       continue;
     }
     if (d.auto && (o.speed || o.autoRead)) await waitLoad(o, cmdOpts(null));
     const need = policy.approval(cmd, { elements });
-    const args = need ? { ...cmd.args, approval: { kind: need.kind, reason: need.reason } } : cmd.args;
+    const args = { ...cmd.args, ...(need ? { approval: { kind: need.kind, reason: need.reason } } : {}),
+      // 0.11.2: a password field the phone finds is left to the server, which tries the saved login first.
+      ...((cmd.name === 'click' || cmd.name === 'fill') && saved.can(o.caps) ? { saved_login: true } : {}) };
     const t0 = now();
     // say (0.10.2): Saga's one-line explanation travels with the command. step (0.11.0): the phone's timeline.
     const ack = await o.command(cmd.name, args, { ...cmdOpts(need), say: d.say, step: steps })
@@ -192,9 +208,12 @@ async function run(o) {
     if (!ack.ok) queued = [];
     if (!ack.ok && ack.error === 'secret_field') {
       // The phone's own check of the real element found a secret field: it already gave the page to the user.
+      // 0.11.2: a phone that left the hand-over to the server (deferred) tries the saved login first.
       const s2 = { kind: String(res.kind || 'password').slice(0, 20), reason: 'The phone found a secret field',
-        message: secrets.message(res.kind), say: d.say, tool: cmd.tool, name: cmd.name, phone: true };
-      const back = await waiting(U.handBack(o, log, s2));
+        message: secrets.message(res.kind), say: d.say, tool: cmd.tool, name: cmd.name, phone: !res.deferred };
+      const v = res.deferred ? await viaSaved(s2.kind) : null;
+      if (v) { if (v.end) return end('interrupted', { error: v.end }); continue; }
+      const back = await waiting(U.handBack(o, log, hand(s2)));
       if (back !== 'return_to_ai') return end('interrupted', { error: back });
       backFromUser(U.T.HANDED_BACK);
       continue;

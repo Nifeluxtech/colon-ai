@@ -256,10 +256,13 @@ class BrowserSaga(private val a: BrowserHost, private val bridge: BridgeClient) 
 
     /** The ack goes first: the server must read "secret_field" (wait for the user), not the control change that
      *  follows (which would read as the user taking over and end the task). */
-    private fun refuseSecret(kind: String, reply: Reply) {
+    private fun refuseSecret(kind: String, reply: Reply, savedLogin: Boolean = false) {
         pointer?.hide()
-        reply(false, JSONObject().put("kind", kind), "secret_field")
-        handOff(kind)
+        // 0.11.2: a password the server will first try the saved login for (Colon Secured Login, or its form card):
+        // the hand-over is left to the server, which sends it only when that doesn't get Saga in.
+        val defer = savedLogin && (kind == SecretFields.PASSWORD || kind == SecretFields.SIGN_IN)
+        reply(false, JSONObject().put("kind", kind).apply { if (defer) put("deferred", true) }, "secret_field")
+        if (!defer) handOff(kind)
     }
 
     private fun render() {
@@ -483,7 +486,8 @@ class BrowserSaga(private val a: BrowserHost, private val bridge: BridgeClient) 
             val secret = r.optString("secret").takeIf { it.isNotBlank() && it != "null" }
                 ?: SecretFields.forStep(command.name, field, d.optString("form_secret").ifBlank { null }, tab?.url,
                     null, BuildConfig.EXTRA_CUSTOM_TAB_HOSTS)
-            if (secret != null) { refuseSecret(secret, reply); return@exec }
+            val savedLogin = args.optBoolean("saved_login")
+            if (secret != null) { refuseSecret(secret, reply, savedLogin); return@exec }
             val risk = r.optJSONObject("risk")
             val kind = SagaApproval.decide(SagaApproval.serverKind(args), risk?.optString("kind"), control.mode,
                 command.name)
@@ -491,7 +495,7 @@ class BrowserSaga(private val a: BrowserHost, private val bridge: BridgeClient) 
                 // tools.js refuses a secret field itself at every step (the page may have changed since inspect).
                 val answer: (JSONObject?, String?, String?) -> Unit = { res, err, secretKind ->
                     when {
-                        secretKind != null -> refuseSecret(secretKind, done)
+                        secretKind != null -> refuseSecret(secretKind, done, savedLogin)
                         err != null -> done(false, null, err)
                         else -> done(true, res, null)
                     }
