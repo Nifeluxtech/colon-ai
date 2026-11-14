@@ -8,12 +8,29 @@ import { gate } from '../core/auth.js';
 var C = Colon, icon = C.icon, esc = C.esc, $ = C.$, $$ = C.$$;
 
 /* ================= Routing ================= */
+// 0.11.0: the support models after Gemma 4 and which model answered the latest replies on this server.
+function supportCard() {
+  var d = supportCard.d || {}, on = d.support_chain || [], set = d.support_configured || [];
+  var off = set.filter(function (x) { return on.indexOf(x) < 0; });
+  var rows = (d.answered || []).slice(0, 8).map(function (a) {
+    return '<li>' + esc(a.provider + ':' + a.model) + (a.support ? ' <span class="tiny muted">(support)</span>' : '')
+      + ' <span class="tiny muted">· ' + esc(String(a.ms)) + ' ms · ' + esc(String(a.at).slice(11, 19))
+      + (a.tried > 1 ? ' · after ' + (a.tried - 1) + ' failed' : '') + '</span></li>';
+  }).join('');
+  return '<div class="card"><div class="adm-slot-h"><b>Support models</b></div><p class="small">Then: '
+    + esc(on.join(' → ') || 'none (set GEMINI_API_KEY, GROQ_API_KEY or OPENROUTER_API_KEY)') + '.</p>' + (off.length
+    ? '<p class="tiny muted">Configured but without a key: ' + esc(off.join(', ')) + '</p>' : '')
+    + '<div class="adm-slot-h"><b>Answered lately (this server)</b></div>' + (rows ? '<ol class="small">' + rows
+    + '</ol>' : '<p class="tiny muted">No replies since this server started.</p>') + '</div>';
+}
+
 function routing(view) {
   gate(view, function () {
     view.innerHTML = head('Routing',
       'The order of model slots per mode. The first one that answers wins; the rest are fallbacks.') + '<div id="rt">'
       + skel(4) + '</div>';
     C.api('/admin/routing').then(function (d) {
+      supportCard.d = d;
       var routes = JSON.parse(JSON.stringify(d.routes)), hedge = d.hedge, slots = Object.keys(d.targets);
       var sp = d.specialists || null, spec = sp ? sp.enabled : true;
       var order = ['general', 'study', 'developer', 'research', 'african'];
@@ -24,7 +41,7 @@ function routing(view) {
           + ' · changes reach every server within ' + d.cache_seconds + ' s.</p>' + (d.model_set === 'gemma'
           ? '<p class="small"><b>Gemma 4 only</b> (AI_MODEL_SET=gemma): replies use ' + esc((d.gemma_chain || [])
           .join(' → ') || 'no Gemma 4 model') + ', one at a time; the routes below apply with AI_MODEL_SET=all.</p>'
-          : '') +
+          + supportCard() : '') +
           order.map(function (mode) {
             var list = routes[mode] || [];
             return '<div class="card adm-route"><div class="adm-slot-h"><b>' + esc(d.labels[mode] || mode)
