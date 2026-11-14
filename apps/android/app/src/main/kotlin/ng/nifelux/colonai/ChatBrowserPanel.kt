@@ -882,8 +882,10 @@ class ChatBrowserPanel(private val a: MainActivity) : BrowserHost, TabManager.Ho
         if (!a.foreground) SagaService.result(a, r.state == ChatRun.State.DONE, r.result.ifBlank { r.goal })
         // 0.10.6: the live page now, else this task's last step picture; never an older task's (a blank instead).
         val shot = ChatRunKeeper.capture(tabs.active?.webView) ?: keeper.livePicture(chatKey)
+        // 0.11.2: the summary row's step count and site.
         keeper.saveCard(chatKey, CardRules.Card(cardId(r), r.goal, r.anchor, r.state.wire, r.result,
-            System.currentTimeMillis()), shot)
+            System.currentTimeMillis(), steps = steps.steps(chatKey).size,
+            url = tabs.active?.url?.takeIf { UrlRules.isWebUrl(it) } ?: ""), shot)
         if (focus && !ChatRun.touchesPage(r.state)) setFocus(false)
         main.removeCallbacks(releaseLater)
         main.postDelayed(releaseLater, RELEASE_MS)

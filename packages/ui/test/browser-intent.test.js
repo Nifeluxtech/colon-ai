@@ -37,9 +37,12 @@ test('while the browser is open, instructions for it become Saga tasks run on it
     'add it to cart', 'sign in', 'what\'s on this page']) {
     assert.deepEqual(parseIntent(t, OPEN), { kind: 'task', goal: t, open: true }, t);
   }
-  // The same words with the browser closed are ordinary chat.
-  assert.equal(parseIntent('search for jollof rice recipes'), null);
+  // Steps that only make sense on an open page are ordinary chat with the browser closed; 0.11.2: a search is not
+  // (it needs the live web, so the browser opens itself).
+  assert.deepEqual(parseIntent('search for jollof rice recipes'), { kind: 'task',
+    goal: 'search for jollof rice recipes', open: true });
   assert.equal(parseIntent('scroll down'), null);
+  assert.equal(parseIntent('sign in'), null);
 });
 
 test('ordinary messages, questions about browsers and long texts stay chat', () => {
@@ -96,4 +99,26 @@ test('0.10.4: "continue" after the chat\'s last task ended continues it; while S
   assert.equal(parseIntent('can you explain how I should continue my essay about the civil war in more detail',
     ENDED), null);
   assert.equal(parseIntent('how do I continue my studies?', ENDED), null);
+});
+
+test('0.11.2: a message that needs the browser opens it by itself (no "open the browser" first)', () => {
+  for (const t of ['Search the web for fuel price in Lagos', 'google yolotask earners', 'check yolotask',
+    'Check my yolotask dashboard', 'log in to github', 'login to yolotask', 'sign in to yolotask.com.ng',
+    'fill out the JAMB registration form', 'compare prices of iPhone 15 on jumia and konga',
+    'find the cheapest rice on jumia', 'how much is a bag of rice on jumia today?', 'what is the latest news on punch?',
+    'see what\'s new on nairaland', 'check the price of cement in Lagos', 'search online for NYSC news',
+    'buy a phone charger on konga', 'Saga, please check punchng.com for today\'s headlines']) {
+    assert.deepEqual(parseIntent(t), { kind: 'task', goal: t, open: true }, t);
+  }
+  // Going to a named site still just opens it.
+  assert.deepEqual(parseIntent('go to yolotask'), { kind: 'open', url: 'https://yolotask.com.ng/' });
+});
+
+test('0.11.2: questions answerable without a browser stay ordinary chat', () => {
+  for (const t of ['what is the capital of Nigeria?', 'check my grammar', 'How do I sign in to github?',
+    'what is jumia?', 'find me a good name for my dog', 'buy me a gift idea', 'write a poem about Lagos',
+    'explain how search engines work', 'compare python and javascript', 'which is better, jumia or konga?',
+    'check this sentence for errors: I has a pen', 'what does google mean?']) {
+    assert.equal(parseIntent(t), null, t);
+  }
 });

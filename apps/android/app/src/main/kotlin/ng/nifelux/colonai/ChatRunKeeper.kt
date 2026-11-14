@@ -165,11 +165,13 @@ object CardRules {
     const val SHOT_BYTES = 110_000
 
     /** [id] the task (or a local id); [anchor] the chat message it sits under; [shot] its picture's file name. */
+    /** 0.11.2: [steps] Saga's steps and [url] the page it ended on, for the chat's summary row. */
     data class Card(val id: String, val goal: String, val anchor: String?, val state: String, val result: String,
-                    val at: Long, val shot: String? = null, val bytes: Int = 0) {
+                    val at: Long, val shot: String? = null, val bytes: Int = 0, val steps: Int = 0,
+                    val url: String = "") {
         fun toJson(): JSONObject = JSONObject().put("id", id).put("goal", goal).put("anchor", anchor ?: JSONObject.NULL)
             .put("state", state).put("result", result).put("at", at).put("shot", shot ?: JSONObject.NULL)
-            .put("bytes", bytes)
+            .put("bytes", bytes).put("steps", steps).put("url", url)
 
         companion object {
             fun fromJson(o: JSONObject?): Card? {
@@ -177,7 +179,9 @@ object CardRules {
                 return Card(id.take(40), ChatRun.clean(o.optString("goal")),
                     o.optString("anchor").takeIf { !o.isNull("anchor") && it.isNotBlank() }?.take(64),
                     o.optString("state").take(16), ChatRun.clean(o.optString("result")), o.optLong("at"),
-                    o.optString("shot").takeIf { !o.isNull("shot") && SHOT_NAME.matches(it) }, o.optInt("bytes"))
+                    o.optString("shot").takeIf { !o.isNull("shot") && SHOT_NAME.matches(it) }, o.optInt("bytes"),
+                    o.optInt("steps").coerceIn(0, 999), o.optString("url").takeIf { UrlRules.isWebUrl(it) }
+                        ?.take(2048) ?: "")
             }
         }
     }
