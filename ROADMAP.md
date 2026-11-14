@@ -229,6 +229,14 @@ sessions replace sharing Colon Browser's tabs with Colon AI (Colon Browser keeps
   browser" / "continue" in the chat reopen the chat's browser on its page and continue from the earlier task
   (`continue_of`); Saga's pointer stays visible, outlines what it clicks and types text out as it goes; the card
   keeps a picture after every step and never shows blank; the chat model knows it can open the browser
+- [x] **Saga grows up (v0.11.0, ADR 0007):** step timeline with pictures (secrets redacted), Colon Secured Login
+  (logins only in the phone's Keystore vault; the server and model see `{site, login_saved}` only), approval before
+  submit / pay / delete / send, background runs with a notification, scheduled browsing and saved routines
+  (migration 0011), mid-task steering, up to 6 tabs, extract to a table with CSV, speed mode; support models after
+  Gemma 4 (Gemini Flash-Lite latest, 3.5 Flash-Lite, 2.5 Flash, Groq gpt-oss-120b, OpenRouter free Gemma). The
+  card hides under the chat's overlays and stays steady while scrolling
+- [ ] 0.11.0 on real phones: background runs on aggressive battery savers (Infinix/Tecno), schedules while the app
+  is closed (no FCM yet: a schedule runs when Colon AI next connects), the vault after a device-lock change
 - [ ] Release standard on real phones: mode, layout and chat switching checked across devices with no lost state
   (the Android code is not compiled or run in CI here yet for this release)
 

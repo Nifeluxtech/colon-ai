@@ -1,5 +1,57 @@
 # Changelog
 
+## [0.11.0] — 2026-11-14 · Saga grows up: timeline, Colon Secured Login, approvals, background, schedules
+Every version number moves to 0.11.0 (apps, `Colon.version`, `?v=` cache-busting, `version.json` versionCode 1100
+for both APKs). **Migration `0011_saga_schedules_routines.sql`** (scheduled checks and routines). Design and limits:
+[ADR 0007](docs/decisions/0007-phone-vault-and-scheduling.md).
+### Added
+- **Step timeline**: tap the browser card (or ⋮ › Steps) for every step Saga took, with a small picture of the page
+  after it. Typed values that look secret (password fields, password-like strings, card numbers) show as
+  `•••• (n characters)`; pictures stay on the phone (`StepLog`, `TimelineSheet`).
+- **Colon Secured Login**: saved site logins live only in the phone's vault (Android Keystore AES-GCM,
+  `LoginVault`), entered in a native secure form (`LoginFormActivity`, `FLAG_SECURE`, no autofill to the page).
+  Saga's `signIn {site}` makes the phone fill the page itself (`assets/saga/login.js`) on a trusted **https** page of
+  that site after the user's one-time approval; the server and the model see only `{site, login_saved}` and
+  ok / `no_login` / `not_trusted` / `wrong_site`. Settings › Saga › Saved logins (`VaultActivity`) lists and deletes
+  them. In the chat, "save my github login" opens the card; a message that looks like a password is held back with
+  a warning and the secure card instead (`lib/secret-text.js`). On the plain web the card explains logins are saved
+  only in the Android app, with the download link.
+- **Approval before submit, pay, delete or send**: risky steps wait for the user's yes on the phone (a notification
+  when the app is in the background).
+- **Background runs**: a running task keeps going while Colon AI is in the background (`SagaService`, an ongoing
+  notification), with a notification when it is done or needs you.
+- **Scheduled browsing** ("check yolotask every morning and tell me what's new"): the server keeps the schedule and
+  asks the phone to run it in that chat's browser; results come back to the chat with what changed. **Routines**:
+  "save this as a routine called daily update", then "daily update" replays it. Settings › Saga lists, pauses,
+  runs and deletes them.
+- **Mid-task steering**: a message sent while Saga works goes to the running task (`/browser/agent/:id/guide`) and
+  is taken into account at its next step.
+- **Multiple tabs** (at most 6), **extract to a table** in the chat with a **CSV download** (`lib/table-csv.js`,
+  spreadsheet-formula injection guarded), **speed mode** (fewer model calls for slow networks; Settings › Saga).
+- **Support models after Gemma 4**, for chat replies and Saga's browser decisions: first three Google AI Studio models
+  on the same `GEMINI_API_KEY` (`gemini-flash-lite-latest`, Google's alias for the newest Flash-Lite;
+  `gemini-3.5-flash-lite`; `gemini-2.5-flash`), then Groq `openai/gpt-oss-120b`, then OpenRouter's free Gemma. Each
+  Google model has its own free quota and rests on its own, so a 429 on Gemma does not skip them; they read images.
+  **`gemini-2.5-flash` is deprecated** (Google: API access for existing users only; from 1 Dec 2026 its requests are
+  routed to `gemini-3.5-flash-lite`): a "not found" / "not available" answer skips it for 24 hours without failing
+  the reply. A short `Retry-After` is waited out once; prompts are trimmed to each provider's limits; Admin › Routing
+  shows them.
+- Server hints for `signIn` answers `not_trusted` (don't retry; let the user sign in) and `wrong_site` (open the
+  site's own sign-in page first).
+### Fixed
+- **The browser card drew over the sidebar drawer, menus and sheets**: the chat now watches every overlay (drawer,
+  menus, sheets, dialogs, pickers, scrims; `lib/overlay-watch.js`) and tells the app `browser('suspend', {on})`; the
+  card hides until the last overlay closes.
+- **The card shook while scrolling or touching**: anchor reports are coalesced to one per frame and snapped to
+  whole device pixels (`lib/native-anchor.js`); the app places the card once per vsync with a dead band and a
+  settle pass (`InlineSteady`), and a gesture that starts on the page no longer fights the thread's scrolling.
+### Config (cPanel › Node.js app › Environment variables)
+New, all optional with working defaults: `AI_SUPPORT_MODELS`, `GEMINI_SUPPORT_MODELS`, `GEMINI_SUPPORT_VISION`,
+`GEMINI_SUPPORT_UNAVAILABLE_REST_HOURS`, `GROQ_SUPPORT_MODEL`, `OPENROUTER_SUPPORT_MODEL`,
+`GROQ_SUPPORT_MAX_INPUT_TOKENS`, `OPENROUTER_SUPPORT_MAX_INPUT_TOKENS`, `GROQ_SUPPORT_REASONING`,
+`AI_RETRY_WAIT_MS`, `SAGA_SCHEDULES_MAX`. Set **`GROQ_API_KEY`** and **`OPENROUTER_API_KEY`** for the support models
+(without them only Gemma 4 answers). Run migration 0011 (deploy runs pending migrations; check `/health`).
+
 ## [0.10.6] — 2026-11-14 · Clean new chats, honest "done", Gemma 4 only, the assistant is Colon
 Owner's report on 0.10.5 (Infinix SMART 20, Colon AI app). Every version number moves to 0.10.6 (apps,
 `Colon.version`, `version.json` versionCode 1006 for both APKs). No migration. New config key `AI_MODEL_SET`
