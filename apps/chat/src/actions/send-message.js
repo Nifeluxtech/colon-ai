@@ -1,6 +1,9 @@
 /* Colon AI · sending a message and streaming the reply; regenerate, stop and edit-and-resend. */
 
 import { handleBrowserText } from './browser-chat.js';
+import { guide, loginCard, passwordGuard } from './saga-extras.js';
+import { activeTaskId } from './saga-native.js';
+import { handlePlanText } from './saga-plans.js';
 import { Colon } from '../../../../packages/ui/js/colon.js';
 import { ColonMarkdown } from '../../../../packages/ui/js/markdown/index.js';
 import { autoGrow, scrollBottom, syncComposer } from '../components/composer.js';
@@ -9,6 +12,7 @@ import { updateHeader } from '../components/model-picker.js';
 import { refreshConvs } from '../components/sidebar.js';
 import { $, S, data, defaultModel, isMobile, mode, modelId, rafThrottle } from '../core/state.js';
 import { setView } from '../pages/chat.js';
+import { looksLikePassword, saveLoginIntent } from '../lib/secret-text.js';
 
 var C = Colon, esc = C.esc;
 
@@ -21,6 +25,7 @@ function send() {
   if (S.media.voiceActive()) S.media.stopVoice();
   // Phase 10: "open the browser", "open google.com", "scroll down"… go to this chat's browser (actions/browser-chat).
   if (!atts.length && handleBrowserText(text)) { ta.value = ''; autoGrow(); syncComposer(); return; }
+  if (!atts.length && sagaText(ta, text)) return;
   var conv = S.current && !S.loadingConv ? Promise.resolve(S.current) : data.createConversation({ mode: S.draftMode,
     model: S.draftModel || defaultModel() });
   ta.value = ''; autoGrow(); S.media.clear(true); syncComposer();
@@ -39,6 +44,29 @@ function send() {
     run(function (o) { return data.send(Object.assign({ conversationId: c.id, content: text, attachments: atts,
       mode: c.mode, model: c.model || defaultModel() }, o)); }, temp);
   }).catch(function (e) { ta.value = text; autoGrow(); syncComposer(); C.toast(e.message, 'bad'); });
+}
+/* 0.11.0 (ADR 0007): logins never go in the chat, plans and routines, and messages that steer a running task. */
+var pwChecked = false;
+function clearComposer(ta) { ta.value = ''; autoGrow(); syncComposer(); }
+function sagaText(ta, text) {
+  var save = saveLoginIntent(text);
+  if (save) {
+    clearComposer(ta);
+    loginCard(save.site, 'Save a login for Saga. It stays on your phone; the chat only notes that it is saved.');
+    return true;
+  }
+  if (!pwChecked && looksLikePassword(text)) {
+    passwordGuard(text).then(function (ok) {
+      if (!ok) { clearComposer(ta); return; }
+      pwChecked = true; ta.value = text;
+      try { send(); } finally { pwChecked = false; }
+    });
+    return true;
+  }
+  if (handlePlanText(text)) { clearComposer(ta); return true; }
+  var task = activeTaskId();
+  if (task) { clearComposer(ta); guide(task, text); return true; }
+  return false;
 }
 function run(call, tempUser, replaceId) {
   var ctl = new AbortController(), msg = null;

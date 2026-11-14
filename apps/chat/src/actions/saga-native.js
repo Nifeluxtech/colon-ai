@@ -24,8 +24,9 @@ import { Colon } from '../../../../packages/ui/js/colon.js';
 import { CW } from '../core/cw.js';
 import { S, data, signedIn } from '../core/state.js';
 import { endOf } from '../lib/saga-card.js';
+import { loginCard, speedOn, tableNotes } from './saga-extras.js';
 
-var C = Colon, POLL_MS = 1500, active = null;
+var C = Colon, POLL_MS = 1500, active = null, lastDone = null;
 var TERMINAL = ['done', 'step_limit', 'timeout', 'stopped', 'interrupted', 'failed'];
 // Errors that mean "do it the web way": no Saga on this server, an app without Saga's tools, no phone link.
 var FALLBACK = ['not_enabled', 'app_update_needed', 'no_phone', 'not_found'];
@@ -79,6 +80,14 @@ function poll(t) {
         t.seq = Math.max(t.seq, a.seq); t.steps.push(a);
         if (quiet) return;
         if (a.kind === 'action' && a.say && a.say !== t.lastSay) { t.lastSay = a.say; C.toast('Saga: ' + a.say); }
+        // 0.11.0: no saved login for the site Saga wants: the Colon Secured Login card (the app opens its form too).
+        if (a.kind === 'handoff' && a.error === 'login') {
+          var site = ((t.steps.filter(function (x) { return x.tool === 'signIn'; }).pop() || {}).args || {}).site;
+          if (!C.native.can('vault')) loginCard(site || '', 'Saga needs a login for ' + (site || 'this site') + '.');
+          addThreadNote('**Saga needs a login** for ' + line(site || 'this site') + '. Save it in **Colon Secured '
+            + 'Login** (it stays on your phone; Saga never sees it), then Saga carries on.', {}).catch(function () {});
+          return;
+        }
         // Saga needs the user (a secret, a sign-in, a code, a captcha…): the request goes in the thread too.
         if (a.kind === 'handoff' && a.say) { C.toast(a.say); addThreadNote('**Saga needs you:** ' + line(a.say)
           + ' Tap **Take control** on the browser card, do it there (Saga never sees what you type in the page), '
@@ -93,6 +102,9 @@ function poll(t) {
           + 'reader instead.');
       }
       addBrowseNote(noteFor(d.task, t.steps), d.task.sources || [], t.goal, { quiet: t.chat });
+      // 0.11.0: each table Saga pulled out goes in the thread with a CSV download.
+      tableNotes(t.steps).forEach(function (md) { addThreadNote(md, { title: t.goal }).catch(function () {}); });
+      lastDone = d.task.status === 'done' ? { id: d.task.id, goal: t.goal } : lastDone;
     }, function () {
       if (++t.errors < 6) return poll(t);
       active = null; C.toast('Lost track of Saga’s task. Check your connection.', 'bad');
@@ -128,6 +140,9 @@ function browseNative(goal, o) {
   var conv = S.current && !S.current.temporary ? S.current.id : null;
   var body = { goal: goal, conversation_id: conv, mode: 'ai', language: (C.user && C.user.language) || 'en' };
   if (o.continueOf) body.continue_of = Number(o.continueOf);
+  // 0.11.0: speed mode (fewer model calls, for slow networks) and a saved routine to replay.
+  if (speedOn()) body.speed = true;
+  if (o.routineId) body.routine_id = Number(o.routineId);
   C.api('/browser/agent', { method: 'POST', body: body }).then(function (d) {
     active = { id: d.task.id, goal: goal, seq: 0, steps: [], errors: 0, lastSay: '', chat: !!o.chat };
     if (card) nativeBrowser('task', { op: 'start', id: String(d.task.id), goal: goal, anchor: o.anchor || '' })
@@ -145,6 +160,9 @@ function browseNative(goal, o) {
 
 /** True while a Saga task started from this page is running. */
 function sagaActive() { return !!active; }
+/** 0.11.0: the running task's id (messages sent now steer it), and the chat's last finished task (routines). */
+function activeTaskId() { return active ? String(active.id) : null; }
+function lastDoneTask() { return lastDone; }
 
 /** Stop from the chat: the server stops the task too (the app's Stop already tells it through the phone). */
 function stopSaga() {
@@ -179,4 +197,4 @@ CW.sagaFollow = function (st) {
   poll(active);
 };
 
-export { browseNative, continueNative, sagaActive, stopSaga };
+export { activeTaskId, browseNative, continueNative, lastDoneTask, sagaActive, stopSaga };
