@@ -10,6 +10,9 @@
    { typed, method }: typed says the text is really in the field now.
    scroll(args, win, doc) / info(win, doc): the page, or, when the page itself does not scroll (many web apps scroll
    a container), the scrollable element under the middle of the view. Returns { y, max, target, moved? }.
+   type(el, args, win, doc) (0.10.4): one piece of Saga's typing, so the user watches the text appear in the field:
+   args.first empties the field first; then args.text goes in through the same editing path. fill() runs after the
+   last piece and makes the field exact (and fires change), so a page that dropped a piece still gets the right text.
    Tested in services/api/tests/unit/saga-phone-act.test.js. */
 (function () {
   'use strict';
@@ -88,6 +91,24 @@
     return out;
   }
 
+  function type(el, args, win, doc) {
+    if (el.tagName === 'SELECT') return { typed: false };
+    var t = String(args.text == null ? '' : args.text);
+    if (args.first) {
+      try { el.focus({ preventScroll: true }); } catch (e) { if (el.focus) el.focus(); }
+      selectAll(el, win, doc);
+      if (norm(valueOf(el)) && !edit(doc, '')) {
+        if (el.isContentEditable) el.textContent = ''; else setValue(el, win, '');
+      }
+    }
+    if (t && !edit(doc, t)) {
+      if (el.isContentEditable) el.textContent = (el.textContent || '') + t;
+      else setValue(el, win, String(el.value || '') + t);
+      fire(el, win, 'input', { bubbles: true, composed: true, inputType: 'insertText', data: t });
+    }
+    return { typed: true };
+  }
+
   function pageScrolls(win, doc) {
     var se = doc.scrollingElement || doc.documentElement;
     if (!se || se.scrollHeight - (win.innerHeight || 0) <= 2) return false;
@@ -124,5 +145,5 @@
     return after;
   }
 
-  return { fill: fill, scroll: scroll, info: info };
+  return { fill: fill, type: type, scroll: scroll, info: info };
 })()

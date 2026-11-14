@@ -105,6 +105,8 @@ const SCHEMA = [
     'wait this long for the user to type a password, code or card details and tap Return to AI (Phase 10)'),
   num('SAGA_USER_CONTROL_TIMEOUT_MS', 900000,
     'wait this long for the user to give the browser back after Take control or Pause (0.10.3), then stop the task'),
+  num('SAGA_RECONNECT_GRACE_MS', 90000,
+    'a task whose phone socket dropped waits this long for the same phone to reconnect before it ends (0.10.4)'),
   // Safety layer (modules/safety; ADR 0003)
   oneOf('SAFETY', ['on', 'off'], 'on', '"off" switches the rule filters off (child-safety rules always stay on)'),
   oneOf('SAFETY_LOG_TEXT', ['off', 'hash', 'excerpt'], 'off',

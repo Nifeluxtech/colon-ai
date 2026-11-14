@@ -83,12 +83,20 @@ object BridgeProtocol {
     private fun base(type: String) = JSONObject().put("v", VERSION).put("type", type)
         .put("ts", System.currentTimeMillis())
 
+    /** [resumable] (0.10.4): in Manual, the AI mode a Saga task waits to get back (the user has the browser, or Saga
+     *  asked for them): the server lets this new socket's Give back resume it without asking consent again. */
     fun hello(appVersion: String, versionCode: Int, deviceId: String, sdk: Int, lowRam: Boolean,
-              mode: ControlState.Mode, conversationId: String? = null): String = base("hello")
+              mode: ControlState.Mode, conversationId: String? = null,
+              resumable: ControlState.Mode? = null): String = base("hello")
         .put("client", "android").put("app_version", appVersion).put("version_code", versionCode)
         .put("device_id", deviceId).put("sdk", sdk).put("low_ram", lowRam).put("control", mode.wire)
         .put("capabilities", JSONArray(COMMANDS))
-        .apply { if (conversationId != null) put("conversation_id", conversationId) }.toString()
+        .apply { if (conversationId != null) put("conversation_id", conversationId) }
+        .apply {
+            if (mode == ControlState.Mode.MANUAL && resumable != null && resumable != ControlState.Mode.MANUAL) {
+                put("resumable", resumable.wire)
+            }
+        }.toString()
 
     /** Phase 10: the in-chat panel now shows this conversation's browser ("" = a new chat with no id yet). */
     fun chat(conversationId: String?): String = base("chat").put("conversation_id", conversationId ?: "").toString()

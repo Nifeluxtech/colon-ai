@@ -59,6 +59,33 @@ object SagaTap {
     fun retryWithScript(result: JSONObject, method: String, retry: Boolean): Boolean =
         retry && method == "tap" && result.optString("changed") == "none"
 
+    /** 0.10.4: the element's box in the WebView's px, from tools.js `point` (x, y, w, h as fractions of the visible
+     *  viewport), for the pointer's outline; null when it isn't known or isn't on screen. */
+    data class Box(val x: Float, val y: Float, val w: Float, val h: Float)
+
+    fun box(point: JSONObject, width: Int, height: Int): Box? {
+        val x = point.optDouble("x", Double.NaN)
+        val y = point.optDouble("y", Double.NaN)
+        val w = point.optDouble("w", Double.NaN)
+        val h = point.optDouble("h", Double.NaN)
+        if (width <= 0 || height <= 0 || listOf(x, y, w, h).any { it.isNaN() } || w <= 0 || h <= 0) return null
+        if (x + w < 0 || y + h < 0 || x > 1 || y > 1) return null
+        return Box((x * width).toFloat(), (y * height).toFloat(), (w * width).toFloat(), (h * height).toFloat())
+    }
+
+    /** 0.10.4: Saga types [value] out in at most [max] pieces (one character each for short text), so the user sees
+     *  it appear; empty or very long text is not typed out (the fill puts it in at once). */
+    fun chunks(value: String, max: Int = MAX_CHUNKS): List<String> {
+        if (value.isEmpty() || value.length > MAX_TYPED || max <= 0) return emptyList()
+        val size = (value.length + max - 1) / max
+        return value.chunked(size.coerceAtLeast(1))
+    }
+
+    const val MAX_CHUNKS = 24
+    const val MAX_TYPED = 400
+    /** Time between two typed pieces. */
+    const val TYPE_MS = 55L
+
     /** 0.10.2: a finger swipe for scroll, in the WebView's px. */
     data class Swipe(val x: Float, val fromY: Float, val toY: Float)
 

@@ -12,8 +12,13 @@
      { kind: 'task', goal, open: true }  Saga does it in the browser (opening it first when it is closed)
      { kind: 'mode', mode }              'shared' ("let me help": AI + me) or 'ai' ("you do it": AI only)
      { kind: 'control', op }             take_control · return_to_ai · stop
+     { kind: 'continue' }                0.10.4: Saga carries on with the chat's last task (it ended or was cut off)
    ctx.open: the browser is open in this chat; ctx.waiting: Saga waits for the user (a password, a code);
-   ctx.resumable: the user took control of a running task. */
+   ctx.resumable: the user took control of a running task; ctx.ended (0.10.4): the chat's last Saga task ended
+   (its card offers Continue); ctx.busy: a Saga task is running now.
+   0.10.4: "reshow / show / reopen / bring back the browser", "where is the browser", "I can't see the browser"
+   open (show) this chat's browser; "continue", "carry on", "I've logged in, continue"… after a task ended continue
+   it. These never reach the chat model as plain chat. */
 
 var SITES = {
   google: 'https://www.google.com/', youtube: 'https://www.youtube.com/', gmail: 'https://mail.google.com/',
@@ -28,9 +33,19 @@ function whole(list) { return new RegExp('^(?:' + list.join('|') + ')$'); }
 var LEAD = new RegExp('^(?:(?:hey|hi|ok(?:ay)?|so|now|and|then)[\\s,]+)*(?:saga[\\s,:]+)?(?:(?:please|pls|kindly)\\s+)?'
   + '(?:(?:can|could|would|will)\\s+you\\s+(?:please\\s+)?)?');
 var TAIL = /(?:\s+(?:please|pls|for me|now|thanks|thank you))+$/;
-var BROWSER = new RegExp('^(?:the\\s+|my\\s+|a\\s+)?(?:colon\\s+)?(?:browser|web ?browser|in-?chat browser)'
-  + '(?:\\s+(?:here|again|in (?:the |this )?chat))?$');
-var OPEN = /^(?:open|show|launch|start|bring up|pull up)\s+(.+)$/;
+var BROWSER = new RegExp('^(?:the\\s+|my\\s+|a\\s+|this chat\'?s\\s+|that\\s+)?(?:colon\\s+)?(?:saga\'?s\\s+)?'
+  + '(?:browser|web ?browser|in-?chat browser|browser card)'
+  + '(?:\\s+(?:here|again|back|up|for me|in (?:the |this )?chat))*$');
+// 0.10.4: "where is the browser?", "I can't see the browser": show it.
+var LOST = new RegExp('^(?:where(?:\'s| is| did)|i (?:can\'?t|cannot|don\'?t) see|i lost)\\s+(?:the |my )?(?:colon )?'
+  + '(?:in-?chat )?browser(?:\\s+(?:go|gone|again|card))*$');
+// 0.10.4: carrying on with the chat's last task once it ended (a wait for the user is a hand-back instead, BACK).
+var CONTINUE = whole(['continue', 'carry on', 'go on', 'keep going', 'resume', 'proceed', 'try again', 'retry',
+  'continue (?:the task|browsing|in the browser|where you stopped|where you left off|from where you stopped)',
+  'pick up where you left off', 'finish (?:it|the task)']);
+var CONTINUE_IN = /\b(?:continue|carry on|go on|keep going|resume|proceed|pick up where)\b/;
+var OPEN = new RegExp('^(?:open|show(?: me)?|launch|start|bring up|pull up|bring back|bring|re-?show|re-?open|display|'
+  + 'unhide|open up|give me)\\s+(.+)$');
 var CLOSE = /^(?:close|hide|shut)\s+(?:the\s+)?(?:colon\s+)?browser$/;
 var GO = /^(?:open|go to|goto|visit|navigate to|browse to|take me to|load|head to|open up)\s+(.+)$/;
 var DOMAIN = /^(?:https?:\/\/)?(?:www\.)?[a-z0-9-]+(?:\.[a-z0-9-]+)*\.[a-z]{2,}(?::\d+)?(?:[/?#]\S*)?$/i;
@@ -78,10 +93,13 @@ function parseIntent(text, ctx) {
   var original = String(text || '').trim();
   if (!original || original.length > 300 || /\n/.test(original)) return null;
   var t = clean(original);
-  if (!t || (QUESTION.test(t) && !ACTIONS.test(t))) return null;
+  if (!t || (QUESTION.test(t) && !ACTIONS.test(t) && !LOST.test(t))) return null;
   if (CLOSE.test(t)) return { kind: 'close' };
   var m = OPEN.exec(t);
-  if (m && BROWSER.test(m[1])) return { kind: 'open' };
+  if ((m && BROWSER.test(m[1])) || LOST.test(t)) return { kind: 'open' };
+  // 0.10.4: the chat's last task ended (or was cut off): "continue", "I've logged in, continue" carry it on.
+  if (ctx.ended && !ctx.waiting && !ctx.resumable && !ctx.busy && (CONTINUE.test(t) || (CONTINUE_IN.test(t)
+    && t.split(' ').length <= 12))) return { kind: 'continue' };
   if (ctx.open || ctx.waiting || ctx.resumable) {
     if (ctx.waiting || ctx.resumable) { if (BACK.test(t)) return { kind: 'control', op: 'return_to_ai' }; }
     if (STOP.test(t)) return { kind: 'control', op: 'stop' };

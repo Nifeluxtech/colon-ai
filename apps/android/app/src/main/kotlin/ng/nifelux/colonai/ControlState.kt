@@ -87,6 +87,24 @@ class ControlState {
         return "resume"
     }
 
+    /**
+     * 0.10.4: puts back a Saga task that waits for the user after this object was made afresh (the app restarted,
+     * or its screen was rebuilt): the user has the browser and Give back resumes [back]. Nothing is reported (the
+     * server kept its side); returns false when there is nothing to put back.
+     */
+    fun restoreWaiting(back: Mode, waitingFor: Handoff?): Boolean {
+        if (back == Mode.MANUAL) return false
+        mode = Mode.MANUAL; paused = false; resumable = back; handoff = waitingFor
+        return true
+    }
+
+    /** 0.10.4: the same for a task Saga was running when this object was made afresh: Saga has the browser again. */
+    fun restoreRunning(back: Mode, isPaused: Boolean): Boolean {
+        if (back == Mode.MANUAL) return false
+        mode = back; paused = isPaused; resumable = back; handoff = null
+        return true
+    }
+
     /** Ends the Saga task for good: back to Manual with nothing to return to. */
     fun stop(): String? {
         if (mode == Mode.MANUAL && resumable == null) return null

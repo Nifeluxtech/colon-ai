@@ -67,6 +67,15 @@ class BridgeClient(private val context: Context, val http: OkHttpClient) {
     var commandHandler: CommandHandler? = null
     /** Current control mode, reported in hello so the backend knows whether Saga may send commands. */
     var controlMode: ControlState.Mode = ControlState.Mode.MANUAL
+    /** 0.10.4: the AI mode a Saga task waits to get back while the user has the browser (hello `resumable`). */
+    var resumable: ControlState.Mode? = null
+    /** 0.10.4: the last control report and when it was made. Sent again once the server's bridge greets the next
+     *  socket when the socket couldn't take it, or took it only moments before it died (mobile data drops a socket
+     *  without closing it): a Give back tapped while the link was down is never lost. It is the phone's current
+     *  state, so sending it twice changes nothing. */
+    private var lastControl: String? = null
+    private var lastAt = 0L
+    private var unsent = false
     /** Phase 10: the conversation whose browser the in-chat panel shows (sent in hello and as `chat`); null in
      *  Colon Browser (its device-wide session). */
     var conversationId: String? = null
@@ -140,7 +149,22 @@ class BridgeClient(private val context: Context, val http: OkHttpClient) {
     /** [note] (0.10.3): the user's words when they give the browser back (return_to_ai), never a field's value. */
     fun reportControl(mode: ControlState.Mode, paused: Boolean, reason: String, note: String? = null) {
         controlMode = mode
-        send(BridgeProtocol.control(mode, paused, reason, note))
+        val frame = BridgeProtocol.control(mode, paused, reason, note)
+        lastControl = frame
+        lastAt = System.currentTimeMillis()
+        unsent = !send(frame)
+        // Not connected: connect now rather than after the backoff.
+        if (unsent && refs > 0 && socket == null && online) {
+            main.removeCallbacks(reconnect); backoff.reset(); connect()
+        }
+    }
+
+    /** The last control report again, on a new socket the server's bridge just greeted (see [lastControl]). */
+    private fun flushPending(ws: WebSocket) {
+        val frame = lastControl ?: return
+        val age = System.currentTimeMillis() - lastAt
+        if ((unsent && age <= PENDING_MS) || age <= RESEND_MS) ws.send(frame)
+        unsent = false
     }
 
     private fun connect() {
@@ -206,7 +230,7 @@ class BridgeClient(private val context: Context, val http: OkHttpClient) {
             backoff.reset()
             setStatus(Status.CONNECTED)
             webSocket.send(BridgeProtocol.hello(BuildConfig.VERSION_NAME, BuildConfig.VERSION_CODE, deviceId,
-                Build.VERSION.SDK_INT, lowRam(), controlMode, conversationId))
+                Build.VERSION.SDK_INT, lowRam(), controlMode, conversationId, resumable))
             main.removeCallbacks(heartbeat)
             main.postDelayed(heartbeat, 25_000)
         } }
@@ -215,7 +239,10 @@ class BridgeClient(private val context: Context, val http: OkHttpClient) {
             if (!current()) return@post
             lastMessageAt = System.currentTimeMillis()
             when (val msg = BridgeProtocol.parse(text)) {
-                is BridgeProtocol.Incoming.Hello -> setStatus(if (msg.bridge) Status.BRIDGE_READY else Status.CONNECTED)
+                is BridgeProtocol.Incoming.Hello -> {
+                    setStatus(if (msg.bridge) Status.BRIDGE_READY else Status.CONNECTED)
+                    if (msg.bridge) flushPending(webSocket)
+                }
                 is BridgeProtocol.Incoming.Command -> runCommand(webSocket, msg)
                 is BridgeProtocol.Incoming.Control -> listeners.toList().forEach { it.onControlRequest(msg) }
                 is BridgeProtocol.Incoming.Handoff -> listeners.toList().forEach { it.onHandoff(msg) }
@@ -262,5 +289,9 @@ class BridgeClient(private val context: Context, val http: OkHttpClient) {
 
     private companion object {
         const val TAG = "ColonBridge"
+        /** A kept control report older than this is dropped (the server stopped waiting long before). */
+        const val PENDING_MS = 15 * 60_000L
+        /** A report sent this recently may have gone into a socket that was already dead: it goes again. */
+        const val RESEND_MS = 90_000L
     }
 }

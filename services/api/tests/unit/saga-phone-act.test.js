@@ -171,3 +171,22 @@ test('scroll: the page when it scrolls, else the container under the middle; mov
   delete feed.scrollTo;
   assert.equal(app.run('scroll', { direction: 'top' }).y, 0);
 });
+
+test('0.10.4 type: Saga types the text out piece by piece (watchable), never into a secret field', () => {
+  const r = rig({ exec: 'missing' });
+  const box = r.add(r.make('input', { attrs: { type: 'text', 'aria-label': 'Username' } }));
+  const pw = r.add(r.make('input', { attrs: { type: 'password', name: 'password' } }));
+  box._v = 'old';
+  r.run('content');
+  assert.deepEqual(r.run('type', { id: 'c1', text: 'yo', first: true }), { typed: true });
+  assert.equal(box.value, 'yo', 'the first piece replaces what was there');
+  r.run('type', { id: 'c1', text: 'lo' });
+  assert.equal(box.value, 'yolo');
+  assert.ok(r.events.filter((e) => e[0] === 'input' && e[1] === 'insertText').length >= 2);
+  // The fill after the last piece makes the field exact.
+  assert.equal(r.run('fill', { id: 'c1', value: 'yolotask' }).typed, true);
+  assert.equal(box.value, 'yolotask');
+  assert.equal(pw.value, '');
+  assert.equal(r.run('type', { id: 'c2', text: 'x', first: true }).error, 'secret_field');
+  assert.equal(pw.value, '');
+});

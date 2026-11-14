@@ -15,6 +15,9 @@ import java.io.File
  * them after an app restart. Finished cards keep a small JPEG of the page as it was when the task ended (taken from
  * the live WebView, which is then let go): at most [CardRules.MAX_SNAPSHOTS] per chat and [CardRules.MAX_BYTES] in
  * all, the oldest dropped first; a chat's cards go with its browser (forget). Never page text, never field values.
+ * 0.10.4: while a task runs, the page's picture is also kept after every finished step ([saveLive], one per chat):
+ * an ended card, a card whose page is reloading or a card after the app restarted shows it instead of a blank, and
+ * a picture of a page that hadn't painted yet (one colour) is never taken.
  */
 class ChatRunKeeper(context: Context) {
     private val prefs = context.getSharedPreferences("colon.chat.runs", Context.MODE_PRIVATE)
@@ -47,6 +50,19 @@ class ChatRunKeeper(context: Context) {
         val (kept, dropShots) = CardRules.cap(list)
         dropShots.forEach { File(chatDir(chat), it).delete() }
         prefs.edit().putString("cards:$chat", JSONArray(kept.map { it.toJson() }).toString()).apply()
+    }
+
+    /** 0.10.4: the page as it was after Saga's latest step (replaces the previous one). */
+    fun saveLive(chat: String, jpeg: ByteArray) {
+        try { val f = File(chatDir(chat), LIVE); f.parentFile?.mkdirs(); f.writeBytes(jpeg) } catch (_: Exception) { }
+    }
+
+    /** The latest step's picture, or else the newest finished card's; null when there is none. */
+    fun lastPicture(chat: String): ByteArray? {
+        val live = File(chatDir(chat), LIVE)
+        if (live.isFile) return try { live.readBytes() } catch (_: Exception) { null }
+        val shot = cards(chat).sortedBy { it.at }.lastOrNull { it.shot != null }?.shot ?: return null
+        return try { File(chatDir(chat), shot).takeIf { it.isFile }?.readBytes() } catch (_: Exception) { null }
     }
 
     /** The task's card gets its final line (the server's notice or the chat page's poll came after the picture). */
@@ -91,6 +107,10 @@ class ChatRunKeeper(context: Context) {
     private fun chatDir(chat: String) = File(dir, ChatSessionRules.profileName(chat))
 
     companion object {
+        private const val LIVE = "live.jpg"
+        /** Pixels sampled (a grid this many across and down) to tell a page that hasn't painted. */
+        private const val BLANK_GRID = 8
+
         /** Chats whose stored run was already restored in this process (a recreated activity must not redo it). */
         private val restoredThisProcess = mutableSetOf<String>()
 
@@ -108,6 +128,12 @@ class ChatRunKeeper(context: Context) {
                 c.scale(scale, scale)
                 c.translate(-wv.scrollX.toFloat(), -wv.scrollY.toFloat())
                 wv.draw(c)
+                // 0.10.4: a page that hasn't painted yet draws one colour (white): no picture rather than a blank.
+                if (CardRules.blank(IntArray(BLANK_GRID * BLANK_GRID) { i ->
+                        bmp.getPixel((i % BLANK_GRID) * (w - 1) / (BLANK_GRID - 1),
+                            (i / BLANK_GRID) * (h - 1) / (BLANK_GRID - 1)) })) {
+                    bmp.recycle(); return null
+                }
                 var bytes: ByteArray? = null
                 for (q in intArrayOf(70, 55, 40)) {
                     val out = ByteArrayOutputStream()
@@ -149,6 +175,9 @@ object CardRules {
     }
 
     private val SHOT_NAME = Regex("^[A-Za-z0-9_.-]{1,60}\\.jpg$")
+
+    /** 0.10.4: the sampled pixels are all one colour: the page hadn't painted (a blank white card). */
+    fun blank(pixels: IntArray): Boolean = pixels.isEmpty() || pixels.all { it == pixels[0] }
 
     /** Same task again: replaced in place (keeping its picture when the new one has none); else added last. */
     fun upsert(list: List<Card>, card: Card): List<Card> {

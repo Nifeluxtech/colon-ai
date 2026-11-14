@@ -12,7 +12,11 @@
    told the task (browser('task'): start before the request, so the user's own instruction counts as consent; its
    id once known; its end with the result line) and draws it; Saga's requests for the user ("Saga needs you") land
    in the thread with how to take control; the card's Retry runs the same goal again; Stop also stops it on the
-   server. */
+   server.
+   0.10.4: Continue (the card's button when its page is still there, or "continue" in the chat) starts a task with
+   continue_of: the server folds what the earlier one did into Saga's prompt and stops it if it was still live.
+   A page that reloaded (or an app that came back) while the app's card shows a live task follows it again
+   (CW.sagaFollow, from every app state), without repeating what the thread already says. */
 
 import { addBrowseNote, addThreadNote, nativeBrowser, nativeFailed, openBrowser, syncNative }
   from '../components/browser-panel.js';
@@ -27,14 +31,16 @@ var TERMINAL = ['done', 'step_limit', 'timeout', 'stopped', 'interrupted', 'fail
 var FALLBACK = ['not_enabled', 'app_update_needed', 'no_phone', 'not_found'];
 var ENDED = {
   step_limit: 'Saga used all its steps before finishing.', timeout: 'Saga ran out of time.',
-  stopped: 'You stopped Saga.', interrupted: 'Saga stopped because you took control or paused.',
+  stopped: 'You stopped Saga.', interrupted: 'Saga was interrupted.',
   failed: 'Saga couldn’t finish this task.'
 };
 var ERRORS = { declined: 'You didn’t allow Saga to browse.', no_consent: 'Nobody answered “Let Saga browse?” on the '
   + 'phone.', approval_missing: 'A step needed your approval and didn’t get it, so Saga stopped.', phone_timeout:
   'The browser panel stopped answering.', model_timeout: 'Colon Saga took too long to decide.', bad_reply: 'Colon '
   + 'Saga’s replies couldn’t be understood.', handoff_timeout: 'Saga waited for you to type your details, then '
-  + 'stopped.', other_chat: 'The browser was showing another chat.', stop: 'You stopped Saga.' };
+  + 'stopped.', other_chat: 'The browser was showing another chat.', stop: 'You stopped Saga.',
+  disconnected: 'The link to the Colon AI app dropped and didn’t come back in time. Say “continue” to carry on.',
+  user_timeout: 'The browser wasn’t given back in time. Say “continue” to carry on.' };
 
 function webFallback(goal, why) {
   if (why) C.toast(why);
@@ -67,8 +73,11 @@ function poll(t) {
     if (active !== t) return;
     C.api('/browser/agent/' + encodeURIComponent(t.id) + '?after=' + t.seq).then(function (d) {
       t.errors = 0;
+      var quiet = t.resumed;          // following again after a reload: the thread already has these
+      t.resumed = false;
       (d.actions || []).forEach(function (a) {
         t.seq = Math.max(t.seq, a.seq); t.steps.push(a);
+        if (quiet) return;
         if (a.kind === 'action' && a.say && a.say !== t.lastSay) { t.lastSay = a.say; C.toast('Saga: ' + a.say); }
         // Saga needs the user (a secret, a sign-in, a code, a captcha…): the request goes in the thread too.
         if (a.kind === 'handoff' && a.say) { C.toast(a.say); addThreadNote('**Saga needs you:** ' + line(a.say)
@@ -104,6 +113,8 @@ function tellCard(t, task) {
     browse there. o.anchor (0.10.3): the chat message the task's card goes under. */
 function browseNative(goal, o) {
   o = o || {};
+  // 0.10.4: Continue takes over from the task it continues (the server stops that one).
+  if (o.continueOf && active && String(active.id) === String(o.continueOf)) active = null;
   var card = C.native.can('browserCard');
   if (goal && card && signedIn() && data.kind === 'remote' && !active) {
     // Before the request: the app counts the chat's own instruction as consent (no "Let Saga browse?").
@@ -115,8 +126,9 @@ function browseNative(goal, o) {
   // One task at a time; the panel's Stop button (or Take control) ends the running one.
   if (active) { C.toast('Saga is already browsing. Stop it in the panel first.', 'bad'); return; }
   var conv = S.current && !S.current.temporary ? S.current.id : null;
-  C.api('/browser/agent', { method: 'POST', body: { goal: goal, conversation_id: conv,
-    mode: 'ai', language: (C.user && C.user.language) || 'en' } }).then(function (d) {
+  var body = { goal: goal, conversation_id: conv, mode: 'ai', language: (C.user && C.user.language) || 'en' };
+  if (o.continueOf) body.continue_of = Number(o.continueOf);
+  C.api('/browser/agent', { method: 'POST', body: body }).then(function (d) {
     active = { id: d.task.id, goal: goal, seq: 0, steps: [], errors: 0, lastSay: '', chat: !!o.chat };
     if (card) nativeBrowser('task', { op: 'start', id: String(d.task.id), goal: goal, anchor: o.anchor || '' })
       .then(syncNative, function () {});
@@ -140,9 +152,31 @@ function stopSaga() {
   C.api('/browser/agent/' + encodeURIComponent(active.id) + '/stop', { method: 'POST' }).catch(function () {});
 }
 
-// The card's Retry (the app's "browserRetry" event): the same goal again, under the same message.
+/** 0.10.4: Continue the chat's last task ({ task, goal, anchor }): from where it was, in the same browser. */
+function continueNative(o) {
+  o = o || {};
+  if (!o.goal && !o.task) return;
+  browseNative(String(o.goal || 'Continue the earlier task'), { chat: true, anchor: o.anchor || '',
+    continueOf: o.task && /^\d+$/.test(String(o.task)) ? String(o.task) : null });
+}
+
+// The card's Retry, or Continue when its page is still there (the app's "browserRetry" event), under the same
+// message.
 CW.sagaRetry = function (d) {
-  if (d && d.goal && !active) browseNative(String(d.goal), { chat: true, anchor: d.anchor || '' });
+  if (!d || !d.goal) return;
+  if (d['continue']) return continueNative({ task: d.task, goal: d.goal, anchor: d.anchor });
+  if (!active) browseNative(String(d.goal), { chat: true, anchor: d.anchor || '' });
 };
 
-export { browseNative, sagaActive, stopSaga };
+// 0.10.4: the app's card shows a live task this page isn't following (it reloaded, or the app was away): follow it.
+var LIVE = ['running', 'paused', 'needs_user', 'user_control'];
+CW.sagaFollow = function (st) {
+  var run = st && st.run;
+  if (active || !run || !run.task || LIVE.indexOf(run.state) < 0 || !/^\d+$/.test(String(run.task))) return;
+  if (!signedIn() || data.kind !== 'remote') return;
+  active = { id: String(run.task), goal: String(run.goal || ''), seq: 0, steps: [], errors: 0, lastSay: '', chat: true,
+    resumed: true };
+  poll(active);
+};
+
+export { browseNative, continueNative, sagaActive, stopSaga };

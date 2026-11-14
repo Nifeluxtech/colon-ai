@@ -252,12 +252,12 @@
   var el = find(args.id);
   if (!el) return JSON.stringify({ error: 'no_element' });
   var d = mark(el, describe(el));
-  var secret = d.secret || (args.action === 'fill' || cmd === 'fill' ? d.form_secret : null) || null;
+  var secret = d.secret || (args.action === 'fill' || cmd === 'fill' || cmd === 'type' ? d.form_secret : null) || null;
   if (cmd === 'inspect') return JSON.stringify({ descriptor: d, secret: secret, risk: risk(d, { action: args.action,
     value: args.value, submit: args.submit }) });
   // The last line of defence: whatever the server or the app decided, a secret field is never typed into, clicked,
   // tapped (point comes right before every native tap) or pointed at.
-  if (secret && /^(click|fill|point)$/.test(cmd)) return JSON.stringify({ error: 'secret_field', kind: secret });
+  if (secret && /^(click|fill|point|type)$/.test(cmd)) return JSON.stringify({ error: 'secret_field', kind: secret });
   if (cmd === 'point' || cmd === 'click') {
     el.scrollIntoView({ block: 'center', inline: 'center', behavior: 'instant' });
     var p = where(el), hit = doc.elementFromPoint ? doc.elementFromPoint(p.px, p.py) : null;
@@ -280,5 +280,7 @@
     var typed = ext.fill(el, args, win, doc);
     return JSON.stringify(typed.error ? typed : Object.assign(here(), typed));
   }
+  // 0.10.4 (act.js): one piece of Saga's typing, shown as it goes; the fill after it makes the field exact.
+  if (cmd === 'type') return JSON.stringify(ext && ext.type ? ext.type(el, args, win, doc) : { error: 'unsupported' });
   return JSON.stringify({ error: 'unsupported' });
 })

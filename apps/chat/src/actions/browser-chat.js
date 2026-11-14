@@ -7,9 +7,12 @@
    panel with its own session per conversation. Intents: lib/browser-intent.js; modes: lib/browser-modes.js.
    0.10.3 (ADR 0006): the app's browser is AI-only. While the user has it (Take control, or Saga asked for them),
    whatever they send is their hand-back: it is kept in the thread and goes to Saga with the browser ("I've logged
-   in, continue"); "let me help" no longer switches to a shared mode. */
+   in, continue"); "let me help" no longer switches to a shared mode.
+   0.10.4: "reshow / show / reopen the browser" brings this chat's live browser back on its page (in view), and
+   "continue" / "carry on" after a task ended (or was cut off) continues it (the card's Continue); neither goes to
+   the chat model as plain chat. */
 
-import { browseNative, sagaActive, stopSaga } from './saga-native.js';
+import { browseNative, continueNative, sagaActive, stopSaga } from './saga-native.js';
 import { addThreadNote, nativeBrowser, openBrowser, setChatMode, setLayout, syncChat, syncNative }
   from '../components/browser-panel.js';
 import { Colon } from '../../../../packages/ui/js/colon.js';
@@ -21,9 +24,11 @@ import { givesBack, holdsIdle } from '../lib/saga-card.js';
 
 var C = Colon;
 
+var ENDED = ['done', 'error', 'stopped'];
 function nativeCtx() {
-  var st = S.browser.nativeState || {};
-  return { open: !!st.open, waiting: !!(st.handoff && st.handoff.message), resumable: !!st.resumable };
+  var st = S.browser.nativeState || {}, run = st.run || {};
+  return { open: !!st.open, waiting: !!(st.handoff && st.handoff.message), resumable: !!st.resumable,
+    ended: ENDED.indexOf(run.state) >= 0 && !!(run.goal || run.task), busy: sagaActive() };
 }
 function webCtx() { return { open: S.browser.layout !== 'none' }; }
 function host(u) { return ColonURL.displayUrl(u).replace(/^www\./, '').split('/')[0] || u; }
@@ -44,8 +49,15 @@ function inApp(i, note) {
   switch (i.kind) {
     case 'open':
       return nativeBrowser('open', i.url ? { url: i.url } : {}).then(function (st) { syncNative(st);
-        return say(i.url ? 'Opened ' + host(i.url) + ' in this chat’s browser.' : 'Opened this chat’s browser. '
-          + 'Tell me what to do in it, like “search for…” or “scroll down”.'); });
+        var page = st && st.url ? host(st.url) : '';
+        return say(i.url ? 'Opened ' + host(i.url) + ' in this chat’s browser.' : page ? 'Here’s this chat’s '
+          + 'browser, still on ' + page + '. Tell me what to do next, or say “continue” to carry on.' : 'Opened this '
+          + 'chat’s browser. Tell me what to do in it, like “search for…” or “scroll down”.'); });
+    case 'continue': {
+      var run = (S.browser.nativeState || {}).run || {};
+      continueNative({ task: run.task, goal: run.goal, anchor: anchor || run.anchor || '' });
+      return say('Carrying on in this chat’s browser, from where Saga left off.');
+    }
     case 'close':
       return nativeBrowser('close').then(function (st) { syncNative(st); return say('Closed the browser. Its tabs '
         + 'and sign-ins stay with this chat for next time.'); });

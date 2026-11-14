@@ -145,6 +145,7 @@ function syncNative(st) {
     : 'none');
   renderNativeInline(st);
   announceInline(st);
+  if (CW.sagaFollow) CW.sagaFollow(st);          // 0.10.4: a live task this page lost track of is followed again
 }
 // The app hasn't heard (or lost track, after a reload or its fallback) that this page draws the card: say so, and
 // the app moves the panel into the thread (v0.9.2, lib/native-panel.js).

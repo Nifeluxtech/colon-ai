@@ -33,6 +33,10 @@ private typealias Reply = (ok: Boolean, result: JSONObject?, error: String?) -> 
  * than the one the panel shows are refused ("other_chat"); "AI only" / "AI + me" switch with [switchMode].
  * 0.10.2: in "AI only" the page ignores the user while Saga has it (TabWebView, [blocksUser]; the shield shows Take
  * control, paused too); in "AI + me" Saga's steps and requests show on the page as a notice (SagaNotice).
+ * 0.10.4: Saga's pointer stays on the page while Saga has it (it fades only when the task ends or the user takes
+ * over), outlines what it is about to click or type into, and Saga types text out as it goes (SagaClicks.typeOut).
+ * Give back always works: a task whose control state was lost (the app restarted) is put back first. Every
+ * finished step tells the host (onSagaStepDone: the chat keeps a picture of the page).
  */
 class BrowserSaga(private val a: BrowserHost, private val bridge: BridgeClient) :
     BridgeClient.Listener, BridgeClient.CommandHandler {
@@ -106,6 +110,22 @@ class BrowserSaga(private val a: BrowserHost, private val bridge: BridgeClient) 
     override fun onStatus(status: BridgeClient.Status) {
         this.status = status
         if (::chip.isInitialized) render()
+        a.onBridgeStatus(status == BridgeClient.Status.BRIDGE_READY)
+    }
+
+    /** 0.10.4: the pointer above everything in the content frame (the chat card's controls are added after it),
+     *  drawn [scale] times its size (the chat's card shows a desktop page scaled down). */
+    fun raisePointer(scale: Float) { pointer?.let { it.scale = scale; it.bringToFront() } }
+
+    /** 0.10.4: the app was restarted (or its screen rebuilt) while this chat's Saga task was live: the control state
+     *  comes back from the chat's saved task ([running]: Saga had the browser; else it waits for the user). */
+    fun restoreTask(running: Boolean, paused: Boolean, waitingFor: ControlState.Handoff?) {
+        val ok = if (running) control.restoreRunning(ControlState.Mode.AI, paused)
+            else control.restoreWaiting(ControlState.Mode.AI, waitingFor)
+        if (!ok) return
+        bridge.resumable = control.resumable.takeIf { control.mode == ControlState.Mode.MANUAL }
+        pointer?.stay = control.canRunCommands()
+        if (::chip.isInitialized) render()
     }
 
     /** The backend asks for control. Saga never takes over without the user's yes on the phone. */
@@ -147,6 +167,10 @@ class BrowserSaga(private val a: BrowserHost, private val bridge: BridgeClient) 
         reason ?: return
         if (!control.canRunCommands()) approvalDialog?.dismiss() // a pending approval is declined when Saga stops
         if (!control.canRunCommands() || control.handoff != null) pointer?.hide()
+        // 0.10.4: the pointer stays on the page while Saga has it; a new socket's hello says what Give back resumes.
+        pointer?.stay = control.canRunCommands()
+        if (chatUi && reason == "consent") pointer?.showIdle()
+        bridge.resumable = control.resumable.takeIf { control.mode == ControlState.Mode.MANUAL }
         if (control.mode == ControlState.Mode.MANUAL && control.handoff == null) notice?.dismiss()
         bridge.reportControl(control.mode, control.paused, reason, note)
         render()
@@ -207,7 +231,10 @@ class BrowserSaga(private val a: BrowserHost, private val bridge: BridgeClient) 
     fun userControl(op: String, note: String? = null): Boolean {
         val reason = when (op) {
             "take_control" -> control.takeControl()
-            "return_to_ai" -> control.returnToAi()
+            // 0.10.4: a task whose control state was lost (the app restarted, the chat was rebuilt) is put back
+            // first, so the user's Give back is never refused on the phone; the server decides what it resumes.
+            "return_to_ai" -> control.returnToAi() ?: control.restoreWaiting(ControlState.Mode.AI, null)
+                .let { control.returnToAi() }
             "pause" -> control.pause()
             "resume" -> control.resume()
             "stop" -> { forgetConsent(); control.stop() }
@@ -322,7 +349,12 @@ class BrowserSaga(private val a: BrowserHost, private val bridge: BridgeClient) 
     }
 
     override fun handle(command: BridgeProtocol.Incoming.Command,
-                        reply: (ok: Boolean, result: JSONObject?, error: String?) -> Unit) {
+                        answer: (ok: Boolean, result: JSONObject?, error: String?) -> Unit) {
+        // 0.10.4: after every finished step the host keeps a picture of the page (the chat's card, never blank).
+        val reply: Reply = { ok, result, error ->
+            answer(ok, result, error)
+            if (ok) main.postDelayed({ a.onSagaStepDone() }, STEP_PICTURE_MS)
+        }
         if (otherChat(command.conversationId)) { reply(false, null, "other_chat"); return }
         if (!control.canRunCommands()) {
             reply(false, null, if (control.paused) "paused" else "manual_control"); return
@@ -451,11 +483,15 @@ class BrowserSaga(private val a: BrowserHost, private val bridge: BridgeClient) 
                         ControlState.Mode.AI, command.name) == null
                     clicks.click(wv, probe, pointer, { (tab?.progress ?: 100) < 100 }, ::halted, retry, answer)
                 } else clicks.aim(wv, probe, pointer, ::halted, answer) {
+                    // 0.10.4: the text appears as Saga types it; the fill below then makes the field exact.
+                    clicks.typeOut(wv, probe, if (d.optString("tag").equals("select", true)) "" else
+                        args.optString("value"), ::halted) {
                     tools.exec(wv, command.name, probe) { res ->
                         val refused = res?.takeIf { it.optString("error") == "secret_field" }
                         if (refused != null) answer(null, null, refused.optString("kind")
                             .ifBlank { SecretFields.PASSWORD })
                         else pageResult(res) { ok, r, e -> answer(if (ok) r else null, if (ok) null else e, null) }
+                    }
                     }
                 }
             }
@@ -516,5 +552,10 @@ class BrowserSaga(private val a: BrowserHost, private val bridge: BridgeClient) 
             .setOnDismissListener { answer(false) }
             .setCancelable(false)
             .show()
+    }
+
+    private companion object {
+        /** A finished step's picture is taken this long after its answer (the page has painted the change). */
+        const val STEP_PICTURE_MS = 700L
     }
 }

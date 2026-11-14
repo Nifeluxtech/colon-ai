@@ -62,3 +62,46 @@ the user steps in only when Saga needs them or when they choose to.
 - Older chat pages (0.10.2) with a 0.10.3 app still work: the app draws the pill and buttons over the old card's
   body. Older apps with a 0.10.3 page are told "AI only" for every chat.
 - The model must learn one more tool; free models that ignore it still fall back to the secret-field hand-off.
+
+## Addendum (0.10.4): continue and reconnect
+
+Owner's report on 0.10.3 (Infinix SMART 20, Developer chat): after "Login" Saga asked them to sign in, but the card
+went blank with "Saga stopped" and Retry; after they logged in Saga never caught up; "reshow the browser" went to the
+model, which said it couldn't; and Saga's pointer could hardly be seen. The admin replay showed the task stuck in
+`handoff` with no end row (its worker was gone while it waited), and the code showed three ways a wait for the user
+died: a dropped socket ended the task at once (`disconnected`), a new socket refused the user's Give back
+(`needs_consent`: consent lived on the old socket), and an app that was closed or rebuilt mid-task lost its
+control state, so Give back was refused on the phone and the card ended as "stopped".
+
+Decisions:
+
+1. **A task outlives its socket and its worker.** Saga talks to the phone through a link
+   (`modules/saga/link.js`). When the socket drops, the task lets go of its row and waits up to
+   `SAGA_RECONNECT_GRACE_MS` (90 s) for the same user's Colon AI app; on this worker the new socket takes over (a
+   handoff is sent again, a Give back made on it meanwhile counts); if the phone came back on another worker, that
+   worker adopts the task from its sweep (`resume.js`) and goes on from the saved log. Workers stamp the tasks they
+   run every 12 s; a task whose stamps stopped for 40 s (a recycled worker) is adopted the same way. A read in
+   flight when the socket dropped is sent again; an action is reported to Saga as "may or may not have happened,
+   look first" (never repeated by the server). Nobody back within the grace: `interrupted` / `disconnected`.
+2. **Consent follows the phone, not the socket.** Hello carries `resumable` (the AI mode a waiting task returns to);
+   the server keeps consent for that socket, so Give back works after a reconnect. The phone re-sends its latest
+   control report on the next socket when the first couldn't take it (or died right after).
+3. **The phone never gives a waiting task up.** After the app was closed, a task the server knows waits for the
+   user (Saga's request stays; a task Saga was running becomes "The app closed while Saga worked. Give back to carry
+   on"); the control state is restored from the saved run, and Give back always resumes (a lost state is put back
+   first). The chat page follows a live task again after a reload.
+4. **Continue.** An ended card whose page is still there says Continue: the live browser comes back on its page and
+   a task starts with `continue_of`: the server folds the earlier task's steps and ending into Saga's first prompt
+   (a `continue` row, no migration) and stops the earlier task if it was still live. "Reshow / show / reopen the
+   browser", "where is the browser" and "continue" / "I've logged in, continue" are handled in the chat
+   (`browser-intent.js`) and never reach the model, and the model's system prompt says it can open the in-chat
+   browser.
+5. **Watchable.** The pointer sits above the card's controls, 1.5× at card scale with a halo, and stays on the page
+   while Saga has it (it fades when the task ends or the user takes control); it outlines the element it clicks or
+   types into, and Saga types text out a piece at a time (act.js `type`, then the exact fill). The card keeps a
+   picture after every finished step and shows it while the page (re)loads, and a picture of a page that hadn't
+   painted (one colour) is never kept.
+
+Consequences: switching chats still ends the task in the chat left behind (the panel shows one chat's browser);
+its card then offers Continue. Push (FCM) to wake a phone that is fully offline is still not built.
+

@@ -223,6 +223,12 @@ sessions replace sharing Colon Browser's tabs with Colon AI (Colon Browser keeps
   AI only / AI + me setting is gone); Take control, asked for by the user or by Saga (`requestUserControl`), opens
   it full screen above the pinned chat composer, and the user's next message gives it back to Saga as a note. The
   server waits for the user (`SAGA_USER_CONTROL_TIMEOUT_MS`) instead of ending the task
+- [x] **Robust and watchable Saga browser (v0.10.4, ADR 0006 addendum):** a task waiting for the user (or mid-step)
+  survives the phone's socket dropping (re-attach within `SAGA_RECONNECT_GRACE_MS`, adoption by another worker or
+  after a recycled worker) and the app closing (Give back still resumes it); the card's Continue and "show the
+  browser" / "continue" in the chat reopen the chat's browser on its page and continue from the earlier task
+  (`continue_of`); Saga's pointer stays visible, outlines what it clicks and types text out as it goes; the card
+  keeps a picture after every step and never shows blank; the chat model knows it can open the browser
 - [ ] Release standard on real phones: mode, layout and chat switching checked across devices with no lost state
   (the Android code is not compiled or run in CI here yet for this release)
 

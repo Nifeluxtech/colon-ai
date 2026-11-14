@@ -19,6 +19,9 @@
 // the loop waits (waitUser(why)) instead of ending, then carries on. Either way the user's hand-back message
 // (takeNote()) is folded into the next observation, and time spent waiting for the user does not count against the
 // task's time limit.
+// 0.10.4: o.history (resume.js: what an earlier attempt, or this task before its phone's socket dropped, already did)
+// follows the goal; a step whose ack is 'reconnected' (the socket dropped mid-step and came back, link.js) is told
+// to the model as "may or may not have happened, look first" instead of ending the task.
 const safety = require('../safety');
 const secrets = require('./secrets');
 const tools = require('./tools');
@@ -71,6 +74,7 @@ async function run(o) {
   let elements = null, here = '', seenAt = now();
   let steps = 0, badReplies = 0, phoneTimeouts = 0, modelFails = 0;
   const messages = [{ role: 'user', content: `The user's task: ${String(o.goal).slice(0, 1000)}` }];
+  if (o.history) messages.push({ role: 'user', content: guard.clean(String(o.history), 'web').slice(0, 2500) });
   const end = (status, extra = {}) => ({ status, steps, sources: extra.sources || pages.map(cite), flags: guard.flags,
     answer: extra.answer || '', error: extra.error || null, result: extra.result || '' });
   const left = () => started + L.taskTimeoutMs - now();
@@ -219,12 +223,16 @@ async function run(o) {
     else if (ack.ok && tools.NAVIGATES.has(cmd.name) && !(cmd.name === 'click'
       && prompt.KEEPS_ELEMENTS.has(res.changed))) elements = null;
     const note = ack.error === 'approval_denied' ? 'The user declined this action on the phone. Do not try to do '
-      + 'the same thing another way; continue without it or finish and explain.' : '';
+      + 'the same thing another way; continue without it or finish and explain.' : ack.error === 'reconnected'
+      ? RECONNECTED : '';
+    if (ack.error === 'reconnected') elements = null;
     messages.push({ role: 'user', content: note ? `${ob.text}\n${note}` : ob.text, observation: true });
   }
 }
 
 const USER_HOLDS = ['manual_control', 'paused'];
+const RECONNECTED = 'The connection to the phone dropped during this step and came back: the step may or may not '
+  + 'have happened. Call getPageContent to see the page now before you act again.';
 const HANDED_BACK_ASKED = 'The user did what you asked in the browser and gave control back. Call getPageContent '
   + 'to see the page now, then continue.';
 const TOOK_CONTROL = 'The user took control of the browser (your last step did not run) and has now given it back. '

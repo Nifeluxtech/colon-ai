@@ -67,3 +67,33 @@ test('modes and control: "let me help", "you do it", "take control", "done", "st
   assert.equal(parseIntent('let me help'), null);
   assert.equal(parseIntent('stop'), null);
 });
+
+test('0.10.4: "reshow the browser" and friends bring this chat\'s browser back; never plain chat', () => {
+  for (const t of ['Reshow the browser', 'reshow browser', 'show the browser again', 'reopen the browser',
+    'Re-open my browser', 'bring back the browser', 'bring the browser back', 'show me the browser',
+    'Where is the browser?', 'where\'s my browser gone', 'I can\'t see the browser', 'open this chat\'s browser',
+    'display the browser card', 'Saga, please show the browser']) {
+    assert.deepEqual(parseIntent(t), { kind: 'open' }, t);
+  }
+  // Questions about browsers in general stay ordinary chat.
+  for (const t of ['what is a web browser?', 'which browser is best for android', 'show me how photosynthesis works',
+    'where is the nearest bank']) assert.equal(parseIntent(t), null, t);
+});
+
+test('0.10.4: "continue" after the chat\'s last task ended continues it; while Saga waits it is the hand-back', () => {
+  const ENDED = { open: true, ended: true };
+  for (const t of ['continue', 'Carry on', 'go on please', 'resume', 'try again', 'continue where you stopped',
+    'I\'ve logged in, continue', 'ok I have logged in now, please carry on', 'pick up where you left off']) {
+    assert.deepEqual(parseIntent(t, ENDED), { kind: 'continue' }, t);
+  }
+  // Waiting for the user (or the user has the browser): the same words give it back instead.
+  assert.deepEqual(parseIntent('continue', { open: true, ended: true, waiting: true }), { kind: 'control',
+    op: 'return_to_ai' });
+  // Saga is busy, or there is no task to continue: not a continuation.
+  assert.equal(parseIntent('continue', { open: true, ended: true, busy: true }), null);
+  assert.equal(parseIntent('continue', OPEN), null);
+  // A long message that merely mentions continuing is ordinary chat.
+  assert.equal(parseIntent('can you explain how I should continue my essay about the civil war in more detail',
+    ENDED), null);
+  assert.equal(parseIntent('how do I continue my studies?', ENDED), null);
+});

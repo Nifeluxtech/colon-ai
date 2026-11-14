@@ -1,5 +1,47 @@
 # Changelog
 
+## [0.10.4] — 2026-11-14 · Saga's in-chat browser is robust and watchable
+Owner's report on 0.10.3 (Android, Developer chat): after "Login" Saga asked them to sign in, but the card was blank
+with "Saga stopped" and Retry; after logging in Saga "was unable to catch up"; "Reshow the browser" went to the
+model, which said it couldn't; and Saga's pointer and taps could not be seen. ADR 0006 addendum. Every version
+number moves to 0.10.4 (apps, `Colon.version`, `version.json` versionCode 1004 for both APKs). No migration.
+### Root causes
+- The server's waiting task was left in `handoff` with no end (admin replay: 2 rows, `request_user_control`
+  `sign_in`): the worker holding it went away while it waited, and nothing picked it up again.
+- A dropped socket ended a waiting task at once (`disconnected`), and a new socket refused the user's Give back
+  (`needs_consent`: consent lived only on the old socket).
+- An app closed or rebuilt mid-task lost its control state: the card turned into "Saga stopped (when the app
+  closed)" and Give back was refused on the phone (ended as stopped); the live page had no picture, so the card
+  showed white while it reloaded.
+- "Reshow the browser" wasn't a browser intent, and the model's prompt didn't know about the in-chat browser.
+- Saga's pointer sat under the card's controls, was small at card scale and faded 1.2 s after every tap.
+### Fixed / changed
+- **Tasks survive the socket and the worker** (`modules/saga/link.js`, `resume.js`): a dropped socket waits up to
+  `SAGA_RECONNECT_GRACE_MS` (new, default 90000) for the same phone; the new socket takes over on this worker, or
+  another worker adopts the task; workers stamp their tasks and adopt ones whose worker went quiet. Reads in flight
+  are re-sent; actions are reported to Saga as "may or may not have happened". Every end now tells the phone.
+- **Give back always works**: hello `resumable` keeps consent on a new socket; the app re-sends its latest control
+  report after reconnecting; after the app was closed a known task waits for the user (Give back carries on) and
+  the phone puts back a lost control state instead of ending the card as stopped. The chat page follows a live task
+  again after a reload.
+- **Continue**: an ended card whose page is still there shows Continue (reopens the live browser on its page and
+  starts `POST /browser/agent { continue_of }`, which folds the earlier steps into Saga's prompt and stops the
+  earlier task if it was still live). In the chat, "reshow / show / reopen / bring back the browser", "where is the
+  browser?" open it, and "continue", "carry on", "I've logged in, continue" after a task ended continue it; none of
+  these go to the model. The system prompt (all modes) says Saga can open the in-chat browser.
+- **Watchable**: the pointer sits above the card's controls, 1.5× with a halo, stays on the page while Saga works,
+  outlines the element it clicks or types into, and Saga types text out piece by piece (act.js `type`, then the
+  exact fill). The pill says "Reconnecting to Saga…" while the link is down.
+- **Never blank**: the card keeps the page's picture after every finished step (`ChatRunKeeper.saveLive`), shows it
+  while the page (re)loads, uses it for the finished card when the live capture fails, and never keeps a picture of
+  a page that hadn't painted.
+- Admin › Browser shows waiting tasks and continuation rows by name.
+### Tests
+- `saga-reconnect-runner.test.js` (9: wait survives a drop, grace runs out, read re-sent / action not repeated,
+  moved, adoption with history, orphans expire, `continue_of`, summary), `saga-phone-act.test.js` (`type`),
+  `browser-intent.test.js` (reshow / continue), `ChatRunTest.kt` (restore, Continue, reconnecting, control state
+  restore, hello `resumable`, pointer box, typing pieces, blank pictures).
+
 ## [0.10.3] — 2026-11-14 · Saga's browser is an AI-only card in the chat, with Take control
 The owner's redesign of the in-chat browser (ADR 0006, `docs/decisions/0006-inline-ai-browser.md`): instead of a
 second browser squeezed into the chat that the user could also drive, each Saga task is a "Manus-style" card in the

@@ -51,6 +51,13 @@ import org.json.JSONObject
  * the same view read-only. The card's controls and status pill are ChatCard; the task state and the finished cards
  * (with a picture of the page, after which the WebView is let go) are kept per chat by ChatRunKeeper. Free browsing,
  * the address bar, tabs and the "AI + me" / Manual modes are gone from the chat (Colon Browser keeps its own).
+ *
+ * 0.10.4 (robust and watchable, ADR 0006 addendum): a task waiting for the user survives the app being closed or
+ * its screen rebuilt (restoreTask: Give back still resumes it; the server waits for the phone to reconnect), and
+ * Give back never ends a task on the phone. An ended card whose page is still here offers Continue (the chat starts
+ * a continuation; browserRetry `continue`). The page's picture is kept after every step (ChatRunKeeper.saveLive)
+ * and stands in for the page while it (re)loads, so the card is never blank. Saga's pointer sits above the card's
+ * controls, larger at card scale, and stays on the page while Saga works. The pill says when the link reconnects.
  */
 class ChatBrowserPanel(private val a: MainActivity) : BrowserHost, TabManager.Host {
     override val activity: AppCompatActivity get() = a
@@ -144,6 +151,11 @@ class ChatBrowserPanel(private val a: MainActivity) : BrowserHost, TabManager.Ho
     private var share = PanelLayout.clampShare(prefs.getFloat("share", PanelLayout.EMBEDDED_SHARE))
     private var reloadOnReturn = false
     private var restored = false
+    /** 0.10.4: the live page has painted since it was (re)opened; until then the card shows its last picture. */
+    private var painted = true
+    private var lastShotAt = 0L
+    private var linked = true
+    private val paintedLater = Runnable { painted = true; renderCard() }
 
     init {
         chats.current = chatKey
@@ -153,6 +165,8 @@ class ChatBrowserPanel(private val a: MainActivity) : BrowserHost, TabManager.Ho
         saga.bind(panel)
         saga.chatUi = true
         card = ChatCard(content, cardActions())
+        saga.raisePointer(POINTER_SCALE)
+        restoreTask()
         // AI-only: no address bar to type in (the header shows only as the older pages' fallback).
         address.isFocusable = false
         address.isLongClickable = false
@@ -217,8 +231,9 @@ class ChatBrowserPanel(private val a: MainActivity) : BrowserHost, TabManager.Ho
                 else tabs.open(url)
             }
         }
-        // The WebView was let go when the last task ended (low memory): it comes back with its page.
-        tabs.active?.takeIf { it.webView == null }?.let { tabs.switchTo(it) }
+        // The WebView was let go when the last task ended (low memory): it comes back with its page, and its last
+        // picture shows until it has painted (0.10.4).
+        tabs.active?.takeIf { it.webView == null }?.let { awaitPaint(); tabs.switchTo(it) }
         tabs.active?.webView?.onResume()
         main.removeCallbacks(releaseLater)
         applyLock()
@@ -528,6 +543,8 @@ class ChatBrowserPanel(private val a: MainActivity) : BrowserHost, TabManager.Ho
     }
 
     fun onResume() {
+        // 0.10.4: the chat page re-reads the card's state (the task may have moved on while the app was away).
+        changed()
         if (!isOpen) return
         tabs.active?.webView?.onResume()
         if (reloadOnReturn) { reloadOnReturn = false; tabs.active?.webView?.reload() }
@@ -560,8 +577,13 @@ class ChatBrowserPanel(private val a: MainActivity) : BrowserHost, TabManager.Ho
         override fun giveBack() { this@ChatBrowserPanel.giveBack(null); changed() }
         override fun stop() { stopSaga(); changed() }
         override fun retry() {
+            // 0.10.4: Continue when the page is still here: the live browser comes back on it and Saga carries on
+            // from the earlier task (the chat page starts it with continue_of); else Retry runs the goal again.
+            val cont = pageAlive()
+            if (cont && !isOpen) open(null)
             a.nativeBridge.emit("browserRetry", JSONObject().put("goal", run.goal)
-                .put("anchor", run.anchor ?: JSONObject.NULL))
+                .put("anchor", run.anchor ?: JSONObject.NULL).put("task", run.task ?: JSONObject.NULL)
+                .put("continue", cont))
         }
         override fun back() { goBack() }
         override fun reload() { reloadPage() }
@@ -618,11 +640,12 @@ class ChatBrowserPanel(private val a: MainActivity) : BrowserHost, TabManager.Ho
         val t = tabs.active
         val note = HandoffNote.build(message, t?.url, t?.title)
         val asked = run.state == ChatRun.State.NEEDS_USER || run.resumes
-        val back = asked && (run.state == ChatRun.State.USER_CONTROL || run.state == ChatRun.State.NEEDS_USER) &&
+        // 0.10.4: never "Saga stopped" here: a lost control state is put back first (BrowserSaga.userControl), and
+        // the server, which kept the task, decides what carries on (the chat page follows the task's end).
+        if (asked && (run.state == ChatRun.State.USER_CONTROL || run.state == ChatRun.State.NEEDS_USER)) {
             saga.userControl("return_to_ai", note)
-        val now = System.currentTimeMillis()
-        setRun(if (asked && !back && ChatRun.live(run.state)) ChatRun.end(run, "stopped", null, now)
-            else ChatRun.giveBack(run, now))
+        }
+        setRun(ChatRun.giveBack(run, System.currentTimeMillis()))
         setFocus(false)
     }
 
@@ -634,6 +657,52 @@ class ChatBrowserPanel(private val a: MainActivity) : BrowserHost, TabManager.Ho
             if (ChatRun.live(run.state)) setRun(ChatRun.end(run, "stopped", null, System.currentTimeMillis()))
         }
         if (focus) setFocus(false)
+    }
+
+    /** 0.10.4: the app was restarted (or its screen rebuilt) while this chat's Saga task was live: its control state
+     *  comes back from the saved run, so Give back resumes it (the server keeps the task while the phone reconnects). */
+    private fun restoreTask() {
+        if (!ChatRun.live(run.state) || run.task == null) return
+        when (run.state) {
+            ChatRun.State.RUNNING, ChatRun.State.PAUSED ->
+                saga.restoreTask(true, run.state == ChatRun.State.PAUSED, null)
+            ChatRun.State.NEEDS_USER -> saga.restoreTask(false, false,
+                run.request?.let { ControlState.Handoff(it.kind, it.message) })
+            ChatRun.State.USER_CONTROL -> if (run.resumes) saga.restoreTask(false, false, null)
+            else -> Unit
+        }
+        // Saga's commands reach the page only while the panel is open: the live card comes back by itself.
+        main.post { if (ChatRun.live(run.state) && !isOpen) open(null) }
+    }
+
+    /** The chat's browser still has a web page (an ended card's Continue reopens it there). */
+    private fun pageAlive(): Boolean = tabs.active?.url?.let { UrlRules.isWebUrl(it) } == true
+
+    /** 0.10.4: the WebView is about to (re)load its page: the card shows the page's last picture until it paints. */
+    private fun awaitPaint() {
+        val bytes = keeper.lastPicture(chatKey) ?: return
+        val bmp = try { android.graphics.BitmapFactory.decodeByteArray(bytes, 0, bytes.size) } catch (_: Throwable) {
+            null } ?: return
+        painted = false
+        if (::card.isInitialized) card.showPicture(bmp)
+        main.removeCallbacks(paintedLater)
+        main.postDelayed(paintedLater, PAINT_TIMEOUT_MS)
+    }
+
+    /** 0.10.4: a finished step: the page's picture is kept (at most every [SHOT_EVERY_MS]). */
+    override fun onSagaStepDone() {
+        if (!ChatRun.live(run.state) || !isOpen) return
+        val now = android.os.SystemClock.uptimeMillis()
+        if (now - lastShotAt < SHOT_EVERY_MS) return
+        lastShotAt = now
+        ChatRunKeeper.capture(tabs.active?.webView)?.let { keeper.saveLive(chatKey, it) }
+    }
+
+    override fun onBridgeStatus(ready: Boolean) {
+        if (ready == linked) return
+        linked = ready
+        renderCard()
+        changed()
     }
 
     /** browser('task', {op: start}): the chat started a Saga task here ([id], [goal], the message [anchor] it was
@@ -684,7 +753,7 @@ class ChatBrowserPanel(private val a: MainActivity) : BrowserHost, TabManager.Ho
      *  (the server's last words, the result line, may still be on their way). */
     private fun ended(r: ChatRun.Run) {
         Notifications.cancelSaga(a)
-        val shot = ChatRunKeeper.capture(tabs.active?.webView)
+        val shot = ChatRunKeeper.capture(tabs.active?.webView) ?: keeper.lastPicture(chatKey)
         keeper.saveCard(chatKey, CardRules.Card(cardId(r), r.goal, r.anchor, r.state.wire, r.result,
             System.currentTimeMillis()), shot)
         if (focus && !ChatRun.touchesPage(r.state)) setFocus(false)
@@ -737,14 +806,17 @@ class ChatBrowserPanel(private val a: MainActivity) : BrowserHost, TabManager.Ho
     private fun renderCard() {
         if (!::card.isInitialized) return
         val t = tabs.active
-        card.render(run, focus, t?.title ?: "", t?.url ?: "", t?.webView?.canGoBack() == true, true)
-        content.contentDescription = a.getString(R.string.card_live, ChatRun.pill(run, card.words).text)
+        card.render(run, focus, t?.title ?: "", t?.url ?: "", t?.webView?.canGoBack() == true, true, pageAlive(),
+            linked)
+        if (painted) card.showPicture(null)
+        content.contentDescription = a.getString(R.string.card_live, ChatRun.pill(run, card.words, pageAlive(),
+            linked).text)
     }
 
     private fun pillJson(): JSONObject {
-        val p = ChatRun.pill(run, if (::card.isInitialized) card.words else PLAIN)
+        val p = ChatRun.pill(run, if (::card.isInitialized) card.words else PLAIN, pageAlive(), linked)
         return JSONObject().put("icon", p.icon).put("text", p.text).put("takeControl", p.takeControl)
-            .put("giveBack", p.giveBack).put("retry", p.retry).put("stop", p.stop)
+            .put("giveBack", p.giveBack).put("retry", p.retry).put("stop", p.stop).put("continue", p.cont)
     }
 
     /* ---------- layout ---------- */
@@ -948,7 +1020,12 @@ class ChatBrowserPanel(private val a: MainActivity) : BrowserHost, TabManager.Ho
     override fun onTabsChanged() = changed()
 
     override fun onTabUpdated(tab: BrowserTab) {
-        if (tab === tabs.active) { refresh(); saga.reportState(); changed() }
+        if (tab === tabs.active) {
+            // 0.10.4: the page has loaded: the live page replaces its picture once it has painted.
+            if (!painted && tab.progress >= 100) { main.removeCallbacks(paintedLater); main.postDelayed(paintedLater,
+                PAINT_SETTLE_MS) }
+            refresh(); saga.reportState(); changed()
+        }
     }
 
     override fun onTabRendererGone(tab: BrowserTab) {
@@ -1008,6 +1085,13 @@ class ChatBrowserPanel(private val a: MainActivity) : BrowserHost, TabManager.Ho
         private const val ANIM_MS = 220L
         /** After a task ends, the live page stays this long (its result line may still arrive), then goes. */
         private const val RELEASE_MS = 1800L
+        /** 0.10.4: Saga's pointer is drawn this much larger on the card (a desktop page scaled down to fit). */
+        private const val POINTER_SCALE = 1.5f
+        /** A step's picture at most this often; the card's stand-in picture goes this long after the page loaded,
+         *  and at the latest after [PAINT_TIMEOUT_MS]. */
+        private const val SHOT_EVERY_MS = 1500L
+        private const val PAINT_SETTLE_MS = 450L
+        private const val PAINT_TIMEOUT_MS = 8000L
         private val PLAIN = ChatRun.Words("Saga is working…", "Saga is paused", "Your turn", "You're in control",
             "Done", "Saga stopped", "Saga couldn't finish", "Saga stopped when the app closed") { "Saga needs you: $it" }
         private const val PREF_LAYOUT = "layout"

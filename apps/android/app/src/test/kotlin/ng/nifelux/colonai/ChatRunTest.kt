@@ -104,12 +104,84 @@ class ChatRunTest {
         assertEquals(listOf("53", "", ChatRun.State.RUNNING), listOf(next.task, next.result, next.state))
     }
 
-    @Test fun aLiveTaskAfterTheAppDiedIsAnErrorWithRetry() {
-        val r = ChatRun.restore(ChatRun.fromControl(running(), manual, false, ControlState.Handoff("pin", "PIN"),
-            ai, 1L, 0L, false))
-        assertEquals(ChatRun.State.ERROR, r.state)
-        assertEquals(ChatRun.Pill("error", "App closed", false, false, true, false), ChatRun.pill(r, words))
+    @Test fun aTaskWaitingForTheUserSurvivesTheAppClosing() {
+        // 0.10.4: the server keeps the task while the phone reconnects: Saga's request stays as it was.
+        val asked = ChatRun.fromControl(running(), manual, false, ControlState.Handoff("sign_in", "Log in"), ai, 1L,
+            600_000L, false)
+        assertEquals(asked, ChatRun.restore(asked, 50L))
+        // Saga was working: the user's turn, and Give back carries the same task on.
+        val r = ChatRun.restore(ChatRun.step(running(), "Clicking Login"), 2000L)
+        assertEquals(ChatRun.State.USER_CONTROL, r.state)
+        assertTrue(r.resumes)
+        assertEquals("41", r.task)
+        assertEquals(2000L + ChatRun.USER_TIMEOUT_MS, r.deadline)
+        val p = ChatRun.pill(r, words)
+        assertEquals(words.appPaused, p.text)
+        assertTrue(p.giveBack)
+        assertEquals(ChatRun.State.RUNNING, ChatRun.giveBack(r, 3000L).state)
+        // A task the chat never named can't be followed: it ends, with Retry.
+        val unnamed = ChatRun.restore(ChatRun.start(null, "Deploy my app", "m7", 1L), 5L)
+        assertEquals(ChatRun.State.ERROR, unnamed.state)
+        assertEquals(ChatRun.Pill("error", "App closed", false, false, true, false), ChatRun.pill(unnamed, words))
         assertEquals(ChatRun.IDLE, ChatRun.restore(ChatRun.IDLE))
+    }
+
+    @Test fun anEndedCardOffersContinueWhileItsPageIsThere() {
+        val stopped = ChatRun.end(running(), "stopped", null, 5L)
+        assertFalse(ChatRun.pill(stopped, words).cont)
+        val p = ChatRun.pill(stopped, words, page = true)
+        assertTrue(p.cont)
+        assertTrue(p.retry)
+        // Done cards and live cards don't.
+        assertFalse(ChatRun.pill(ChatRun.end(running(), "done", "ok", 5L), words, page = true).cont)
+        assertFalse(ChatRun.pill(running(), words, page = true).cont)
+    }
+
+    @Test fun aRunningCardSaysWhenTheLinkReconnects() {
+        assertEquals(words.reconnecting, ChatRun.pill(running(), words, linked = false).text)
+        assertEquals("Working", ChatRun.pill(running(), words, linked = true).text)
+        val asked = ChatRun.fromControl(running(), manual, false, ControlState.Handoff("sign_in", "Log in"), ai, 1L,
+            0L, false)
+        assertEquals("Needs you: Log in", ChatRun.pill(asked, words, linked = false).text)
+    }
+
+    @Test fun theControlStateComesBackAfterTheAppRestarted() {
+        val c = ControlState()
+        assertNull(c.returnToAi())
+        assertTrue(c.restoreWaiting(ai, ControlState.Handoff("sign_in", "Log in")))
+        assertEquals("Log in", c.handoff?.message)
+        assertEquals("return_to_ai", c.returnToAi())
+        assertTrue(c.canRunCommands())
+        val d = ControlState()
+        assertTrue(d.restoreRunning(ai, true))
+        assertEquals("resume", d.resume())
+        assertFalse(ControlState().restoreWaiting(manual, null))
+    }
+
+    @Test fun helloSaysWhatGiveBackResumes() {
+        val h = JSONObject(BridgeProtocol.hello("0.10.4", 1004, "d1", 34, true, manual, "55", ai))
+        assertEquals("ai", h.getString("resumable"))
+        assertFalse(JSONObject(BridgeProtocol.hello("0.10.4", 1004, "d1", 34, true, ai, "55", ai)).has("resumable"))
+        assertFalse(JSONObject(BridgeProtocol.hello("0.10.4", 1004, "d1", 34, true, manual, "55")).has("resumable"))
+    }
+
+    @Test fun thePointerOutlinesTheElementAndTypingComesInPieces() {
+        val b = SagaTap.box(JSONObject("""{"x":0.25,"y":0.5,"w":0.5,"h":0.1}"""), 1000, 600)!!
+        assertEquals(SagaTap.Box(250f, 300f, 500f, 60f), b)
+        assertNull(SagaTap.box(JSONObject("""{"x":0.25,"y":1.5,"w":0.5,"h":0.1}"""), 1000, 600))
+        assertNull(SagaTap.box(JSONObject("""{"cx":0.5}"""), 1000, 600))
+        assertEquals(listOf("y", "o", "l", "o"), SagaTap.chunks("yolo"))
+        val long = "x".repeat(100)
+        assertTrue(SagaTap.chunks(long).size <= SagaTap.MAX_CHUNKS)
+        assertEquals(long, SagaTap.chunks(long).joinToString(""))
+        assertTrue(SagaTap.chunks("").isEmpty())
+        assertTrue(SagaTap.chunks("x".repeat(SagaTap.MAX_TYPED + 1)).isEmpty())
+    }
+
+    @Test fun aPageThatHasNotPaintedIsNoPicture() {
+        assertTrue(CardRules.blank(IntArray(64) { -1 }))
+        assertTrue(CardRules.blank(IntArray(0)))
+        assertFalse(CardRules.blank(IntArray(64) { if (it == 40) 0 else -1 }))
     }
 
     @Test fun theRunSurvivesJson() {

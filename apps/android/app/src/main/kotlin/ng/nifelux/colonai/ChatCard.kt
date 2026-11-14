@@ -1,6 +1,8 @@
 package ng.nifelux.colonai
 
 import android.content.res.ColorStateList
+import android.graphics.Bitmap
+import android.graphics.Matrix
 import android.view.LayoutInflater
 import android.view.View
 import android.widget.FrameLayout
@@ -49,11 +51,19 @@ class ChatCard(content: FrameLayout, private val on: Actions) {
     private val stop: ImageButton = root.findViewById(R.id.pill_stop)
     private val expand: ImageButton = root.findViewById(R.id.card_expand)
     private var pillState: ChatRun.Pill? = null
+    /** 0.10.4: the page's last picture, shown over the WebView until it has painted (never a blank white card). */
+    private val picture = ImageView(ctx).apply {
+        scaleType = ImageView.ScaleType.MATRIX
+        visibility = View.GONE
+        importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO
+        setBackgroundColor(ContextCompat.getColor(ctx, R.color.colon_bg))
+    }
     val words = ChatRun.Words(
         working = ctx.getString(R.string.card_working), paused = ctx.getString(R.string.card_paused),
         yourTurn = ctx.getString(R.string.card_your_turn), youControl = ctx.getString(R.string.card_you_control),
         done = ctx.getString(R.string.card_done), stopped = ctx.getString(R.string.card_stopped),
         failed = ctx.getString(R.string.card_failed), appClosed = ctx.getString(R.string.card_app_closed),
+        appPaused = ctx.getString(R.string.card_app_paused), reconnecting = ctx.getString(R.string.card_reconnecting),
         // Colon Browser's words ("tap Return to AI") read as this card's button.
         needsYou = { m -> ctx.getString(R.string.card_needs_you, m.replace("tap Return to AI",
             "tap ${ctx.getString(R.string.card_give_back_short)}")) })
@@ -61,6 +71,9 @@ class ChatCard(content: FrameLayout, private val on: Actions) {
     init {
         content.addView(root, FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT,
             FrameLayout.LayoutParams.MATCH_PARENT))
+        (root as FrameLayout).addView(picture, 0, FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT,
+            FrameLayout.LayoutParams.MATCH_PARENT))
+        picture.addOnLayoutChangeListener { _, _, _, _, _, _, _, _, _ -> fitPicture() }
         catcher.setOnClickListener { on.expand() }
         expand.setOnClickListener { on.expand() }
         root.findViewById<View>(R.id.focus_close).setOnClickListener { on.collapse() }
@@ -70,11 +83,30 @@ class ChatCard(content: FrameLayout, private val on: Actions) {
         stop.setOnClickListener { on.stop() }
     }
 
+    /** 0.10.4: [bmp] stands in for the page until it has painted (null: the live page shows). */
+    fun showPicture(bmp: Bitmap?) {
+        if (bmp == null) { picture.visibility = View.GONE; picture.setImageDrawable(null); return }
+        picture.setImageBitmap(bmp)
+        picture.visibility = View.VISIBLE
+        fitPicture()
+    }
+
+    /** The picture fills the card's width from the top, like the page it stands in for. */
+    private fun fitPicture() {
+        val d = picture.drawable ?: return
+        val w = picture.width
+        if (w <= 0 || d.intrinsicWidth <= 0) return
+        val s = w.toFloat() / d.intrinsicWidth
+        picture.imageMatrix = Matrix().apply { setScale(s, s) }
+    }
+
     /**
      * [run] the chat's task; [full] full screen (else the card in the thread); [title] / [url] the page;
-     * [canGoBack] the page has history. The page is the user's only in user_control.
+     * [canGoBack] the page has history. The page is the user's only in user_control. 0.10.4: [page] the browser
+     * still has a web page (an ended card offers Continue); [linked] the link to the server is up.
      */
-    fun render(run: ChatRun.Run, full: Boolean, pageTitle: String, url: String, canGoBack: Boolean, show: Boolean) {
+    fun render(run: ChatRun.Run, full: Boolean, pageTitle: String, url: String, canGoBack: Boolean, show: Boolean,
+               page: Boolean = false, linked: Boolean = true) {
         root.visibility = if (show) View.VISIBLE else View.GONE
         val mine = ChatRun.touchesPage(run.state)
         // Locked page in the thread: a tap on it opens the full-screen view. Never over a page the user drives.
@@ -94,7 +126,7 @@ class ChatCard(content: FrameLayout, private val on: Actions) {
             action.contentDescription = action.text
             action.setOnClickListener { if (giving) on.giveBack() else on.takeControl() }
         }
-        renderPill(ChatRun.pill(run, words), full, mine)
+        renderPill(ChatRun.pill(run, words, page, linked), full, mine)
     }
 
     private fun renderPill(p: ChatRun.Pill, full: Boolean, mine: Boolean) {
@@ -119,6 +151,7 @@ class ChatCard(content: FrameLayout, private val on: Actions) {
         val label = when {
             p.takeControl && !full -> R.string.take_control
             p.giveBack -> R.string.card_give_back_short
+            p.cont -> R.string.card_continue
             p.retry -> R.string.card_retry
             else -> 0
         }

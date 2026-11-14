@@ -14,6 +14,8 @@ import org.json.JSONObject
  *   user_control -> running (Give back to Saga, or a message in the composer; the task resumes with it)
  *   any live state -> done | error | stopped (the task ended, the user stopped it, or a wait for the user ran out)
  * [ControlState] (shared with Colon Browser) stays what the server is told; [fromControl] maps it onto this.
+ * 0.10.4: a task the server still holds is never given up on the phone: after the app was closed it waits for the
+ * user ([restore]: Give back carries on), and an ended card whose page is still there offers Continue ([pill]).
  */
 object ChatRun {
     enum class State(val wire: String) {
@@ -127,30 +129,60 @@ object ChatRun {
     fun expired(r: Run, now: Long): Boolean =
         (r.state == State.NEEDS_USER || r.state == State.USER_CONTROL) && r.deadline > 0 && now > r.deadline + GRACE_MS
 
-    /** After the app was closed (process death): a task that was live can't be followed any more. */
-    fun restore(r: Run): Run = if (live(r.state)) r.copy(state = State.ERROR, result = "", request = null,
-        deadline = 0L, step = "app_closed") else r
+    /** The step text of a task the app picked up again after it was closed. */
+    const val APP_CLOSED = "app_closed"
 
-    /** The status pill: [icon] spinner · check · error · turn · pause · none. */
+    /**
+     * After the app was closed (process death). 0.10.4: a task the server knows ([Run.task]) waits for the user: the
+     * server keeps it while the phone reconnects, so Saga's request stays as it was, and a task Saga was running
+     * becomes the user's turn ([APP_CLOSED]): Give back carries it on. A task the chat never named can't be
+     * followed: it ends as before.
+     */
+    fun restore(r: Run, now: Long = System.currentTimeMillis()): Run = when {
+        !live(r.state) -> r
+        r.task == null -> r.copy(state = State.ERROR, result = "", request = null, deadline = 0L, step = APP_CLOSED)
+        r.state == State.NEEDS_USER -> r
+        r.state == State.USER_CONTROL -> r.copy(resumes = true)
+        else -> r.copy(state = State.USER_CONTROL, resumes = true, request = null, step = APP_CLOSED, since = now,
+            deadline = now + USER_TIMEOUT_MS)
+    }
+
+    /** The status pill: [icon] spinner · check · error · turn · pause · none. [cont] (0.10.4): the ended card's
+     *  button is Continue (the chat's browser still has the page: Saga carries on there), else Retry. */
     data class Pill(val icon: String, val text: String, val takeControl: Boolean, val giveBack: Boolean,
-                    val retry: Boolean, val stop: Boolean)
+                    val retry: Boolean, val stop: Boolean, val cont: Boolean = false)
 
-    fun pill(r: Run, words: Words): Pill = when (r.state) {
+    /** [page]: the chat's browser still has a web page open (Continue instead of Retry). [linked]: the phone's link
+     *  to the server is up (else a running task says it is reconnecting: the server waits for the phone). */
+    fun pill(r: Run, words: Words, page: Boolean = false, linked: Boolean = true): Pill = basePill(r, words).let {
+        when {
+            it.retry && page -> it.copy(cont = true)
+            !linked && r.state == State.RUNNING -> it.copy(text = words.reconnecting)
+            else -> it
+        }
+    }
+
+    private fun basePill(r: Run, words: Words): Pill = when (r.state) {
         State.IDLE -> Pill("none", "", false, false, false, false)
         State.RUNNING -> Pill("spinner", r.step.ifEmpty { words.working }, false, false, false, true)
         State.PAUSED -> Pill("pause", words.paused, false, false, false, true)
         State.NEEDS_USER -> Pill("turn", words.needsYou(r.request?.message ?: ""), true, false, false, true)
-        State.USER_CONTROL -> Pill("turn", if (r.resumes) words.yourTurn else words.youControl, false, true, false,
-            r.resumes)
+        State.USER_CONTROL -> Pill("turn", when {
+            r.step == APP_CLOSED -> words.appPaused
+            r.resumes -> words.yourTurn
+            else -> words.youControl
+        }, false, true, false, r.resumes)
         State.DONE -> Pill("check", r.result.ifEmpty { words.done }, false, false, false, false)
         State.STOPPED -> Pill("error", r.result.ifEmpty { words.stopped }, false, false, r.goal.isNotEmpty(), false)
-        State.ERROR -> Pill("error", if (r.step == "app_closed") words.appClosed else r.result.ifEmpty { words.failed },
+        State.ERROR -> Pill("error", if (r.step == APP_CLOSED) words.appClosed else r.result.ifEmpty { words.failed },
             false, false, r.goal.isNotEmpty(), false)
     }
 
     /** The pill's fixed words (strings.xml in the app; plain English in tests). */
     data class Words(val working: String, val paused: String, val yourTurn: String, val youControl: String,
                      val done: String, val stopped: String, val failed: String, val appClosed: String,
+                     val appPaused: String = "The app closed while Saga worked. Give back to carry on",
+                     val reconnecting: String = "Reconnecting to Saga…",
                      val needsYou: (String) -> String)
 
     fun toJson(r: Run): JSONObject = JSONObject().put("state", r.state.wire).put("task", r.task ?: JSONObject.NULL)

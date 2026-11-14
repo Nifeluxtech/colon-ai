@@ -27,6 +27,8 @@ import org.json.JSONObject
  * only"). scroll() (0.10.2) is a real finger swipe with the pointer, checked with act.js, falling back to scrolling
  * the page or its scrolling container by script when the swipe moved nothing.
  * [done] gets (result, error, secretKind): error "secret_field" with the kind when a secret field was refused.
+ * 0.10.4: the pointer outlines the element before it clicks or types (SagaPointer.highlight, SagaTap.box), and
+ * typeOut() types the text into the field piece by piece (act.js `type`) before the real fill, so it is watchable.
  */
 class SagaClicks(private val tools: SagaTools) {
     private val main = Handler(Looper.getMainLooper())
@@ -36,6 +38,7 @@ class SagaClicks(private val tools: SagaTools) {
         val urlBefore = wv.url
         point(wv, probe, done) { first ->
             val plan = SagaTap.plan(first, wv.width, wv.height, wv.isAttachedToWindow)
+            outline(wv, first, pointer)
             val before = first.optJSONObject("before")
             val covered = first.optString("covered")
             val settle: (String) -> Unit = { method ->
@@ -71,10 +74,36 @@ class SagaClicks(private val tools: SagaTools) {
             done: (JSONObject?, String?, String?) -> Unit, then: () -> Unit) {
         point(wv, probe, done) { p ->
             val plan = SagaTap.plan(p, wv.width, wv.height, wv.isAttachedToWindow)
+            outline(wv, p, pointer)
             val go = { halted()?.let { done(null, it, null) } ?: then() }
             if (plan.shown && pointer != null) pointer.moveTo(wv, plan.x, plan.y) { pointer.ripple(); go() }
             else go()
         }
+    }
+
+    private fun outline(wv: WebView, p: JSONObject, pointer: SagaPointer?) {
+        val b = SagaTap.box(p, wv.width, wv.height) ?: return
+        pointer?.highlight(wv, b.x, b.y, b.w, b.h)
+    }
+
+    /**
+     * 0.10.4: types [value] into the field the pointer is on, a piece at a time ([SagaTap.chunks], act.js `type`:
+     * the browser's own editing path, refused on secret fields like fill), then runs [then] (the real fill, which
+     * makes the field exact and fires change). Nothing to type out, Saga losing the page, or a piece the page didn't
+     * take: [then] at once.
+     */
+    fun typeOut(wv: WebView, probe: JSONObject, value: String, halted: () -> String?, then: () -> Unit) {
+        val pieces = SagaTap.chunks(value)
+        if (pieces.isEmpty()) { then(); return }
+        fun next(i: Int) {
+            if (i >= pieces.size || halted() != null) { then(); return }
+            val args = JSONObject().put("id", probe.optString("id")).put("text", pieces[i]).put("first", i == 0)
+            tools.exec(wv, "type", args) { r ->
+                if (r == null || r.has("error")) then()
+                else main.postDelayed({ next(i + 1) }, SagaTap.TYPE_MS)
+            }
+        }
+        next(0)
     }
 
     private fun point(wv: WebView, probe: JSONObject, done: (JSONObject?, String?, String?) -> Unit,

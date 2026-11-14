@@ -118,6 +118,50 @@ const expireQueued = (before) => db.query(
     WHERE status = 'queued' AND created_at < ?`,
   [new Date(), before]);
 
+// 0.10.4: a task outlives its worker and its phone's socket. The worker running a task stamps it (touch) while it
+// runs or waits; when it loses the phone it lets go (release: worker NULL) for a little while, and any worker that
+// holds the user's phone then (or a worker that finds a task whose stamps stopped: its process was recycled) adopts
+// it. A task nobody adopted within the grace ends as interrupted (expireOrphans).
+const LIVE = ['consent', 'running', ...WAITING];
+const liveIn = LIVE.map((w) => `'${w}'`).join(', ');
+const touch = (id, worker) => db.query('UPDATE saga_tasks SET updated_at = ? WHERE id = ? AND worker = ?',
+  [new Date(), id, worker]);
+const release = (id, worker) => db.query('UPDATE saga_tasks SET worker = NULL, updated_at = ? WHERE id = ? AND '
+  + 'worker = ?', [new Date(), id, worker]);
+
+/** Takes a live task that nobody holds (or whose holder went quiet before staleBefore); true when this worker got it
+ *  (atomic: one worker wins). */
+async function adopt(id, worker, deviceRef, staleBefore) {
+  const r = await db.query(
+    `UPDATE saga_tasks SET worker = ?, device_ref = ?, updated_at = ? WHERE id = ? AND status IN (${liveIn})
+      AND stop_requested = 0 AND (worker IS NULL OR updated_at < ?)`,
+    [worker, deviceRef, new Date(), id, staleBefore]);
+  return Number(r.affectedRows) === 1;
+}
+
+/** Live tasks of these users that nobody holds now (let go, or the holder's stamps stopped before staleBefore). */
+async function orphansFor(userIds, staleBefore, since) {
+  if (!userIds.length) return [];
+  return db.query(
+    `SELECT id, user_id, goal, language, conversation_id, mode, status, steps FROM saga_tasks
+      WHERE status IN (${liveIn}) AND user_id IN (?) AND stop_requested = 0 AND (worker IS NULL OR updated_at < ?)
+        AND updated_at > ?
+      ORDER BY id LIMIT 10`, [userIds, staleBefore, since]);
+}
+
+/** Orphans nobody adopted since before: interrupted (the phone never came back). */
+const expireOrphans = (before) => db.query(
+  `UPDATE saga_tasks SET status = 'interrupted', error = 'disconnected', finished_at = ?
+    WHERE status IN (${liveIn}) AND updated_at < ?`, [new Date(), before]);
+
+/** Who holds the task now (null: nobody). */
+const holder = async (id) => { const r = await db.one('SELECT worker FROM saga_tasks WHERE id = ?', [id]);
+  return r ? r.worker || null : null; };
+
+/** The task's last step number (a task adopted or continued goes on after it). */
+const lastSeq = async (id) => { const r = await db.one('SELECT MAX(seq) AS seq FROM saga_actions WHERE task_id = ?',
+  [id]); return r && r.seq ? Number(r.seq) : 0; };
+
 async function adminList({ status = '', before = 0, limit = 50 } = {}) {
   const where = ['t.id < ?'];
   const p = [Number(before) > 0 ? Number(before) : Number.MAX_SAFE_INTEGER];
@@ -140,4 +184,5 @@ function view(row) {
 }
 
 module.exports = { create, get, getFor, claim, setStatus, setPhase, removeConversation, requestStop, isStopped,
-  addAction, actions, list, queuedFor, expireQueued, adminList, view, TERMINAL, STATUSES, WAITING, MODES };
+  addAction, actions, list, queuedFor, expireQueued, adminList, view, touch, release, adopt, orphansFor, expireOrphans,
+  holder, lastSeq, TERMINAL, STATUSES, WAITING, LIVE, MODES };

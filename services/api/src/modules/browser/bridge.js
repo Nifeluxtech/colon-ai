@@ -5,15 +5,17 @@
 // Phase 9: command(), waitControl(), hello `capabilities` (supports()). Phase 10: sessions and control per device AND
 // conversation, `other_chat`, `handoff`, the latest `page_state` in memory. 0.10.2: `say` and notice() (frames.js).
 // 0.10.3: the user's hand-back message (control `note`, takeNote()) and the handoff's `timeout_ms`.
+// 0.10.4: hello `resumable` (the phone still holds a Saga task the user can give back: consent stands on the new
+// socket), `state.closed`, and the registry of connected phones in live.js (onConnect for Saga's re-attach).
 const store = require('./store');
 const S = require('./session');
 const C = require('./control');
 const F = require('./frames');
+const live = require('./live');
 
 const MAX_FRAME = 64 * 1024;
 const PHONE_APPS = ['colonai', 'colonbrowser'];
 const LOW_RAM_TABS = 10;
-const live = new Map();                          // user id -> Set of bridges on this worker (for Saga, Phase 9)
 
 /**
  * createBridge({ send(obj), user, req, audit, throttleMs = 2000, ackTimeoutMs = 20000, now })
@@ -28,7 +30,7 @@ function createBridge(o) {
   const audit = o.audit || (async () => {});
   const st = { ref: null, deviceId: null, app: null, maxTabs: S.MAX_TABS, consented: false, lastSync: 0,
     queued: null, timer: null, pending: new Map(), seq: 0, writing: Promise.resolve(), capabilities: [],
-    watchers: new Set(), seen: 0, conv: '', page: null, note: '' };
+    watchers: new Set(), seen: 0, conv: '', page: null, note: '', closed: false };
   const api = { handle, requestSession, command, askControl, waitControl, hasControl, supports, close, handoff,
     notice, pageState: () => st.page, takeNote, state: st, user };
   const sk = () => ({ ref: st.ref, conv: st.conv });
@@ -60,9 +62,11 @@ function createBridge(o) {
       await record('hello', (await store.setControl(user.id, sk(), { control: 'manual', control_owner: 'user',
         paused: false })).row);
     } else if (cur && said !== 'manual' && cur.row.control === said) st.consented = true;
-    if (!live.has(user.id)) live.set(user.id, new Set());
-    live.get(user.id).add(api);
+    // 0.10.4: the user took the browser (or Saga asked for them) before the socket dropped: their Give back on this
+    // socket resumes the same task, so the consent they gave stands here too.
+    if (said === 'manual' && C.MODES.includes(m.resumable)) st.consented = true;
     send({ type: 'hello', service: 'colon-ai', bridge: 1, session: 1 });
+    live.add(user.id, api);
     store.prune().catch(() => {});
   }
 
@@ -124,6 +128,7 @@ function createBridge(o) {
     st.consented = d.consented;
     // 0.10.3: the user's words when they give the browser back ("I've logged in, continue"), for Saga's next step.
     if (m.reason === 'return_to_ai') st.note = F.note(m.note);
+    st.lastReason = m.reason;                    // 0.10.4: for a Saga task that re-attaches to this socket
     if (d.cancel) cancelPending();
     const after = d.next ? await store.setControl(user.id, sk(), d.next) : cur;
     await record(m.reason, after && after.row);
@@ -206,6 +211,7 @@ function createBridge(o) {
    *  how long to wait for the ack (longer when the phone must ask the user to approve). Resolves with the ack. */
   async function command(name, args = {}, tabId, o = {}) {
     if (!user || !st.ref) return { ok: false, error: 'not_ready' };
+    if (st.closed) return { ok: false, error: 'disconnected' };
     if (!onChat(o.conversation)) return { ok: false, error: 'other_chat' };
     const cur = await store.load(user.id, sk());
     if (!cur || cur.row.control === 'manual' || cur.row.control_owner !== 'saga') return { ok: false,
@@ -283,18 +289,12 @@ function createBridge(o) {
       clearTimeout(p.timer); p.resolve({ ok: false, error: 'disconnected', ref: id });
     }
     st.pending.clear();
+    st.closed = true;
     for (const w of [...st.watchers]) w('disconnected');
-    const mine = user && live.get(user.id);
-    if (mine) { mine.delete(api); if (!mine.size) live.delete(user.id); }
+    if (user) live.remove(user.id, api);
   }
 
   return api;
 }
 
-/** connected(userId) -> this worker's bridges for that user (Saga picks a phone from these in Phase 9). */
-const connected = (userId) => [...(live.get(userId) || [])].filter((b) => b.state.ref);
-
-/** users() -> ids of the users with a phone connected to this worker (Saga's queue sweep, Phase 9). */
-const users = () => [...live.keys()].filter((id) => connected(id).length);
-
-module.exports = { createBridge, connected, users, MAX_FRAME };
+module.exports = { createBridge, connected: live.connected, users: live.users, onConnect: live.onConnect, MAX_FRAME };

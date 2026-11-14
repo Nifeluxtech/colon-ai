@@ -45,6 +45,13 @@ interface BrowserHost {
     /** 0.10.3: Saga handed the page to the user; it waits [timeoutMs] (0: the server didn't say) for it back. */
     fun onSagaHandoff(timeoutMs: Long) {}
 
+    /** 0.10.4: one of Saga's steps finished on the phone (its answer went to the server): the chat's card keeps a
+     *  picture of the page as it is now, so it never shows blank. */
+    fun onSagaStepDone() {}
+
+    /** 0.10.4: the link to the server is up ([ready]) or reconnecting. */
+    fun onBridgeStatus(ready: Boolean) {}
+
     /** 0.10.3: the CSS width a new tab lays its pages out at, always as the desktop site (the chat's AI-only
      *  browser, DesktopView); null = the tab's own mobile / desktop setting (Colon Browser). */
     fun desktopLayoutWidth(): Int? = null

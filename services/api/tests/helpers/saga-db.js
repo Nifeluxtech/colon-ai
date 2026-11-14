@@ -4,6 +4,8 @@
 const path = require('path');
 const browserDb = require('./browser-db');
 
+const LIVE = ['consent', 'running', 'handoff', 'user_control', 'paused'];
+
 function create() {
   const base = browserDb.create();
   const t = Object.assign(base.tables, { tasks: [], actions: [], safety: [] });
@@ -59,6 +61,33 @@ function create() {
       for (const x of t.tasks) if (x.status === 'queued' && x.created_at < p[1]) Object.assign(x, { status: 'failed',
         error: 'no_phone', finished_at: p[0] });
       return {};
+    }
+    // 0.10.4: stamps, letting go, adoption and orphans (store.touch / release / adopt / orphansFor / expireOrphans).
+    if (/^UPDATE saga_tasks SET updated_at = \? WHERE id = \? AND worker = \?/.test(s)) {
+      const x = task(p[1]); if (x && x.worker === p[2]) x.updated_at = p[0]; return {};
+    }
+    if (/^UPDATE saga_tasks SET worker = NULL/.test(s)) {
+      const x = task(p[1]); if (x && x.worker === p[2]) { x.worker = null; x.updated_at = p[0]; } return {};
+    }
+    if (/^UPDATE saga_tasks SET worker = \?, device_ref = \?/.test(s)) {
+      const x = task(p[3]);
+      const ok = x && LIVE.includes(x.status) && !x.stop_requested && (x.worker == null || x.updated_at < p[4]);
+      if (ok) Object.assign(x, { worker: p[0], device_ref: p[1], updated_at: p[2] });
+      return { affectedRows: ok ? 1 : 0 };
+    }
+    if (/^SELECT id, user_id, goal, language, conversation_id, mode, status, steps FROM saga_tasks/.test(s)) {
+      return t.tasks.filter((x) => LIVE.includes(x.status) && p[0].includes(x.user_id) && !x.stop_requested
+        && (x.worker == null || x.updated_at < p[1]) && x.updated_at > p[2]).map((x) => ({ ...x }));
+    }
+    if (/^UPDATE saga_tasks SET status = 'interrupted', error = 'disconnected'/.test(s)) {
+      for (const x of t.tasks) if (LIVE.includes(x.status) && x.updated_at < p[1]) Object.assign(x, {
+        status: 'interrupted', error: 'disconnected', finished_at: p[0] });
+      return {};
+    }
+    if (/^SELECT worker FROM saga_tasks/.test(s)) { const x = task(p[0]); return x ? [{ worker: x.worker }] : []; }
+    if (/^SELECT MAX\(seq\) AS seq FROM saga_actions/.test(s)) {
+      const seqs = t.actions.filter((a) => a.task_id === p[0]).map((a) => a.seq);
+      return [{ seq: seqs.length ? Math.max(...seqs) : null }];
     }
     if (/^SELECT stop_requested FROM saga_tasks/.test(s)) { const x = task(p[0]); return x ? [{ ...x }] : []; }
     if (/^INSERT INTO saga_actions/.test(s)) {

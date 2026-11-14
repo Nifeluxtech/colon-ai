@@ -125,5 +125,7 @@ test('citation prompt: numbered sources, strict rules, today in Africa/Lagos; a 
   assert.match(prompts.systemPrompt({ mode: 'research', web: true, context: block }),
     /Answer from them and cite them[\s\S]*<<<SOURCES/);
   assert.match(prompts.systemPrompt({ mode: 'research' }), /cannot browse the web/);
-  assert.doesNotMatch(prompts.systemPrompt({ mode: 'general' }), /browse|SOURCES/);
+  // 0.10.4: every mode knows the app's in-chat browser; only Research without search says it cannot browse the web.
+  assert.doesNotMatch(prompts.systemPrompt({ mode: 'general' }), /cannot browse|SOURCES/);
+  assert.match(prompts.systemPrompt({ mode: 'developer' }), /Never say you cannot open, show, reopen or use a browser/);
 });

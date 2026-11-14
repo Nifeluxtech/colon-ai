@@ -190,4 +190,8 @@
     <string name="saga_needs_you_title">Saga needs you</string>
     <string name="saga_needs_you_text">%1$s Open Colon AI to take control.</string>
     <string name="card_gave_back">You gave the browser back to Saga</string>
+    <!-- 0.10.4: Continue on an ended card, a task picked up after the app closed, and Saga's typing. -->
+    <string name="card_continue">Continue</string>
+    <string name="card_app_paused">The app closed while Saga worked. Give back to carry on</string>
+    <string name="card_reconnecting">Reconnecting to Saga…</string>
 </resources>

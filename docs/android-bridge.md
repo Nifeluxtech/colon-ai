@@ -344,6 +344,22 @@ runs out ends the task with `handoff_timeout` / `user_timeout`, and the phone ge
 notice; the phone's Stop (consent withdrawn) ends it at once. `GET /browser/agent?conversation_id=` lists one chat's
 tasks with `conversation_id` and `result` (the web's cards).
 
+**Continue and reconnect (v0.10.4, ADR 0006 addendum).** `hello` may carry `resumable: "ai" | "shared"` while the
+phone is in `manual` (a Saga task waits for the user's Give back): the server keeps consent for the new socket, so
+`control return_to_ai` there resumes the task instead of answering `needs_consent`. The app re-sends its latest
+`control` frame after the server's bridge `hello` when the old socket couldn't take it or took it less than 90 s
+before it died. On the server a task whose socket drops waits up to `SAGA_RECONNECT_GRACE_MS` (default 90000) for
+the same user's Colon AI app: on the same worker the new socket takes over (a pending `handoff` is sent again, and a
+`control` reason received on it before the re-attach counts); on another worker the sweep adopts it (the task row is
+let go, `worker` NULL; workers stamp their tasks every 12 s and a task silent for 40 s is adopted too). A read
+command in flight is sent again; any other command is answered to the loop as `reconnected` (the model looks before
+acting). `POST /browser/agent { continue_of }` starts a continuation of one of the user's earlier tasks (goal and
+conversation default to its own; a live one is stopped first): its first action row is `kind: "continue"` with
+`args: { of, summary }`, and the summary of the earlier steps and how it ended opens Saga's prompt. The app's
+`browserRetry` event carries `task` and `continue: true` when the card's page is still there (the card's button is
+Continue). New page tool: `type` (act.js), one piece of Saga's typing before the exact `fill`; refused on secret
+fields like `fill`. Every task end now sends `control manual` and a notice (interrupted too).
+
 ### What the backend must add
 
 **Status (v0.8.1):** items 1 (cookie only; signed-out sockets still connect but get no session features), 2, 3, 6

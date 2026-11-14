@@ -182,3 +182,4 @@ submissions, messages, personal data) are always tapped on the phone; no setting
 | `SAGA_TASKS_PER_HOUR` | number | no | `20` | browsing tasks one user may start per hour |
 | `SAGA_HANDOFF_TIMEOUT_MS` | number | no | `600000` | Phase 10: how long Saga waits for the user to type a password, code or card details and tap Return to AI |
 | `SAGA_USER_CONTROL_TIMEOUT_MS` | number | no | `900000` | 0.10.3: how long Saga waits for the user to give the browser back after Take control or Pause, then stops the task |
+| `SAGA_RECONNECT_GRACE_MS` | number | no | `90000` | 0.10.4: how long a Saga task whose phone socket dropped waits for the same phone (Colon AI) to reconnect, on this or another worker, before it ends as interrupted |

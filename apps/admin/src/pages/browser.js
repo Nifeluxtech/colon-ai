@@ -9,8 +9,8 @@ import { gate } from '../core/auth.js';
 var C = Colon, icon = C.icon, esc = C.esc, $ = C.$, $$ = C.$$;
 
 var STATUS = { queued: 'Waiting for the phone', consent: 'Asking the user', running: 'Running', done: 'Done',
-  step_limit: 'Step limit', timeout: 'Timed out', stopped: 'Stopped', interrupted: 'User took over',
-  failed: 'Failed' };
+  step_limit: 'Step limit', timeout: 'Timed out', stopped: 'Stopped', interrupted: 'Interrupted',
+  failed: 'Failed', handoff: 'Waiting for the user', user_control: 'User has the browser', paused: 'Paused' };
 var TONE = { done: 'ok', failed: 'bad', timeout: 'bad', step_limit: 'warn', interrupted: 'warn', stopped: '' };
 var APPROVAL = { payment: 'Payment', purchase: 'Purchase', send_message: 'Message', form_submission: 'Form',
   personal_data: 'Personal data', shared: 'Shared step', phone: 'Phone check' };
@@ -54,7 +54,8 @@ function browser(view) {
 function step(a) {
   var what = a.kind === 'action' ? (a.say || a.tool) : a.kind === 'control' ? 'Asked the user: “Let Saga browse?” → '
     + (a.error || '') : a.kind === 'finish' ? 'Finished and answered' : a.kind === 'end' ? 'Ended: ' + (a.error || '')
-    : 'Refused or failed: ' + (a.error || '');
+    : a.kind === 'handoff' ? 'Asked the user: ' + (a.say || a.error || '') : a.kind === 'continue' ? (a.say
+    || 'Continues an earlier task') : 'Refused or failed: ' + (a.error || '');
   var args = a.args && Object.keys(a.args).length ? JSON.stringify(a.args) : '';
   return '<div class="row"><span class="ico">' + (a.seq) + '</span><span class="body"><div class="title">'
     + esc(what) + '</div><div class="sub">' + (a.command ? esc(a.command) + (args ? ' ' + esc(args.slice(0, 200)) : '')
