@@ -3,7 +3,7 @@
 // grace and inlineReady) to check every open path ends in the thread on a phone.
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { needsAnnounce, showsCard, withInline } = require('../../../apps/chat/src/lib/native-panel.js');
+const { liveHere, needsAnnounce, showsCard, withInline } = require('../../../apps/chat/src/lib/native-panel.js');
 
 test('withInline adds inline: true only when the app can show the panel in the thread', () => {
   assert.deepEqual(withInline({ url: 'https://a.ng' }, true), { inline: true, url: 'https://a.ng' });
@@ -95,4 +95,24 @@ test('Browser button, AI Browse and reopen after close all open in the thread', 
     assert.equal(a.effective(), 'inline'); assert.equal(p.card, true);
     a.open = false; a.mode = 'full';   // closed while full screen: the next open still starts in the thread
   }
+});
+
+// 0.10.6: the owner's report on 0.10.5: a new chat's welcome screen showed the previous chat's browser card.
+test('liveHere: a new or empty chat shows no live card; another chat\'s browser never shows', () => {
+  const done = { open: true, layout: 'inline', chat: '42', run: { state: 'done', task: '7' } };
+  assert.equal(liveHere(done, { chat: '42', messages: 3 }), true, 'its own chat, with messages');
+  assert.equal(liveHere(done, { chat: null, messages: 0 }), false, 'a new chat: not the previous chat\'s browser');
+  assert.equal(liveHere({ ...done, chat: null }, { chat: null, messages: 0 }), false, 'a new chat\'s own draft');
+  assert.equal(liveHere(done, { chat: '43', messages: 2 }), false, 'the app still shows chat 42');
+  assert.equal(liveHere({ ...done, chat: '43' }, { chat: '43', messages: 0 }), false, 'an empty chat, nothing live');
+  const running = { ...done, chat: '43', run: { state: 'running', task: '8' } };
+  assert.equal(liveHere(running, { chat: '43', messages: 0 }), true, 'a task of its own is under way');
+  assert.equal(liveHere({ ...done, chat: null, run: {} }, { chat: null, messages: 0, opened: true }), true,
+    'the user opened the new chat\'s browser with the Browser button');
+  assert.equal(liveHere(done, { chat: null, messages: 0, opened: true }), false, 'but never another chat\'s');
+  // Apps before 0.10.3 say nothing about the chat: only the messages count.
+  const old = { open: true, layout: 'inline', run: {} };
+  assert.equal(liveHere(old, { chat: '42', messages: 1 }), true);
+  assert.equal(liveHere(old, { chat: null, messages: 0 }), false);
+  assert.equal(liveHere(null, { chat: '42', messages: 1 }), false);
 });

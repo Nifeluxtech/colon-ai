@@ -1,6 +1,8 @@
 // Unit tests for specialist routing (v0.5.10): the rule-based task classifier, the pure derivation of specialists
 // from benchmark category scores (margin, latency, incomplete exclusion, no-eval fallback), head reordering in the
 // chain, hedging waves that never pull a demoted model forward, and the on/off setting. No network, no database.
+// These tests cover the full routing table (AI_MODEL_SET=all); model-set.test.js covers the Gemma-only default.
+process.env.AI_MODEL_SET = 'all';
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const path = require('path');

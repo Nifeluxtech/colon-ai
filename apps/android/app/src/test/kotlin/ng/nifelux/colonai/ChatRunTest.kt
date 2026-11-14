@@ -137,6 +137,16 @@ class ChatRunTest {
         assertFalse(ChatRun.pill(running(), words, page = true).cont)
     }
 
+    // 0.10.6: an open socket (its bridge greeting late or lost while Saga's commands arrive) is not "reconnecting".
+    @Test fun theLinkIsUpWhileTheSocketIsOpen() {
+        assertTrue(ChatRun.linkUp("BRIDGE_READY"))
+        assertTrue(ChatRun.linkUp("CONNECTED"))
+        assertFalse(ChatRun.linkUp("CONNECTING"))
+        assertFalse(ChatRun.linkUp("OFFLINE"))
+        assertFalse(ChatRun.linkUp("UNAVAILABLE"))
+        assertEquals("Working", ChatRun.pill(running(), words, linked = ChatRun.linkUp("CONNECTED")).text)
+    }
+
     @Test fun aRunningCardSaysWhenTheLinkReconnects() {
         assertEquals(words.reconnecting, ChatRun.pill(running(), words, linked = false).text)
         assertEquals("Working", ChatRun.pill(running(), words, linked = true).text)

@@ -1,5 +1,5 @@
 # Colon AI — Chat
-The Colon AI chat web app (Colon Saga). Deployed to chat.apparatus.name.ng.
+The Colon AI chat web app (Colon). Deployed to chat.apparatus.name.ng.
 
 ES modules loaded directly by the browser (no build step). The deploy copies `public/` to the document root and
 `src/` (with the UI kit) to `/v<version>/` (`scripts/deploy/build-docroot.sh`).

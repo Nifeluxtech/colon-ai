@@ -13,4 +13,5 @@ module.exports = {
   calls: require('./calls'),
   specialists: require('./specialists'),
   classify: require('./classify'),
+  modelSet: require('./model-set'),
 };

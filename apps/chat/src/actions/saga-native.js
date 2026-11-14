@@ -36,8 +36,8 @@ var ENDED = {
 };
 var ERRORS = { declined: 'You didn’t allow Saga to browse.', no_consent: 'Nobody answered “Let Saga browse?” on the '
   + 'phone.', approval_missing: 'A step needed your approval and didn’t get it, so Saga stopped.', phone_timeout:
-  'The browser panel stopped answering.', model_timeout: 'Colon Saga took too long to decide.', bad_reply: 'Colon '
-  + 'Saga’s replies couldn’t be understood.', handoff_timeout: 'Saga waited for you to type your details, then '
+  'The browser panel stopped answering.', model_timeout: 'Saga took too long to decide.', bad_reply: 'Saga’s '
+  + 'replies couldn’t be understood.', handoff_timeout: 'Saga waited for you to type your details, then '
   + 'stopped.', other_chat: 'The browser was showing another chat.', stop: 'You stopped Saga.',
   disconnected: 'The link to the Colon AI app dropped and didn’t come back in time. Say “continue” to carry on.',
   user_timeout: 'The browser wasn’t given back in time. Say “continue” to carry on.' };

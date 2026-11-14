@@ -1,6 +1,6 @@
 # Phase 5 — Developer mode (v0.5.9)
 
-Developer mode is Colon Saga as a senior engineer: it explains, fixes, generates and reviews code, and it can read a
+Developer mode is Colon as a senior engineer: it explains, fixes, generates and reviews code, and it can read a
 whole project. Attach code files or a `.zip` of the project once; every later message in that conversation keeps
 the project as context. Free and in process: no new dependency, no model call to read the project, no migration.
 

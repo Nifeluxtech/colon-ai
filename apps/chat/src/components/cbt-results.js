@@ -80,7 +80,7 @@ function renderResults(root, s, o) {
         (q.explanation ? '<div class="md cbt-expl">' + md(q.explanation) + '</div>' : '') +
         '</li>';
     }).join('') + '</ol>' +
-    '<p class="tiny muted cbt-note">' + icon('info') + 'Practice questions written by Colon Saga in the style of the '
+    '<p class="tiny muted cbt-note">' + icon('info') + 'Practice questions written by Colon in the style of the '
       + 'exam, not real past questions. Colon can make mistakes: check anything that looks wrong.</p>' +
     '</div>';
   root.querySelector('[data-cbt=discuss]').addEventListener('click', function () {

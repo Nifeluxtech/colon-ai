@@ -48,6 +48,8 @@ const getAdminRouting = async () => {
     routes: cfg.routes, hedge: cfg.hedge || config.chat.hedge, labels: ROUTE_LABELS, targets,
     defaults: { routes: routingDefault.routes, hedge: config.chat.hedge }, saved: Boolean(saved), source: cfg.source,
       cache_seconds: dynamic.TTL_MS / 1000, specialists: specialistView(cfg, saved),
+    // 0.10.6: AI_MODEL_SET=gemma (default) overrides everything on this page with the Gemma 4 chain below.
+    model_set: ai.modelSet.modelSet(), gemma_chain: ai.chainFor({}, cfg).map(c => `${c.providerId}:${c.model}`),
   }];
 };
 

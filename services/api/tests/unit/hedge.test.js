@@ -1,5 +1,7 @@
 // Unit tests for hedged racing (modules/ai/hedge.js): a second Google model backs up the first, the fastest
 // model wins, loser text never mixes in, failing waves and fast failures move on. fetch is mocked.
+// These tests cover the full routing table (AI_MODEL_SET=all); model-set.test.js covers the Gemma-only default.
+process.env.AI_MODEL_SET = 'all';
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const KEYS = ['GROQ_API_KEY', 'OPENROUTER_API_KEY', 'GEMINI_API_KEY', 'NATLAS_API_KEY', 'NATLAS_BASE_URL',

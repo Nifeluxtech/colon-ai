@@ -3,7 +3,7 @@
   "models": [
     {
       "id": "colon-saga",
-      "name": "Colon Saga",
+      "name": "Saga",
       "description": "Colon's default assistant, tuned for Nigerian and African context.",
       "available": true,
       "status": "available",

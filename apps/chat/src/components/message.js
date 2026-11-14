@@ -8,7 +8,7 @@ import { ColonMarkdown } from '../../../../packages/ui/js/markdown/index.js';
 import { editMessage, regenerate } from '../actions/send-message.js';
 import { ReadAloud } from '../lib/read-aloud.js';
 import { CW } from '../core/cw.js';
-import { $, MODES, S, STAGES, data, ephemeral, modelName, signedIn } from '../core/state.js';
+import { $, ASSISTANT, MODES, S, STAGES, data, ephemeral, signedIn } from '../core/state.js';
 
 var C = Colon, icon = C.icon, esc = C.esc, MD = ColonMarkdown;
 
@@ -16,7 +16,7 @@ var C = Colon, icon = C.icon, esc = C.esc, MD = ColonMarkdown;
 function renderThread() {
   var page = $('#cw-page'); page.className = 'cw-page cw-page-chat';
   if (!S.messages.length) { page.innerHTML = '<div class="empty">' + icon('chat')
-    + ('<div class="h3">Say hello to Colon Saga</div><p class="small">Ask anything to start this '
+    + ('<div class="h3">Say hello to Colon</div><p class="small">Ask anything to start this '
     + 'conversation.</p></div>'); if (CW.placeCards) CW.placeCards(); return; }
   var lastA = lastAssistant();
   page.innerHTML = '<div class="cw-thread" role="log" aria-live="off">' + S.messages.map(function (m) { return msgHtml(
@@ -46,7 +46,7 @@ function msgHtml(m, isLast) {
   var meta = (S.settings && S.settings.showMeta) ? '<span class="badge">' + icon(MODES[m.mode] ? MODES[m.mode].icon :
     'sparkle') + (MODES[m.mode] ? MODES[m.mode].label : 'General') + '</span>' : '';
   return '<div class="cw-msg ai' + fresh + (streaming ? ' is-streaming' : '') + '" data-mid="' + esc(m.id) + '">' +
-    '<div class="cw-ai-head"><span class="cw-ai-mark">' + C.MARK + '</span><b>' + esc(modelName(m.model)) + '</b>'
+    '<div class="cw-ai-head"><span class="cw-ai-mark">' + C.MARK + '</span><b>' + ASSISTANT + '</b>'
       + meta +
     (m.origin === 'browse' ? '<span class="badge cyan">' + icon('globe') + 'AI Browse</span>' : '') +
     (m.web && !streaming ? (m.web.ok ? '<span class="badge cyan" data-tip="Answered from a web search just now">'
@@ -54,7 +54,7 @@ function msgHtml(m, isLast) {
       + 'Web</span>' :
       '<span class="badge warn" data-tip="Web search wasn’t available for this answer">No web</span>') : '')
       + (m.preview
-      ? '<span class="badge" data-tip="Generated on this device. Colon Saga isn’t connected yet.">Preview</span>' : '')
+      ? '<span class="badge" data-tip="Generated on this device. Colon isn’t connected yet.">Preview</span>' : '')
       +
     (m.status === 'stopped' ? '<span class="badge warn">Stopped</span>' : '') + '</div>' +
     '<div class="cw-ai-body">' + body + '</div>' +
@@ -79,7 +79,7 @@ function aiBody(m) {
   var streaming = m.status === 'streaming';
   if (streaming && !m.content) {
     var st = m.stage && STAGES[m.stage] ? STAGES[m.stage](m.stage === 'writing' ? (m.sources
-      || []).length : m.stageCount || 0) : esc(modelName(m.model)) + ' is thinking…';
+      || []).length : m.stageCount || 0) : ASSISTANT + ' is thinking…';
     return '<div class="cw-thinking' + (m.stage ? ' cw-stage' : '') + '" role="status">' + (m.stage === 'searching'
       || m.stage === 'reading' ? icon('globe') : '') + '<span class="typing"><i></i><i></i><i></i></span><span>'
       + (m.stage ? esc(st) : st) + '</span></div>';
@@ -90,7 +90,7 @@ function aiBody(m) {
 function errorCard(m) {
   var e = m.error || {}, noProv = e.code === 'no_provider', needLogin = !signedIn() && (e.code === 'quota'
     || e.code === 'login_required');
-  var title = noProv ? 'Colon Saga isn’t connected to an AI provider yet' : e.code === 'quota'
+  var title = noProv ? 'Colon isn’t connected to an AI provider yet' : e.code === 'quota'
     ? 'You’ve reached today’s limit' : e.code === 'no_vision' ? 'Images can’t be read yet' : e.code === 'offline'
     ? 'You’re offline' : 'This reply didn’t finish';
   var body = noProv ? 'An admin needs to add a provider in the Admin Dashboard.' + (ephemeral()
@@ -121,7 +121,7 @@ function msgAction(b) {
   else if (act === 'down') {
     if (m.feedback && m.feedback.rating === 'down') return sendFeedback(m, {});
     C.sheet(('<div class="h2">What went wrong?</div><p class="small muted" style="margin:4px 0 12px">Your feedback '
-      + 'helps improve Colon Saga.</p><form class="form" novalidate><div class="cw-reasons">') +
+      + 'helps improve Colon.</p><form class="form" novalidate><div class="cw-reasons">') +
       ['Not accurate', 'Not helpful', 'Wrong language', 'Unsafe or harmful', 'Too long', 'Other'].map(function (r,
         i) { return '<label class="chip sm"><input type="radio" name="reason" value="' + esc(r) + '"' + (i === 0
         ? ' checked' : '') + ' class="sr-only">' + esc(r) + '</label>'; }).join('') +

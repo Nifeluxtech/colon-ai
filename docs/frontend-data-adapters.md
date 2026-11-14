@@ -93,7 +93,7 @@ request (Stop) cancels the provider call and saves the partial reply with `statu
 | GET / PATCH | `/browser/settings` | homepage, engine, privacy, permissions, downloads, sessions |
 | GET | `/browser/fetch?url=` | reader/proxy mode → `{ url, final_url, title, html, text, status }` |
 | GET | `/browser/search?q=&engine=` | `{ results: [{ title, url, snippet }], provider }` |
-| POST | `/browser/plan` | `{ goal }` → `{ steps: [{ kind: 'search'\|'open'\|'summarize', label, query?, url? }] }` (Colon Saga planner) |
+| POST | `/browser/plan` | `{ goal }` → `{ steps: [{ kind: 'search'\|'open'\|'summarize', label, query?, url? }] }` (Saga planner) |
 | POST | `/browser/data/clear` | `{ history?, downloads?, bookmarks?, session?, settings? }` |
 
 **`/browser/fetch` must be SSRF-safe** (docs/decisions/0002 reader mode): http/https only; resolve DNS and refuse

@@ -2,6 +2,8 @@
 // local HTTP server): a Hausa message goes through chat/reply.js to the benchmark's Hausa specialist, the
 // ai_reply_ok log line names the route, switching the setting off restores the default chain, MiniMax-like weak
 // models never join the first hedged wave, and Admin › Routing shows the table and saves the switch.
+// 0.10.6: specialist routing only applies with AI_MODEL_SET=all; the Gemma-only default collapses every route to
+// Gemma 4 26B with Gemma 4 31B as the fallback, one model at a time (last test).
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const path = require('path');
@@ -34,7 +36,7 @@ function fakeRes() {
 }
 const ENV = { enabled: true, providerModeration: false, moderationKey: '', moderationUrl: '', logText: 'off' };
 
-test('chat reply: the Hausa specialist answers, the log names the route, off restores the default', async (t) => {
+async function setup(t) {
   const m = mock.create();
   const port = await m.listen();
   t.after(() => m.server.close());
@@ -65,6 +67,18 @@ test('chat reply: the Hausa specialist answers, the log names the route, off res
         finish: async (x) => Object.assign(saved, x) } });
     return { saved, models: m.calls.slice(before).map(c => c.body.model), ev: res.events() };
   }
+  return { m, url, base, ask, logs };
+}
+
+function modelSet(t, value) {
+  const was = process.env.AI_MODEL_SET;
+  process.env.AI_MODEL_SET = value;
+  t.after(() => { if (was === undefined) delete process.env.AI_MODEL_SET; else process.env.AI_MODEL_SET = was; });
+}
+
+test('chat reply: the Hausa specialist answers, the log names the route, off restores the default', async (t) => {
+  modelSet(t, 'all');
+  const { base, ask, logs } = await setup(t);
   const on = dynamic.compose({ benchRows: BENCH }, base);
   const r1 = await ask('Ina kwana? Don allah menene babban birnin Najeriya?', on);
   assert.equal(r1.saved.providerModel, 'gemma-b', 'the Hausa specialist answered');
@@ -91,6 +105,30 @@ test('chat reply: the Hausa specialist answers, the log names the route, off res
   assert.equal(r4.models.at(-1), 'gemma-a', 'then the fallback');
   assert.equal(r4.saved.providerModel, 'gemma-a');
 });
+
+test('AI_MODEL_SET=gemma (default): Gemma 4 26B only, 31B only when 26B fails, no specialist, no hedge',
+  async (t) => {
+    modelSet(t, 'gemma');
+    const { url, base, ask, logs } = await setup(t);
+    const g = (m26, m31) => ({ ...base, targets: () => ({ gemma: [{ provider: 'mockg', model: m26 }],
+      gemma31: [{ provider: 'mockg', model: m31 }], minimax: [{ provider: 'mockn', model: 'mini-m' }],
+      qwen: [{ provider: 'mockq', model: 'qwen-q' }] }), providers: () => ({ ...base.providers(),
+      mockq: { name: 'Mock Q', baseUrl: url, apiKey: 'k' } }) });
+    const bench = BENCH.map(b => ({ ...b, model: b.model === 'gemma-a' ? 'gemma-4-26b' : b.model === 'gemma-b'
+      ? 'gemma-4-31b' : b.model }));
+    const r1 = await ask('Ina kwana? Don allah menene babban birnin Najeriya?', dynamic.compose({ benchRows: bench },
+      g('gemma-4-26b', 'gemma-4-31b')), 2);
+    assert.deepEqual(r1.models, ['gemma-4-26b'], 'one model, the 26B, even with hedge 2 and a 31B specialist');
+    assert.equal(r1.saved.providerModel, 'gemma-4-26b');
+    const ok = logs.map(l => { try { return JSON.parse(l); } catch { return {}; } })
+      .filter(l => l.msg === 'ai_reply_ok');
+    assert.equal(ok.at(-1).route, 'gemma:hausa');
+    const r2 = await ask('Ina kwana? Don allah yaya lafiya?', dynamic.compose({}, g('gemma-4-26b-500',
+      'gemma-4-31b')), 2);
+    assert.equal(r2.models.at(-1), 'gemma-4-31b', 'the 31B answers when the 26B fails');
+    assert.ok(!r2.models.some(x => x === 'mini-m' || x === 'qwen-q'), `no other model (asked: ${r2.models})`);
+    assert.equal(r2.saved.providerModel, 'gemma-4-31b');
+  });
 
 test('admin: GET /admin/routing shows specialists; PATCH saves the on/off switch and keeps it', async () => {
   const dbPath = require.resolve('../../src/db');

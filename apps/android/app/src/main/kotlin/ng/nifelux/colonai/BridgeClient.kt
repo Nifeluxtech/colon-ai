@@ -212,6 +212,10 @@ class BridgeClient(private val context: Context, val http: OkHttpClient) {
         main.postDelayed(reconnect, delay)
     }
 
+    /** 0.10.6: a command, control request, hand-off or notice from Saga proves the bridge is up, even when its
+     *  greeting was lost (a socket that came back stayed CONNECTED and the card kept saying "Reconnecting"). */
+    private fun linkProven() { if (status == Status.CONNECTED) setStatus(Status.BRIDGE_READY) }
+
     private fun setStatus(s: Status) {
         if (s == status) return
         status = s
@@ -243,10 +247,12 @@ class BridgeClient(private val context: Context, val http: OkHttpClient) {
                     setStatus(if (msg.bridge) Status.BRIDGE_READY else Status.CONNECTED)
                     if (msg.bridge) flushPending(webSocket)
                 }
-                is BridgeProtocol.Incoming.Command -> runCommand(webSocket, msg)
-                is BridgeProtocol.Incoming.Control -> listeners.toList().forEach { it.onControlRequest(msg) }
-                is BridgeProtocol.Incoming.Handoff -> listeners.toList().forEach { it.onHandoff(msg) }
-                is BridgeProtocol.Incoming.Notice -> listeners.toList().forEach { it.onNotice(msg) }
+                is BridgeProtocol.Incoming.Command -> { linkProven(); runCommand(webSocket, msg) }
+                is BridgeProtocol.Incoming.Control -> {
+                    linkProven(); listeners.toList().forEach { it.onControlRequest(msg) }
+                }
+                is BridgeProtocol.Incoming.Handoff -> { linkProven(); listeners.toList().forEach { it.onHandoff(msg) } }
+                is BridgeProtocol.Incoming.Notice -> { linkProven(); listeners.toList().forEach { it.onNotice(msg) } }
                 is BridgeProtocol.Incoming.Error -> Log.w(TAG, "bridge error ${msg.code}")
                 else -> Unit
             }

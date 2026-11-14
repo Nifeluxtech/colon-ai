@@ -69,7 +69,7 @@ function run(call, tempUser, replaceId) {
   });
   function finish() {
     S.streaming = null; renderThread(); syncComposer(); scrollBottom(); refreshConvs(); updateHeader();
-    if (msg && msg.status === 'complete') announce('Colon Saga replied.');
+    if (msg && msg.status === 'complete') announce('Colon replied.');
     if (S.hf) S.hf.replyDone(msg, msg && msg.content ? ColonMarkdown.toText(msg.content) : '');
   }
 }

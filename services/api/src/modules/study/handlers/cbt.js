@@ -84,8 +84,8 @@ async function makeTest(o) {
   if (questions.length >= cbt.COUNT) return { questions: questions.slice(0, cbt.COUNT), attempts };
   if (lastError && ['no_provider', 'provider_down'].includes(lastError.code) && !questions.length) {
     throw err(503, lastError.code, lastError.code === 'no_provider'
-      ? 'Colon Saga isn’t connected to an AI provider yet.'
-      : 'Colon Saga couldn’t reach an AI provider right now. Please try again in a moment.');
+      ? 'Colon isn’t connected to an AI provider yet.'
+      : 'Colon couldn’t reach an AI provider right now. Please try again in a moment.');
   }
   throw err(502, 'bad_output', BAD_OUTPUT);
 }
@@ -99,7 +99,7 @@ async function postCbt(req, res, opts = {}) {
     mode: 'study', language: input.language, route: 'study.cbt', db });
   if (verdict.action === 'refuse') return [422, { error: 'refused', message: verdict.refusal }];
   const cfg = await deps.loadRouting(db);
-  if (!deps.isConfigured(cfg)) throw err(503, 'no_provider', 'Colon Saga isn’t connected to an AI provider yet.');
+  if (!deps.isConfigured(cfg)) throw err(503, 'no_provider', 'Colon isn’t connected to an AI provider yet.');
   const counters = await deps.resolveCounters(req, 'study', db);
   await deps.consumeAll(counters, db);
   const ctl = new AbortController();

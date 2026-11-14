@@ -46,6 +46,7 @@ module.exports = {
     uploadDir: env('UPLOAD_DIR'),
     uploadQuotaMb: Number(env('UPLOAD_QUOTA_MB', 200)),       // per user, across all their files
     firstTokenTimeoutMs: Number(env('AI_FIRST_TOKEN_TIMEOUT_MS', 25000)),
+    modelSet: env('AI_MODEL_SET', 'gemma'),   // gemma | all; read live by modules/ai/model-set.js
     hedge: Number(env('AI_HEDGE', 2)),   // models asked at once per wave (1 = one after another)
     specialistRouting: env('AI_SPECIALIST_ROUTING', 'on') !== 'off',   // read live by modules/ai/specialists.js
     idleTimeoutMs: Number(env('AI_IDLE_TIMEOUT_MS', 30000)),

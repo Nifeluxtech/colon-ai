@@ -7,7 +7,7 @@ import { stopStreaming } from '../actions/send-message.js';
 import { updateHeader } from '../components/model-picker.js';
 import { renderConvs } from '../components/sidebar.js';
 import { sourcesHtml } from '../components/sources.js';
-import { $, S, modelName } from '../core/state.js';
+import { $, ASSISTANT, S } from '../core/state.js';
 
 var C = Colon, icon = C.icon, esc = C.esc, MD = ColonMarkdown;
 
@@ -34,7 +34,7 @@ function showShared(token) {
           + esc(a.name) + '</b></span></span>'; }).join('') + '</div>' : '') + (m.content
           ? '<div class="cw-user-text">' + esc(m.content) + '</div>' : '') + '</div></div>';
         return '<div class="cw-msg ai"><div class="cw-ai-head"><span class="cw-ai-mark">' + C.MARK + '</span><b>'
-          + esc(modelName(m.model)) + '</b></div><div class="cw-ai-body"><div class="md">' + MD.render(m.content,
+          + ASSISTANT + '</b></div><div class="cw-ai-body"><div class="md">' + MD.render(m.content,
           { sources: m.sources }) + '</div></div>' + sourcesHtml(m.sources) + '</div>';
       }).join('') + '</div>' +
       '<div class="cw-shared-cta"><a class="btn primary" href="#/">' + icon('plus')

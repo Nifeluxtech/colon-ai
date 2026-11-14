@@ -77,7 +77,8 @@ test('reply language: detects Naijá, Yorùbá, Hausa and Igbo; a chosen languag
 });
 test('system prompt: African layer, mode behaviour and language rule', () => {
   const p = prompts.systemPrompt({ mode: 'study', language: 'pcm', name: 'Ada' });
-  assert.match(p, /Colon Saga/);
+  assert.match(p, /You are Colon, /);
+  assert.match(p, /model you run on, say Saga/);
   assert.match(p, /naira/);
   assert.match(p, /WAEC/);
   assert.match(p, /Mode: Study/);

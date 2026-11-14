@@ -7,7 +7,7 @@ import { CW } from '../core/cw.js';
 var C = Colon, icon = C.icon, esc = C.esc;
 
 var FAQ = [
-  ['What can Colon Saga do?',
+  ['What can Colon do?',
     ('Explain topics step by step, quiz you and make flashcards (Study), write and fix code (Developer), and '
     + 'research with sources (Research). '
     + 'General mode is for everything else.')],
@@ -18,7 +18,7 @@ var FAQ = [
     + 'Explore or “CBT practice” in the menu. The questions are exam-style practice, not real past questions, and '
     + 'each test counts as one Study reply toward the daily limit.')],
   ['Do I need an account?',
-    ('No. You can chat with Colon Saga without logging in, but guest chats aren’t saved: they disappear when you '
+    ('No. You can chat with Colon without logging in, but guest chats aren’t saved: they disappear when you '
     + 'close the tab. Log in or sign up (free) to save your chats, attach images and pick up on any device.')],
   ['Where are my chats stored?',
     ('When you’re logged in, conversations and files are saved to your Colon account and sync across your devices. '

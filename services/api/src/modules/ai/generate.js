@@ -7,6 +7,7 @@ const { orderForHedge, race, resting, keyOf } = require('./hedge');
 const { systemPrompt } = require('./prompts');
 const { classify } = require('./classify');
 const specialists = require('./specialists');
+const modelSet = require('./model-set');
 const config = require('../../config');
 
 function enabledProviders(cfg = routingDefault) {
@@ -22,14 +23,17 @@ function enabledProviders(cfg = routingDefault) {
 // slots go last (specialists.js); the chain carries .route ('specialist:<category>' | 'default:<category>' |
 // 'default') and .demoted for the log line and hedging. Without a category the chain is the plain route.
 function chainFor({ mode = 'general', language = 'en', model = null, needsVision = false, category = null } = {},
-  cfg = routingDefault, now = Date.now()) {
+  cfg = routingDefault, now = Date.now(), set = modelSet.modelSet()) {
   const providers = enabledProviders(cfg);
   const targets = cfg.targets();
   const african = cfg.africanLanguages.includes(language);
   const def = cfg.models.find(m => m.id === model);
-  let names = african ? cfg.routes.african : (def && def.route) || cfg.routes[mode] || cfg.routes.general;
-  let route = 'default', demoted = [];
-  if (category && specialists.enabledFor(cfg)) {
+  const gemma = set === 'gemma';
+  let names = gemma ? modelSet.slotNames(targets)
+    : african ? cfg.routes.african : (def && def.route) || cfg.routes[mode] || cfg.routes.general;
+  let route = gemma ? 'gemma' : 'default', demoted = [];
+  // AI_MODEL_SET=gemma (0.10.6 default): no specialist reordering, the chain is Gemma 4 only (model-set.js).
+  if (!gemma && category && specialists.enabledFor(cfg)) {
     const decision = specialists.tableFor(cfg).categories[category];
     const ordered = specialists.apply(names, decision);
     route = `${decision && ordered[0] !== names[0] && ordered[0] === decision.specialist ? 'specialist'
@@ -51,8 +55,13 @@ function chainFor({ mode = 'general', language = 'en', model = null, needsVision
       chain.push(c);
     }
   }
-  const awake = chain.filter(c => !(resting.get(keyOf(c)) > now));
-  const asleep = chain.filter(c => resting.get(keyOf(c)) > now);
+  // A config with no Gemma 4 model at all (none set up, or a test's mock) keeps its full chain rather than none.
+  if (gemma && !modelSet.gemmaChain(chain).length) return chainFor({ mode, language, model, needsVision, category },
+    cfg, now, 'all');
+  const list = gemma ? modelSet.gemmaChain(chain) : chain;
+  if (gemma && category) route = `gemma:${category}`;
+  const awake = list.filter(c => !(resting.get(keyOf(c)) > now));
+  const asleep = list.filter(c => resting.get(keyOf(c)) > now);
   return Object.assign(awake.concat(asleep), { route });
 }
 
@@ -98,7 +107,7 @@ async function generate(o) {
   const timeouts = { ...config.chat, ...(o.mode === 'developer' && config.chat.developerMaxTokens
     ? { maxTokens: config.chat.developerMaxTokens } : {}), ...(o.timeouts || {}) };
   if (!isConfigured(cfg)) {
-    throw Object.assign(new Error('Colon Saga isn’t connected to an AI provider yet.'), { status: 503,
+    throw Object.assign(new Error('Colon isn’t connected to an AI provider yet.'), { status: 503,
       code: 'no_provider' });
   }
   const needsVision = needsVisionFor(o.messages);
@@ -111,7 +120,7 @@ async function generate(o) {
     throw Object.assign(new Error(needsVision
       ? ('Image reading isn’t switched on yet: no vision-capable model is configured. Describe the image in words, '
         + 'or attach a PDF or text file instead.')
-      : 'Colon Saga isn’t connected to an AI provider yet.'), { status: 503, code: needsVision
+      : 'Colon isn’t connected to an AI provider yet.'), { status: 503, code: needsVision
         ? 'no_vision' : 'no_provider' });
   }
   const messages = [{ role: 'system', content: systemPrompt({ mode: o.mode, language: o.language, name: o.name,
@@ -120,13 +129,14 @@ async function generate(o) {
   // Hedged racing: free hosts are often slow to start, so each "wave" asks up to `hedge` models at once
   // (different providers first) and keeps whichever starts answering first; the others are cancelled.
   // If every model in a wave fails before its first token, the next wave starts. AI_HEDGE=1 = one at a time.
-  const hedge = Math.max(1, Number(timeouts.hedge || 1));
+  // Gemma-only (AI_MODEL_SET=gemma): one model at a time, so 31B runs only when 26B failed or timed out.
+  const hedge = /^gemma/.test(chain.route) ? 1 : Math.max(1, Number(timeouts.hedge || 1));
   const won = await race(orderForHedge(chain, hedge), hedge, { o, messages, timeouts, attempts, route: chain.route });
   if (won) return { ...won, route: chain.route, category: task.category };
   if (o.signal && o.signal.aborted) { const a = new Error('aborted'); a.name = 'AbortError'; a.partialText = '';
     a.attempts = attempts; throw a; }
   throw Object.assign(new ProviderError(
-    'Colon Saga couldn’t reach an AI provider right now. Please try again in a moment.', { code: 'provider_down' }),
+    'Colon couldn’t reach an AI provider right now. Please try again in a moment.', { code: 'provider_down' }),
     { status: 503, attempts });
 }
 

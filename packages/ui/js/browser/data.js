@@ -26,7 +26,7 @@
             Server must: allow http/https only, resolve DNS and refuse private/loopback/link-local/metadata
             IPs (re-check after every redirect, max 5), cap 2 MB and 10 s, strip scripts/styles/iframes/forms.
      GET    /browser/search?q=&engine=          -> { results:[{title,url,snippet}], provider }
-     POST   /browser/plan { goal }              -> { steps:[{kind,label,query?,url?}] }   (Colon Saga planner)
+     POST   /browser/plan { goal }              -> { steps:[{kind,label,query?,url?}] }   (Saga planner)
      POST   /browser/data/clear { history,downloads,bookmarks,session } */
 
 import { DEFAULT_SETTINGS } from './data-common.js';

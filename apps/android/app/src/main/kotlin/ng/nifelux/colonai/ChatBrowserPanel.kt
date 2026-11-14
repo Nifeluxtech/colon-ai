@@ -155,6 +155,8 @@ class ChatBrowserPanel(private val a: MainActivity) : BrowserHost, TabManager.Ho
     private var painted = true
     private var lastShotAt = 0L
     private var linked = true
+    /** 0.10.6: ends a "Reconnecting to Saga…" pill that outlived the server's grace (see onBridgeStatus). */
+    private val linkTimeout = Runnable { if (!linked) { linked = true; renderCard(); changed() } }
     private val paintedLater = Runnable { painted = true; renderCard() }
 
     init {
@@ -680,7 +682,9 @@ class ChatBrowserPanel(private val a: MainActivity) : BrowserHost, TabManager.Ho
 
     /** 0.10.4: the WebView is about to (re)load its page: the card shows the page's last picture until it paints. */
     private fun awaitPaint() {
-        val bytes = keeper.lastPicture(chatKey) ?: return
+        // 0.10.6: while a task runs, only its own picture (never the previous task's page as if it were this one's).
+        val bytes = (if (ChatRun.live(run.state)) keeper.livePicture(chatKey) else keeper.lastPicture(chatKey))
+            ?: return
         val bmp = try { android.graphics.BitmapFactory.decodeByteArray(bytes, 0, bytes.size) } catch (_: Throwable) {
             null } ?: return
         painted = false
@@ -691,6 +695,8 @@ class ChatBrowserPanel(private val a: MainActivity) : BrowserHost, TabManager.Ho
 
     /** 0.10.4: a finished step: the page's picture is kept (at most every [SHOT_EVERY_MS]). */
     override fun onSagaStepDone() {
+        // 0.10.6: a step Saga finished came over the link: it is up, whatever the last status said.
+        if (!linked) onBridgeStatus(true)
         if (!ChatRun.live(run.state) || !isOpen) return
         val now = android.os.SystemClock.uptimeMillis()
         if (now - lastShotAt < SHOT_EVERY_MS) return
@@ -699,16 +705,23 @@ class ChatBrowserPanel(private val a: MainActivity) : BrowserHost, TabManager.Ho
     }
 
     override fun onBridgeStatus(ready: Boolean) {
+        main.removeCallbacks(linkTimeout)
+        // 0.10.6: "Reconnecting to Saga…" never stays up for good: after the server's grace the task has ended or
+        // carried on, and the chat says which; the pill goes back to the step.
+        if (!ready) main.postDelayed(linkTimeout, RECONNECT_PILL_MS)
         if (ready == linked) return
         linked = ready
         renderCard()
         changed()
     }
 
+
     /** browser('task', {op: start}): the chat started a Saga task here ([id], [goal], the message [anchor] it was
      *  asked in). Its own instruction is the user's consent for this chat. */
     fun taskStarted(id: String?, goal: String, anchor: String?) {
         saga.preAllow(conversationOf(chatKey))
+        // 0.10.6: a new task (not the same one named again) starts without the previous task's picture.
+        if (id == null || id != run.task) { keeper.clearLive(chatKey); lastShotAt = 0L }
         setRun(ChatRun.named(run, id, goal, anchor, System.currentTimeMillis()))
         if (!isOpen) open(null)
         changed()
@@ -753,7 +766,8 @@ class ChatBrowserPanel(private val a: MainActivity) : BrowserHost, TabManager.Ho
      *  (the server's last words, the result line, may still be on their way). */
     private fun ended(r: ChatRun.Run) {
         Notifications.cancelSaga(a)
-        val shot = ChatRunKeeper.capture(tabs.active?.webView) ?: keeper.lastPicture(chatKey)
+        // 0.10.6: the live page now, else this task's last step picture; never an older task's (a blank instead).
+        val shot = ChatRunKeeper.capture(tabs.active?.webView) ?: keeper.livePicture(chatKey)
         keeper.saveCard(chatKey, CardRules.Card(cardId(r), r.goal, r.anchor, r.state.wire, r.result,
             System.currentTimeMillis()), shot)
         if (focus && !ChatRun.touchesPage(r.state)) setFocus(false)
@@ -1092,6 +1106,8 @@ class ChatBrowserPanel(private val a: MainActivity) : BrowserHost, TabManager.Ho
         private const val SHOT_EVERY_MS = 1500L
         private const val PAINT_SETTLE_MS = 450L
         private const val PAINT_TIMEOUT_MS = 8000L
+        /** 0.10.6: the longest the pill says "Reconnecting to Saga…" (the server's SAGA_RECONNECT_GRACE_MS). */
+        private const val RECONNECT_PILL_MS = 90_000L
         private val PLAIN = ChatRun.Words("Saga is working…", "Saga is paused", "Your turn", "You're in control",
             "Done", "Saga stopped", "Saga couldn't finish", "Saga stopped when the app closed") { "Saga needs you: $it" }
         private const val PREF_LAYOUT = "layout"

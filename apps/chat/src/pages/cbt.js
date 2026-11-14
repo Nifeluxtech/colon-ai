@@ -1,5 +1,5 @@
 /* Colon AI · CBT practice test screen (v0.5.7) at #/cbt: setup → loading → exam → results.
-   10 objective questions written by Colon Saga (POST /study/cbt through ColonChatData) and a 5-minute countdown
+   10 objective questions written by Colon (POST /study/cbt through ColonChatData) and a 5-minute countdown
    for the whole test. The exam and results are components (cbt-exam.js, cbt-results.js); the session is kept in
    sessionStorage (core/cbt-store.js) so a refresh resumes. Preview (no connection) shows a friendly notice. */
 
@@ -38,7 +38,7 @@ function showSetup(page, prefill) {
   var p = Object.assign({ exam: 'waec', subject: '', topic: '' }, CbtStore.prefs(), prefill || {});
   if (ColonChatData.get().kind === 'local') {
     page.innerHTML = '<div class="cw-screen">' + head('CBT practice test', '') + '<div class="card cbt-msg">'
-      + icon('wifiOff') + '<div class="h3">CBT practice needs a connection</div><p class="small">Colon Saga writes '
+      + icon('wifiOff') + '<div class="h3">CBT practice needs a connection</div><p class="small">Colon writes '
       + 'each test fresh, so it needs to reach Colon. Check your connection, then try again. Chat keeps working '
       + 'in Preview meanwhile.</p><div class="cbt-actions center"><button type="button" class="btn primary" '
       + 'data-cbt="reload">' + icon('refresh') + 'Try again</button><a class="btn" href="#/">Back to chat</a></div>'
@@ -97,7 +97,7 @@ function generate(page, q) {
   page.innerHTML = '<div class="cw-screen"><div class="card cbt-msg cbt-loading" role="status" aria-live="polite">' +
     '<span class="spin dark" aria-hidden="true"></span><div class="h3">Setting your ' + esc(examLabel(q.exam)) + ' '
       + esc(q.subject) + ' test…</div>' +
-    '<p class="small muted">Colon Saga is writing 10 questions and checking every answer. This usually takes 10 to '
+    '<p class="small muted">Colon is writing 10 questions and checking every answer. This usually takes 10 to '
       + '40 seconds.</p><div class="cbt-load-bar" aria-hidden="true"><i></i></div>' +
     '<p class="small cbt-tip" data-tip>' + icon('bulb') + '<span>' + esc(TIPS[0]) + '</span></p>' +
     '<p class="tiny muted" data-elapsed></p>' +

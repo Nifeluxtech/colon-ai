@@ -82,7 +82,7 @@ CW.pages.history = function (page) {
     lead: 'Every conversation, grouped by date. Search, rename, save, archive or delete.', filters: [['all', 'All'],
     ['pinned', 'Saved'], ['archived', 'Archived']],
     emptyIcon: 'history', emptyTitle: 'No conversations yet',
-      emptyText: 'Chats you start with Colon Saga appear here.' });
+      emptyText: 'Chats you start with Colon appear here.' });
 };
 CW.pages.saved = function (page) {
   listPage(page, { title: 'Saved', lead: 'Conversations you pinned to keep close.', pinnedOnly: true,

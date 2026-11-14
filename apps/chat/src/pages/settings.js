@@ -76,7 +76,7 @@ CW.pages.settings = function (page, ctx) {
         seg('textSize', 'Text size', 'For messages and replies.', s.textSize, [['sm', 'Small'], ['md', 'Medium'],
           ['lg', 'Large']])) +
       section('language', 'Language', 'language',
-        select('language', 'Reply language', 'Colon Saga answers in this language when it can. Saved to your account.',
+        select('language', 'Reply language', 'Colon answers in this language when it can. Saved to your account.',
           u.language || 'en', Object.keys(C.LANGS).map(function (k) { return [k, C.LANGS[k]]; })) +
         ('<div class="set-row"><span class="body"><span class="title">App language</span><span class="sub">English '
           + 'for now. Naijá, Yorùbá, Hausa and Igbo menus are coming.</span></span><span '
@@ -110,7 +110,7 @@ CW.pages.settings = function (page, ctx) {
         select('defaultMode', 'Default mode for new chats', '', s.defaultMode, [['general', 'General'], ['study',
           'Study'], ['developer', 'Developer'], ['research', 'Research']]) +
         (models.length ? select('defaultModel', 'Default model', 'From your Colon configuration.', s.defaultModel
-          || '', [['', 'Automatic (Colon Saga)']].concat(models.filter(function (m) { return m.available;
+          || '', [['', 'Automatic (Saga)']].concat(models.filter(function (m) { return m.available;
           }).map(function (m) { return [m.id, m.name]; }))) : '') +
         toggle('enterToSend', 'Enter to send', 'Shift + Enter adds a new line. On phones, use the send button.',
           s.enterToSend) +
@@ -124,7 +124,7 @@ CW.pages.settings = function (page, ctx) {
         toggle('saveHistory', 'Save chat history',
           'When off, new chats are temporary: not saved to your account, and gone when you close the tab.',
           s.saveHistory) +
-        toggle('shareFeedback', 'Help improve Colon Saga',
+        toggle('shareFeedback', 'Help improve Colon',
           'Share the replies you rate (never your account details) to improve answers.', s.shareFeedback) +
         '<div class="set-row"><span class="body"><span class="title">Where your data lives</span><span class="sub">'
           + esc(data.describe) + '</span></span><span class="badge ' + (data.kind === 'local' ? 'cyan' : 'ok') + '">'

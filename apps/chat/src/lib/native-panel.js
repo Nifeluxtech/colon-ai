@@ -28,4 +28,23 @@ function showsCard(st, canInline) {
   return !!(canInline && st && st.open && st.layout === 'inline');
 }
 
-export { needsAnnounce, showsCard, withInline };
+var BUSY = ['running', 'paused', 'needs_user', 'user_control'];
+
+/**
+ * 0.10.6: does the app's live card belong to the chat on screen? st: the app's panel state (st.chat: whose browser
+ * it shows, null for a new chat's draft; absent in apps before 0.10.3); o: { chat (sessionKey of the chat on screen,
+ * null for a new chat), messages (how many the thread has), opened (the user opened the browser on this chat's screen,
+ * with the Browser button) }. A new or empty chat shows no card unless a task of its own is under way or the user
+ * opened its browser; a state that still names another chat (the app hasn't switched yet) shows none.
+ */
+function liveHere(st, o) {
+  o = o || {};
+  if (!st || typeof st !== 'object') return false;
+  var mine = o.chat || null;
+  if (Object.prototype.hasOwnProperty.call(st, 'chat') && (st.chat || null) !== mine) return false;
+  var run = st.run || {}, busy = BUSY.indexOf(run.state) >= 0;
+  if (busy || o.opened) return true;
+  return !!mine && Number(o.messages) > 0;
+}
+
+export { liveHere, needsAnnounce, showsCard, withInline };

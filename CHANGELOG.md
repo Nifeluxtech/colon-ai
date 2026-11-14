@@ -1,5 +1,58 @@
 # Changelog
 
+## [0.10.6] — 2026-11-14 · Clean new chats, honest "done", Gemma 4 only, the assistant is Colon
+Owner's report on 0.10.5 (Infinix SMART 20, Colon AI app). Every version number moves to 0.10.6 (apps,
+`Colon.version`, `version.json` versionCode 1006 for both APKs). No migration. New config key `AI_MODEL_SET`
+(default `gemma`: nothing to set on the server for the new behaviour).
+### Root causes
+- **Old browser card on a new chat**: on a chat switch the page asked the app for the chat's finished cards
+  *before* telling it about the switch, so the app answered with the previous chat's cards (the yolotask picture,
+  "Done", expand); and the live card was shown whenever the app's panel was open, whichever chat it belonged to.
+- **False "I have reached the GitHub login page"**: Saga's `finish` was taken on its word. Its first decision was a
+  finish (no navigation); the browser still showed yolotask, the card kept that page's picture, and with no written
+  answer the reply was "I finished browsing but have nothing to report".
+- **Stuck "Reconnecting to Saga…"**: the pill showed whenever the phone's link was not `BRIDGE_READY`. A socket that
+  came back but whose bridge greeting was lost stayed `CONNECTED` while Saga's commands kept arriving, so the pill
+  never cleared (the task itself carried on: the card showed GitHub's sign-in page).
+- **"Always catching up"**: every reply raced two models at once (`AI_HEDGE=2`: Gemma 4 26B against MiniMax or
+  another host) and specialist routing could put another model first; the browser agent's decisions went through
+  the same chain. No judge/verifier model runs per reply; Research mode's optional query rewrite (one short call,
+  4 s budget) goes through the same chain, so it is Gemma 4 too.
+### Fixed / changed
+- **A new or empty chat shows no browser card** (`lib/native-panel.js` `liveHere`, `browser-panel.js`,
+  `browser-card.js`): the live card shows only when the app's state names this chat, and on an empty chat only
+  while a task of its own runs or the user opened its browser with the Browser button. Cards are asked for after
+  the app has switched (none for a new chat), a chat with no messages draws none, and `liveAnchor` is cleared when
+  the chat changes.
+- **Saga's finish is checked against the page** (`modules/saga/goal.js`, `loop.js`): a goal that names a site
+  ("go to the GitHub login page") needs the current URL's host to match; a sign-in page goal needs a sign-in URL or
+  title; a finish before any action, with no page to confirm it, is refused. A refusal goes back to Saga as an
+  observation (logged as `goal_not_met`); after 2 refusals the finish stands, so no task is trapped. Saga's prompt
+  says so.
+- **The reply says what Saga did**: with no written answer it uses the result line, else Saga's words, else its
+  last step ("Opened GitHub's sign-in page."), never "nothing to report".
+- **A new task never shows the previous task's picture as its own** (Android `ChatRunKeeper.clearLive` /
+  `livePicture`): the step picture is dropped when a task starts; a reloading page shows only this task's picture,
+  and an ended card falls back only to it (blank rather than an older page).
+- **The "Reconnecting to Saga…" pill clears** (Android): an open socket counts as linked (`ChatRun.linkUp`); any
+  command, control request, hand-off or notice from the server marks the bridge ready; a finished step clears it;
+  and it never stays longer than 90 s (the server's reconnect grace). It only ever shows on a running task, so a
+  task end clears it too. "Retry" after an ended task is a continuation (unchanged) and now ends with a real reply.
+- **Gemma 4 only** (`modules/ai/model-set.js`, `generate.js`; `AI_MODEL_SET=gemma|all`, default `gemma`): chat
+  replies, CBT, Research's query rewrite and Saga's browser decisions use Gemma 4 26B on Google AI Studio, with Gemma
+  4 31B only when 26B fails or times out, one model at a time (no hedging, no specialist reordering, no MiniMax,
+  Qwen, DeepSeek, GLM or NVIDIA). Without a Google key, a non-NVIDIA Gemma 4 host is used; a config with no Gemma 4
+  model at all keeps its own chain. `AI_MODEL_SET=all` restores the full table, hedging and specialists. Admin ›
+  Routing shows the Gemma chain in force (`model_set`, `gemma_chain`).
+- **The assistant is Colon; Saga is the model**: replies are signed "Colon" ("Colon is thinking…"), the model
+  selector shows "Saga", the disclaimer reads "Colon can make mistakes…", errors and help say Colon, and the system
+  prompt introduces Colon (asked about its model, it says Saga). Browse wording that is the model acting ("How Saga
+  browsed", "Saga took too long to decide") stays. Model id `colon-saga` and stored keys are unchanged.
+### Tests
+- `model-set.test.js` (5), `saga-goal.test.js` (5), specialist-routing (Gemma-only case; the existing cases run with
+  `AI_MODEL_SET=all`, as do the router, hedge, specialists, stream and admin-config suites), `native-panel.test.js`
+  (`liveHere`), `ChatRunTest.kt` (`linkUp`); wording updates in chat, safety-guards and safety-flow tests.
+
 ## [0.10.5] — 2026-11-14 · "Show the browser" brings the live card to you
 Chat page fix; the APK is rebuilt only to keep versions in step (`version.json` versionCode 1005).
 ### Fixed

@@ -1,17 +1,17 @@
 {
-  "versionName": "0.10.5",
-  "versionCode": 1005,
-  "apkUrl": "https://github.com/Nifeluxtech/colon-ai/releases/download/v0.10.5/colon-ai-0.10.5.apk",
-  "releaseUrl": "https://github.com/Nifeluxtech/colon-ai/releases/tag/v0.10.5",
-  "notes": "\"Show the browser\" now brings Saga's live browser card right under your message and scrolls to it. Includes 0.10.4: login handoffs survive dropped connections, Give back always works, Continue, and a visible pointer.",
+  "versionName": "0.10.6",
+  "versionCode": 1006,
+  "apkUrl": "https://github.com/Nifeluxtech/colon-ai/releases/download/v0.10.6/colon-ai-0.10.6.apk",
+  "releaseUrl": "https://github.com/Nifeluxtech/colon-ai/releases/tag/v0.10.6",
+  "notes": "A new chat starts clean (no browser card from an earlier chat); Saga only says it reached a page once it really did, and says what it did; the \"Reconnecting to Saga…\" pill no longer gets stuck; Saga answers with Gemma 4 only, so replies are quicker; the assistant is now called Colon (Saga is its model).",
   "minSupportedVersionCode": 0,
   "publishedAt": "2026-11-14",
   "browser": {
-    "versionName": "0.10.5",
-    "versionCode": 1005,
-    "apkUrl": "https://github.com/Nifeluxtech/colon-ai/releases/download/v0.10.5/colon-browser-0.10.5.apk",
-    "releaseUrl": "https://github.com/Nifeluxtech/colon-ai/releases/tag/v0.10.5",
-    "notes": "Released alongside Colon AI 0.10.5. No browser changes since 0.10.4.",
+    "versionName": "0.10.6",
+    "versionCode": 1006,
+    "apkUrl": "https://github.com/Nifeluxtech/colon-ai/releases/download/v0.10.6/colon-browser-0.10.6.apk",
+    "releaseUrl": "https://github.com/Nifeluxtech/colon-ai/releases/tag/v0.10.6",
+    "notes": "Released alongside Colon AI 0.10.6 (shared Saga link fix: the link status recovers after a reconnect).",
     "minSupportedVersionCode": 0
   }
 }

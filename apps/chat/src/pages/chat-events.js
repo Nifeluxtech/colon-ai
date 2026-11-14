@@ -150,7 +150,7 @@ function bind() {
     if (S.browser.layout === 'split' && !isMobile()) applySplitWidth(); }, 120));
   window.addEventListener('offline', function () { C.toast(data.kind === 'local'
     ? 'You’re offline. Chats stay on this device; sources need a connection.' :
-    'You’re offline. Colon Saga needs a connection to answer.', 'bad'); });
+    'You’re offline. Colon needs a connection to answer.', 'bad'); });
   window.addEventListener('online', function () { C.toast('Back online.', 'ok'); });
   C.theme.on(function () { var s = S.el && S.el.querySelector('.cw-theme'); if (s) s.setAttribute('aria-pressed',
     C.theme.current() === 'light'); });

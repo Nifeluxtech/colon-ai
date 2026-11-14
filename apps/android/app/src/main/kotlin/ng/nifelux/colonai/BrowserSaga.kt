@@ -110,7 +110,7 @@ class BrowserSaga(private val a: BrowserHost, private val bridge: BridgeClient) 
     override fun onStatus(status: BridgeClient.Status) {
         this.status = status
         if (::chip.isInitialized) render()
-        a.onBridgeStatus(status == BridgeClient.Status.BRIDGE_READY)
+        a.onBridgeStatus(ChatRun.linkUp(status.name))
     }
 
     /** 0.10.4: the pointer above everything in the content frame (the chat card's controls are added after it),

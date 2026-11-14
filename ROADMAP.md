@@ -1,6 +1,6 @@
 # Colon AI & Colon Browser — Full Roadmap
 
-By Nifelux. Colon AI (formerly NIRA AI) is an African-focused AI platform. It has three apps on one shared backend: **Colon AI** (chat, with Colon Saga), **Colon Browser**, and the **Admin Dashboard**.
+By Nifelux. Colon AI (formerly NIRA AI) is an African-focused AI platform. It has three apps on one shared backend: **Colon AI** (chat with the Colon assistant, running on the Saga model), **Colon Browser**, and the **Admin Dashboard**.
 
 Each phase ships only when it meets its release standard: tested, secured, deployed and documented. After Phase 11, the product is complete and ready to launch. Phase 12 holds paid upgrades for when usage justifies them.
 
@@ -41,7 +41,7 @@ Each phase ships only when it meets its release standard: tested, secured, deplo
 
 ## Phase 3 — Colon AI chat (core product)
 - Premium dark, mobile-first chat UI, also installable as a PWA.
-- Header: model selector showing **Colon Saga** as the default, with room for future models.
+- Header: model selector showing **Saga** as the default, with room for future models.
 - Input area: mode selector for **General, Study, Developer, Research**. Modes are configurations (instructions, tools, limits) of one assistant.
 - Streaming replies, stop and regenerate, edit message, and copy.
 - Markdown, tables, code blocks with copy, and maths rendering.
@@ -67,7 +67,7 @@ Each phase ships only when it meets its release standard: tested, secured, deplo
 - Security: audit trail, login events and admin 2FA status.
 **Release standard:** every platform setting can be changed from the dashboard, and each role sees only what it is allowed to.
 
-## Phase 5 — Intelligence & evaluation (Colon Saga)
+## Phase 5 — Intelligence & evaluation (Saga)
 - The Colon benchmark: Nigerian everyday questions, WAEC, JAMB and university study, coding, reasoning, and tool use, plus Pidgin, Yorùbá, Hausa and Igbo sets. **Done in v0.5.2, rerun complete in v0.5.11**
   (`docs/phases/phase-5-benchmark.md`, `npm run bench`, results in `services/api/bench/results/`).
 - Test the free candidates (Qwen, Gemma 4, GLM, DeepSeek and newer ones) on accuracy, speed, language quality and cost. The winner becomes Saga's default. **Done**

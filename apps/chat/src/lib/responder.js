@@ -1,5 +1,5 @@
 /* Colon AI · on-device PREVIEW responder.
-   Used only by the local data adapter while the Colon Saga API (POST /conversations/:id/messages)
+   Used only by the local data adapter while the Colon API (POST /conversations/:id/messages)
    isn't live. It is NOT a language model: it builds honest, mode-aware replies from templates,
    exact arithmetic, and real Wikipedia summaries (which allow cross-origin reads), so every part of
    the chat UI — streaming, Markdown, code, tables, maths, citations — can be exercised end to end.
@@ -188,18 +188,18 @@ function respond(input, signal) {
         + ' lines. It begins: “' + f.excerpt.slice(0, 160).replace(/\s+/g, ' ') + (f.excerpt.length > 160 ? '…' : '')
         + '”';
       if (f.kind === 'image') return '- `' + f.name + '`: image' + (f.width ? ' (' + f.width + '×' + f.height
-        + ' px)' : '') + '. Reading images needs the Colon Saga vision API, which isn’t connected in this preview.';
+        + ' px)' : '') + '. Reading images needs the Colon vision API, which isn’t connected in this preview.';
       if (f.kind === 'audio') return '- `' + f.name + '`: voice note (' + (f.duration ? f.duration + ' s' : 'audio')
         + '). Transcription arrives with Colon Voice (Phase 6).';
       return '- `' + f.name + '`: ' + (f.kind === 'pdf' ? 'PDF' : 'document')
-        + ' received. Reading its contents needs the Colon Saga API, which isn’t connected in this preview.';
+        + ' received. Reading its contents needs the Colon API, which isn’t connected in this preview.';
     }).join('\n') + '\n\n';
   }
   if (!text && files.length) return Promise.resolve({ text: fileNote + 'What would you like me to do with '
     + (files.length > 1 ? 'these files' : 'this file') + '?', sources: [] });
   var kind = intent(text, mode), topic = topicOf(text);
   if (kind === 'greet') return Promise.resolve({ text: hello
-    + ('Hi! I’m **Colon Saga**. I can explain things step by step, write and fix code, and research topics with '
+    + ('Hi! I’m **Colon**. I can explain things step by step, write and fix code, and research topics with '
     + 'sources. What can we explore today?'), sources: [] });
   if (kind === 'arith') { var v = evalArithmetic(text); return Promise.resolve({ text: fileNote + 'The answer is **'
     + v.toLocaleString('en-NG', { maximumFractionDigits: 10 }) + '**.\n\n$$' + text.replace(

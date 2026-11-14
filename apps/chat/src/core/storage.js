@@ -228,7 +228,7 @@ function LocalChatData() {
           where: 'This device' };
       });
     },
-    // CBT practice tests are written by Colon Saga on the server, so Preview has none (pages/cbt.js says so).
+    // CBT practice tests are written by Colon on the server, so Preview has none (pages/cbt.js says so).
     cbt: function () { return Promise.reject(Object.assign(new Error('CBT practice tests need a connection to Colon. '
       + 'Check your connection and try again.'), { code: 'offline' })); }
   };

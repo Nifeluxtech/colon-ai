@@ -21,7 +21,10 @@ function routing(view) {
         ? '' : '⚠ ') + x.model; }).join(', ') : 'no models'; }
       function draw() {
         $('#rt', view).innerHTML = '<p class="tiny muted">Source: ' + esc(d.source)
-          + ' · changes reach every server within ' + d.cache_seconds + ' s.</p>' +
+          + ' · changes reach every server within ' + d.cache_seconds + ' s.</p>' + (d.model_set === 'gemma'
+          ? '<p class="small"><b>Gemma 4 only</b> (AI_MODEL_SET=gemma): replies use ' + esc((d.gemma_chain || [])
+          .join(' → ') || 'no Gemma 4 model') + ', one at a time; the routes below apply with AI_MODEL_SET=all.</p>'
+          : '') +
           order.map(function (mode) {
             var list = routes[mode] || [];
             return '<div class="card adm-route"><div class="adm-slot-h"><b>' + esc(d.labels[mode] || mode)

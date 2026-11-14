@@ -73,7 +73,7 @@ function create(o) {
       if (!st || st.status === 'stopped') return;
       st.steps = (plan && plan.length ? plan : localPlan(st.goal)).map(function (p) { return Object.assign({ id: sid(),
         status: 'pending' }, p); });
-      log('Plan ready: ' + st.steps.length + ' steps' + (plan ? ' (Colon Saga)' : ' (built-in planner)'), 'plan');
+      log('Plan ready: ' + st.steps.length + ' steps' + (plan ? ' (Saga)' : ' (built-in planner)'), 'plan');
       st.status = 'running'; emit(); loop();
     });
     return state();

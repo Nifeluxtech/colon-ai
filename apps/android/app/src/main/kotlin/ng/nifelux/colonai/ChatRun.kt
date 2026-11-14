@@ -147,6 +147,10 @@ object ChatRun {
             deadline = now + USER_TIMEOUT_MS)
     }
 
+    /** 0.10.6: the link counts as up for the pill while the socket is open (CONNECTED: the bridge's greeting may
+     *  still be on its way, or was lost while Saga's commands kept arriving) or the bridge is ready. */
+    fun linkUp(status: String): Boolean = status == "BRIDGE_READY" || status == "CONNECTED"
+
     /** The status pill: [icon] spinner · check · error · turn · pause · none. [cont] (0.10.4): the ended card's
      *  button is Continue (the chat's browser still has the page: Saga carries on there), else Retry. */
     data class Pill(val icon: String, val text: String, val takeControl: Boolean, val giveBack: Boolean,

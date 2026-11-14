@@ -47,7 +47,11 @@ function system({ maxSteps, mode }) {
       + 'did: read the page again before you act.',
     '- If you are told the user took control or paused you, your last step did not run: read the page again first.',
     '- In finish, "result" is a few words for the status line under the browser (like "Booked a table for 2 at 7pm" '
-      + 'or "Found 3 flights under ₦150,000"); the full answer goes in "answer".',
+      + 'or "Found 3 flights under ₦150,000"); the full answer goes in "answer": say what you did (for example "I '
+      + 'opened GitHub\'s sign-in page.") even when there is nothing else to report.',
+    '- Finish only when the browser really shows what the task asks for: to reach a page or site, open it first '
+      + '(openUrl) and check the address. Colon compares your finish with the page the browser is on and sends you '
+      + 'back if they do not match.',
     '- If something fails twice, try another approach or finish and explain what happened.',
   ].join('\n');
 }

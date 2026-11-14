@@ -86,7 +86,7 @@ const routes = {
 const africanLanguages = ['pcm', 'yo', 'ha', 'ig'];
 
 const models = [
-  { id: 'colon-saga', name: 'Colon Saga',
+  { id: 'colon-saga', name: 'Saga',
     description: 'Colon’s default assistant, tuned for Nigerian and African context.', default: true, capabilities: [
     'text', 'reasoning', 'code'] },
   { id: 'colon-saga-fast', name: 'Saga Fast', description: 'Quicker answers for everyday questions and low data use.',

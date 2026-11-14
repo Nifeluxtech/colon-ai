@@ -89,7 +89,7 @@ async function respond(o) {
     const logCalls = (attempts, code) => { if (!o.routing) calls.record({ mode: o.mode, route, guest: !req.user,
       attempts: attempts || [], code }, o.db); };
     if (!ai.isConfigured(cfg)) { logCalls([], 'no_provider'); throw Object.assign(new Error(
-      'Colon Saga isn’t connected to an AI provider yet.'), { code: 'no_provider' }); }
+      'Colon isn’t connected to an AI provider yet.'), { code: 'no_provider' }); }
     await limits.consumeAll(o.counters, o.db);
     // Research mode: search and read pages first. Never fatal: on failure the answer streams with a notice.
     if (o.webSearch) {

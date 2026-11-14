@@ -42,6 +42,8 @@ const SCHEMA = [
   num('UPLOAD_QUOTA_MB', 200, 'per-user upload quota'),
   // Model router tuning
   num('AI_FIRST_TOKEN_TIMEOUT_MS', 25000, 'give up on a model that has not started answering'),
+  oneOf('AI_MODEL_SET', ['gemma', 'all'], 'gemma',
+    'gemma = Saga uses Gemma 4 only (26B, 31B on failure, one at a time); all = the full routing table'),
   num('AI_HEDGE', 2, 'models asked at once per wave (1 = one after another)'),
   oneOf('AI_SPECIALIST_ROUTING', ['on', 'off'], 'on',
     'specialist routing: the benchmark winner per task category leads the chain (Admin › Routing overrides)'),

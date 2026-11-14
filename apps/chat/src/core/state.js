@@ -63,8 +63,10 @@ function mode() { return S.current ? S.current.mode : S.draftMode; }
 function modelId() { return (S.current && S.current.model) || S.draftModel || defaultModel(); }
 function defaultModel() { var d = S.models.filter(function (m) { return m.default; })[0] || S.models.filter(function (
   m) { return m.available; })[0]; return d ? d.id : null; }
+// 0.10.6: the assistant is Colon (it signs every reply); Saga is the model's name (the model selector).
+var ASSISTANT = 'Colon';
 function modelName(id) { var m = S.models.filter(function (x) { return x.id === id; })[0];
-  return m ? m.name : 'Colon Saga'; }
+  return m ? m.name : 'Saga'; }
 // Research mode: what the server is doing before the answer starts (SSE "status" events).
 var STAGES = {
   searching: function () { return 'Searching the web…'; },
@@ -75,5 +77,5 @@ var STAGES = {
 function rafThrottle(fn) { var q = false; return function () { if (q) return; q = true; requestAnimationFrame(function (
   ) { q = false; fn(); }); }; }
 
-export { $, CAPS, DEV_ACTIONS, MODES, PROMPTS, S, STAGES, brandName, data, defaultModel, ephemeral, isMobile, mode,
-  modelId, modelName, rafThrottle, setData, signedIn };
+export { $, ASSISTANT, CAPS, DEV_ACTIONS, MODES, PROMPTS, S, STAGES, brandName, data, defaultModel, ephemeral,
+  isMobile, mode, modelId, modelName, rafThrottle, setData, signedIn };

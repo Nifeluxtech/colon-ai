@@ -1,6 +1,8 @@
 // Unit tests for the Admin Dashboard live config (Phase 4): routing from the database with fallback to
 // routing.js, cached settings, system settings and feature flags, live limits and the AI call log.
 // No database (a fake db module stands in), no network.
+// These tests cover the full routing table (AI_MODEL_SET=all); model-set.test.js covers the Gemma-only default.
+process.env.AI_MODEL_SET = 'all';
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const path = require('path');

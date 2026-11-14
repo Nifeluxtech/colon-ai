@@ -57,10 +57,18 @@ class ChatRunKeeper(context: Context) {
         try { val f = File(chatDir(chat), LIVE); f.parentFile?.mkdirs(); f.writeBytes(jpeg) } catch (_: Exception) { }
     }
 
+    /** 0.10.6: a new task starts: the previous task's step picture is dropped, so nothing shows it as this task's. */
+    fun clearLive(chat: String) { try { File(chatDir(chat), LIVE).delete() } catch (_: Exception) { } }
+
+    /** 0.10.6: the current task's latest step picture only (after [clearLive]); null before its first capture. */
+    fun livePicture(chat: String): ByteArray? {
+        val live = File(chatDir(chat), LIVE)
+        return if (live.isFile) try { live.readBytes() } catch (_: Exception) { null } else null
+    }
+
     /** The latest step's picture, or else the newest finished card's; null when there is none. */
     fun lastPicture(chat: String): ByteArray? {
-        val live = File(chatDir(chat), LIVE)
-        if (live.isFile) return try { live.readBytes() } catch (_: Exception) { null }
+        livePicture(chat)?.let { return it }
         val shot = cards(chat).sortedBy { it.at }.lastOrNull { it.shot != null }?.shot ?: return null
         return try { File(chatDir(chat), shot).takeIf { it.isFile }?.readBytes() } catch (_: Exception) { null }
     }

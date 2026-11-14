@@ -8,7 +8,7 @@ import { refreshConvs } from './sidebar.js';
 import { loadCards, placeCards, resized } from './browser-card.js';
 import { chatCall, sessionKey } from '../lib/browser-modes.js';
 import { createAnchor } from '../lib/native-anchor.js';
-import { needsAnnounce, showsCard, withInline } from '../lib/native-panel.js';
+import { liveHere, needsAnnounce, showsCard, withInline } from '../lib/native-panel.js';
 import { reveal } from '../lib/thread-scroll.js';
 import { ColonBrowser } from '../../../../packages/ui/js/browser/index.js';
 import { Colon } from '../../../../packages/ui/js/colon.js';
@@ -53,8 +53,8 @@ function browserIndicator() {
 // Browse, used on the web and as its fallback. An older app without the panel opened a native tab instead.
 function openBrowser(url, opts) {
   if (!(opts && opts.panel)) {
-    if (C.native.hasPanel()) { nativeBrowser('open', { url: url || '' }).then(syncNative, nativeFailed);
-      return null; }
+    if (C.native.hasPanel()) { S.browser.openedHere = String(sessionKey(S.current) || '');
+      nativeBrowser('open', { url: url || '' }).then(syncNative, nativeFailed); return null; }
     if (C.native.openTab(url || '')) return null;
   }
   var b = ensureBrowser();
@@ -160,13 +160,14 @@ function nativeFailed() { C.toast('The browser panel didn’t open. Try again.',
 // The Browser button: opens or closes the native panel in the app, the web panel elsewhere.
 function toggleBrowser() {
   if (C.native.hasPanel()) { var open = S.browser.nativeState && S.browser.nativeState.open;
+    S.browser.openedHere = open ? null : String(sessionKey(S.current) || '');
     nativeBrowser(open ? 'close' : 'open').then(syncNative, nativeFailed); return; }
   if (S.browser.layout === 'none') openBrowser(); else setLayout('none');
 }
 // Follows the panel while the chat is mounted; returns the function that stops following.
 function startNativeBrowser() {
   S.browser.host = $('.cw-native-host');
-  CW.placeCards = placeCards;                  // message.js redraws the thread: the cards go back in place
+  CW.placeCards = placeAll;                    // message.js redraws the thread: the cards go back in place
   window.addEventListener('resize', resized, { passive: true });
   if (!C.native.hasPanel()) return function () { window.removeEventListener('resize', resized); };
   // The first call says at once that this page draws the inline card (every call does, v0.9.1); the state of a
@@ -200,8 +201,15 @@ function followRun(run) {
     setTimeout(function () { loadCards(sessionKey(S.current), appCards); }, 2400);
   }
 }
+// 0.10.6: only this chat's own browser: never a previous chat's card on a new or empty chat.
+function wantsLive(st) { var key = String(sessionKey(S.current) || '');
+  return showsCard(st, inlineOk()) && liveHere(st, { chat: key || null, messages: (S.messages || []).length,
+    opened: S.browser.openedHere === key }); }
+// A redrawn thread (messages loaded, a chat switched) may change whether the live card belongs on it.
+function placeAll() { var st = S.browser.nativeState;
+  if (st && wantsLive(st) !== !!S.browser.liveShown) renderNativeInline(st); else placeCards(); }
 function renderNativeInline(st) {
-  var was = S.browser.liveShown, shows = showsCard(st, inlineOk());
+  var was = S.browser.liveShown, shows = wantsLive(st);
   S.browser.liveShown = shows;
   followRun(st.run);
   placeCards();
@@ -242,8 +250,8 @@ function setChatMode(mode) {
   }
   return Promise.resolve();
 }
-// The chat on screen changed (updateHeader runs on every change): the app shows that chat's browser, a new chat
-// gets a clean one (or keeps its draft when its conversation was just created), and the web reader its session.
+// The chat on screen changed (updateHeader runs on every change): the app shows that chat's browser, a new chat a
+// clean one (or its draft, adopted when its conversation was just created), the web reader its session.
 function syncChat() {
   if (!S.el || (S.view !== 'chat' && S.view !== 'welcome')) return;
   var key = sessionKey(S.current);
@@ -251,16 +259,22 @@ function syncChat() {
     if (S.browser.layout !== 'none') setLayout('none');
     S.browser.inst.destroy(); S.browser.inst = null;
   }
-  // 0.10.3: this chat's Saga cards (the app's, with pictures; on the web, the server's tasks for this chat).
+  var chats = C.native.can('browserChats');
+  var call = chats ? chatCall(S.browser.chatSent, key, { created: !!key && key === S.browser.createdId }) : null;
+  var switched = Promise.resolve();
+  if (call) { S.browser.chatSent = key; S.browser.modeSent = null; switched = nativeBrowser('chat', call).then(
+    syncNative, function () {}); }
+  // This chat's Saga cards (0.10.3). 0.10.6: none on a new chat; the app's only once it shows this chat (asked
+  // earlier, it answered with the previous chat's finished card); the previous chat's liveAnchor goes too.
   if (S.browser.cardsKey !== key) {
-    S.browser.cardsKey = key; S.browser.cards = [];
-    loadCards(key, C.native.hasPanel() ? appCards : signedIn() && data.kind === 'remote' ? null
-      : function () { return []; });
+    S.browser.cardsKey = key; S.browser.cards = []; S.browser.cardsSig = null; S.browser.openedHere = null;
+    if (S.browser.liveAnchor && S.browser.liveAnchor.conv !== String(key || '')) S.browser.liveAnchor = null;
+    placeAll();
+    var from = !key ? function () { return []; } : C.native.hasPanel() ? appCards
+      : signedIn() && data.kind === 'remote' ? null : function () { return []; };
+    switched.then(function () { if (S.browser.cardsKey === key) loadCards(key, from); });
   }
-  if (!C.native.can('browserChats')) return;
-  var call = chatCall(S.browser.chatSent, key, { created: !!key && key === S.browser.createdId });
-  if (call) { S.browser.chatSent = key; S.browser.modeSent = null; nativeBrowser('chat', call).then(syncNative,
-    function () {}); }
+  if (!chats) return;
   // AI only (0.10.3); an older app that still has "AI + me" is told so too.
   if (S.browser.modeSent !== key) { S.browser.modeSent = key;
     nativeBrowser('mode', { mode: 'ai' }).then(syncNative, function () {}); }

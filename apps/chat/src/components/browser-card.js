@@ -81,7 +81,9 @@ function placeCards() {
   var mine = re && re.conv === String((S.current && S.current.id) || '') && idle ? re : null;
   var live = showLive ? { anchor: mine ? mine.id : run.anchor || null, at: mine ? mine.at : run.since || Date.now() }
     : null;
-  var groups = layout(S.messages || [], S.browser.cards || [], live, showLive && !mine ? run.task : null);
+  // 0.10.6: a chat with no messages has no tasks: no finished card from anywhere else shows on it.
+  var cards = (S.messages || []).length ? S.browser.cards || [] : [];
+  var groups = layout(S.messages || [], cards, live, showLive && !mine ? run.task : null);
   // Called on every state event from the app (page loads, Saga's steps): moving nothing that is already in place
   // keeps the live card's box (and the WebView over it) still.
   var sig = JSON.stringify(groups.map(function (g) { return [g.after, g.items.map(function (i) {

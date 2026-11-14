@@ -2,11 +2,11 @@
 
 /* ---------- Streaming (SSE) reader shared by Remote and Guest ---------- */
 // Hardened: a non-stream answer (e.g. a hosting firewall page), a stream that goes silent, or one that ends
-// without "done"/"error" becomes a clear error instead of leaving "Colon Saga is thinking…" forever.
+// without "done"/"error" becomes a clear error instead of leaving "Colon is thinking…" forever.
 var SSE_STALL_MS = 90000;
 function readSSE(res, emit) {
   if (!res.ok) return res.json().catch(function () { return {}; }).then(function (d) { throw Object.assign(new Error(
-    d.message || 'Colon Saga couldn’t answer.'), { code: d.error, status: res.status, field: d.field }); });
+    d.message || 'Colon couldn’t answer.'), { code: d.error, status: res.status, field: d.field }); });
   var type = String((res.headers && res.headers.get('content-type')) || '');
   if (type && type.indexOf('text/event-stream') < 0) {
     if (res.body && res.body.cancel) res.body.cancel().catch(function () {});
@@ -25,7 +25,7 @@ function readSSE(res, emit) {
     return reader.read().then(function (r) {
       if (r.done) {
         clearTimeout(timer);
-        if (stalled) throw Object.assign(new Error('Colon Saga took too long to answer. Please try again.'),
+        if (stalled) throw Object.assign(new Error('Colon took too long to answer. Please try again.'),
           { code: 'timeout' });
         if (!finished) throw Object.assign(new Error(
           'This reply didn’t finish — the connection closed early. Please try again.'), { code: 'incomplete' });
@@ -40,7 +40,7 @@ function readSSE(res, emit) {
         if (!data) return;  // keep-alive comments
         var d = {}; try { d = JSON.parse(data); } catch (e) { return; }
         if (ev === 'error') { finished = true; throw Object.assign(new Error(d.message
-          || 'Colon Saga couldn’t answer.'), { code: d.code }); }
+          || 'Colon couldn’t answer.'), { code: d.code }); }
         if (ev === 'done') { finished = true; last = d.message; }
         emit(Object.assign({ type: ev }, d));
       });

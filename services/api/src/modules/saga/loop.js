@@ -27,6 +27,7 @@ const secrets = require('./secrets');
 const tools = require('./tools');
 const policy = require('./policy');
 const prompt = require('./prompt');
+const goal = require('./goal');
 const { parseDecision } = require('./parse');
 
 const INTERRUPTS = ['manual_control', 'paused', 'disconnected', 'not_ready', 'browser_not_open', 'other_chat'];
@@ -71,8 +72,8 @@ async function run(o) {
   const log = o.log || (async () => {});
   let started = now();
   const pages = [];
-  let elements = null, here = '', seenAt = now();
-  let steps = 0, badReplies = 0, phoneTimeouts = 0, modelFails = 0;
+  let elements = null, here = '', hereTitle = '', seenAt = now();
+  let steps = 0, badReplies = 0, phoneTimeouts = 0, modelFails = 0, acted = 0, refused = 0, lastSay = '';
   const messages = [{ role: 'user', content: `The user's task: ${String(o.goal).slice(0, 1000)}` }];
   if (o.history) messages.push({ role: 'user', content: guard.clean(String(o.history), 'web').slice(0, 2500) });
   const end = (status, extra = {}) => ({ status, steps, sources: extra.sources || pages.map(cite), flags: guard.flags,
@@ -101,7 +102,7 @@ async function run(o) {
     steps++;
     const moved = userMoved(o, here, seenAt);
     if (moved) {
-      here = moved.url; seenAt = moved.at; elements = null;
+      here = moved.url; hereTitle = String(moved.title || ''); seenAt = moved.at; elements = null;
       messages.push({ role: 'user', observation: true, content: `The user changed the page in the browser: it is now `
         + `${moved.url}${moved.title ? ` ("${guard.clean(moved.title, 'web').slice(0, 120)}")` : ''}. Your element ids `
         + 'are out of date: call getPageContent before you click or fill anything.' });
@@ -134,6 +135,16 @@ async function run(o) {
       continue;
     }
     if (d.action === 'finish') {
+      // 0.10.6: the finish must match where the browser really is (goal.js); refused at most MAX_REFUSALS times.
+      const page = here ? { url: here, title: hereTitle } : (typeof o.pageState === 'function' && o.pageState())
+        || null;
+      const why = refused < goal.MAX_REFUSALS ? goal.check({ goal: o.goal, page, acted }) : null;
+      if (why) {
+        refused++;
+        await log({ kind: 'error', say: d.say, tool: 'finish', error: 'goal_not_met' });
+        messages.push({ role: 'user', observation: true, content: why });
+        continue;
+      }
       const answer = String(d.args.answer || '').trim().slice(0, 6000);
       const wanted = (Array.isArray(d.args.sources) ? d.args.sources : []).map(Number);
       const used = pages.filter((p) => wanted.includes(p.n));
@@ -141,7 +152,9 @@ async function run(o) {
       // 0.10.3: a few words for the phone's status pill ("Deployed Colon AI v0.10.2"); the log keeps it as say.
       const result = String(d.args.result || '').replace(/\s+/g, ' ').trim().slice(0, 80);
       await log({ kind: 'finish', say: result || d.say, sources: sources.map((s) => s.n) });
-      return end('done', { answer: answer || 'I finished browsing but have nothing to report.', sources, result });
+      // No written answer: say what was done (the result line, Saga's last words, its last step), never "nothing".
+      const did = sentence(result) || sentence(d.say) || sentence(lastSay);
+      return end('done', { answer: answer || did || 'I finished browsing.', sources, result });
     }
     let cmd;
     try { cmd = tools.toCommand(d.action, d.args, { elements: elements || new Map() }); } catch (e) {
@@ -211,12 +224,13 @@ async function run(o) {
     } else phoneTimeouts = 0;
     const shown = cmd.name === 'get_page_content' && ack.ok ? { ...ack, result: secrets.redactContent(res) } : ack;
     const ob = prompt.observe(cmd, shown, { guard, pages });
-    if (res.url) here = String(res.url).slice(0, 2048);
-    else if (ack.ok && cmd.args.url) here = cmd.args.url;
+    if (res.url) { here = String(res.url).slice(0, 2048); hereTitle = String(res.title || '').slice(0, 200); }
+    else if (ack.ok && cmd.args.url) { here = cmd.args.url; hereTitle = ''; }
+    if (ack.ok) { acted++; if (d.say) lastSay = d.say; }
     // Saga's own navigation is reported by the phone a little later: not the user's doing.
     seenAt = now() + (ack.ok && tools.NAVIGATES.has(cmd.name) ? NAV_GRACE_MS : 0);
     if (ob.page) { entry.url = entry.url || ob.page.url; entry.title = entry.title || ob.page.title;
-      entry.page = ob.page.n; }
+      entry.page = ob.page.n; if (!hereTitle && ob.page.url === here) hereTitle = String(ob.page.title || ''); }
     if (ack.error !== 'timeout') await log(entry);
     if (ob.elements) elements = ob.elements;
     // The old element ids are gone, unless the phone saw that a click changed nothing on the page (0.10.1).
@@ -259,6 +273,9 @@ function userMoved(o, here, seenAt) {
   return p;
 }
 
+// A short line as a sentence for the reply ("Opened GitHub's sign-in page" -> "Opened GitHub's sign-in page.").
+const sentence = (t) => { const x = String(t || '').replace(/\s+/g, ' ').trim().slice(0, 300);
+  return x ? (/[.!?…]$/.test(x) ? x : `${x}.`) : ''; };
 const blocked = (url) => safety.blockedHost(new URL(url).hostname, { extra: [process.env.BROWSER_READER_BLOCKLIST
   || ''] }).blocked;
 const cite = (p) => ({ n: p.n, title: p.title || p.url, url: p.url });

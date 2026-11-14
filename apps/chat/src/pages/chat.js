@@ -88,7 +88,7 @@ function mount(view, ctx) {
         '<a href="#/" class="cw-head-logo" aria-label="Colon AI home">' + C.logo(brandName(), false) + '</a>' +
         ('<button class="cw-model" data-a="model" aria-haspopup="menu" aria-label="Choose model"><span '
           + 'class="cw-model-mark">') + C.MARK
-          + ('</span><span class="cw-model-t"><b data-model-name>Colon Saga</b><small data-mode-sub>General '
+          + ('</span><span class="cw-model-t"><b data-model-name>Saga</b><small data-mode-sub>General '
           + 'Assistant</small></span>') + icon('chevDown') + '</button>' +
         ('<button class="cw-title" data-a="rename-current" aria-label="Rename conversation" data-tip="Rename"><span '
           + 'data-title></span>') + icon('edit') + '</button>' +
@@ -155,7 +155,7 @@ function mount(view, ctx) {
     data.getSettings().then(function (s) { S.settings = s; S.draftMode = s.defaultMode || 'general'; applyTextSize();
       }),
     data.listModels().then(function (m) { S.models = m; }).catch(function () { S.models = [];
-      C.toast('Couldn’t load the model list. Using Colon Saga.', 'bad'); })
+      C.toast('Couldn’t load the model list. Using Saga.', 'bad'); })
   ]).then(function () { refreshConvs(); route(ctx); S.nativeStop = startNativeShell(); });
   // The app's browser panel is followed (and told this page draws its in-thread card) as soon as the bridge is
   // there, not after settings and models load: on a slow phone that took longer than the app waits (v0.9.2).
@@ -176,10 +176,10 @@ function disclaimer() {
   if (data.kind === 'local') return '<span class="badge cyan" data-tip="' + esc(data.describe) + '">' + icon('info')
     + 'Preview</span><span>Can’t reach Colon right now, so replies are generated on this device.</span>';
   if (data.kind === 'guest') return '<span class="badge cyan" data-tip="' + esc(data.describe) + '">' + icon('info')
-    + ('Not saved</span><span>Colon Saga can make mistakes. <button type="button" class="link cw-inline-link" '
+    + ('Not saved</span><span>Colon can make mistakes. <button type="button" class="link cw-inline-link" '
     + 'data-a="login">Log in</button> to save your chats.</span>');
   return '<span class="badge cyan" data-tip="' + esc(data.describe) + '">' + icon('info')
-    + 'Synced</span><span>Colon Saga can make mistakes. Check important information.</span>';
+    + 'Synced</span><span>Colon can make mistakes. Check important information.</span>';
 }
 function fillUser() {
   var u = C.user || {};

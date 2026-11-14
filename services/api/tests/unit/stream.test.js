@@ -1,5 +1,7 @@
 // Unit tests for the provider client and SSE: streamChat, the SSE parser, the <think> filter, the app SSE
 // format and the native Google AI Studio (Gemini) mapping. fetch is mocked.
+// These tests cover the full routing table (AI_MODEL_SET=all); model-set.test.js covers the Gemma-only default.
+process.env.AI_MODEL_SET = 'all';
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const KEYS = ['GROQ_API_KEY', 'OPENROUTER_API_KEY', 'GEMINI_API_KEY', 'NATLAS_API_KEY', 'NATLAS_BASE_URL',
