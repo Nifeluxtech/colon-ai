@@ -49,7 +49,11 @@ const getAdminRouting = async () => {
     defaults: { routes: routingDefault.routes, hedge: config.chat.hedge }, saved: Boolean(saved), source: cfg.source,
       cache_seconds: dynamic.TTL_MS / 1000, specialists: specialistView(cfg, saved),
     // 0.10.6: AI_MODEL_SET=gemma (default) overrides everything on this page with the Gemma 4 chain below.
-    model_set: ai.modelSet.modelSet(), gemma_chain: ai.chainFor({}, cfg).map(c => `${c.providerId}:${c.model}`),
+    model_set: ai.modelSet.modelSet(), gemma_chain: ai.chainFor({}, cfg).filter(c => !c.support)
+      .map(c => `${c.providerId}:${c.model}`),
+    // 0.11.0: the support models after Gemma 4 (enabled ones: their key is set) and who answered lately here.
+    support_chain: ai.chainFor({}, cfg).filter(c => c.support).map(c => `${c.providerId}:${c.model}`),
+    support_configured: ai.support.list().map(s => `${s.provider}:${s.model}`), answered: ai.answered(),
   }];
 };
 
