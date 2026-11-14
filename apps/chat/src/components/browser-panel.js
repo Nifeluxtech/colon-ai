@@ -6,7 +6,8 @@ import { renderThread } from './message.js';
 import { updateHeader } from './model-picker.js';
 import { refreshConvs } from './sidebar.js';
 import { loadCards, placeCards, resized } from './browser-card.js';
-import { chatCall, sessionKey } from '../lib/browser-modes.js';
+import { ensureChat, forgetChat, healChat, openedBy, syncChat } from './browser-chats.js';
+import { sessionKey } from '../lib/browser-modes.js';
 import { createAnchor } from '../lib/native-anchor.js';
 import { liveHere, needsAnnounce, showsCard, withInline } from '../lib/native-panel.js';
 import { reveal } from '../lib/thread-scroll.js';
@@ -14,7 +15,7 @@ import { ColonBrowser } from '../../../../packages/ui/js/browser/index.js';
 import { Colon } from '../../../../packages/ui/js/colon.js';
 import { ColonURL } from '../../../../packages/ui/js/url.js';
 import { CW } from '../core/cw.js';
-import { $, S, data, defaultModel, isMobile, signedIn } from '../core/state.js';
+import { $, S, data, defaultModel, isMobile } from '../core/state.js';
 import { setView } from '../pages/chat.js';
 
 var C = Colon, icon = C.icon;
@@ -54,7 +55,8 @@ function browserIndicator() {
 function openBrowser(url, opts) {
   if (!(opts && opts.panel)) {
     if (C.native.hasPanel()) { S.browser.openedHere = String(sessionKey(S.current) || '');
-      nativeBrowser('open', { url: url || '' }).then(syncNative, nativeFailed); return null; }
+      ensureChat().then(function () { return nativeBrowser('open', { url: url || '' }); })
+        .then(syncNative, nativeFailed); return null; }
     if (C.native.openTab(url || '')) return null;
   }
   var b = ensureBrowser();
@@ -143,6 +145,7 @@ function syncNative(st) {
     if (dot) dot.hidden = !(st.open && (st.loading || st.control !== 'manual')); }
   if (S.el) S.el.setAttribute('data-native-browser', st.open ? st.layout + (st.collapsed ? '-collapsed' : '')
     : 'none');
+  healChat(st);                                  // 0.11.1: the app shows another chat's browser: tell it again
   renderNativeInline(st);
   announceInline(st);
   if (CW.sagaFollow) CW.sagaFollow(st);          // 0.10.4: a live task this page lost track of is followed again
@@ -161,7 +164,10 @@ function nativeFailed() { C.toast('The browser panel didn’t open. Try again.',
 function toggleBrowser() {
   if (C.native.hasPanel()) { var open = S.browser.nativeState && S.browser.nativeState.open;
     S.browser.openedHere = open ? null : String(sessionKey(S.current) || '');
-    nativeBrowser(open ? 'close' : 'open').then(syncNative, nativeFailed); return; }
+    // 0.11.1: this chat's browser (ensureChat), its card under the last message when the button was tapped.
+    if (!open) openedBy((S.messages || [])[(S.messages || []).length - 1]);
+    (open ? Promise.resolve() : ensureChat()).then(function () { return nativeBrowser(open ? 'close' : 'open'); })
+      .then(syncNative, nativeFailed); return; }
   if (S.browser.layout === 'none') openBrowser(); else setLayout('none');
 }
 // Follows the panel while the chat is mounted; returns the function that stops following.
@@ -209,8 +215,8 @@ function wantsLive(st) { var key = String(sessionKey(S.current) || '');
 function placeAll() { var st = S.browser.nativeState;
   if (st && wantsLive(st) !== !!S.browser.liveShown) renderNativeInline(st); else placeCards(); }
 function renderNativeInline(st) {
-  var was = S.browser.liveShown, shows = wantsLive(st);
-  S.browser.liveShown = shows;
+  var was = S.browser.liveShown, shows = wantsLive(st), unfocused = S.browser.focused && !st.focus;
+  S.browser.liveShown = shows; S.browser.focused = !!st.focus;
   followRun(st.run);
   placeCards();
   var body = S.browser.host && S.browser.host.querySelector('.cw-native-body');
@@ -224,7 +230,8 @@ function renderNativeInline(st) {
       cover: function () { return $('.cw-composer'); }, watch: [$('#cw-page'), $('.cw-composer')],
       collapsed: function () { return !!(S.browser.nativeState && S.browser.nativeState.collapsed); },
       send: function (p) { nativeBrowser('anchor', p).catch(function () {}); } });
-  } else S.browser.anchor.update();
+  } else if (unfocused) S.browser.anchor.force(); // 0.11.1: back from full screen: the app gets the box again
+  else S.browser.anchor.update();
   // A new card, or Saga needs the user: bring it into view once (so its pointer and request can be seen).
   var run = st.run || {}, wants = run.state === 'running' || run.state === 'needs_user';
   var asked = S.browser.revealNext; S.browser.revealNext = false;
@@ -250,49 +257,10 @@ function setChatMode(mode) {
   }
   return Promise.resolve();
 }
-// The chat on screen changed (updateHeader runs on every change): the app shows that chat's browser, a new chat a
-// clean one (or its draft, adopted when its conversation was just created), the web reader its session.
-function syncChat() {
-  if (!S.el || (S.view !== 'chat' && S.view !== 'welcome')) return;
-  var key = sessionKey(S.current);
-  if (S.browser.inst && S.browser.instKey !== key) {
-    if (S.browser.layout !== 'none') setLayout('none');
-    S.browser.inst.destroy(); S.browser.inst = null;
-  }
-  var chats = C.native.can('browserChats');
-  var call = chats ? chatCall(S.browser.chatSent, key, { created: !!key && key === S.browser.createdId }) : null;
-  var switched = Promise.resolve();
-  if (call) { S.browser.chatSent = key; S.browser.modeSent = null; switched = nativeBrowser('chat', call).then(
-    syncNative, function () {}); }
-  // This chat's Saga cards (0.10.3). 0.10.6: none on a new chat; the app's only once it shows this chat (asked
-  // earlier, it answered with the previous chat's finished card); the previous chat's liveAnchor goes too.
-  if (S.browser.cardsKey !== key) {
-    S.browser.cardsKey = key; S.browser.cards = []; S.browser.cardsSig = null; S.browser.openedHere = null;
-    if (S.browser.liveAnchor && S.browser.liveAnchor.conv !== String(key || '')) S.browser.liveAnchor = null;
-    placeAll();
-    var from = !key ? function () { return []; } : C.native.hasPanel() ? appCards
-      : signedIn() && data.kind === 'remote' ? null : function () { return []; };
-    switched.then(function () { if (S.browser.cardsKey === key) loadCards(key, from); });
-  }
-  if (!chats) return;
-  // AI only (0.10.3); an older app that still has "AI + me" is told so too.
-  if (S.browser.modeSent !== key) { S.browser.modeSent = key;
-    nativeBrowser('mode', { mode: 'ai' }).then(syncNative, function () {}); }
-}
-CW.syncChat = syncChat;
-// A deleted chat's browser goes with it: the app's profile and tabs, the web reader's session on this device.
-function forgetChat(id) {
-  if (C.native.can('browserChats')) nativeBrowser('forget', { conversation_id: id }).catch(function () {});
-  var d = window.ColonBrowserData && window.ColonBrowserData.get();
-  if (d && d.kind === 'local' && d.removeSession) d.removeSession(id).catch(function () {});
-}
-CW.forgetAllChats = function () {
-  if (C.native.can('browserChats')) nativeBrowser('forget', { all: true }).catch(function () {});
-};
 function applyTextSize() { document.documentElement.setAttribute('data-text', (S.settings && S.settings.textSize)
   || 'md'); }
 
-export { addBrowseNote, addThreadNote, applySplitWidth, applyTextSize, ensureConv, forgetChat, nativeBrowser,
-  nativeFailed, nativeInlineAction, openBrowser, renderEmbed, revealInThread,
+export { addBrowseNote, addThreadNote, appCards, applySplitWidth, applyTextSize, ensureConv, forgetChat, nativeBrowser,
+  nativeFailed, nativeInlineAction, openBrowser, placeAll, renderEmbed, revealInThread,
   setChatMode, setLayout, setMobileTab, startNativeBrowser,
   syncChat, syncNative, toggleBrowser };

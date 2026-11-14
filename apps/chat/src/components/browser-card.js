@@ -5,7 +5,9 @@
    cards come from the server's task list: same shape, the status, and a note to open the Colon AI app.
    Placement and sizes are lib/saga-card.js (pure, tested); this module only draws and moves elements. */
 
-import { cardHeight, layout, snapPill, webCard } from '../lib/saga-card.js';
+import { sessionKey } from '../lib/browser-modes.js';
+import { openerStore } from '../lib/browser-opener.js';
+import { cardHeight, layout, liveSpot, snapPill, webCard } from '../lib/saga-card.js';
 import { Colon } from '../../../../packages/ui/js/colon.js';
 import { $, S } from '../core/state.js';
 
@@ -52,6 +54,16 @@ function liveEl() {
   return host;
 }
 
+/** 0.11.1: which reply opened each chat's browser, kept in the page's storage. */
+function openers() {
+  if (!S.browser.openers) {
+    var ls = null;
+    try { ls = window.localStorage; } catch (e) { ls = null; }
+    S.browser.openers = openerStore(ls);
+  }
+  return S.browser.openers;
+}
+
 function byMid(thread, id) {
   var list = thread.children;
   for (var i = 0; i < list.length; i++) if (list[i].getAttribute('data-mid') === String(id)) return list[i];
@@ -73,17 +85,17 @@ function size(el) {
 function placeCards() {
   var page = $('#cw-page'), host = S.browser.host;
   if (!page) return;
-  var st = S.browser.nativeState || {}, run = st.run || {};
+  var st = S.browser.nativeState || {};
   var showLive = !!S.browser.liveShown, thread = page.querySelector('.cw-thread');
-  // 0.10.5: "show the browser" after a task ended brings the live card under that request (liveAnchor), not
-  // back up the thread under the old task's message; a live task keeps its own message.
-  var re = S.browser.liveAnchor, idle = !/^(running|paused|needs_user|user_control)$/.test(run.state || '');
-  var mine = re && re.conv === String((S.current && S.current.id) || '') && idle ? re : null;
-  var live = showLive ? { anchor: mine ? mine.id : run.anchor || null, at: mine ? mine.at : run.since || Date.now() }
-    : null;
+  // 0.11.1 (lib/saga-card.js liveSpot): a running task keeps its own message; an idle browser goes under the reply
+  // that opened it (kept per chat, lib/browser-opener.js) or takes the place of the task that just ended.
+  var key = sessionKey(S.current), store = openers();
+  if (key && showLive) store.seen(key, Date.now()); else if (key && st.open === false) store.unseen(key);
+  var op = key ? store.get(key) : null, spot = showLive ? liveSpot(st, op, op ? op.seenAt : 0) : null;
+  var live = spot ? { anchor: spot.anchor, at: spot.at, replaces: !!spot.replaces } : null;
   // 0.10.6: a chat with no messages has no tasks: no finished card from anywhere else shows on it.
   var cards = (S.messages || []).length ? S.browser.cards || [] : [];
-  var groups = layout(S.messages || [], cards, live, showLive && !mine ? run.task : null);
+  var groups = layout(S.messages || [], cards, live, spot ? spot.hide : null);
   // Called on every state event from the app (page loads, Saga's steps): moving nothing that is already in place
   // keeps the live card's box (and the WebView over it) still.
   var sig = JSON.stringify(groups.map(function (g) { return [g.after, g.items.map(function (i) {
@@ -136,4 +148,4 @@ function loadCards(conversationId, fromApp) {
 function resized() { var page = $('#cw-page'); if (!page) return;
   Array.prototype.forEach.call(page.querySelectorAll('.cw-saga-card'), size); }
 
-export { loadCards, placeCards, resized };
+export { loadCards, openers, placeCards, resized };
