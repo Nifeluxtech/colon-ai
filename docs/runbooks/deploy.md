@@ -73,3 +73,24 @@ it). It must send `Cache-Control: no-cache` for `index.html`, so phones always f
 
 Merge it with anything cPanel already wrote there (HTTPS redirects, PHP handlers). Do not enable `mod_deflate` for
 `text/event-stream` on the API subdomain, or chat replies arrive all at once.
+
+## Release notes: 0.11.0
+
+- **Migration** `0011_saga_schedules_routines.sql` (tables for scheduled checks and routines) runs at start-up;
+  take a dump first. `/health` → `database.migrations` should end with `0011_saga_schedules_routines`.
+- **Environment** (all optional, defaults in `config/api.env.example`): `AI_SUPPORT_MODELS`,
+  `GEMINI_SUPPORT_MODELS`, `GEMINI_SUPPORT_VISION`, `GEMINI_SUPPORT_UNAVAILABLE_REST_HOURS`, `GROQ_SUPPORT_MODEL`,
+  `OPENROUTER_SUPPORT_MODEL`, `GROQ_SUPPORT_MAX_INPUT_TOKENS`, `OPENROUTER_SUPPORT_MAX_INPUT_TOKENS`,
+  `GROQ_SUPPORT_REASONING`, `AI_RETRY_WAIT_MS`, `SAGA_SCHEDULES_MAX`. Support order after Gemma 4 26B → 31B:
+  `gemini-flash-lite-latest` → `gemini-3.5-flash-lite` → `gemini-2.5-flash` (all on the existing `GEMINI_API_KEY`,
+  nothing new to set) → Groq `openai/gpt-oss-120b` → OpenRouter free Gemma. Set `GROQ_API_KEY` and
+  `OPENROUTER_API_KEY` for the last two (Admin › Routing shows which are on). `gemini-2.5-flash` is deprecated
+  (existing users only; routed to 3.5 Flash-Lite from 1 Dec 2026): if Google refuses it, it is skipped for 24 h;
+  drop it with `GEMINI_SUPPORT_MODELS=gemini-flash-lite-latest,gemini-3.5-flash-lite` if the logs show
+  `ai_provider_failed … gemini-2.5-flash` every day. `GEMINI_SUPPORT_MODELS=off` turns the three off.
+- **Android**: publish `colon-ai-0.11.0.apk` and `colon-browser-0.11.0.apk` on the GitHub Release `v0.11.0`;
+  `version.json` (versionCode 1100) is deployed with the chat app, so phones are offered the update only after the
+  release exists. Older apps keep working: the chat checks `ColonNative.can('vault' | 'browserSuspend' | …)`.
+- **Check on a phone**: open the sidebar and a menu over a running browser card (the card hides), scroll the thread
+  with the card visible (steady), "save my github login" (secure form; the thread says only "Login saved for
+  github.com"), a task in the background (notification), "check <site> every morning" (Settings › Saga lists it).
