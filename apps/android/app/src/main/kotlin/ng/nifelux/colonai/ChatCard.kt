@@ -19,7 +19,8 @@ import com.google.android.material.button.MaterialButton
  * floating status pill (Saga's step with a spinner, a check and the result, "Saga needs you" with Take control,
  * an error with Retry) and the expand button; the page is locked, so a tap on it opens full screen (view only).
  * Full screen: the slim top bar with the page's title and host, back and reload (only while the user has control),
- * Take control or Give back to Saga, more, and back to the chat. It renders whatever ChatBrowserPanel hands it.
+ * Take control or Give back to Saga, more, and back to the chat; 0.11.1: the corner button stays, as "minimise".
+ * It renders whatever ChatBrowserPanel hands it.
  */
 class ChatCard(content: FrameLayout, private val on: Actions) {
     interface Actions {
@@ -53,6 +54,7 @@ class ChatCard(content: FrameLayout, private val on: Actions) {
     private val stop: ImageButton = root.findViewById(R.id.pill_stop)
     private val expand: ImageButton = root.findViewById(R.id.card_expand)
     private var pillState: ChatRun.Pill? = null
+    private var fullNow = false
     /** 0.10.4: the page's last picture, shown over the WebView until it has painted (never a blank white card). */
     private val picture = ImageView(ctx).apply {
         scaleType = ImageView.ScaleType.MATRIX
@@ -79,7 +81,8 @@ class ChatCard(content: FrameLayout, private val on: Actions) {
         // 0.11.0: tapping the card (or its status pill) shows Saga's steps; the expand button opens it full screen.
         catcher.setOnClickListener { on.timeline() }
         pill.setOnClickListener { on.timeline() }
-        expand.setOnClickListener { on.expand() }
+        // 0.11.1: the same corner button minimises the full-screen view (where the user's finger already is).
+        expand.setOnClickListener { if (fullNow) on.collapse() else on.expand() }
         root.findViewById<View>(R.id.focus_close).setOnClickListener { on.collapse() }
         root.findViewById<View>(R.id.focus_more).setOnClickListener { on.menu(it) }
         back.setOnClickListener { on.back() }
@@ -115,7 +118,12 @@ class ChatCard(content: FrameLayout, private val on: Actions) {
         val mine = ChatRun.touchesPage(run.state)
         // Locked page in the thread: a tap on it opens the full-screen view. Never over a page the user drives.
         catcher.visibility = if (!full && !mine) View.VISIBLE else View.GONE
-        expand.visibility = if (full) View.GONE else View.VISIBLE
+        // 0.11.1: full screen keeps the corner button as "minimise" (0.11.0 hid it: the only way back was the top
+        // bar's icon, which the owner didn't find), with the top bar's "back to the chat" too.
+        fullNow = full
+        expand.visibility = View.VISIBLE
+        expand.setImageResource(if (full) R.drawable.ic_fullscreen_exit else R.drawable.ic_fullscreen)
+        expand.contentDescription = ctx.getString(if (full) R.string.card_minimise else R.string.card_expand)
         bar.visibility = if (full) View.VISIBLE else View.GONE
         if (full) {
             val where = UrlRules.displayUrl(url)

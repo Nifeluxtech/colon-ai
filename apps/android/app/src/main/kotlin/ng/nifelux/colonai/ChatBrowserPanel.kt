@@ -284,6 +284,7 @@ class ChatBrowserPanel(private val a: MainActivity) : BrowserHost, TabManager.Ho
         collapsed = false
         if (m != PanelLayout.Mode.FULL) prefs.edit().putString(PREF_LAYOUT, m.wire).apply()
         if (isOpen) applyLayout()
+        renderCard()            // 0.11.1: the card's corner button follows (expand in the thread, minimise full)
         changed()
     }
 
@@ -385,7 +386,7 @@ class ChatBrowserPanel(private val a: MainActivity) : BrowserHost, TabManager.Ho
             // 0.10.3: AI only, always; the card's task state and whether it is full screen.
             .put("chatMode", "ai")
             .put("run", ChatRun.toJson(run).put("pill", pillJson()))
-            .put("focus", focus)
+            .put("focus", fullView())
             .put("resumable", saga.control.resumable?.wire ?: JSONObject.NULL)
             .put("handoff", saga.control.handoff?.let { JSONObject().put("kind", it.kind).put("message", it.message) }
                 ?: JSONObject.NULL)
@@ -612,13 +613,18 @@ class ChatBrowserPanel(private val a: MainActivity) : BrowserHost, TabManager.Ho
 
     /** Back button: leave full-screen video, then go back in the panel when it is full screen or was touched last. */
     fun handleBack(panelFocused: Boolean): Boolean {
-        if (fullscreen.active) { exitFullscreen(); return true }
-        if (!isOpen) return false
-        // 0.10.3: full screen over the chat goes back to the card (the page's own back is in its top bar).
-        if (focus) { setFocus(false); return true }
-        if (mode == PanelLayout.Mode.FULL) { if (!goBack()) setMode(beforeFull); return true }
-        return panelFocused && goBack()
+        // 0.10.3: full screen over the chat goes back to the card (the page's own back is in its top bar). 0.11.1:
+        // the stacked FULL layout too, at once (it walked the page's history first, so Back seemed to do nothing).
+        return when (FocusRules.back(fullscreen.active, isOpen, fullView(), panelFocused)) {
+            FocusRules.Back.VIDEO -> { exitFullscreen(); true }
+            FocusRules.Back.COLLAPSE -> { setFocus(false); true }
+            FocusRules.Back.PAGE -> goBack()
+            FocusRules.Back.NONE -> false
+        }
     }
+
+    /** 0.11.1: full screen now, in either layout (FocusRules.isFull). */
+    private fun fullView(): Boolean = FocusRules.isFull(isOpen, focus, docked, mode)
 
     fun contains(ev: MotionEvent): Boolean {
         if (!isOpen) return false
@@ -687,10 +693,17 @@ class ChatBrowserPanel(private val a: MainActivity) : BrowserHost, TabManager.Ho
 
     /** The full-screen view over the chat (true) or the card in the thread; the same WebView grows or shrinks. */
     fun setFocus(on: Boolean) {
-        if (focus == on) return
         if (on && !isOpen) open(null)
         if (!isOpen) return
-        if (!docked) { setMode(if (on) PanelLayout.Mode.FULL else beforeFull); return }
+        // 0.11.1: stacked (a page that hasn't said it draws the card) full screen is the FULL layout; leaving it
+        // checked focus first, which is always false there, so the card's collapse did nothing.
+        if (!docked) {
+            if (focus) { focus = false; renderCard(); changed() }   // a view over the chat left from inline
+            val full = mode == PanelLayout.Mode.FULL
+            if (on != full) setMode(if (on) PanelLayout.Mode.FULL else FocusRules.leaveFull(beforeFull))
+            return
+        }
+        if (focus == on) return
         val from = if (layer.visibility == View.VISIBLE) floatArrayOf(panel.translationX, panel.translationY,
             panel.width.toFloat(), panel.height.toFloat()) else null
         focus = on
@@ -919,7 +932,7 @@ class ChatBrowserPanel(private val a: MainActivity) : BrowserHost, TabManager.Ho
     private fun renderCard() {
         if (!::card.isInitialized) return
         val t = tabs.active
-        card.render(run, focus, t?.title ?: "", t?.url ?: "", t?.webView?.canGoBack() == true, true, pageAlive(),
+        card.render(run, fullView(), t?.title ?: "", t?.url ?: "", t?.webView?.canGoBack() == true, true, pageAlive(),
             linked)
         if (painted) card.showPicture(null)
         content.contentDescription = a.getString(R.string.card_live, ChatRun.pill(run, card.words, pageAlive(),
@@ -981,6 +994,7 @@ class ChatBrowserPanel(private val a: MainActivity) : BrowserHost, TabManager.Ho
             anchor = null
             layer.addView(panel, FrameLayout.LayoutParams(0, 0, Gravity.TOP or Gravity.START))
         } else {
+            focus = false           // 0.11.1: the full-screen view over the chat belongs to the inline layer only
             panel.translationX = 0f
             panel.translationY = 0f
             layer.clearClip()
