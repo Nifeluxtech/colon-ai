@@ -51,5 +51,17 @@ r.post('/browser/agent', requireUser, t.gate, perTask, t.postTask);
 r.get('/browser/agent', requireUser, t.listTasks);
 r.get('/browser/agent/:id', requireUser, perUser('saga-read', 3600, 3600), t.getTask);
 r.post('/browser/agent/:id/stop', requireUser, t.stopTask);
+// 0.11.0: messages while a task runs; scheduled browsing; saved routines.
+r.post('/browser/agent/:id/guide', requireUser, perUser('saga-guide', 120, 3600), t.guideTask);
+const pl = saga.handlers.plans;
+const perPlan = perUser('saga-plan', 120, 3600);
+r.get('/browser/schedules', requireUser, pl.listSchedules);
+r.post('/browser/schedules', requireUser, t.gate, perPlan, pl.createSchedule);
+r.patch('/browser/schedules/:id', requireUser, perPlan, pl.patchSchedule);
+r.delete('/browser/schedules/:id', requireUser, perPlan, pl.deleteSchedule);
+r.post('/browser/schedules/:id/run', requireUser, t.gate, perPlan, pl.runSchedule);
+r.get('/browser/routines', requireUser, pl.listRoutines);
+r.post('/browser/routines', requireUser, perPlan, pl.createRoutine);
+r.delete('/browser/routines/:id', requireUser, perPlan, pl.deleteRoutine);
 
 module.exports = r;
