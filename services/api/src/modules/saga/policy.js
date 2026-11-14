@@ -4,8 +4,9 @@
 // switch this off: tools.js rebuilds the arguments, and approval() is always called by the loop, never skipped.
 //
 // approval(command, ctx) -> null | { kind, reason }
-//   kind: payment · purchase · send_message · form_submission · personal_data (strongest first)
-const KINDS = ['payment', 'purchase', 'send_message', 'form_submission', 'personal_data'];
+//   kind: payment · purchase · delete · send_message · form_submission · personal_data (strongest first)
+// 0.11.0: delete (delete, remove, discard, deactivate, cancel an order...) is its own kind: Saga stops and asks.
+const KINDS = ['payment', 'purchase', 'delete', 'send_message', 'form_submission', 'personal_data'];
 
 const words = (list) => new RegExp(`\\b(?:${list.join('|')})\\b`, 'i');
 const WORDS = {
@@ -14,10 +15,12 @@ const WORDS = {
     .source + '|₦\\s?\\d', 'i'),
   purchase: words(['buy', 'buy now', 'purchase', 'place (?:an |my )?order', 'order now', 'complete (?:the )?order',
     'book now', 'reserve', 'subscribe', 'donate', 'add to (?:cart|bag)', 'rent now']),
+  delete: words(['delete', 'remove', 'discard', 'erase', 'trash', 'deactivate', 'close (?:my |the )?account',
+    'cancel (?:my |the |this )?(?:order|subscription|booking|plan)', 'unsubscribe', 'clear all', 'empty (?:the )?bin']),
   send_message: words(['send', 'post', 'publish', 'tweet', 'reply', 'comment', 'share', 'message', 'email',
     'invite', 'upload']),
   form_submission: words(['submit', 'sign ?up', 'register', 'log ?in', 'sign ?in', 'apply', 'continue', 'next',
-    'confirm', 'save', 'delete', 'remove', 'unsubscribe', 'verify']),
+    'confirm', 'save', 'verify']),
 };
 
 // Personal data in what Saga would type or put in a URL: email, Nigerian or international phone numbers, card
@@ -70,8 +73,8 @@ function forClick(el) {
   const named = el.label || el.text || el.name || el.type || el.tag || 'element';
   // A plain link only navigates; buttons (and links scripted as buttons) can act.
   const acts = !(el.tag === 'a' && el.href && el.role !== 'button');
-  for (const kind of ['payment', 'purchase', 'send_message']) {
-    if ((acts || kind !== 'send_message') && WORDS[kind].test(words)) {
+  for (const kind of ['payment', 'purchase', 'delete', 'send_message']) {
+    if ((acts || (kind !== 'send_message' && kind !== 'delete')) && WORDS[kind].test(words)) {
       return { kind, reason: `Click "${short(named)}"` };
     }
   }

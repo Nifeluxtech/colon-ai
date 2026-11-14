@@ -12,8 +12,14 @@ module.exports = {
   loop: require('./loop'),
   store: require('./store'),
   runner: require('./runner'),
+  // 0.11.0: scheduled browsing, saved routines, the user's messages while a task runs.
+  schedule: require('./schedule'),
+  schedules: require('./schedules'),
+  routines: require('./routines'),
+  guidance: require('./guidance'),
   handlers: {
     tasks: require('./handlers/tasks'),
+    plans: require('./handlers/plans'),
     admin: require('./handlers/admin'),
   },
 };

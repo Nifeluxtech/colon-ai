@@ -25,6 +25,7 @@ const store = require('./store');
 const loop = require('./loop');
 const prompt = require('./prompt');
 const resume = require('./resume');
+const extra = require('./runner-extra');
 const { createLink } = require('./link');
 
 const WORKER = `${os.hostname()}:${process.pid}`.slice(0, 64);
@@ -99,9 +100,10 @@ async function waitBack(task, link, phase, ms, first, again) {
 /** The phone's consent for a task that doesn't have control yet ('consent' or why not). */
 async function consent(task, link, mode, L) {
   const conversation = task.conversation_id || null;
+  const scheduled = await extra.scheduledFor(task);
   for (let tries = 0; tries < 2; tries++) {
     const answered = link.waitControl(L.approvalTimeoutMs);
-    if (!(await link.bridge.askControl(mode, task.goal, { conversation }))) return 'other_chat';
+    if (!(await link.bridge.askControl(mode, task.goal, { conversation, scheduled }))) return 'other_chat';
     const reason = await answered;
     if (reason !== 'reconnected') return reason;
     if (await link.bridge.hasControl()) return 'consent';
@@ -149,8 +151,10 @@ async function execute(task, bridge, deps = {}) {
   }
   await store.setStatus(task.id, 'running', { steps: task.steps });
   const generate = deps.generate || ai.generate;
-  const context = prompt.system({ maxSteps: L.maxSteps, mode });
-  const history = resume.prompt(resume.historyOf(past));
+  // 0.11.0: the phone's commands decide the tools offered; speed mode, a routine's recorded steps, a schedule.
+  const o11 = await extra.options(task, link.bridge);
+  const context = prompt.system({ maxSteps: L.maxSteps, mode, caps: o11.caps, speed: o11.speed });
+  const history = extra.withRoutine(o11.routine, resume.prompt(resume.historyOf(past)));
   const r = await loop.run({
     goal: task.goal, limits: L, log: add, isStopped: () => store.isStopped(task.id), mode,
     history: note ? `${history}${history ? '\n\n' : ''}The user gave the browser back with this message (their `
@@ -162,6 +166,7 @@ async function execute(task, bridge, deps = {}) {
     decide: (messages, signal) => generate({ mode: 'general', language: task.language || 'en', messages, context,
       category: 'reasoning', signal, temperature: 0.2, timeouts: { maxTokens: 800 } }).then((x) => x.text),
     command: (name, args, o) => link.command(name, args, undefined, { ...o, conversation }),
+    caps: o11.caps, speed: o11.speed, guidance: () => extra.guidance(task.id),
   });
   // Another worker holds the phone now and carries the task on (0.10.4): nothing more from here.
   if (link.moved) return { status: 'moved' };
@@ -179,6 +184,7 @@ function newLink(task, bridge, L) {
 
 async function finish(task, r, req, link) {
   await store.setStatus(task.id, r.status, { error: r.error, steps: r.steps, answer: r.answer, sources: r.sources });
+  await extra.finished(task, r);       // 0.11.0: a scheduled run reports in its chat
   await audit(req, 'saga.task_finished', { actorId: task.user_id, targetType: 'saga_task', targetId: task.id,
     meta: { status: r.status, error: r.error || null, steps: r.steps || 0, sources: (r.sources || []).length } });
   // Saga hands the browser back: the phone leaves AI mode, and its status pill says how the task ended (the result
@@ -225,6 +231,8 @@ async function start(req, o, deps = {}) {
   const mode = store.MODES.includes(o.mode) ? o.mode : 'ai';
   const id = await store.create({ userId: req.user.id, goal: o.goal, language: o.language,
     conversationId: o.conversationId, mode });
+  // 0.11.0: where the task came from (a schedule, a routine) and speed mode.
+  if (o.scheduleId || o.routineId || o.speed) await store.setOrigin(id, o);
   if (o.continueOf) {
     await store.addAction(id, req.user.id, 1, { kind: 'continue', say: `Continues task ${o.continueOf}`,
       args: { of: Number(o.continueOf), summary: String(o.history || '').slice(0, resume.MAX_SUMMARY) } });
@@ -263,8 +271,14 @@ async function sweep(deps) {
 let timer = null;
 function watch(ms = 2000) {
   if (timer) return;
-  timer = setInterval(() => { if (browser.bridge.users().length) sweep().catch((e) => log.warn('saga_sweep_failed',
-    { err: e.message })); }, ms);
+  let ticks = 0;
+  timer = setInterval(() => {
+    if (!browser.bridge.users().length) return;
+    sweep().catch((e) => log.warn('saga_sweep_failed', { err: e.message }));
+    // 0.11.0: scheduled browsing, every ~30 s, for the users whose phones are connected here.
+    if (++ticks % 15 === 0) extra.tick(browser.bridge.users(), start).catch((e) => log.warn('saga_schedule_failed',
+      { err: e.message }));
+  }, ms);
   timer.unref();
 }
 

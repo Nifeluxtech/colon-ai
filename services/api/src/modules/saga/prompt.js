@@ -4,13 +4,15 @@
 // (modules/search/prompt.js). The tools, the step limit and the approval rules are fixed by the server before any
 // page is read, so a page has nothing to change.
 const safety = require('../safety');
-const { TOOLS } = require('./tools');
+const { TOOLS, available } = require('./tools');
 
 const MAX_TEXT = 6000;       // page text the model sees per observation
 const MAX_ELEMENTS = 60;
 const MAX_LINKS = 40;
 
-function system({ maxSteps, mode }) {
+// caps (0.11.0): the phone's commands (hello capabilities): tools it can't run are not offered. speed: speed mode.
+function system({ maxSteps, mode, caps = null, speed = false }) {
+  const names = available(caps);
   return [
     'You are now browsing the web for the user on their phone, in the browser card inside their Colon AI chat. The '
       + 'browser is AI-only: the user watches every step live but cannot touch the page, unless you hand it to them '
@@ -20,7 +22,7 @@ function system({ maxSteps, mode }) {
     'Reply with ONE JSON object and nothing else, in this shape:',
     '{"say": "one short sentence telling the user what you are doing and why", "action": "<tool>", "args": {…}}',
     'Tools:',
-    ...Object.values(TOOLS).map((t) => `- ${t.doc}`),
+    ...names.map((n) => `- ${TOOLS[n].doc}`),
     'Rules:',
     '- Read a page with getPageContent before you click or fill anything on it; use only element ids from the most '
       + 'recent getPageContent.',
@@ -53,6 +55,20 @@ function system({ maxSteps, mode }) {
       + '(openUrl) and check the address. Colon compares your finish with the page the browser is on and sends you '
       + 'back if they do not match.',
     '- If something fails twice, try another approach or finish and explain what happened.',
+    '- To compare things across sites (prices, offers), open each site in its own tab (openUrl with "newTab": true), '
+      + 'read each, switch between them with tabs, and close tabs you no longer need. At most 6 tabs.',
+    ...(names.includes('signIn') ? ['- To sign in, open the site\'s sign-in page, then call signIn with its host. The '
+      + 'phone fills the user\'s saved login itself (you never see it, never ask for it). If there is none, Colon '
+      + 'shows the user a Colon Secured Login form and you continue when they are done.'] : []),
+    ...(names.includes('extract') ? ['- When the user wants data out of a page (a table, a price list, search results),'
+      + ' call extract; the table goes into the chat with a CSV download. Then finish with a short summary.'] : []),
+    '- The user may send you a message while you work; it arrives as "The user sent this while you work": take it '
+      + 'into account in your next step without stopping.',
+    ...(speed ? ['- Speed mode is on (slow network): after a step that opens or changes a page, Colon reads it for you '
+      + 'and shows you the result, so do not call getPageContent right after. You may add up to 3 follow-up steps '
+      + 'that need no new reading in "then", e.g. {"say": "…", "action": "fill", "args": {"id": "c3", "value": "…"}, '
+      + '"then": [{"action": "click", "args": {"id": "c4"}}]}. A click may name the element by its exact text: '
+      + '{"action": "click", "args": {"text": "Sign in"}}.'] : []),
   ].join('\n');
 }
 
@@ -93,8 +109,9 @@ function observe(cmd, ack, o) {
       lines.push(`${e.id}: ${d.tag}${d.type ? `[${d.type}]` : ''} "${d.label || d.text || d.placeholder || d.name}"`
         + (d.form ? ' (in a form)' : '') + (d.secret ? ' (secret: the user types this, never you)' : ''));
     }
-    const text = guard.clean(String(r.text || ''), 'web').slice(0, MAX_TEXT);
-    return { page, elements, text: [`Result of getPageContent: Page ${page.n}, URL: ${url}`,
+    const text = guard.clean(String(r.text || ''), 'web').slice(0, o.maxText || MAX_TEXT);
+    const tab = r.tab_id ? ` (tab ${String(r.tab_id).slice(0, 40)})` : '';
+    return { page, elements, text: [`Result of getPageContent: Page ${page.n}${tab}, URL: ${url}`,
       fence(guard, [`Title: ${title}`, 'Text:', text || '(no readable text)', 'Elements:',
         ...(lines.length ? lines : ['(none)'])], id)].join('\n') };
   }
@@ -113,6 +130,9 @@ function observe(cmd, ack, o) {
     return { text: `Result of screenshot: a ${Number(r.width) || 0}×${Number(r.height) || 0} picture of the visible `
       + 'page was taken. Use getPageContent to read the page.', image: typeof r.base64 === 'string' ? r : null };
   }
+  if (cmd.name === 'extract') return extracted(guard, r, id);
+  if (cmd.name === 'sign_in') return { text: `Result of signIn: the saved login was filled${r.submitted
+    ? ' and the form was sent' : ''}. Call getPageContent to check that you are signed in.` };
   const where = r.url ? ` Now at ${String(r.url).slice(0, 300)}${r.title ? ` ("${clean(guard, r.title, 120)}")`
     : ''}.` : '';
   if (cmd.name === 'click') return { text: `Result of click: ${clicked(guard, r)}${where}` };
@@ -143,7 +163,26 @@ function clicked(guard, r) {
   return base + cover;
 }
 
+// 0.11.0: an extracted table / list. table(): the cleaned data for the log and the chat (≤ 200 rows, ≤ 12 columns).
+const MAX_ROWS = 200, MAX_COLS = 12, MAX_CELL = 200;
+function table(guard, r) {
+  const cell = (v) => clean(guard, v, MAX_CELL);
+  const columns = (Array.isArray(r.columns) ? r.columns : []).slice(0, MAX_COLS).map(cell);
+  const rows = (Array.isArray(r.rows) ? r.rows : []).slice(0, MAX_ROWS).filter(Array.isArray)
+    .map((row) => row.slice(0, MAX_COLS).map(cell));
+  return { what: r.what === 'list' ? 'list' : 'table', caption: clean(guard, r.caption, 120), columns, rows,
+    total: Math.max(rows.length, Number(r.total) || 0) };
+}
+function extracted(guard, r, id) {
+  const t = table(guard, r);
+  if (!t.rows.length) return { text: 'Result of extract: no table or list was found on this page.', table: null };
+  const head = t.columns.length ? [`Columns: ${t.columns.join(' | ')}`] : [];
+  const lines = t.rows.slice(0, 8).map((row) => `- ${row.join(' | ')}`);
+  return { table: t, text: [`Result of extract: a ${t.what} with ${t.rows.length} rows went into the chat as a table `
+    + 'and a CSV file. The first rows:', fence(guard, [...head, ...lines], id)].join('\n') };
+}
+
 /** Click results after which the element ids from the last getPageContent still name the same elements. */
 const KEEPS_ELEMENTS = new Set(['none', 'focused', 'element_changed']);
 
-module.exports = { system, observe, KEEPS_ELEMENTS, MAX_TEXT, MAX_ELEMENTS };
+module.exports = { system, observe, table, KEEPS_ELEMENTS, MAX_TEXT, MAX_ELEMENTS, MAX_ROWS };

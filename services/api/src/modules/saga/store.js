@@ -27,6 +27,10 @@ async function create({ userId, goal, language = 'en', conversationId = null, mo
   return r.insertId;
 }
 
+/** 0.11.0: where a task came from (a schedule, a routine) and speed mode (migration 0011). */
+const setOrigin = (id, o) => db.query('UPDATE saga_tasks SET schedule_id = ?, routine_id = ?, speed = ? WHERE id = ?',
+  [o.scheduleId || null, o.routineId || null, o.speed ? 1 : 0, id]);
+
 const get = (id) => db.one('SELECT * FROM saga_tasks WHERE id = ?', [id]);
 const getFor = (userId, id) => db.one('SELECT * FROM saga_tasks WHERE id = ? AND user_id = ?', [id, userId]);
 
@@ -180,9 +184,12 @@ function view(row) {
   return { id: Number(row.id), goal: row.goal, status: row.status, error: row.error || null, steps: Number(row.steps)
     || 0, answer: row.answer || '', sources: parse(row.sources) || [], conversation_id: row.conversation_id || null,
   mode: MODES.includes(row.mode) ? row.mode : 'ai', result: row.result ? String(row.result).slice(0, 80) : '',
+  speed: Boolean(Number(row.speed)), schedule_id: row.schedule_id ? Number(row.schedule_id) : null,
+  routine_id: row.routine_id ? Number(row.routine_id) : null,
   created_at: iso(row.created_at), finished_at: iso(row.finished_at) };
 }
 
-module.exports = { create, get, getFor, claim, setStatus, setPhase, removeConversation, requestStop, isStopped,
+module.exports = { create, setOrigin, get, getFor, claim, setStatus, setPhase, removeConversation, requestStop,
+  isStopped,
   addAction, actions, list, queuedFor, expireQueued, adminList, view, touch, release, adopt, orphansFor, expireOrphans,
   holder, lastSeq, TERMINAL, STATUSES, WAITING, LIVE, MODES };

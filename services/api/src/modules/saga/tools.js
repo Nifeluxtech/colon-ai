@@ -29,6 +29,25 @@ function elementId(v, ctx) {
   return id;
 }
 
+// 0.11.0: a site for signIn: a bare host name (github.com), from a host, a URL or "www.github.com/login".
+const HOST = /^(?=.{3,253}$)(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,24}$/;
+function site(v) {
+  let h = String(v == null ? '' : v).trim().toLowerCase();
+  try { if (/^https?:\/\//.test(h)) h = new URL(h).hostname; } catch { h = ''; }
+  h = h.replace(/^www\./, '').split(/[/?#:]/)[0];
+  if (!HOST.test(h)) throw bad('signIn needs the site\'s host name, like "github.com".');
+  return h;
+}
+
+// 0.11.0 speed mode: a click may name the element by its text when exactly one element on the last page has it.
+function byText(v, ctx) {
+  const want = String(v == null ? '' : v).replace(/\s+/g, ' ').trim().toLowerCase();
+  if (!want || !ctx || !ctx.elements) return null;
+  const hits = [...ctx.elements].filter(([, e]) => [e.label, e.text, e.placeholder, e.name]
+    .some((x) => String(x || '').replace(/\s+/g, ' ').trim().toLowerCase() === want));
+  return hits.length === 1 ? hits[0][0] : null;
+}
+
 const text = (v, n = MAX_VALUE) => String(v == null ? '' : v).replace(/[\u0000-\u001f]+/g, ' ').slice(0, n);
 
 const TOOLS = {
@@ -40,7 +59,8 @@ const TOOLS = {
   getLinks: { doc: 'getLinks {} - list the links on the current page',
     build: () => ({ name: 'get_links', args: {} }) },
   click: { doc: 'click {"id": "c12"} - click an element from the last getPageContent',
-    build: (a, ctx) => ({ name: 'click', args: { id: elementId(a.id, ctx) } }) },
+    build: (a, ctx) => ({ name: 'click', args: { id: a.id == null && a.text != null && byText(a.text, ctx)
+      ? byText(a.text, ctx) : elementId(a.id, ctx) } }) },
   fill: { doc: 'fill {"id": "c3", "value": "text", "submit": false} - type into a field (submit presses Enter)',
     build: (a, ctx) => ({ name: 'fill', args: { id: elementId(a.id, ctx), value: text(a.value),
       ...(a.submit === true ? { submit: true } : {}) } }) },
@@ -56,7 +76,7 @@ const TOOLS = {
   forward: { doc: 'forward {} - go forward', build: () => ({ name: 'forward', args: {} }) },
   refresh: { doc: 'refresh {} - reload the page', build: () => ({ name: 'reload', args: {} }) },
   tabs: { doc: 'tabs {"action": "list"} - list, or {"action": "switch"|"close", "tabId": "…"}, or '
-    + '{"action": "new", "url": "https://..."}',
+    + '{"action": "new", "url": "https://..."} - several tabs in one task, e.g. one per shop to compare prices',
   build: (a) => {
     const act = String(a.action || 'list');
     if (act === 'list') return { name: 'get_tabs', args: {} };
@@ -68,6 +88,21 @@ const TOOLS = {
     }
     throw bad('tabs action is list, new, switch or close.');
   } },
+  // 0.11.0: the user's saved login on the phone (Colon Secured Login). The phone fills it natively for a site the
+  // user trusts, after their one-time approval; the server and the model only ever learn whether it worked.
+  signIn: { needs: 'sign_in', doc: 'signIn {"site": "github.com"} - sign in on the site\'s sign-in page (open it '
+    + 'first) '
+    + 'with the login the user saved in Colon on their phone; you never see it. If there is none, Colon asks the user '
+    + 'to save one', build: (a) => ({ name: 'sign_in', args: { site: site(a.site) } }) },
+  // 0.11.0: a table or list from the current page, for the chat (a table and a CSV file).
+  extract: { needs: 'extract', doc: 'extract {"what": "table"|"list", "index": 0} - pull the page\'s n-th table or '
+    + 'list '
+    + '(0 = the biggest) into the chat as a table the user can download as CSV',
+  build: (a) => {
+    const what = a.what === 'list' ? 'list' : 'table';
+    const index = Math.max(0, Math.min(20, Number.isInteger(Number(a.index)) ? Number(a.index) : 0));
+    return { name: 'extract', args: { what, index } };
+  } },
   // 0.10.3: the browser is AI-only; this is how Saga hands it to the user for what only they can do (the loop runs
   // it: the phone shows "Saga needs you" with Take control, and Saga continues when the user gives it back).
   requestUserControl: { doc: 'requestUserControl {"reason": "sign_in|one_time_code|captcha|payment|consent|other", '
@@ -77,7 +112,8 @@ const TOOLS = {
     + 'v0.10.2", "sources": [1, 2]} - stop and answer; sources are page numbers you read', build: null },
 };
 // Names some models write for the same tool.
-const ALIASES = { request_user_control: 'requestUserControl', requestUser: 'requestUserControl' };
+const ALIASES = { request_user_control: 'requestUserControl', requestUser: 'requestUserControl', sign_in: 'signIn',
+  login: 'signIn', extractTable: 'extract' };
 const canonical = (action) => ALIASES[action] || action;
 
 // requestUserControl's arguments, rebuilt: { kind, message, reason }. The message is shown to the user as is.
@@ -94,7 +130,9 @@ function userRequest(args) {
 }
 const NAMES = Object.keys(TOOLS);
 const COMMANDS = ['open_url', 'get_page_content', 'get_links', 'click', 'fill', 'scroll', 'screenshot', 'back',
-  'forward', 'reload', 'get_tabs', 'new_tab', 'switch_tab', 'close_tab'];
+  'forward', 'reload', 'get_tabs', 'new_tab', 'switch_tab', 'close_tab', 'get_page_state', 'sign_in', 'extract'];
+/** 0.11.0: the tools this phone can run (a tool with `needs` only when the app's hello lists that command). */
+const available = (caps) => NAMES.filter((n) => !TOOLS[n].needs || !caps || caps.includes(TOOLS[n].needs));
 // Commands that change the page the user sees (the next getPageContent re-numbers elements).
 const NAVIGATES = new Set(['open_url', 'click', 'back', 'forward', 'reload', 'new_tab', 'switch_tab', 'close_tab']);
 
@@ -104,10 +142,13 @@ function toCommand(action, args, ctx = {}) {
   if (!tool || !tool.build) {
     throw bad(`Unknown tool "${String(action).slice(0, 40)}". Use one of: ${NAMES.join(', ')}.`);
   }
+  if (tool.needs && ctx.caps && !ctx.caps.includes(tool.needs)) {
+    throw bad(`${action} needs a newer Colon AI app on the phone. Use another tool.`);
+  }
   const a = args && typeof args === 'object' && !Array.isArray(args) ? args : {};
   const out = tool.build(a, ctx);
   return { tool: action, name: out.name, args: out.args };
 }
 
 module.exports = { TOOLS, NAMES, COMMANDS, NAVIGATES, toCommand, webUrl, EL_ID, canonical, userRequest,
-  USER_REASONS };
+  USER_REASONS, available, site, byText };

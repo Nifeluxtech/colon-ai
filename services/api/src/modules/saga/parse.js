@@ -37,7 +37,12 @@ function parseDecision(text) {
     }
     const say = String(o.say || o.explain || o.explanation || o.thought || '').replace(/\s+/g, ' ').trim()
       .slice(0, 300);
-    return { say, action: action.slice(0, 40), args };
+    // 0.11.0 speed mode: up to 3 follow-up steps that need no new page reading.
+    const then = (Array.isArray(o.then) ? o.then : []).slice(0, 3).filter((x) => x && typeof x === 'object'
+      && typeof (x.action || x.tool) === 'string').map((x) => ({ say: String(x.say || '').slice(0, 300),
+      action: String(x.action || x.tool).trim().slice(0, 40), args: x.args && typeof x.args === 'object'
+        && !Array.isArray(x.args) ? x.args : {} }));
+    return { say, action: action.slice(0, 40), args, ...(then.length ? { then } : {}) };
   }
   throw Object.assign(new Error('The reply had no JSON action.'), { code: 'bad_reply' });
 }
