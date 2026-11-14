@@ -3,42 +3,32 @@
    app lays its real WebView over (with its own status pill, expand button and Take control); finished ones show the
    picture the app kept when the task ended, the result, and a tap that brings the live browser back. On the web the
    cards come from the server's task list: same shape, the status, and a note to open the Colon AI app.
-   Placement and sizes are lib/saga-card.js (pure, tested); this module only draws and moves elements. */
+   Placement and sizes are lib/saga-card.js (pure, tested); this module only draws and moves elements.
+   0.11.2: the card's chrome (header, status line, summary row) is components/browser-chrome.js; every past run keeps
+   its card (summary row and last picture) under its message for good. */
 
 import { sessionKey } from '../lib/browser-modes.js';
 import { openerStore } from '../lib/browser-opener.js';
-import { cardHeight, layout, liveSpot, snapPill, webCard } from '../lib/saga-card.js';
+import { cardHeight, layout, liveSpot, webCard } from '../lib/saga-card.js';
+import { fillShots, liveHtml, paintLive, snapHtml } from './browser-chrome.js';
 import { Colon } from '../../../../packages/ui/js/colon.js';
 import { $, S } from '../core/state.js';
 
-var C = Colon, icon = C.icon;
+var C = Colon;
 var drawn = {};            // card id + state -> its element (a picture is decoded once, not on every redraw)
-
-function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
-  return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
-
-function pillHtml(p) {
-  var mark = p.icon === 'spinner' ? '<span class="cw-saga-spin" aria-hidden="true"></span>'
-    : '<span class="cw-saga-mark" aria-hidden="true">' + icon(p.icon === 'check' ? 'check' : 'alert') + '</span>';
-  return '<div class="cw-saga-pill" data-icon="' + esc(p.icon) + '" role="status">' + mark + '<span>'
-    + esc(p.text) + '</span></div>';
-}
 
 // A finished task (app: its picture; web: the status and the note about the app).
 function snapEl(card) {
   var key = card.id + '|' + card.state + '|' + (card.result || '') + '|' + (card.snapshot ? 1 : 0);
   if (drawn[key]) return drawn[key];
-  var p = snapPill(card), el = document.createElement('figure');
+  var el = document.createElement('figure');
   el.className = 'cw-saga-card snap' + (card.web ? ' web' : '');
   el.setAttribute('data-card', card.id);
-  var img = card.snapshot && /^data:image\/jpeg;base64,/.test(card.snapshot)
-    ? '<img alt="" src="' + card.snapshot + '">' : '<div class="cw-saga-blank" aria-hidden="true">' + icon('globe')
-      + '</div>';
-  el.innerHTML = img + pillHtml(p) + (card.web
-    ? '<figcaption class="cw-saga-note">Open in the Colon AI app for the live browser.</figcaption>'
-    : '<button type="button" class="cw-saga-open" data-a="saga-card-open" aria-label="Open Saga’s browser: '
-      + esc(card.goal || p.text) + '">' + icon('expand') + '</button>');
-  if (!card.web) el.setAttribute('data-a', 'saga-card-open');
+  el.setAttribute('data-title', String(card.goal || '').slice(0, 120));
+  // 0.11.2: the summary row and the run's last picture; a tap opens that run's steps.
+  el.innerHTML = snapHtml(card);
+  el.setAttribute('data-a', 'saga-card'); el.setAttribute('data-op', 'run');
+  el.setAttribute('role', 'button'); el.setAttribute('tabindex', '0');
   drawn[key] = el;
   return el;
 }
@@ -47,10 +37,8 @@ function snapEl(card) {
 function liveEl() {
   var host = S.browser.host;
   if (!host) return null;
-  if (!host.querySelector('.cw-saga-card.live')) {
-    host.innerHTML = '<div class="cw-saga-card live" role="region" aria-label="Saga’s browser">'
-      + '<div class="cw-native-body cw-saga-body"><span class="tiny muted">Loading the page…</span></div></div>';
-  }
+  if (!host.querySelector('.cw-saga-card.live')) host.innerHTML = liveHtml();
+  paintLive(host, S.browser.nativeState || {});
   return host;
 }
 
@@ -71,12 +59,15 @@ function byMid(thread, id) {
 }
 
 function size(el) {
-  var body = el.querySelector('.cw-saga-body, img, .cw-saga-blank'), w = el.clientWidth;
+  var body = el.querySelector('.cw-saga-body, img.cw-saga-shot, .cw-saga-blank'), w = el.clientWidth;
   if (!body || !(w > 0)) return;
   var band = window.visualViewport && window.visualViewport.height > 0 ? window.visualViewport.height
     : window.innerHeight;
   var header = $('.cw-head'), comp = $('.cw-composer');
   band -= (header ? header.offsetHeight : 56) + (comp ? comp.offsetHeight : 132);
+  // 0.11.2: the card's own header and status line fit in the band too.
+  Array.prototype.forEach.call(el.querySelectorAll('.cw-saga-head, .cw-saga-line'), function (x) {
+    band -= x.offsetHeight || 0; });
   body.style.height = cardHeight(w, band) + 'px';
 }
 
@@ -103,6 +94,7 @@ function placeCards() {
   var placed = page.querySelectorAll('.cw-saga-group');
   if (sig === S.browser.cardsSig && S.browser.cardsThread === thread && placed.length === groups.length
     && (!showLive || (host && host.isConnected && host.querySelector('.cw-saga-body')))) {
+    if (showLive && host) paintLive(host, st);
     if (S.browser.anchor) S.browser.anchor.update();
     return;
   }
@@ -142,6 +134,9 @@ function loadCards(conversationId, fromApp) {
     if (S.browser.cardsFor !== want) return;
     S.browser.cards = Array.isArray(cards) ? cards : [];
     placeCards();
+    // 0.11.2: older runs' pictures, one at a time, then the thread is redrawn with them.
+    fillShots(S.browser.cards, function () { if (S.browser.cardsFor === want) { S.browser.cardsSig = null;
+      placeCards(); } });
   }, function () {});
 }
 

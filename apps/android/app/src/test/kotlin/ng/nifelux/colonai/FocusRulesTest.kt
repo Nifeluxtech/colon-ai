@@ -53,4 +53,11 @@ class FocusRulesTest {
         assertEquals(card.height, back.placement.height)
         assertEquals(card.top, back.placement.top)
     }
+
+    /** 0.11.2: nothing floats over the page in the thread when the chat page draws the card's header and line. */
+    @Test fun chromeDrawnByThePageLeavesTheThreadCardClear() {
+        assertFalse(ChatCardRules.floating(full = false, pageChrome = true))
+        assertTrue(ChatCardRules.floating(full = false, pageChrome = false))  // an older chat page: as before
+        assertTrue(ChatCardRules.floating(full = true, pageChrome = true))    // full screen keeps Minimise
+    }
 }

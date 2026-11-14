@@ -217,16 +217,20 @@ class ChatRunTest {
     }
 
     @Test fun cardsKeepTheNewestPicturesWithinTheCaps() {
-        val many = (1..25).map { CardRules.Card("t$it", "g", null, "done", "", it.toLong(), "t$it.jpg", 90_000) }
+        val n = CardRules.MAX_CARDS + 5
+        val many = (1..n).map { CardRules.Card("t$it", "g", null, "done", "", it.toLong(), "t$it.jpg", 90_000) }
         val (kept, drop) = CardRules.cap(many)
         assertEquals(CardRules.MAX_CARDS, kept.size)
-        assertEquals("t25", kept.last().id)
+        assertEquals("t$n", kept.last().id)
         val shots = kept.filter { it.shot != null }
         assertEquals(CardRules.MAX_SNAPSHOTS, shots.size)
         assertTrue(shots.sumOf { it.bytes } <= CardRules.MAX_BYTES)
-        assertEquals(listOf("t20", "t21", "t22", "t23", "t24", "t25"), shots.map { it.id })
-        assertTrue("t1.jpg" in drop && "t19.jpg" in drop)
-        assertFalse("t25.jpg" in drop)
+        assertEquals((n - CardRules.MAX_SNAPSHOTS + 1..n).map { "t$it" }, shots.map { it.id })
+        assertTrue("t1.jpg" in drop && "t${n - CardRules.MAX_SNAPSHOTS}.jpg" in drop)
+        assertFalse("t$n.jpg" in drop)
+        // 0.11.2: a card keeps its steps and site (the summary row) through the JSON round trip.
+        val c = CardRules.Card("9", "g", "m1", "done", "ok", 5L, steps = 7, url = "https://jumia.com.ng/x")
+        assertEquals(c, CardRules.Card.fromJson(c.toJson()))
         // The same task again keeps its picture when the update has none.
         val up = CardRules.upsert(listOf(many[0]), many[0].copy(result = "Done", shot = null, bytes = 0))
         assertEquals(listOf("Done", "t1.jpg"), listOf(up[0].result, up[0].shot))

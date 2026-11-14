@@ -80,15 +80,29 @@ class ChatRunKeeper(context: Context) {
     }
 
     /** The cards for the chat page: newest last, each with its picture as a data: URL when there is one. */
-    fun cardsJson(chat: String): JSONArray = JSONArray(cards(chat).map { c ->
-        c.toJson().apply {
-            remove("shot"); remove("bytes")
-            val f = c.shot?.let { File(chatDir(chat), it) }
-            if (f != null && f.isFile) try {
-                put("snapshot", "data:image/jpeg;base64," + Base64.encodeToString(f.readBytes(), Base64.NO_WRAP))
-            } catch (_: Exception) { }
-        }
-    })
+    /** 0.11.2: the newest [INLINE_SHOTS] pictures come inline; older ones say has_shot and come one at a time
+     *  ([cardShot], browser('cardShot')), so a long chat's cards never cross the bridge as one huge message. */
+    fun cardsJson(chat: String): JSONArray {
+        val list = cards(chat)
+        val inline = list.filter { it.shot != null }.sortedByDescending { it.at }.take(INLINE_SHOTS).map { it.id }
+            .toSet()
+        return JSONArray(list.map { c ->
+            c.toJson().apply {
+                remove("shot"); remove("bytes")
+                if (c.shot != null && c.id !in inline) put("has_shot", true)
+                else cardShot(chat, c.id)?.let { put("snapshot", it) }
+            }
+        })
+    }
+
+    /** 0.11.2: one finished card's picture as a data: URL, or null. */
+    fun cardShot(chat: String, id: String): String? {
+        val shot = cards(chat).firstOrNull { it.id == id }?.shot ?: return null
+        val f = File(chatDir(chat), shot)
+        return if (!f.isFile) null else try {
+            "data:image/jpeg;base64," + Base64.encodeToString(f.readBytes(), Base64.NO_WRAP)
+        } catch (_: Exception) { null }
+    }
 
     /** A new chat got its conversation id: its draft's run and cards become the conversation's. */
     fun adopt(draft: String, chat: String) {
@@ -116,6 +130,7 @@ class ChatRunKeeper(context: Context) {
 
     companion object {
         private const val LIVE = "live.jpg"
+        const val INLINE_SHOTS = 8
         /** Pixels sampled (a grid this many across and down) to tell a page that hasn't painted. */
         private const val BLANK_GRID = 8
 
@@ -158,9 +173,11 @@ class ChatRunKeeper(context: Context) {
 
 /** Which finished cards a chat keeps (pure, unit-tested in ChatRunTest). */
 object CardRules {
-    const val MAX_CARDS = 20
-    const val MAX_SNAPSHOTS = 6
-    const val MAX_BYTES = 600_000
+    // 0.11.2 (owner: a past browser run never leaves the thread): far more cards and pictures per chat (was 20 / 6
+    // / 600 KB); a card past the picture caps still shows its summary row.
+    const val MAX_CARDS = 200
+    const val MAX_SNAPSHOTS = 60
+    const val MAX_BYTES = 7_000_000
     const val SHOT_WIDTH = 720
     const val SHOT_BYTES = 110_000
 

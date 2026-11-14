@@ -80,16 +80,21 @@ test('liveSpot: nothing known: the time this page first saw it open, never "now"
     assert.deepEqual(liveSpot({}, null, 0), { anchor: null, at: 0, hide: null });
   });
 
-test('layout with replaces: the newest picture under that message goes even when its id differs', () => {
+test('layout with replaces: the newest run\'s picture under that message goes even when its id differs', () => {
   const msgs = [{ id: 'u5' }, { id: 'r5' }, { id: 'u6' }];
-  const cards = [{ id: 'local-x', anchor: 'u5', at: 10 }, { id: '7', anchor: 'u6', at: 20 }];
-  const g = layout(msgs, cards, { anchor: 'u5', at: 30, replaces: true }, '42');
+  const cards = [{ id: '6', anchor: 'u5', at: 5 }, { id: 'local-x', anchor: 'u6', at: 10 }];
+  const g = layout(msgs, cards, { anchor: 'u6', at: 30, replaces: true }, '42');
   assert.deepEqual(g.map((x) => [x.after, x.items.map((i) => i.kind === 'live' ? 'live' : i.card.id)]),
-    [['u6', ['7']], ['u5', ['live']]]);
+    [['u5', ['6']], ['u6', ['live']]]);
+  // 0.11.2: an older run's card is never erased, even when the live browser sits under its message.
+  const old = layout(msgs, [...cards, { id: '7', anchor: 'u6', at: 20 }], { anchor: 'u5', at: 30, replaces: true },
+    '42');
+  assert.deepEqual(old.map((x) => [x.after, x.items.map((i) => i.kind === 'live' ? 'live' : i.card.id)]),
+    [['u5', ['6', 'live']], ['u6', ['local-x', '7']]]);
   // Without replaces (the user opened it under a reply), the old task keeps its picture.
   const h = layout(msgs, cards, { anchor: 'r5', at: 30 }, null);
   assert.deepEqual(h.map((x) => [x.after, x.items.map((i) => i.kind === 'live' ? 'live' : i.card.id)]),
-    [['u5', ['local-x']], ['u6', ['7']], ['r5', ['live']]]);
+    [['u5', ['6']], ['u6', ['local-x']], ['r5', ['live']]]);
 });
 
 test('needsChatResync: the app names another chat: tell it again, at most MAX_RESYNC times, one at a time', () => {

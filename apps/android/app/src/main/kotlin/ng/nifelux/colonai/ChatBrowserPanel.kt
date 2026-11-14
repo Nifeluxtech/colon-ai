@@ -139,6 +139,8 @@ class ChatBrowserPanel(private val a: MainActivity) : BrowserHost, TabManager.Ho
     private var run: ChatRun.Run = keeper.run(chatKey)
     /** Full screen over the chat (Take control, or the expand button), the composer still below. */
     private var focus = false
+    /** 0.11.2: the chat page draws the card's header, buttons and status line (browser('chrome')). */
+    private var webChrome = false
     private var band: InlineGeometry.Band? = null
     private var askTimeoutMs = 0L
     private var userStopped = false
@@ -848,6 +850,16 @@ class ChatBrowserPanel(private val a: MainActivity) : BrowserHost, TabManager.Ho
     /** browser('cards'): the chat's finished task cards, each with its picture (ChatRunKeeper.cardsJson). */
     fun cardsJson(): org.json.JSONArray = keeper.cardsJson(chatKey)
 
+    /** 0.11.2: browser('cardShot', {id}): one older finished card's picture (null when it has none). */
+    fun cardShot(id: String): String? = keeper.cardShot(chatKey, id)
+
+    /** 0.11.2: browser('timeline'): the step timeline (the card's header or summary row). */
+    fun openTimeline() { showTimeline() }
+
+    /** 0.11.2: browser('chrome', {on}): the chat page draws the card's header, buttons and status line itself, so the
+     *  app leaves only the page in the thread (no floating pill or corner button over it). */
+    fun setWebChrome(on: Boolean) { if (webChrome != on) { webChrome = on; renderCard() } }
+
     private fun setRun(next: ChatRun.Run) {
         val before = run
         run = next
@@ -937,7 +949,7 @@ class ChatBrowserPanel(private val a: MainActivity) : BrowserHost, TabManager.Ho
         if (!::card.isInitialized) return
         val t = tabs.active
         card.render(run, fullView(), t?.title ?: "", t?.url ?: "", t?.webView?.canGoBack() == true, true, pageAlive(),
-            linked)
+            linked, pageChrome = webChrome && docked)
         if (painted) card.showPicture(null)
         content.contentDescription = a.getString(R.string.card_live, ChatRun.pill(run, card.words, pageAlive(),
             linked).text)
