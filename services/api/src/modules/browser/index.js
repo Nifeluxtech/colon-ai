@@ -9,6 +9,7 @@ module.exports = {
   session: require('./session'),
   store: require('./store'),
   bridge: require('./bridge'),
+  frames: require('./frames'),
   handlers: {
     reader: require('./handlers/reader'),
     session: require('./handlers/session'),

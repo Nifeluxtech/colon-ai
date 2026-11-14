@@ -2,11 +2,9 @@
 // One bridge per socket: answers `hello` (with `app`) with `session: 1`, stores `session_sync` (one write per 2 s,
 // latest wins; private tabs, long URLs and extra tabs dropped; frames over 64 KB refused), asks for the session on
 // demand (`session_request`) and keeps the control-owner rules (control.js). Every control change is audited.
-// Phase 9: command(), waitControl(), hello `capabilities` (supports()). Phase 10: sessions and control per device AND
-// conversation, `other_chat`, `handoff`, the latest `page_state` in memory. 0.10.2: `say` and notice() (frames.js).
-// 0.10.3: the user's hand-back message (control `note`, takeNote()) and the handoff's `timeout_ms`.
-// 0.10.4: hello `resumable` (the phone still holds a Saga task the user can give back: consent stands on the new
-// socket), `state.closed`, and the registry of connected phones in live.js (onConnect for Saga's re-attach).
+// Phase 9: command(), waitControl(), hello `capabilities`. Phase 10: per device AND conversation, `other_chat`,
+// `handoff`, the latest `page_state` in memory. 0.10.2: `say`, notice(). 0.10.3: control `note`, `timeout_ms`.
+// 0.10.4: hello `resumable`, `state.closed`, live.js (onConnect). 0.11.0: command `step`, control `scheduled`.
 const store = require('./store');
 const S = require('./session');
 const C = require('./control');
@@ -218,7 +216,8 @@ function createBridge(o) {
       error: 'manual_control' };
     if (cur.row.paused) return { ok: false, error: 'paused' };
     return pend('command', { type: 'command', name, args, ...(tabId ? { tab_id: tabId } : {}),
-      ...(o.conversation ? { conversation_id: store.convId(o.conversation) } : {}), ...F.say(o.say) },
+      ...(o.conversation ? { conversation_id: store.convId(o.conversation) } : {}), ...F.say(o.say),
+      ...(o.step > 0 ? { step: Math.round(o.step) } : {}) },
     o.timeoutMs || ackTimeoutMs);
   }
 
@@ -251,7 +250,8 @@ function createBridge(o) {
     } else if (!S.CONTROLS.includes(mode)) return false;
     else await store.setControl(user.id, sk(), { ...(await currentControl()), task: t });
     send({ type: 'control', mode, task: t, ...(o.conversation ? { conversation_id: store.convId(o.conversation) }
-      : {}) });
+      : {}), ...(o.scheduled && mode !== 'manual' ? { scheduled: { id: Number(o.scheduled.id) || 0,
+      name: F.line(o.scheduled.name).slice(0, 80) } } : {}) });
     return true;
   }
 
