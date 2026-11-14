@@ -52,10 +52,12 @@ async function forgetBrowser(userId, conversationId) {
   if (conversationId) {
     await browser.store.removeConversation(userId, conversationId);
     await saga.store.removeConversation(userId, conversationId);
+    await saga.schedules.removeConversation(userId, conversationId);
     return;
   }
   await browser.store.removeAllConversations(userId);
   await saga.store.removeConversation(userId, '*');
+  await saga.schedules.removeConversation(userId, '*');
 }
 
 // DELETE /conversations
