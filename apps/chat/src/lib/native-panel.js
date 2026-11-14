@@ -47,4 +47,22 @@ function liveHere(st, o) {
   return !!mine && Number(o.messages) > 0;
 }
 
-export { liveHere, needsAnnounce, showsCard, withInline };
+/**
+ * 0.11.1: should the page tell the app again which chat is on screen? st: the app's state; key: sessionKey of the
+ * chat on screen (null: a new chat); o: { pending (a chat call is on its way), tries (resends already made for this
+ * chat) }. The page sent browser('chat') once per chat and never again, so when that call was lost or the app
+ * switched by itself (a rebuilt screen, a lost call), every state named another chat, liveHere said no and the
+ * card the user opened stayed hidden until they left the chat and came back. At most MAX_RESYNC tries per chat, and
+ * never while a task runs in the browser the app shows.
+ */
+var MAX_RESYNC = 2;
+function needsChatResync(st, key, o) {
+  o = o || {};
+  if (!st || typeof st !== 'object' || !Object.prototype.hasOwnProperty.call(st, 'chat')) return false;
+  if (o.pending || (Number(o.tries) || 0) >= MAX_RESYNC) return false;
+  // A task running in the browser the app shows (a scheduled run it switched to) is never pulled away from it.
+  if (BUSY.indexOf((st.run || {}).state) >= 0) return false;
+  return (st.chat || null) !== (key || null);
+}
+
+export { MAX_RESYNC, liveHere, needsAnnounce, needsChatResync, showsCard, withInline };

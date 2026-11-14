@@ -95,7 +95,7 @@ function viewOf(scroller, win, cover) {
  * opts: { el (the body box), scroller (the thread), cover (the floating composer over the thread's bottom),
  * watch (more elements whose size moves the box), send(payload), collapsed() -> bool, onKeyboard() (the keyboard
  * opened: the visual viewport lost more than KEYBOARD_PX), win (window), raf, caf }.
- * Returns { update(), stop(), last() }.
+ * Returns { update(), force(), stop(), last() }.
  */
 var KEYBOARD_PX = 120;
 function createAnchor(opts) {
@@ -132,6 +132,8 @@ function createAnchor(opts) {
   update();
   return {
     update: update,
+    // 0.11.1: report again even if nothing moved (the app left full screen, or re-attached the card).
+    force: function () { last = null; update(); },
     last: function () { return last; },
     stop: function () {
       if (stopped) return;

@@ -57,8 +57,39 @@ function layout(messages, cards, live, liveId) {
       if (liveId && String(c.id) === String(liveId)) return;
       put(anchorFor(messages, c) || '', { kind: 'snap', card: c });
     });
-  if (live) put(anchorFor(messages, live) || '', { kind: 'live', card: live });
+  if (live) {
+    var key = anchorFor(messages, live) || '';
+    // 0.11.1: the live browser that took over a finished task's message replaces that task's picture (the newest
+    // under the same message) even when the ids differ: one browser per chat, never a picture and a live copy.
+    if (live.replaces && groups[key]) {
+      for (var i = groups[key].length - 1; i >= 0; i--) {
+        if (groups[key][i].kind === 'snap') { groups[key].splice(i, 1); break; }
+      }
+      if (!groups[key].length) { delete groups[key]; order.splice(order.indexOf(key), 1); }
+    }
+    put(key, { kind: 'live', card: live });
+  }
   return order.map(function (k) { return { after: k, items: groups[k] }; });
+}
+
+/**
+ * 0.11.1: where the app's live card goes. st: the app's state (st.run: the chat's task); opener: { id, at } of the
+ * reply that opened this chat's browser ("open the browser", "show the browser", the Browser button), kept per chat
+ * so it survives leaving the chat; seenAt: when this page first saw the browser open on this chat. A running task
+ * keeps its own message. An idle browser goes under its opener when that came after the last task; after a task
+ * ended it takes that task's place (replaces its picture). Never Date.now(): a card placed "at now" followed every
+ * new message to the bottom of the thread. -> { anchor, at, hide (task id whose picture is hidden), replaces }
+ */
+function liveSpot(st, opener, seenAt) {
+  var run = (st && st.run) || {}, since = Number(run.since) || 0;
+  if (LIVE.indexOf(run.state) >= 0) return { anchor: run.anchor || null, at: since, hide: run.task || null };
+  if (opener && opener.id && (Number(opener.at) || 0) >= since) {
+    return { anchor: String(opener.id), at: Number(opener.at) || 0, hide: null };
+  }
+  if (run.anchor || run.task) {
+    return { anchor: run.anchor || null, at: since, hide: run.task || null, replaces: true };
+  }
+  return { anchor: null, at: Number(seenAt) || since, hide: null };
 }
 
 /** A finished card's pill: { icon: check · error · spinner · turn, text }. */
@@ -91,4 +122,5 @@ function endOf(task, finishSay) {
   return { kind: kind, result: kind === 'done' ? String(finishSay || '').slice(0, 80) : '' };
 }
 
-export { MIN_HEIGHT, RATIO, anchorFor, cardHeight, endOf, givesBack, holdsIdle, layout, snapPill, webCard };
+export { MIN_HEIGHT, RATIO, anchorFor, cardHeight, endOf, givesBack, holdsIdle, layout, liveSpot, snapPill,
+  webCard };
