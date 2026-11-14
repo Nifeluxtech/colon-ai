@@ -38,4 +38,19 @@ class FocusRulesTest {
         assertEquals(embedded, FocusRules.leaveFull(embedded))
         assertEquals(inline, FocusRules.leaveFull(full))
     }
+
+    /** 0.11.2: Minimise really goes back to the card: the full-screen box never sticks once full screen ends. */
+    @Test fun minimiseReturnsThePanelToTheCardsBox() {
+        val steady = InlineSteady()
+        val card = InlineGeometry.Placement(true, 20, 600, 680, 420, 170, 1390)
+        steady.next(card, 0)
+        val full = InlineGeometry.focus(null, 2f, 0, 720, 1500, 1500, 100)
+        assertTrue(full.height > card.height)
+        steady.placedElsewhere(full)                                // what ChatBrowserPanel.placeInline does in focus
+        assertFalse(FocusRules.isFull(open = true, focus = false, docked = true, mode = inline))
+        val back = steady.next(card, 400)
+        assertTrue(back.moved)
+        assertEquals(card.height, back.placement.height)
+        assertEquals(card.top, back.placement.top)
+    }
 }

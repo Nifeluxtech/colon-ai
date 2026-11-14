@@ -108,6 +108,17 @@ object SagaTap {
         before != null && after != null && !after.has("error") && after.has("y") &&
             after.optInt("y") != before.optInt("y")
 
+    /** 0.11.2: when a tap's outcome is read (ms after the tap): each look that sees the page answer ends the wait
+     *  (most taps answer within 150-350 ms); still nothing at 700 ms (0.11.1's only first look), one more later. */
+    val QUICK_LOOKS_MS = longArrayOf(150L, 350L, 700L)
+
+    /** The wait before look [i] (from the previous one), or null after the last quick look. */
+    fun lookGap(i: Int): Long? = when {
+        i < 0 || i >= QUICK_LOOKS_MS.size -> null
+        i == 0 -> QUICK_LOOKS_MS[0]
+        else -> QUICK_LOOKS_MS[i] - QUICK_LOOKS_MS[i - 1]
+    }
+
     /** True when a click result is worth checking once more after a longer wait. */
     fun lookAgain(changed: String?): Boolean = changed == null || changed in LOOK_AGAIN
 

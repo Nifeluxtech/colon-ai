@@ -65,4 +65,13 @@ class SagaTapTest {
         assertFalse(SagaTap.lookAgain("navigated"))
         assertFalse(SagaTap.lookAgain("page_changed"))
     }
+
+    /** 0.11.2: a tap's outcome is read early and often; the last quick look is where 0.11.1 looked first. */
+    @Test fun quickLooksEndTheWaitEarly() {
+        assertEquals(150L, SagaTap.lookGap(0)!!)
+        assertEquals(200L, SagaTap.lookGap(1)!!)
+        assertEquals(350L, SagaTap.lookGap(2)!!)
+        assertNull(SagaTap.lookGap(3))
+        assertEquals(700L, (0 until SagaTap.QUICK_LOOKS_MS.size).sumOf { SagaTap.lookGap(it)!! })
+    }
 }

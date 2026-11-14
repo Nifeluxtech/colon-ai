@@ -574,7 +574,9 @@ class ChatBrowserPanel(private val a: MainActivity) : BrowserHost, TabManager.Ho
             keeper.forget(old)
             val p = chats.forget(old); main.postDelayed({ ChatProfiles.delete(p) }, 1500)
         }
+        val wasFull = focus
         focus = false
+        if (wasFull) placeInline()      // 0.11.2: back to the card's box at once (it stayed full size)
         main.removeCallbacks(waitCheck)
         main.removeCallbacks(releaseLater)
         Notifications.cancelSaga(a)
@@ -1024,7 +1026,9 @@ class ChatBrowserPanel(private val a: MainActivity) : BrowserHost, TabManager.Ho
             return
         }
         // Full screen is placed exactly; the card in the thread goes through InlineSteady (dead band, lead, settle).
-        val move = if (focus) InlineSteady.Move(p, true, true) else steady.next(p, frameMs)
+        // 0.11.2: the full-screen box is recorded as applied, so the card's box is applied again on the way back.
+        val move = if (focus) InlineSteady.Move(p, true, true).also { steady.placedElsewhere(p) }
+            else steady.next(p, frameMs)
         main.removeCallbacks(settleLater)
         if (!focus) main.postDelayed(settleLater, InlineSteady.QUIET_MS)
         if (move.moved || layer.visibility != View.VISIBLE) applyPlacement(move)
