@@ -119,7 +119,72 @@ function create() {
       return t.tasks.filter((x) => x.id < p[0] && (!status || x.status === status)).sort((a, b) => b.id - a.id)
         .slice(0, p[p.length - 1]).map((x) => ({ ...x, user_email: `u${x.user_id}@example.com` }));
     }
+    if (/^UPDATE saga_tasks SET schedule_id = \?/.test(s)) {
+      Object.assign(task(p[3]), { schedule_id: p[0], routine_id: p[1], speed: p[2] }); return {};
+    }
+    if (/saga_guidance|saga_schedules|saga_routines/.test(s)) return extra(s, p);
     return base.query(sql, p);
+  }
+  // 0.11.0: guidance, schedules and routines (migration 0011), just enough for their SQL.
+  t.guidance = []; t.schedules = []; t.routines = [];
+  let gid = 0, sid = 0, rid = 0;
+  function extra(s, p) {
+    if (/^INSERT INTO saga_guidance/.test(s)) { t.guidance.push({ id: ++gid, task_id: p[0], user_id: p[1], text: p[2],
+      taken_at: null }); return {}; }
+    if (/^SELECT COUNT\(\*\) AS n FROM saga_guidance/.test(s)) {
+      return [{ n: t.guidance.filter((g) => g.task_id === p[0] && !g.taken_at).length }]; }
+    if (/^SELECT id, text FROM saga_guidance/.test(s)) {
+      return t.guidance.filter((g) => g.task_id === p[0] && !g.taken_at).map((g) => ({ id: g.id, text: g.text })); }
+    if (/^UPDATE saga_guidance SET taken_at/.test(s)) {
+      t.guidance.forEach((g) => { if (g.task_id === p[1] && g.id <= p[2] && !g.taken_at) g.taken_at = p[0]; });
+      return {}; }
+    if (/^SELECT COUNT\(\*\) AS n FROM saga_schedules/.test(s)) {
+      return [{ n: t.schedules.filter((x) => x.user_id === p[0]).length }]; }
+    if (/^INSERT INTO saga_schedules/.test(s)) {
+      const k = ['user_id', 'conversation_id', 'name', 'goal', 'language', 'cadence', 'at_minute', 'weekday',
+        'tz_offset', 'status', 'next_run_at', 'created_at', 'updated_at'];
+      const row = { id: ++sid, runs: 0, last_items: null, late_since: null, last_run_at: null };
+      k.forEach((key, i) => { row[key] = p[i]; });
+      t.schedules.push(row); return { insertId: row.id }; }
+    const sch = (id) => t.schedules.find((x) => x.id === Number(id));
+    if (/^SELECT \* FROM saga_schedules WHERE id = \? AND user_id = \?/.test(s)) {
+      const x = sch(p[0]); return x && x.user_id === p[1] ? [{ ...x }] : []; }
+    if (/^SELECT \* FROM saga_schedules WHERE id = \?/.test(s)) { const x = sch(p[0]); return x ? [{ ...x }] : []; }
+    if (/^SELECT \* FROM saga_schedules WHERE user_id = \?/.test(s)) {
+      return t.schedules.filter((x) => x.user_id === p[0] && (p.length < 2 || x.conversation_id === p[1])); }
+    if (/^SELECT \* FROM saga_schedules WHERE status = 'active' AND next_run_at <= \?/.test(s)) {
+      return t.schedules.filter((x) => x.status === 'active' && x.next_run_at <= p[0] && p[1].includes(x.user_id))
+        .map((x) => ({ ...x })); }
+    if (/^UPDATE saga_schedules SET next_run_at = \?, last_run_at/.test(s)) {
+      const x = sch(p[4]);
+      if (!x || x.next_run_at.getTime() !== new Date(p[5]).getTime()) return { affectedRows: 0 };
+      Object.assign(x, { next_run_at: p[0], last_run_at: p[1], late_since: p[2], runs: x.runs + 1 });
+      return { affectedRows: 1 }; }
+    if (/^UPDATE saga_schedules SET last_items/.test(s)) {
+      Object.assign(sch(p[3]), { last_items: p[0], last_task_id: p[1], late_since: null }); return {}; }
+    if (/^UPDATE saga_schedules SET status = \?/.test(s)) {
+      const x = sch(p[3]); if (x && x.user_id === p[4]) Object.assign(x, { status: p[0], next_run_at: p[1],
+        late_since: null }); return {}; }
+    if (/^UPDATE saga_schedules SET next_run_at = \?, updated_at/.test(s)) {
+      const x = sch(p[2]); if (x && x.user_id === p[3]) x.next_run_at = p[0]; return {}; }
+    if (/^DELETE FROM saga_schedules WHERE id = \?/.test(s)) {
+      t.schedules = t.schedules.filter((x) => !(x.id === p[0] && x.user_id === p[1])); return {}; }
+    if (/^INSERT INTO saga_routines/.test(s)) {
+      const old = t.routines.find((x) => x.user_id === p[0] && x.name === p[1]);
+      if (old) Object.assign(old, { goal: p[2], steps: p[3], from_task: p[4] });
+      else t.routines.push({ id: ++rid, user_id: p[0], name: p[1], goal: p[2], steps: p[3], from_task: p[4], runs: 0,
+        created_at: p[5] });
+      return {}; }
+    if (/^SELECT \* FROM saga_routines WHERE user_id = \? AND name = \?/.test(s)) {
+      return t.routines.filter((x) => x.user_id === p[0] && x.name === p[1]); }
+    if (/^SELECT \* FROM saga_routines WHERE user_id = \?/.test(s)) return t.routines.filter((x) => x.user_id === p[0]);
+    if (/^SELECT \* FROM saga_routines WHERE id = \? AND user_id = \?/.test(s)) {
+      return t.routines.filter((x) => x.id === Number(p[0]) && x.user_id === p[1]); }
+    if (/^DELETE FROM saga_routines/.test(s)) {
+      t.routines = t.routines.filter((x) => !(x.id === p[0] && x.user_id === p[1])); return {}; }
+    if (/^UPDATE saga_routines SET runs/.test(s)) {
+      const x = t.routines.find((r) => r.id === p[1]); if (x) x.runs++; return {}; }
+    throw new Error('fake db: unexpected SQL: ' + s.slice(0, 120));
   }
   return { query, one: async (sql, p) => (await query(sql, p))[0] || null, tables: t, calls: base.calls };
 }
