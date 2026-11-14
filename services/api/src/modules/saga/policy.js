@@ -68,7 +68,17 @@ const describe = (el) => [el.label, el.text, el.name, el.placeholder, el.autocom
 const short = (s, n = 60) => { const t = String(s || '').replace(/\s+/g, ' ').trim(); return t.length > n
   ? `${t.slice(0, n - 1)}…` : t; };
 
+// 0.11.2: a pop-up's decline or close button ("Reject all", "Only necessary", "Close", "No thanks", ×) only declines:
+// no approval. Only inside a pop-up (in_popup, from the phone's overlay.js, which mirrors this list): a "Reject all"
+// in a page's own moderation queue still asks.
+const DISMISS = new RegExp('^(?:(?:reject|decline|refuse|deny) all(?: cookies)?|reject (?:non-essential|optional|'
+  + 'additional) cookies|(?:accept |allow |use )?(?:only )?(?:necessary|essential|required)(?: cookies)?(?: only)?|'
+  + 'close|dismiss|no,? thanks|not now|maybe later|[×✕✖x])$', 'i');
+const dismisses = (el) => Boolean(el && el.in_popup === true && el.tag !== 'input'
+  && DISMISS.test(String(el.label || el.text || '').replace(/\s+/g, ' ').trim().slice(0, 60)));
+
 function forClick(el) {
+  if (dismisses(el)) return null;
   const words = describe(el);
   const named = el.label || el.text || el.name || el.type || el.tag || 'element';
   // A plain link only navigates; buttons (and links scripted as buttons) can act.
@@ -130,4 +140,4 @@ function stronger(a, b) {
   return KINDS.indexOf(a.kind) <= KINDS.indexOf(b.kind) ? a : b;
 }
 
-module.exports = { approval, personalData, stronger, KINDS, WORDS, luhn };
+module.exports = { approval, personalData, stronger, KINDS, WORDS, luhn, DISMISS, dismisses };

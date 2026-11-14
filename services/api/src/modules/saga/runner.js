@@ -166,7 +166,7 @@ async function execute(task, bridge, deps = {}) {
     decide: (messages, signal) => generate({ mode: 'general', language: task.language || 'en', messages, context,
       category: 'reasoning', signal, temperature: 0.2, timeouts: { maxTokens: 800 } }).then((x) => x.text),
     command: (name, args, o) => link.command(name, args, undefined, { ...o, conversation }),
-    caps: o11.caps, speed: o11.speed, guidance: () => extra.guidance(task.id),
+    caps: o11.caps, speed: o11.speed, guidance: () => extra.guidance(task.id), autoRead: true,
   });
   // Another worker holds the phone now and carries the task on (0.10.4): nothing more from here.
   if (link.moved) return { status: 'moved' };

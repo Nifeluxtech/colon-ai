@@ -26,6 +26,11 @@ function elementId(v, ctx) {
   if (ctx && ctx.elements && !ctx.elements.has(id)) {
     throw bad(`Element ${id} is not on the last page you read. Call getPageContent first.`);
   }
+  // 0.11.2: a pop-up covers it (the phone's overlay.js said so): the pop-up first, never a tap through it.
+  if (ctx && ctx.elements && ctx.elements.get(id).blocked) {
+    throw bad(`Element ${id} is behind the pop-up open on the page. Deal with the pop-up first (its elements are `
+      + 'marked "in the pop-up"): for a cookie or consent banner click "Reject all" or close it.');
+  }
   return id;
 }
 
@@ -70,7 +75,8 @@ const TOOLS = {
       if (!['up', 'down', 'top', 'bottom'].includes(d)) throw bad('scroll direction is up, down, top or bottom.');
       return { name: 'scroll', args: { direction: d } };
     } },
-  screenshot: { doc: 'screenshot {} - a small picture of the visible page (only useful for image-reading models)',
+  // 0.11.2: not offered (offer: false): the picture never reached the model, so each one was a wasted step.
+  screenshot: { offer: false, doc: 'screenshot {} - a small picture of the visible page',
     build: () => ({ name: 'screenshot', args: {} }) },
   back: { doc: 'back {} - go back', build: () => ({ name: 'back', args: {} }) },
   forward: { doc: 'forward {} - go forward', build: () => ({ name: 'forward', args: {} }) },
@@ -132,7 +138,8 @@ const NAMES = Object.keys(TOOLS);
 const COMMANDS = ['open_url', 'get_page_content', 'get_links', 'click', 'fill', 'scroll', 'screenshot', 'back',
   'forward', 'reload', 'get_tabs', 'new_tab', 'switch_tab', 'close_tab', 'get_page_state', 'sign_in', 'extract'];
 /** 0.11.0: the tools this phone can run (a tool with `needs` only when the app's hello lists that command). */
-const available = (caps) => NAMES.filter((n) => !TOOLS[n].needs || !caps || caps.includes(TOOLS[n].needs));
+const available = (caps) => NAMES.filter((n) => TOOLS[n].offer !== false
+  && (!TOOLS[n].needs || !caps || caps.includes(TOOLS[n].needs)));
 // Commands that change the page the user sees (the next getPageContent re-numbers elements).
 const NAVIGATES = new Set(['open_url', 'click', 'back', 'forward', 'reload', 'new_tab', 'switch_tab', 'close_tab']);
 

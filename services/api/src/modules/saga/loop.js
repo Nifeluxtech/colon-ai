@@ -19,6 +19,10 @@
 // login -> a Colon Secured Login hand-over); extract (tables into the chat: r.tables); at most 6 tabs Saga opens;
 // speed mode (o.speed): pages read for Saga after it navigates (waiting for the load), and up to 3 follow-up steps
 // from one decision ("then"), each through the same policy, secret and approval checks as any step.
+// 0.11.2 (latency, o.autoRead, which the runner always sets): every mode reads the page for Saga after a step that
+// opens, changes or scrolls it (no model call just to say "getPageContent"), once the phone says it finished loading
+// (polled every 350 ms, at most ~2.8 s). Without it (older callers and tests), only speed mode does.
+// Pop-ups: the last page's pop-up (prompt.observe -> overlay) names what a refused tap was behind.
 const secrets = require('./secrets');
 const tools = require('./tools');
 const policy = require('./policy');
@@ -32,7 +36,7 @@ const INTERRUPTS = ['manual_control', 'paused', 'disconnected', 'not_ready', 'br
 const USER_HOLDS = ['manual_control', 'paused'];
 const NAV_GRACE_MS = 3000;                      // page_state after Saga's own navigation is not the user's
 const MAX_TABS = 6;
-const LOAD_POLLS = 4, LOAD_POLL_MS = 750;
+const LOAD_POLLS = 8, LOAD_POLL_MS = 350;
 const READ = { say: '', action: 'getPageContent', args: {}, auto: true };
 
 async function run(o) {
@@ -42,7 +46,7 @@ async function run(o) {
   const log = o.log || (async () => {});
   let started = now();
   const pages = [], tables = [];
-  let elements = null, here = '', hereTitle = '', seenAt = now(), queued = [], tabs = 0;
+  let elements = null, here = '', hereTitle = '', seenAt = now(), queued = [], tabs = 0, overlay = null;
   let steps = 0, badReplies = 0, phoneTimeouts = 0, modelFails = 0, acted = 0, refused = 0, lastSay = '';
   const messages = [{ role: 'user', content: `The user's task: ${String(o.goal).slice(0, 1000)}` }];
   if (o.history) messages.push({ role: 'user', content: guard.clean(String(o.history), 'web').slice(0, 2500) });
@@ -170,7 +174,7 @@ async function run(o) {
       backFromUser(U.T.HANDED_BACK);
       continue;
     }
-    if (d.auto && o.speed) await waitLoad(o, cmdOpts(null));
+    if (d.auto && (o.speed || o.autoRead)) await waitLoad(o, cmdOpts(null));
     const need = policy.approval(cmd, { elements });
     const args = need ? { ...cmd.args, approval: { kind: need.kind, reason: need.reason } } : cmd.args;
     const t0 = now();
@@ -228,7 +232,8 @@ async function run(o) {
       if (++phoneTimeouts >= 2) return end('failed', { error: 'phone_timeout' });
     } else phoneTimeouts = 0;
     const shown = cmd.name === 'get_page_content' && ack.ok ? { ...ack, result: secrets.redactContent(res) } : ack;
-    const ob = prompt.observe(cmd, shown, { guard, pages, maxText: o.speed ? SPEED_TEXT : 0 });
+    const ob = prompt.observe(cmd, shown, { guard, pages, maxText: o.speed ? SPEED_TEXT : 0, overlay });
+    if (ob.elements) overlay = ob.overlay || null;
     if (res.url) { here = String(res.url).slice(0, 2048); hereTitle = String(res.title || '').slice(0, 200); }
     else if (ack.ok && cmd.args.url) { here = cmd.args.url; hereTitle = ''; }
     if (ack.ok) { acted++; if (d.say) lastSay = d.say; if (opensTab) tabs++; }
@@ -246,8 +251,10 @@ async function run(o) {
       wrong_site: U.T.WRONG_SITE }[ack.error] || '';
     if (ack.error === 'reconnected') elements = null;
     observe(note ? `${ob.text}\n${note}` : ob.text);
-    // Speed mode: the changed page is read for Saga (no model call); follow-ups that used old ids are dropped.
-    if (o.speed && ack.ok && (navigated || (cmd.name === 'scroll' && res.moved !== false))) queued = [{ ...READ }];
+    // The changed page is read for Saga (no model call; 0.11.2: in every mode, and after a fill that submitted);
+    // follow-ups that used old ids are dropped.
+    if ((o.speed || o.autoRead) && ack.ok && (navigated || (cmd.name === 'scroll' && res.moved !== false)
+      || (cmd.name === 'fill' && cmd.args.submit))) queued = [{ ...READ }];
   }
 }
 
