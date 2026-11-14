@@ -1,14 +1,10 @@
 // Session manager on the WebSocket bridge (Phase 8; docs/phase8-backend-contract.md §2, docs/android-bridge.md).
-// One bridge per socket. It answers the phone's `hello` (with `app`) with `session: 1`, stores `session_sync`
-// (throttled to one write per 2 s, latest wins; private tabs, long URLs and extra tabs dropped; frames over 64 KB
-// refused), asks for the session on demand (`session_request`, answered by `ack`) and keeps the control-owner rules
-// (control.js): one owner; `ai`/`shared` only after the phone's `consent`; `take_control`, `pause`, `stop` or
-// `declined` win at once and cancel pending Saga commands. Every control change is audited; signed-in sockets only.
-// Phase 9 (modules/saga): command(name, args, tabId, { timeoutMs }), waitControl() for the phone's answer, hello
-// `capabilities` (`supports(name)`). Phase 10: one browser per chat: sessions and control per device AND
-// conversation (hello / `chat` / session_sync `conversation_id`), commands for another chat refused (`other_chat`),
-// `handoff` for secret fields, the latest `page_state` kept in memory for "AI + me". 0.10.2: commands carry Saga's
-// `say` and notice() sends a line for the user's screen (frames.js).
+// One bridge per socket: answers `hello` (with `app`) with `session: 1`, stores `session_sync` (one write per 2 s,
+// latest wins; private tabs, long URLs and extra tabs dropped; frames over 64 KB refused), asks for the session on
+// demand (`session_request`) and keeps the control-owner rules (control.js). Every control change is audited.
+// Phase 9: command(), waitControl(), hello `capabilities` (supports()). Phase 10: sessions and control per device AND
+// conversation, `other_chat`, `handoff`, the latest `page_state` in memory. 0.10.2: `say` and notice() (frames.js).
+// 0.10.3: the user's hand-back message (control `note`, takeNote()) and the handoff's `timeout_ms`.
 const store = require('./store');
 const S = require('./session');
 const C = require('./control');
@@ -32,9 +28,9 @@ function createBridge(o) {
   const audit = o.audit || (async () => {});
   const st = { ref: null, deviceId: null, app: null, maxTabs: S.MAX_TABS, consented: false, lastSync: 0,
     queued: null, timer: null, pending: new Map(), seq: 0, writing: Promise.resolve(), capabilities: [],
-    watchers: new Set(), seen: 0, conv: '', page: null };
+    watchers: new Set(), seen: 0, conv: '', page: null, note: '' };
   const api = { handle, requestSession, command, askControl, waitControl, hasControl, supports, close, handoff,
-    notice, pageState: () => st.page, state: st, user };
+    notice, pageState: () => st.page, takeNote, state: st, user };
   const sk = () => ({ ref: st.ref, conv: st.conv });
 
   const error = (code, message, extra = {}) => send({ type: 'error', code, message, ...extra });
@@ -126,6 +122,8 @@ function createBridge(o) {
     if (d.error === 'needs_consent') return error('needs_consent', 'Saga needs the user\'s consent first.');
     if (d.error) return error('bad_control', 'Unknown control reason.');
     st.consented = d.consented;
+    // 0.10.3: the user's words when they give the browser back ("I've logged in, continue"), for Saga's next step.
+    if (m.reason === 'return_to_ai') st.note = F.note(m.note);
     if (d.cancel) cancelPending();
     const after = d.next ? await store.setControl(user.id, sk(), d.next) : cur;
     await record(m.reason, after && after.row);
@@ -149,6 +147,9 @@ function createBridge(o) {
       .slice(0, 40), at: now() };
     return undefined;
   }
+
+  /** 0.10.3: the user's hand-back message (frames.note: secrets hidden), once; '' when there was none. */
+  function takeNote() { const n = st.note; st.note = ''; return n; }
 
   /** Resolves with the phone's next control reason (consent, declined, stop, ...) or 'timeout' / 'disconnected'. */
   function waitControl(ms = 120000) {
@@ -227,7 +228,8 @@ function createBridge(o) {
     if (!user || !st.ref || !onChat(o.conversation)) return false;
     cancelPending();
     send({ type: 'handoff', kind: String(info.kind || 'secret').slice(0, 20), message: String(info.message || '')
-      .slice(0, 200), ...(o.conversation ? { conversation_id: store.convId(o.conversation) } : {}) });
+      .slice(0, 200), ...(info.timeoutMs > 0 ? { timeout_ms: Math.round(info.timeoutMs) } : {}),
+    ...(o.conversation ? { conversation_id: store.convId(o.conversation) } : {}) });
     return true;
   }
 

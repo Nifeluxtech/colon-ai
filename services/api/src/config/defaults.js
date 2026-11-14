@@ -103,6 +103,8 @@ const SCHEMA = [
   num('SAGA_TASKS_PER_HOUR', 20, 'browsing tasks a user may start per hour'),
   num('SAGA_HANDOFF_TIMEOUT_MS', 600000,
     'wait this long for the user to type a password, code or card details and tap Return to AI (Phase 10)'),
+  num('SAGA_USER_CONTROL_TIMEOUT_MS', 900000,
+    'wait this long for the user to give the browser back after Take control or Pause (0.10.3), then stop the task'),
   // Safety layer (modules/safety; ADR 0003)
   oneOf('SAFETY', ['on', 'off'], 'on', '"off" switches the rule filters off (child-safety rules always stay on)'),
   oneOf('SAFETY_LOG_TEXT', ['off', 'hash', 'excerpt'], 'off',

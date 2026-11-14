@@ -5,7 +5,10 @@ const db = require('../../db');
 
 const TERMINAL = ['done', 'step_limit', 'timeout', 'stopped', 'interrupted', 'failed'];
 // handoff (Phase 10): Saga is waiting for the user to type a secret (password, code, card, PIN) and tap Return to AI.
-const STATUSES = ['queued', 'consent', 'running', 'handoff', ...TERMINAL];
+// 0.10.3: while Saga waits for the user it is 'handoff' (Saga asked: needs_user), 'user_control' (the user took the
+// browser) or 'paused'.
+const WAITING = ['handoff', 'user_control', 'paused'];
+const STATUSES = ['queued', 'consent', 'running', ...WAITING, ...TERMINAL];
 const MODES = ['ai', 'shared'];
 
 const json = (v) => (v == null ? null : JSON.stringify(v));
@@ -45,9 +48,10 @@ async function setStatus(id, status, o = {}) {
       new Date(), fin ? new Date() : null, id]);
 }
 
-/** Only the status (running <-> handoff), keeping steps and everything else. */
+/** Only the status (running <-> handoff / user_control / paused), keeping steps and everything else. */
 const setPhase = (id, status) => db.query(
-  "UPDATE saga_tasks SET status = ?, updated_at = ? WHERE id = ? AND status IN ('consent', 'running', 'handoff')",
+  `UPDATE saga_tasks SET status = ?, updated_at = ? WHERE id = ? AND status IN ('consent', 'running', ${
+    WAITING.map((w) => `'${w}'`).join(', ')})`,
   [status, new Date(), id]);
 
 /** A deleted conversation takes its Saga tasks and their action logs (saga_actions cascade) with it (Phase 10). */
@@ -131,4 +135,4 @@ function view(row) {
 }
 
 module.exports = { create, get, getFor, claim, setStatus, setPhase, removeConversation, requestStop, isStopped,
-  addAction, actions, list, queuedFor, expireQueued, adminList, view, TERMINAL, STATUSES, MODES };
+  addAction, actions, list, queuedFor, expireQueued, adminList, view, TERMINAL, STATUSES, WAITING, MODES };
