@@ -194,6 +194,11 @@ class NativeBridge(private val host: MainActivity, private val webView: WebView)
                 } else p.taskStarted(id, a.optString("goal"), a.optString("anchor").ifBlank { null })
             }
             "cards" -> { done(true, p.cardsJson(), null); return }
+            // 0.11.2: an older card's picture, one at a time; the timeline; the page draws the card's chrome.
+            "cardShot" -> { done(true, JSONObject().put("id", a.optString("id")).put("snapshot",
+                p.cardShot(a.optString("id").take(40)) ?: JSONObject.NULL), null); return }
+            "timeline" -> p.openTimeline()
+            "chrome" -> p.setWebChrome(a.optBoolean("on", true))
             // 0.11.0: a web overlay is open over the chat (drawer, menu, sheet, dialog): the inline panel hides.
             "suspend" -> p.setSuspended(a.optBoolean("on", false))
             // 0.11.0: the user set up scheduled browsing from this app: its runs may start without "Let Saga browse?".
@@ -291,7 +296,9 @@ class NativeBridge(private val host: MainActivity, private val webView: WebView)
             "requestPermission", "checkUpdate", "setTheme", "setSession", "takeShare", "fileInput", "mic", "browserPanel",
             "browserInline", "browserChats", "browserCard",
             // 0.11.0
-            "vault", "browserSuspend", "sagaSchedules", "sagaTimeline", "sagaBackground")
+            "vault", "browserSuspend", "sagaSchedules", "sagaTimeline", "sagaBackground",
+            // 0.11.2
+            "browserChrome", "cardShot")
 
         /** Defines window.ColonNative (promise API) on top of the channel. Runs once per page, before page scripts. */
         private val SHIM = """

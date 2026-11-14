@@ -139,6 +139,8 @@ class ChatBrowserPanel(private val a: MainActivity) : BrowserHost, TabManager.Ho
     private var run: ChatRun.Run = keeper.run(chatKey)
     /** Full screen over the chat (Take control, or the expand button), the composer still below. */
     private var focus = false
+    /** 0.11.2: the chat page draws the card's header, buttons and status line (browser('chrome')). */
+    private var webChrome = false
     private var band: InlineGeometry.Band? = null
     private var askTimeoutMs = 0L
     private var userStopped = false
@@ -574,7 +576,9 @@ class ChatBrowserPanel(private val a: MainActivity) : BrowserHost, TabManager.Ho
             keeper.forget(old)
             val p = chats.forget(old); main.postDelayed({ ChatProfiles.delete(p) }, 1500)
         }
+        val wasFull = focus
         focus = false
+        if (wasFull) placeInline()      // 0.11.2: back to the card's box at once (it stayed full size)
         main.removeCallbacks(waitCheck)
         main.removeCallbacks(releaseLater)
         Notifications.cancelSaga(a)
@@ -846,6 +850,16 @@ class ChatBrowserPanel(private val a: MainActivity) : BrowserHost, TabManager.Ho
     /** browser('cards'): the chat's finished task cards, each with its picture (ChatRunKeeper.cardsJson). */
     fun cardsJson(): org.json.JSONArray = keeper.cardsJson(chatKey)
 
+    /** 0.11.2: browser('cardShot', {id}): one older finished card's picture (null when it has none). */
+    fun cardShot(id: String): String? = keeper.cardShot(chatKey, id)
+
+    /** 0.11.2: browser('timeline'): the step timeline (the card's header or summary row). */
+    fun openTimeline() { showTimeline() }
+
+    /** 0.11.2: browser('chrome', {on}): the chat page draws the card's header, buttons and status line itself, so the
+     *  app leaves only the page in the thread (no floating pill or corner button over it). */
+    fun setWebChrome(on: Boolean) { if (webChrome != on) { webChrome = on; renderCard() } }
+
     private fun setRun(next: ChatRun.Run) {
         val before = run
         run = next
@@ -880,8 +894,10 @@ class ChatBrowserPanel(private val a: MainActivity) : BrowserHost, TabManager.Ho
         if (!a.foreground) SagaService.result(a, r.state == ChatRun.State.DONE, r.result.ifBlank { r.goal })
         // 0.10.6: the live page now, else this task's last step picture; never an older task's (a blank instead).
         val shot = ChatRunKeeper.capture(tabs.active?.webView) ?: keeper.livePicture(chatKey)
+        // 0.11.2: the summary row's step count and site.
         keeper.saveCard(chatKey, CardRules.Card(cardId(r), r.goal, r.anchor, r.state.wire, r.result,
-            System.currentTimeMillis()), shot)
+            System.currentTimeMillis(), steps = steps.steps(chatKey).size,
+            url = tabs.active?.url?.takeIf { UrlRules.isWebUrl(it) } ?: ""), shot)
         if (focus && !ChatRun.touchesPage(r.state)) setFocus(false)
         main.removeCallbacks(releaseLater)
         main.postDelayed(releaseLater, RELEASE_MS)
@@ -933,7 +949,7 @@ class ChatBrowserPanel(private val a: MainActivity) : BrowserHost, TabManager.Ho
         if (!::card.isInitialized) return
         val t = tabs.active
         card.render(run, fullView(), t?.title ?: "", t?.url ?: "", t?.webView?.canGoBack() == true, true, pageAlive(),
-            linked)
+            linked, pageChrome = webChrome && docked)
         if (painted) card.showPicture(null)
         content.contentDescription = a.getString(R.string.card_live, ChatRun.pill(run, card.words, pageAlive(),
             linked).text)
@@ -1024,7 +1040,9 @@ class ChatBrowserPanel(private val a: MainActivity) : BrowserHost, TabManager.Ho
             return
         }
         // Full screen is placed exactly; the card in the thread goes through InlineSteady (dead band, lead, settle).
-        val move = if (focus) InlineSteady.Move(p, true, true) else steady.next(p, frameMs)
+        // 0.11.2: the full-screen box is recorded as applied, so the card's box is applied again on the way back.
+        val move = if (focus) InlineSteady.Move(p, true, true).also { steady.placedElsewhere(p) }
+            else steady.next(p, frameMs)
         main.removeCallbacks(settleLater)
         if (!focus) main.postDelayed(settleLater, InlineSteady.QUIET_MS)
         if (move.moved || layer.visibility != View.VISIBLE) applyPlacement(move)

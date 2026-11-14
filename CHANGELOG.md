@@ -1,5 +1,73 @@
 # Changelog
 
+## [0.11.2] — 2026-11-14 · Saga clears pop-ups first, works faster, and Minimise really minimises
+Owner's report on 0.11.1 (Infinix SMART 20, Colon AI app). Every version number moves to 0.11.2 (apps,
+`Colon.version`, `?v=` cache-busting, `version.json` versionCode 1102 for both APKs). No migration, no API change,
+no new config key.
+### Fixed
+- **Saga couldn't get past pop-ups** (Google's "Before you continue to Google" cookie dialog: Saga kept pointing at
+  a result behind it, "I'm checking the current search results…", and got nowhere). The page snapshot listed
+  elements in document order and stopped at 60, so the dialog's buttons (at the end of the page) were never seen,
+  nothing said the results were covered, and the prompt told Saga that a cookie choice was the user's to make. Now
+  the phone finds the topmost pop-up (new `assets/saga/overlay.js`: open `<dialog>`, role dialog / alertdialog,
+  aria-modal, consent iframes such as consent.google.com, and fixed boxes on top at a few points of the screen,
+  checked with `elementFromPoint`; a full-screen app shell is not one). `content` lists the pop-up's elements first
+  (`in_popup`), marks what it covers (`blocked`, at most 15 of them) and says `overlay {label, kind, frame}`; `point`
+  / `click` refuse an element behind it (`error covered`) before the pointer moves or anything is tapped. The server
+  shows the pop-up to the model, refuses a click or fill on a blocked element without a round trip, explains a
+  refused tap, and the rules say: pop-ups first; for cookie or consent banners "Reject all" / "Only necessary" /
+  close unless the user asked to accept; a consent frame Saga can't read goes to the user (requestUserControl).
+  A pop-up's decline or close button needs no approval (same list in `overlay.js` and `policy.js`, only inside a
+  pop-up); "Accept all" in a form still asks. Secret-field refusals are unchanged and checked first.
+- **Saga was slow.** Per step it waited for a model call that only said "getPageContent" after every page change,
+  then a fixed 0.7 s after each tap (1.9 s when the page answered late), and load polls of 0.75 s. Now: the server
+  reads the page for Saga after any step that opens, changes or scrolls it, or submits a fill, in every mode
+  (`autoRead`, was speed mode only): one model call fewer per page change, typically 2–6 s each on Gemma's free
+  tier; the tap's outcome is read at 150 / 350 / 700 ms and the wait ends at the first change (`SagaTap.QUICK_LOOKS_MS`:
+  most taps save ~0.4–0.5 s); load polls every 350 ms (up to ~2.8 s); the screenshot tool is no longer offered (its
+  picture never reached the model, so each one was a wasted step); page text from the phone is capped at 8,000
+  characters (the server uses 6,000) and a pop-up's page behind it at 15 elements. Thinking stays `minimal`.
+- **Minimise in full screen did nothing.** The full-screen view is placed exactly, outside `InlineSteady`, which
+  still remembered the card's box as applied; on Minimise the card's box was "no move" (same as before), so the
+  panel stayed full size with the card's "expand" button and no top bar (the owner's screenshot). Full-screen
+  placements are now recorded (`InlineSteady.placedElsewhere`), so the card's box is applied again at once; a chat
+  switch out of full screen re-places the panel too.
+### Added (owner's later requests on 0.11.2)
+- **Saved login first.** Before Saga hands a password field or sign-in page to the user, the server sends
+  `sign_in {site}`: the phone fills the login saved for that site (Colon Secured Login, `LoginVault`) on a trusted
+  https page after the user's one-time approval; with no login saved, the chat's Colon Secured Login form card is
+  offered first and Saga signs in as soon as one is saved. "Take control" runs only when that doesn't get Saga in
+  (form closed, untrusted or wrong site, fill failed, no `sign_in` capability, or a login already tried on this site
+  in this task, such as a wrong password or a one-time code). Codes, cards and PINs are never tried
+  (`modules/saga/saved-login.js`; the phone defers its own hand-over with `saved_login`).
+- **Saga's pointer stays on while it works**, not only at a tap: shown on every command while Saga has the page,
+  gliding between targets (longer trips take longer) and floating gently near the last one while Saga thinks or a
+  page loads; still hidden on a secret field, Take control, Pause, Stop and when the task ends (`SagaPointer`).
+- **Messages that need the browser open it by themselves** (`browser-intent.js` `needsBrowser`): a live web search
+  ("search for…", "google…"), checking or visiting a named site or domain ("check yolotask"), signing in, filling a
+  form, comparing prices, buying / booking / finding on a named site, and a question about a named site's live data
+  ("how much is rice on jumia?"). Ordinary questions stay chat.
+- **Past browser runs keep their cards for good, and the card is redesigned.** Every finished run stays under its
+  message with its last picture and a summary row (site icon, domain, "Done · 5 steps" / "Stopped" / "Couldn't
+  finish"); tapping it opens that run's steps (the app's timeline for the run it still holds, else the server's step
+  list in a sheet). A chat keeps up to 200 cards and 60 pictures (was 20 / 6); a card past the picture caps keeps its
+  summary row. Only the newest run's picture gives way to the live browser under the same message; an older run's
+  card is never removed. The newest 8 pictures come with the card list, older ones one at a time
+  (`browser('cardShot')`). The live card now has a slim header (site icon and domain, a status dot or spinner, a
+  short task title, small icon buttons: Full screen / Minimise, Take control / Give back, Pause / Resume, Stop) and
+  one status line under the page that crossfades between Saga's steps, light and dark from the Colon tokens
+  (`lib/card-chrome.js`, `components/browser-chrome.js`, `chat-saga-card.css`). The page tells the app
+  (`browser('chrome')`, feature `browserChrome`) so the big dark pill and corner button no longer float over the
+  page in the thread; full screen keeps its top bar, pill and Minimise (`ChatCardRules.floating`). New bridge actions:
+  `chrome`, `timeline`, `cardShot`.
+### Tests
+- `services/api/tests/security/saga-phone-overlay.test.js` (new fake DOM with stacking, `tests/helpers/fake-dom.js`),
+  `tests/unit/saga-popups.test.js`, `saga-runner.test.js` (autoRead), `saga-saved-login.test.js`;
+  `packages/ui/test/card-chrome.test.js` (new: header, buttons, status line, summary row, steps, 200 past cards kept),
+  `browser-intent.test.js` (needsBrowser), `browser-opener.test.js` (an older run's card is never erased); Android
+  `InlineSteadyTest`, `FocusRulesTest` (minimise round trip, a clear page under the chat's chrome), `SagaTapTest`
+  (quick looks, pointer glide), `ChatRunTest` (card caps, steps and site round trip).
+
 ## [0.11.1] — 2026-11-14 · The browser card appears where you opened it, and full screen has a way back
 Owner's report on 0.11.0 (Infinix SMART 20, Colon AI app). Every version number moves to 0.11.1 (apps,
 `Colon.version`, `?v=` cache-busting, `version.json` versionCode 1101 for both APKs). No migration, no API change.

@@ -18,7 +18,12 @@
    (its card offers Continue); ctx.busy: a Saga task is running now.
    0.10.4: "reshow / show / reopen / bring back the browser", "where is the browser", "I can't see the browser"
    open (show) this chat's browser; "continue", "carry on", "I've logged in, continue"… after a task ended continue
-   it. These never reach the chat model as plain chat. */
+   it. These never reach the chat model as plain chat.
+   0.11.2 (owner): a message that needs the browser opens it by itself, no "open the browser" first (needsBrowser):
+   a live web search ("search for…", "google…", "look … up online"), checking or visiting a site ("check yolotask",
+   "see what's new on nairaland", any message naming a domain with something to do there), signing in ("log in to
+   github"), filling a form, comparing prices, buying / booking / finding on a named site, and a question about a
+   named site's live data ("how much is rice on jumia?"). Ordinary questions stay chat. */
 
 var SITES = {
   google: 'https://www.google.com/', youtube: 'https://www.youtube.com/', gmail: 'https://mail.google.com/',
@@ -26,7 +31,8 @@ var SITES = {
   punch: 'https://punchng.com/', wikipedia: 'https://www.wikipedia.org/', bbc: 'https://www.bbc.com/',
   facebook: 'https://www.facebook.com/', instagram: 'https://www.instagram.com/', twitter: 'https://x.com/',
   x: 'https://x.com/', linkedin: 'https://www.linkedin.com/', github: 'https://github.com/',
-  jamb: 'https://www.jamb.gov.ng/', waec: 'https://www.waecdirect.org/', cbn: 'https://www.cbn.gov.ng/'
+  jamb: 'https://www.jamb.gov.ng/', waec: 'https://www.waecdirect.org/', cbn: 'https://www.cbn.gov.ng/',
+  yolotask: 'https://yolotask.com.ng/'
 };
 // ^(?:a|b|c)$ from phrases (each phrase is a regular expression).
 function whole(list) { return new RegExp('^(?:' + list.join('|') + ')$'); }
@@ -71,6 +77,20 @@ var BACK = whole(['return to ai', 'done', 'i\'?m done', 'all done', 'continue', 
   'i(?:\'ve| have) (?:entered|typed|filled) (?:it|them|the (?:code|password|pin|details))']);
 var STOP = whole(['stop', 'stop browsing', 'stop saga', 'cancel(?: it| that| the task)?', 'stop the task']);
 var QUESTION = /^(?:how|why|when|where|who|is|are|do|does|did|should|what|which|can i|could i)\b/;
+// 0.11.2: things that need the live web, with the browser closed or open.
+var LIVE = new RegExp('^(?:' + [
+  '(?:search|browse)(?:\\s+(?:the web|the internet|online|google|the net))?(?:\\s+for)?',
+  'google', 'look (?:\\S+ )*up (?:online|on the web|on google)',
+  '(?:sign|log) ?(?:in|on)(?:to)?(?: to| into| on| at)?', 'login(?: to| into| on| at)?',
+  'sign up(?: on| at| for| with)?', 'register (?:on|at|with)',
+  'compare (?:the )?(?:prices?|deals|offers|rates)',
+  'check (?:the )?(?:price|prices|availability|stock|status) (?:of|for|on)'].join('|') + ')\\s+\\S');
+var FORM = /^fill (?:in|out) (?:the |a |my |this )?(?:\S+ ){0,3}(?:form|application|registration)\b/;
+var CHECK = new RegExp("^(?:check|check out|look at|browse|see what'?s (?:new |happening )?on|what'?s new on|"
+  + "check what'?s (?:new )?on)\\s+(.+)$");
+var SHOP = /^(?:find|buy|order|book|get|search|show me|look for)\b/;
+var LIVE_Q = /\b(?:price|prices|cost|how much|in stock|available|availability|latest|today|right now|currently|new)\b/;
+var ONLINE = /\b(?:online|on the (?:web|internet)|live on|on google)\b/;
 
 function clean(text) {
   return String(text || '').replace(/\s+/g, ' ').trim().toLowerCase().replace(/[.!?…]+$/, '').replace(LEAD, '')
@@ -88,12 +108,30 @@ function siteUrl(target, original) {
     return /^https?:$/.test(u.protocol) ? u.toString() : null; } catch (e) { return null; }
 }
 
+// A site the text names: a known one (SITES, a whole word) or a domain.
+function namesSite(t) {
+  return Object.keys(SITES).some(function (k) { return k.length > 1 && new RegExp('\\b' + k + '\\b').test(t); })
+    || /\b[a-z0-9-]+(?:\.[a-z0-9-]+)*\.(?:com|ng|org|net|io|gov|edu|co|app|dev|info|me)(?:\.[a-z]{2})?\b/.test(t);
+}
+
+/** 0.11.2: does this message need the live browser (cleaned text t)? */
+function needsBrowser(t) {
+  if (t.split(' ').length > 40) return false;
+  if (QUESTION.test(t)) return namesSite(t) && LIVE_Q.test(t) || ONLINE.test(t) && LIVE_Q.test(t);
+  if (LIVE.test(t) || FORM.test(t)) return true;
+  var c = CHECK.exec(t);
+  if (c) return namesSite(c[1]) || PLACE.test(c[1]) || ONLINE.test(c[1]);
+  return SHOP.test(t) && (namesSite(t) || ONLINE.test(t));
+}
+
 function parseIntent(text, ctx) {
   ctx = ctx || {};
   var original = String(text || '').trim();
   if (!original || original.length > 300 || /\n/.test(original)) return null;
   var t = clean(original);
-  if (!t || (QUESTION.test(t) && !ACTIONS.test(t) && !LOST.test(t))) return null;
+  if (!t) return null;
+  if (QUESTION.test(t) && !ACTIONS.test(t) && !LOST.test(t)) return needsBrowser(t) ? { kind: 'task', goal: original,
+    open: true } : null;
   if (CLOSE.test(t)) return { kind: 'close' };
   var m = OPEN.exec(t);
   if ((m && BROWSER.test(m[1])) || LOST.test(t)) return { kind: 'open' };
@@ -115,7 +153,7 @@ function parseIntent(text, ctx) {
     if (PLACE.test(g[1]) && g[1].split(' ').length <= 8) return { kind: 'task', goal: original, open: true };
   }
   if (ctx.open && ACTIONS.test(t) && t.split(' ').length <= 40) return { kind: 'task', goal: original, open: true };
-  return null;
+  return needsBrowser(t) ? { kind: 'task', goal: original, open: true } : null;
 }
 
-export { SITES, clean, parseIntent, siteUrl };
+export { SITES, clean, needsBrowser, parseIntent, siteUrl };

@@ -5,6 +5,7 @@ import { Colon } from '../../../../packages/ui/js/colon.js';
 import { renameConv } from '../actions/rename.js';
 import { browseNative } from '../actions/saga-native.js';
 import { send, stopStreaming } from '../actions/send-message.js';
+import { cardAction } from '../components/browser-chrome.js';
 import { applySplitWidth, nativeInlineAction, openBrowser, renderEmbed, setLayout, setMobileTab, toggleBrowser }
   from '../components/browser-panel.js';
 import { autoGrow, devTemplate, modeMenu, onThreadScroll, scrollBottom, setMode, syncComposer,
@@ -127,6 +128,8 @@ function bind() {
       'native-return': function () { nativeInlineAction(act); },
       // 0.10.3: a finished Saga card in the thread brings the live browser back.
       'saga-card-open': function () { nativeInlineAction(act); },
+      // 0.11.2: the card's header buttons and a past run's summary (components/browser-chrome.js).
+      'saga-card': function () { cardAction(a); },
       'embed-collapse': function () { S.browser.collapsed = !S.browser.collapsed; renderEmbed(); },
       'embed-full': function () { S.browser.full = !S.browser.full; S.browser.collapsed = false; renderEmbed();
         document.body.classList.toggle('cw-noscroll', S.browser.full); },

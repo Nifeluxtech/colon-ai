@@ -23,9 +23,14 @@ class SagaTools(private val a: BrowserHost) {
         a.activity.assets.open("saga/act.js").bufferedReader().use { it.readText() }
     }
 
+    /** 0.11.2: the pop-up finder (overlay.js), handed to tools.js as its fourth argument. */
+    private val overlay: String by lazy {
+        a.activity.assets.open("saga/overlay.js").bufferedReader().use { it.readText() }
+    }
+
     /** Runs one tools.js command on [wv]; [done] gets the parsed result, or null when the page returned nothing. */
     fun exec(wv: WebView, cmd: String, args: JSONObject, done: (JSONObject?) -> Unit) {
-        val js = "($script)(${JSONObject.quote(cmd)},$args,$act)"
+        val js = "($script)(${JSONObject.quote(cmd)},$args,$act,$overlay)"
         try { wv.evaluateJavascript(js) { raw -> done(decode(raw)) } } catch (_: Exception) { done(null) }
     }
 

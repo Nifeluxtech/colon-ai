@@ -60,4 +60,17 @@ class InlineSteadyTest {
         assertTrue(s.next(InlineGeometry.NOWHERE, 16).moved)
         assertTrue(s.next(p(300), 32).moved)
     }
+
+    /** 0.11.2: full screen is placed outside InlineSteady; the card's box must be applied again afterwards. */
+    @Test fun cardBoxIsAppliedAgainAfterFullScreen() {
+        val s = InlineSteady()
+        assertTrue(s.next(p(300), 0).moved)
+        val full = InlineGeometry.Placement(true, 0, 0, 720, 1330, 0, 1330)
+        s.placedElsewhere(full)
+        val back = s.next(p(300), 500)
+        assertTrue(back.moved)                                      // 0.11.1: false, the panel stayed full size
+        assertTrue(back.relayout)
+        assertEquals(400, back.placement.height)
+        assertFalse(s.next(p(300), 520).moved)                      // and steady again after that
+    }
 }

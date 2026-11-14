@@ -89,9 +89,13 @@ function inApp(i, note) {
         return say(i.op === 'stop' ? 'Saga isn’t doing anything in the browser right now.' : 'There’s no Saga task '
           + 'to hand back to right now.'); });
     case 'task':
+      // 0.11.2: a message that needs the browser opens this chat's browser itself (the 0.11.1 path: the app shows
+      // this chat's browser first) and the live card shows at once under the user's message.
       if (!(S.browser.nativeState && S.browser.nativeState.open)) {
-        return nativeBrowser('open', {}).then(function (st) { syncNative(st); return runTask(i.goal, anchor); });
+        return ensureChat().then(function () { return nativeBrowser('open', {}); }).then(function (st) {
+          syncNative(st); showHere(note); return runTask(i.goal, anchor); });
       }
+      showHere(note);
       return runTask(i.goal, anchor);
   }
   return Promise.resolve();

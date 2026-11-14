@@ -135,22 +135,27 @@ class SagaClicks(private val tools: SagaTools) {
     private fun settle(wv: WebView, probe: JSONObject, before: JSONObject?, method: String, covered: String,
                        urlBefore: String?, loading: () -> Boolean, done: (JSONObject) -> Unit) {
         val args = JSONObject().put("id", probe.optString("id")).put("before", before ?: JSONObject.NULL)
-        val look: (Long, Boolean) -> Unit = { delay, last ->
-            main.postDelayed({
-                tools.exec(wv, "outcome", args) { o ->
-                    val res = SagaTap.result(o?.takeIf { !it.has("error") }, method, covered, urlBefore, wv.url,
-                        wv.title, loading())
-                    if (last || !SagaTap.lookAgain(res.optString("changed"))) done(res)
-                    else main.postDelayed({
-                        tools.exec(wv, "outcome", args) { o2 ->
-                            done(SagaTap.result(o2?.takeIf { !it.has("error") }, method, covered, urlBefore, wv.url,
-                                wv.title, loading()))
-                        }
-                    }, SECOND_LOOK_MS)
-                }
-            }, delay)
+        val read: ((JSONObject) -> Unit) -> Unit = { then ->
+            tools.exec(wv, "outcome", args) { o ->
+                then(SagaTap.result(o?.takeIf { !it.has("error") }, method, covered, urlBefore, wv.url, wv.title,
+                    loading()))
+            }
         }
-        look(FIRST_LOOK_MS, false)
+        // 0.11.2: early looks (SagaTap.QUICK_LOOKS_MS) end the wait as soon as the page answered the tap; 0.11.1
+        // always waited 0.7 s, and 1.2 s more when nothing had changed yet.
+        fun look(i: Int) {
+            main.postDelayed({
+                read { res ->
+                    val next = SagaTap.lookGap(i + 1)
+                    when {
+                        !SagaTap.lookAgain(res.optString("changed")) -> done(res)
+                        next != null -> look(i + 1)
+                        else -> main.postDelayed({ read(done) }, SECOND_LOOK_MS)
+                    }
+                }
+            }, SagaTap.lookGap(i) ?: 0L)
+        }
+        look(0)
     }
 
     /**
@@ -233,7 +238,6 @@ class SagaClicks(private val tools: SagaTools) {
 
     companion object {
         const val TAP_MS = 60L
-        const val FIRST_LOOK_MS = 700L
         const val SECOND_LOOK_MS = 1200L
         const val FRAME_MS = 16L
         const val HOLD_MS = 120L

@@ -113,7 +113,7 @@ class ChatCard(content: FrameLayout, private val on: Actions) {
      * still has a web page (an ended card offers Continue); [linked] the link to the server is up.
      */
     fun render(run: ChatRun.Run, full: Boolean, pageTitle: String, url: String, canGoBack: Boolean, show: Boolean,
-               page: Boolean = false, linked: Boolean = true) {
+               page: Boolean = false, linked: Boolean = true, pageChrome: Boolean = false) {
         root.visibility = if (show) View.VISIBLE else View.GONE
         val mine = ChatRun.touchesPage(run.state)
         // Locked page in the thread: a tap on it opens the full-screen view. Never over a page the user drives.
@@ -121,7 +121,10 @@ class ChatCard(content: FrameLayout, private val on: Actions) {
         // 0.11.1: full screen keeps the corner button as "minimise" (0.11.0 hid it: the only way back was the top
         // bar's icon, which the owner didn't find), with the top bar's "back to the chat" too.
         fullNow = full
-        expand.visibility = View.VISIBLE
+        // 0.11.2: in the thread the chat page draws the card's header (with these buttons) and its status line: the
+        // page is left clear, nothing floats over it (ChatCardRules.floating).
+        val floating = ChatCardRules.floating(full, pageChrome)
+        expand.visibility = if (floating) View.VISIBLE else View.GONE
         expand.setImageResource(if (full) R.drawable.ic_fullscreen_exit else R.drawable.ic_fullscreen)
         expand.contentDescription = ctx.getString(if (full) R.string.card_minimise else R.string.card_expand)
         bar.visibility = if (full) View.VISIBLE else View.GONE
@@ -139,6 +142,7 @@ class ChatCard(content: FrameLayout, private val on: Actions) {
             action.setOnClickListener { if (giving) on.giveBack() else on.takeControl() }
         }
         renderPill(ChatRun.pill(run, words, page, linked), full, mine)
+        if (!floating) pill.visibility = View.GONE
     }
 
     private fun renderPill(p: ChatRun.Pill, full: Boolean, mine: Boolean) {
@@ -183,4 +187,10 @@ class ChatCard(content: FrameLayout, private val on: Actions) {
         if (p != pillState) pill.contentDescription = p.text
         pillState = p
     }
+}
+
+/** 0.11.2: what the native card draws over the page (pure, unit-tested in FocusRulesTest). Full screen keeps its own
+ *  top bar, pill and Minimise; in the thread, a chat page that draws the card's chrome gets a clean page. */
+object ChatCardRules {
+    fun floating(full: Boolean, pageChrome: Boolean): Boolean = full || !pageChrome
 }

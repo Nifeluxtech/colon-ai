@@ -150,6 +150,10 @@ function redactContent(result) {
   }
   if (r.text != null) r.text = redactText(r.text);
   if (r.title != null) r.title = redactText(r.title);
+  // 0.11.2: the pop-up's name (its heading or label) is page text too.
+  if (r.overlay && typeof r.overlay === 'object') {
+    r.overlay = { ...r.overlay, label: redactText(r.overlay.label || '') };
+  }
   return r;
 }
 

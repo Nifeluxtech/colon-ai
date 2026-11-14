@@ -31,6 +31,14 @@ class InlineSteady(private val deadPx: Int = 1, private val sizeSlackPx: Int = 2
     /** The panel is hidden or re-docked: start over. */
     fun reset() { applied = null; lastAt = -1L; dir = 0; streak = 0; velocity = 0f; exact = null }
 
+    /**
+     * 0.11.2: [p] was put on screen without going through [next] (the full-screen view is placed exactly). 0.11.1
+     * kept the card's box as what was applied, so leaving full screen computed the same card box, found it "no move"
+     * and left the panel full size: the card showed "expand" and no top bar over a full-screen page (the owner's
+     * "Minimise does nothing"). Now the next card box is compared with what is really on screen and is applied.
+     */
+    fun placedElsewhere(p: InlineGeometry.Placement) { reset(); applied = p }
+
     fun next(p: InlineGeometry.Placement, nowMs: Long): Move {
         val prev = applied
         exact = p

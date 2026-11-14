@@ -94,14 +94,15 @@ test('runner: consent, loop, stored result, every action and the control changes
   assert.match(t.answer, /\[1\]/);
   assert.deepEqual(JSON.parse(t.sources), [{ n: 1, title: 'Punch', url: 'https://punchng.com/' }]);
   const acts = actionsOf(r.id);
-  assert.deepEqual(acts.map((a) => a.kind), ['control', 'action', 'action', 'finish']);
-  assert.deepEqual(acts.map((a) => a.seq), [1, 2, 3, 4]);
+  // 0.11.2: the page is read for Saga right after it opened (autoRead: no model call); that read is no step.
+  assert.deepEqual(acts.map((a) => a.kind), ['control', 'action', 'action', 'action', 'finish']);
+  assert.deepEqual(acts.map((a) => a.seq), [1, 2, 3, 4, 5]);
   assert.equal(acts[1].command, 'open_url');
   assert.equal(acts[1].say, 'Opening Punch');
   assert.equal(acts[2].page, 1);
   // The phone was asked first, every command went through the bridge, and Saga handed control back at the end.
   const sent = p.frames.filter((f) => f.type === 'control' || f.type === 'command').map((f) => f.mode || f.name);
-  assert.deepEqual(sent, ['ai', 'open_url', 'get_page_content', 'manual']);
+  assert.deepEqual(sent, ['ai', 'open_url', 'get_page_state', 'get_page_content', 'get_page_content', 'manual']);
   const mine = fake.tables.audit.filter((a) => /^(saga\.|browser\.control)/.test(a.action));
   assert.ok(mine.some((a) => a.action === 'saga.task_created'));
   assert.ok(mine.some((a) => a.action === 'saga.task_finished' && a.meta.status === 'done' && a.meta.steps === 3));
@@ -111,7 +112,7 @@ test('runner: consent, loop, stored result, every action and the control changes
     query: new URLSearchParams('after=2') });
   assert.equal(code, 200);
   assert.equal(body.task.status, 'done');
-  assert.deepEqual(body.actions.map((a) => a.seq), [3, 4]);
+  assert.deepEqual(body.actions.map((a) => a.seq), [3, 4, 5]);
 });
 
 test('runner: an app without the Phase 9 commands, a decline and no answer to the consent prompt', async () => {

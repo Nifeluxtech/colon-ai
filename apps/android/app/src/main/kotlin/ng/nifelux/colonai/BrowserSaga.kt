@@ -170,9 +170,10 @@ class BrowserSaga(private val a: BrowserHost, private val bridge: BridgeClient) 
     private fun apply(reason: String?, note: String? = null) {
         reason ?: return
         if (!control.canRunCommands()) approvalDialog?.dismiss() // a pending approval is declined when Saga stops
-        if (!control.canRunCommands() || control.handoff != null) pointer?.hide()
+        val shows = SagaPointer.shows(control.canRunCommands(), control.handoff != null)
+        if (!shows) pointer?.hide()
         // 0.10.4: the pointer stays on the page while Saga has it; a new socket's hello says what Give back resumes.
-        pointer?.stay = control.canRunCommands()
+        pointer?.stay = shows
         if (chatUi && reason == "consent") pointer?.showIdle()
         bridge.resumable = control.resumable.takeIf { control.mode == ControlState.Mode.MANUAL }
         if (control.mode == ControlState.Mode.MANUAL && control.handoff == null) notice?.dismiss()
@@ -256,10 +257,13 @@ class BrowserSaga(private val a: BrowserHost, private val bridge: BridgeClient) 
 
     /** The ack goes first: the server must read "secret_field" (wait for the user), not the control change that
      *  follows (which would read as the user taking over and end the task). */
-    private fun refuseSecret(kind: String, reply: Reply) {
+    private fun refuseSecret(kind: String, reply: Reply, savedLogin: Boolean = false) {
         pointer?.hide()
-        reply(false, JSONObject().put("kind", kind), "secret_field")
-        handOff(kind)
+        // 0.11.2: a password the server will first try the saved login for (Colon Secured Login, or its form card):
+        // the hand-over is left to the server, which sends it only when that doesn't get Saga in.
+        val defer = savedLogin && (kind == SecretFields.PASSWORD || kind == SecretFields.SIGN_IN)
+        reply(false, JSONObject().put("kind", kind).apply { if (defer) put("deferred", true) }, "secret_field")
+        if (!defer) handOff(kind)
     }
 
     private fun render() {
@@ -375,6 +379,8 @@ class BrowserSaga(private val a: BrowserHost, private val bridge: BridgeClient) 
             reply(false, null, if (control.paused) "paused" else "manual_control"); return
         }
         notify(command.say, "step")
+        // 0.11.2: the pointer is on the page for every step Saga takes (idling near its last target meanwhile).
+        if (SagaPointer.shows(control.canRunCommands(), control.handoff != null)) pointer?.showIdle()
         val args = command.args
         val tab = command.tabId?.let { a.tabs.find(it) } ?: a.tabs.active
         if (tab?.incognito == true && command.name != "new_tab" && command.name != "get_tabs") {
@@ -483,7 +489,8 @@ class BrowserSaga(private val a: BrowserHost, private val bridge: BridgeClient) 
             val secret = r.optString("secret").takeIf { it.isNotBlank() && it != "null" }
                 ?: SecretFields.forStep(command.name, field, d.optString("form_secret").ifBlank { null }, tab?.url,
                     null, BuildConfig.EXTRA_CUSTOM_TAB_HOSTS)
-            if (secret != null) { refuseSecret(secret, reply); return@exec }
+            val savedLogin = args.optBoolean("saved_login")
+            if (secret != null) { refuseSecret(secret, reply, savedLogin); return@exec }
             val risk = r.optJSONObject("risk")
             val kind = SagaApproval.decide(SagaApproval.serverKind(args), risk?.optString("kind"), control.mode,
                 command.name)
@@ -491,7 +498,7 @@ class BrowserSaga(private val a: BrowserHost, private val bridge: BridgeClient) 
                 // tools.js refuses a secret field itself at every step (the page may have changed since inspect).
                 val answer: (JSONObject?, String?, String?) -> Unit = { res, err, secretKind ->
                     when {
-                        secretKind != null -> refuseSecret(secretKind, done)
+                        secretKind != null -> refuseSecret(secretKind, done, savedLogin)
                         err != null -> done(false, null, err)
                         else -> done(true, res, null)
                     }

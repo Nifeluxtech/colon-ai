@@ -59,11 +59,14 @@ function layout(messages, cards, live, liveId) {
     });
   if (live) {
     var key = anchorFor(messages, live) || '';
-    // 0.11.1: the live browser that took over a finished task's message replaces that task's picture (the newest
-    // under the same message) even when the ids differ: one browser per chat, never a picture and a live copy.
-    if (live.replaces && groups[key]) {
+    // 0.11.1: the live browser that took over a finished task's message replaces that task's picture even when the
+    // ids differ: one browser per chat, never a picture and a live copy. 0.11.2 (owner: a past run never leaves the
+    // thread): only the chat's newest run, under that same message; an older run's card always stays.
+    var newest = (cards || []).reduce(function (m, c) { return !m || (Number(c.at) || 0) >= (Number(m.at) || 0)
+      ? c : m; }, null);
+    if (live.replaces && groups[key] && newest) {
       for (var i = groups[key].length - 1; i >= 0; i--) {
-        if (groups[key][i].kind === 'snap') { groups[key].splice(i, 1); break; }
+        if (groups[key][i].kind === 'snap' && groups[key][i].card === newest) { groups[key].splice(i, 1); break; }
       }
       if (!groups[key].length) { delete groups[key]; order.splice(order.indexOf(key), 1); }
     }
@@ -111,7 +114,7 @@ function webCard(task, result) {
   var t = task || {}, st = String(t.status || '');
   var state = st === 'done' ? 'done' : st === 'stopped' ? 'stopped' : WEB_STATUS[st] ? 'running' : 'error';
   return { id: String(t.id), goal: String(t.goal || ''), at: Date.parse(t.created_at || '') || 0, state: state,
-    result: state === 'running' ? WEB_STATUS[st] : String(result || ''), web: true };
+    result: state === 'running' ? WEB_STATUS[st] : String(result || ''), web: true, steps: Number(t.steps) || 0 };
 }
 
 /** The app's final word for a task the chat followed: { kind: done · stopped · error, result }. */

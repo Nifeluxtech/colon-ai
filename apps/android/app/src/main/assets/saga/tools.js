@@ -1,22 +1,23 @@
 /* Colon AI · Saga's page tools (Phase 9). Injected by SagaTools.kt with WebView.evaluateJavascript into the tab
-   Saga drives, as one function expression called with (command, args, ext); it returns a JSON string. It is
+   Saga drives, as one function expression called with (command, args, ext, ovl); it returns a JSON string. It is
    evaluated fresh for every command and keeps nothing on window, so a page can't swap these functions out. ext
-   (0.10.2) is act.js, evaluated with it: typing (fill) and scrolling, run only after the checks here.
-   Commands: content · links · inspect (the element and its risk, before click/fill) · point (where to tap) ·
-   click (script fallback) · outcome (did the click change anything) · fill · scroll · scrollinfo · risk, secret,
-   changed (pure). Element ids (c1, c2, …) are written to data-colon-saga by `content` and are only valid
-   until the next `content`.
+   (0.10.2) is act.js (typing and scrolling, run only after the checks here); ovl (0.11.2) is overlay.js (pop-ups).
+   Commands: content · links · inspect (the element, its risk) · point (where to tap) · click (script fallback) ·
+   outcome (did the click change anything) · fill · scroll · scrollinfo · risk, secret, changed (pure). Element ids
+   (c1, c2, …) are written to data-colon-saga by `content` and are only valid until the next `content`.
    Risk (approval on the phone): the phone's own check of the REAL element, independent of the server's. Kinds:
    payment · purchase · send_message · form_submission · personal_data. Mirrors services/api/src/modules/saga/
    policy.js; when either side says so, the user must tap Allow.
    Secret fields (Phase 10): passwords, one-time / 2FA codes, card numbers, CVV and expiry, PINs. `content` marks
    them (secret: kind) and every field of a form that holds one (form_secret), never with their text or value;
    `inspect` reports them, and `click` / `fill` refuse them (error secret_field): the user types these, never Saga.
-   Mirrors services/api/src/modules/saga/secrets.js fieldKind (tests/security/saga-secrets.test.js). */
-(function (cmd, args, ext) {
+   Mirrors services/api/src/modules/saga/secrets.js fieldKind (tests/security/saga-secrets.test.js).
+   Pop-ups (0.11.2): `content` lists the topmost pop-up's elements first (in_popup), marks what it covers
+   (blocked); `point` / `click` refuse an element behind it (error covered) instead of tapping through. */
+(function (cmd, args, ext, ovl) {
   'use strict';
   var ATTR = 'data-colon-saga';
-  var MAX_TEXT = 12000, MAX_ELEMENTS = 60, MAX_LINKS = 80;
+  var MAX_TEXT = 8000, MAX_ELEMENTS = 60, MAX_LINKS = 80, MAX_POPUP_TEXT = 2000, MAX_BEHIND = 15;
   function any(list) { return new RegExp('\\b(?:' + list.join('|') + ')\\b', 'i'); }
   var W = {
     payment: new RegExp(any(['pay', 'pay now', 'payment', 'checkout', 'check out', 'proceed to pay', 'transfer',
@@ -99,6 +100,8 @@
         kind: 'send_message', reason: 'Write a message in "' + named + '"' };
       return null;
     }
+    // 0.11.2: "Reject all" / close in a pop-up only declines (overlay.js dismisses; policy.js mirrors it).
+    if (ovl && ovl.dismisses(d)) return null;
     var acts = !(d.tag === 'a' && d.href && d.role !== 'button');
     var kinds = ['payment', 'purchase', 'delete', 'send_message'];
     for (var i = 0; i < kinds.length; i++) {
@@ -152,33 +155,38 @@
     for (var i = 0; i < fields.length; i++) { var k = secretOf(fields[i]); if (k) return k; }
     return null;
   }
+  var OV = ovl && /^(content|inspect|point|click)$/.test(cmd) ? ovl.find(win, doc) : null;
   function mark(el, d) {
     var k = secretOf(el), f = formSecret(el);
+    if (OV && ovl.inside(OV, el)) d.in_popup = true;
     if (k) { d.secret = k; d.text = ''; d.placeholder = d.placeholder.replace(/\d/g, '•'); }
     if (f) d.form_secret = f;
     return d;
   }
-  function find(id) {
-    return /^c\d{1,4}$/.test(String(id)) ? doc.querySelector('[' + ATTR + '="' + id + '"]') : null;
-  }
+  function find(id) { return /^c\d{1,4}$/.test(String(id)) ? doc.querySelector('[' + ATTR + '="' + id + '"]') : null; }
   function here() { return { url: String(win.location.href), title: clip(doc.title, 200) }; }
-
   if (cmd === 'content') {
     Array.prototype.forEach.call(doc.querySelectorAll('[' + ATTR + ']'), function (e) { e.removeAttribute(ATTR); });
     var sel = 'a[href],button,input:not([type=hidden]),select,textarea,[role=button],[role=link],'
       + '[contenteditable=true]';
-    var out = [], n = 0;
-    Array.prototype.some.call(doc.querySelectorAll(sel), function (el) {
-      if (el.disabled || !visible(el)) return false;
-      var id = 'c' + (++n);
-      el.setAttribute(ATTR, id);
-      var d = mark(el, describe(el)); d.id = id; out.push(d);
+    var out = [], n = 0, behind = 0;
+    // 0.11.2: the pop-up's own elements first, then the page's (marked blocked where the pop-up covers them).
+    var add = function (el) {
+      if (out.length >= MAX_ELEMENTS) return true;
+      if (el.disabled || (el.hasAttribute && el.hasAttribute(ATTR))) return false;
+      var b = OV && !ovl.inside(OV, el) && !!ovl.blocks(OV, el, win, doc), id, d;
+      if ((b && behind >= MAX_BEHIND) || !visible(el)) return false;   // a few of the page behind: its outline
+      id = 'c' + (++n); behind += b ? 1 : 0;
+      el.setAttribute(ATTR, id); d = mark(el, describe(el)); d.id = id; if (b) d.blocked = true; out.push(d);
       return out.length >= MAX_ELEMENTS;
-    });
+    };
+    if (OV && OV.el.querySelectorAll) Array.prototype.some.call(OV.el.querySelectorAll(sel), add);
+    Array.prototype.some.call(doc.querySelectorAll(sel), add);
     var body = doc.body ? doc.body.innerText || doc.body.textContent || '' : '';
-    var h = here();
-    return JSON.stringify({ url: h.url, title: h.title, text: clip(body, MAX_TEXT), elements: out,
-      truncated: body.length > MAX_TEXT });
+    var h = here(), pop = OV ? clip(OV.el.innerText || OV.el.textContent, MAX_POPUP_TEXT) : '';
+    return JSON.stringify({ url: h.url, title: h.title, text: clip(pop ? 'Pop-up: ' + pop + ' | Page behind it: '
+      + body : body, MAX_TEXT), elements: out, truncated: body.length > MAX_TEXT, overlay: OV ? { label: OV.label,
+      kind: OV.kind, frame: OV.frame } : null });
   }
   if (cmd === 'links') {
     var seen = {}, links = [];
@@ -256,6 +264,9 @@
   if (!el) return JSON.stringify({ error: 'no_element' });
   var d = mark(el, describe(el));
   var secret = d.secret || (args.action === 'fill' || cmd === 'fill' || cmd === 'type' ? d.form_secret : null) || null;
+  // 0.11.2: never a tap, script click or approval for something a pop-up covers (a secret field is refused first).
+  var behind = OV && !secret ? ovl.blocks(OV, el, win, doc) : '';
+  if (behind) return JSON.stringify({ error: 'covered', covered: behind });
   if (cmd === 'inspect') return JSON.stringify({ descriptor: d, secret: secret, risk: risk(d, { action: args.action,
     value: args.value, submit: args.submit }) });
   // The last line of defence: whatever the server or the app decided, a secret field is never typed into, clicked,
