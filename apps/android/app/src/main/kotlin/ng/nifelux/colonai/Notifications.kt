@@ -20,6 +20,8 @@ object Notifications {
     const val CHANNEL_UPDATES = "updates"
     const val CHANNEL_SAGA = "saga"
     const val CHANNEL_GENERAL = "general"
+    /** 0.11.0: the ongoing "Saga is working" notification of a task running in the background (SagaService). */
+    const val CHANNEL_SAGA_RUN = "saga_run"
     private const val ID_UPDATE = 7001
 
     fun createChannels(context: Context) {
@@ -32,6 +34,8 @@ object Notifications {
                 NotificationManager.IMPORTANCE_HIGH),
             NotificationChannel(CHANNEL_GENERAL, context.getString(R.string.channel_general),
                 NotificationManager.IMPORTANCE_DEFAULT),
+            NotificationChannel(CHANNEL_SAGA_RUN, context.getString(R.string.channel_saga_run),
+                NotificationManager.IMPORTANCE_LOW),
         ))
     }
 

@@ -158,6 +158,17 @@ class ChatBrowserPanel(private val a: MainActivity) : BrowserHost, TabManager.Ho
     /** 0.10.6: ends a "Reconnecting to Saga…" pill that outlived the server's grace (see onBridgeStatus). */
     private val linkTimeout = Runnable { if (!linked) { linked = true; renderCard(); changed() } }
     private val paintedLater = Runnable { painted = true; renderCard() }
+    /* ---------- 0.11.0 ---------- */
+    /** Steadies the inline panel while the thread scrolls (InlineSteady); applied on the next vsync. */
+    private val steady = InlineSteady()
+    private var frameQueued = false
+    private val onFrame = android.view.Choreographer.FrameCallback { t -> frameQueued = false; placeInline(t / 1_000_000L) }
+    private val settleLater = Runnable { steady.settle()?.let { applyPlacement(it) } }
+    /** A web overlay (the sidebar drawer, a menu, a sheet, a dialog) is open over the chat: the panel hides. */
+    private var suspended = false
+    /** Saga's step timeline (StepLog) for this chat's current task. */
+    private val steps = StepLog.Store(a)
+    private var lastThumbAt = 0L
 
     init {
         chats.current = chatKey
@@ -194,6 +205,12 @@ class ChatBrowserPanel(private val a: MainActivity) : BrowserHost, TabManager.Ho
         panel.findViewById<View>(R.id.panel_header).setOnClickListener { if (collapsed) setCollapsed(false) }
         wireDivider()
         bridge.addListener(opener)
+        SagaService.stopListener = { main.post { stopSaga(); changed() } }
+        // 0.11.0: a gesture that starts on the page stays on the page (the chat behind never scrolls with it).
+        content.setOnTouchListener { v, ev ->
+            if (ev.actionMasked == MotionEvent.ACTION_DOWN) v.parent?.requestDisallowInterceptTouchEvent(true)
+            false
+        }
         // The chat area changed size (keyboard, rotation): the clip follows (posted: never re-lay out mid-layout).
         layer.addOnLayoutChangeListener { _, l, t, r, b, oldL, oldT, oldR, oldB ->
             if (r - l != oldR - oldL || b - t != oldB - oldT) layer.post { placeInline() }
@@ -300,6 +317,15 @@ class ChatBrowserPanel(private val a: MainActivity) : BrowserHost, TabManager.Ho
     fun setAnchor(next: InlineGeometry.Anchor, band: InlineGeometry.Band? = null) {
         anchor = next
         if (band != null) this.band = band
+        // 0.11.0: one placement per vsync, never mid-layout (reports can arrive faster than frames).
+        if (!frameQueued) { frameQueued = true; android.view.Choreographer.getInstance().postFrameCallback(onFrame) }
+    }
+
+    /** 0.11.0: browser('suspend', {on}): a web overlay is open over the chat (the drawer, a menu, a sheet, a dialog,
+     *  the model picker): the inline panel hides under it until it closes. Full screen (Take control) stays. */
+    fun setSuspended(on: Boolean) {
+        if (suspended == on) return
+        suspended = on
         placeInline()
     }
 
@@ -403,6 +429,65 @@ class ChatBrowserPanel(private val a: MainActivity) : BrowserHost, TabManager.Ho
     }
 
     override fun onSagaHandoff(timeoutMs: Long) { askTimeoutMs = timeoutMs }
+
+    /* ---------- 0.11.0: timeline, Colon Secured Login, approvals, schedules ---------- */
+
+    override fun onSagaCommand(step: Int, command: String, label: String, host: String) {
+        steps.put(chatKey, StepLog.Step(step, StepLog.kindOf(command), label, host, null, System.currentTimeMillis()))
+    }
+
+    override fun onSagaStepResult(step: Int, ok: Boolean) {
+        val chat = chatKey
+        steps.update(chat, step) { it.copy(ok = ok) }
+        // A small picture of the page after the step (a little later: the page has painted the change).
+        main.postDelayed({
+            val now = android.os.SystemClock.uptimeMillis()
+            if (chat != chatKey || now - lastThumbAt < THUMB_EVERY_MS) return@postDelayed
+            lastThumbAt = now
+            ChatRunKeeper.capture(tabs.active?.webView, THUMB_WIDTH, THUMB_BYTES)?.let { jpeg ->
+                steps.saveThumb(chat, step, jpeg)?.let { name -> steps.update(chat, step) { it.copy(thumb = name) } }
+            }
+        }, THUMB_DELAY_MS)
+    }
+
+    private fun showTimeline() = TimelineSheet.show(a, run.goal, steps.steps(chatKey)) { steps.thumb(chatKey, it) }
+
+    override fun onLoginNeeded(site: String?) {
+        if (!isOpen) open(null)
+        a.openLoginForm(site, null, true) { saved, _ ->
+            // Saga carries on either way; with a saved login it signs in, else it asks the user to sign in. The note
+            // names the site only (not even the masked user name: nothing typed in the form reaches the server).
+            giveBack(if (saved != null) "Login saved for $saved in Colon Secured Login" else "I didn't save a login.")
+            changed()
+        }
+    }
+
+    override fun onApprovalAsked(reason: String) {
+        if (!a.foreground) SagaService.approval(a, reason)
+    }
+
+    override fun adoptScheduled(conversationId: String?): Boolean {
+        val key = ChatSessionRules.keyOf(conversationId) ?: return false
+        if (!ScheduleConsent.switches(ScheduleConsent.allowed(a), ChatRun.live(run.state) || focus, key == chatKey)) {
+            return false
+        }
+        switchTo(key)
+        if (!isOpen) open(null)
+        return true
+    }
+
+    /** 0.11.0: after the user signed in by hand (Saga asked for a sign-in), offer to save the login for next time. */
+    private fun offerSave(kind: String?) {
+        if (kind != SecretFields.SIGN_IN && kind != SecretFields.PASSWORD && kind != "sign_in") return
+        val site = VaultRules.site(tabs.active?.url) ?: return
+        if (LoginVault(a).has(site)) return
+        com.google.android.material.dialog.MaterialAlertDialogBuilder(a)
+            .setTitle(R.string.vault_title)
+            .setMessage(R.string.vault_offer_save)
+            .setPositiveButton(R.string.vault_offer_save_yes) { _, _ -> a.openLoginForm(site, null, false) { _, _ -> } }
+            .setNegativeButton(R.string.not_now, null)
+            .show()
+    }
 
     /** browser('chat'): the chat page now shows [conversationId] (null: a new chat). [adopt]: the new chat just got
      *  its id, so the browser it already has becomes the conversation's (nothing reloads). */
@@ -552,7 +637,11 @@ class ChatBrowserPanel(private val a: MainActivity) : BrowserHost, TabManager.Ho
         if (reloadOnReturn) { reloadOnReturn = false; tabs.active?.webView?.reload() }
     }
 
-    fun onPause() { tabs.active?.webView?.onPause(); if (restored) chats.setTabs(chatKey, tabs.toJson()) }
+    fun onPause() {
+        // 0.11.0: Saga keeps working in the background (SagaService): its page is not paused while a task runs.
+        if (!ChatRun.live(run.state)) tabs.active?.webView?.onPause()
+        if (restored) chats.setTabs(chatKey, tabs.toJson())
+    }
     fun onConfigurationChanged() { if (isOpen) applyLayout() }
     fun onTrimMemory() {
         tabs.trim(1)
@@ -562,6 +651,9 @@ class ChatBrowserPanel(private val a: MainActivity) : BrowserHost, TabManager.Ho
 
     fun destroy() {
         bridge.removeListener(opener)
+        SagaService.stopListener = null
+        android.view.Choreographer.getInstance().removeFrameCallback(onFrame)
+        main.removeCallbacks(settleLater)
         main.removeCallbacks(inlineGrace)
         main.removeCallbacks(waitCheck)
         main.removeCallbacks(releaseLater)
@@ -590,6 +682,7 @@ class ChatBrowserPanel(private val a: MainActivity) : BrowserHost, TabManager.Ho
         override fun back() { goBack() }
         override fun reload() { reloadPage() }
         override fun menu(anchor: View) = showMenu(anchor)
+        override fun timeline() = showTimeline()
     }
 
     /** The full-screen view over the chat (true) or the card in the thread; the same WebView grows or shrinks. */
@@ -647,8 +740,10 @@ class ChatBrowserPanel(private val a: MainActivity) : BrowserHost, TabManager.Ho
         if (asked && (run.state == ChatRun.State.USER_CONTROL || run.state == ChatRun.State.NEEDS_USER)) {
             saga.userControl("return_to_ai", note)
         }
+        val kind = run.request?.kind
         setRun(ChatRun.giveBack(run, System.currentTimeMillis()))
         setFocus(false)
+        if (asked && message?.startsWith("Login saved for") != true) offerSave(kind)
     }
 
     /** Stop: Saga's task ends here and on the server (the chat page also asks the server to stop it). */
@@ -721,7 +816,7 @@ class ChatBrowserPanel(private val a: MainActivity) : BrowserHost, TabManager.Ho
     fun taskStarted(id: String?, goal: String, anchor: String?) {
         saga.preAllow(conversationOf(chatKey))
         // 0.10.6: a new task (not the same one named again) starts without the previous task's picture.
-        if (id == null || id != run.task) { keeper.clearLive(chatKey); lastShotAt = 0L }
+        if (id == null || id != run.task) { keeper.clearLive(chatKey); lastShotAt = 0L; steps.clear(chatKey) }
         setRun(ChatRun.named(run, id, goal, anchor, System.currentTimeMillis()))
         if (!isOpen) open(null)
         changed()
@@ -747,6 +842,9 @@ class ChatBrowserPanel(private val a: MainActivity) : BrowserHost, TabManager.Ho
             Notifications.cancelSaga(a)
         }
         if (ChatRun.ended(next.state) && !ChatRun.ended(before.state)) ended(next)
+        // 0.11.0: a running task keeps going in the background (foreground service); it goes when the task ends.
+        if (ChatRun.live(next.state) && !ChatRun.live(before.state)) SagaService.start(a, next.goal)
+        if (!ChatRun.live(next.state) && ChatRun.live(before.state)) SagaService.end(a)
         if (ChatRun.live(next.state)) main.removeCallbacks(releaseLater)
         // Saga has the browser again: the full-screen view the user drove goes back to the card.
         if (before.state == ChatRun.State.USER_CONTROL && next.state == ChatRun.State.RUNNING && focus) setFocus(false)
@@ -766,6 +864,7 @@ class ChatBrowserPanel(private val a: MainActivity) : BrowserHost, TabManager.Ho
      *  (the server's last words, the result line, may still be on their way). */
     private fun ended(r: ChatRun.Run) {
         Notifications.cancelSaga(a)
+        if (!a.foreground) SagaService.result(a, r.state == ChatRun.State.DONE, r.result.ifBlank { r.goal })
         // 0.10.6: the live page now, else this task's last step picture; never an older task's (a blank instead).
         val shot = ChatRunKeeper.capture(tabs.active?.webView) ?: keeper.livePicture(chatKey)
         keeper.saveCard(chatKey, CardRules.Card(cardId(r), r.goal, r.anchor, r.state.wire, r.result,
@@ -893,11 +992,12 @@ class ChatBrowserPanel(private val a: MainActivity) : BrowserHost, TabManager.Ho
 
     /** Inline: lays the panel over the card's body box, clipped to the visible thread; hidden when the card is off
      *  screen, collapsed, not reported yet, or the panel is closed. Scrolling only changes translation and clip. */
-    private fun placeInline() {
+    private fun placeInline(frameMs: Long = android.os.SystemClock.uptimeMillis()) {
         if (!docked) return
         val density = a.resources.displayMetrics.density
         val p = when {
             !isOpen -> InlineGeometry.NOWHERE
+            suspended && !focus -> InlineGeometry.NOWHERE
             focus -> InlineGeometry.focus(band, density, a.webView.top, layer.width, layer.height, a.webView.height,
                 (FALLBACK_COMPOSER_DP * density).toInt())
             collapsed -> InlineGeometry.NOWHERE
@@ -905,9 +1005,19 @@ class ChatBrowserPanel(private val a: MainActivity) : BrowserHost, TabManager.Ho
                 a.webView.height)
         }
         if (!p.visible) {
+            steady.reset()
             if (layer.visibility != View.INVISIBLE) layer.visibility = View.INVISIBLE
             return
         }
+        // Full screen is placed exactly; the card in the thread goes through InlineSteady (dead band, lead, settle).
+        val move = if (focus) InlineSteady.Move(p, true, true) else steady.next(p, frameMs)
+        main.removeCallbacks(settleLater)
+        if (!focus) main.postDelayed(settleLater, InlineSteady.QUIET_MS)
+        if (move.moved || layer.visibility != View.VISIBLE) applyPlacement(move)
+    }
+
+    private fun applyPlacement(move: InlineSteady.Move) {
+        val p = move.placement
         val lp = panel.layoutParams as FrameLayout.LayoutParams
         if (lp.width != p.width || lp.height != p.height) {
             lp.width = p.width
@@ -955,6 +1065,8 @@ class ChatBrowserPanel(private val a: MainActivity) : BrowserHost, TabManager.Ho
         val mine = ChatRun.touchesPage(run.state)
         if (mine && t?.webView?.canGoForward() == true) add(1, R.string.forward)
         if (ChatRun.live(run.state)) add(15, R.string.card_stop)
+        add(16, R.string.card_steps)
+        add(17, R.string.vault_list_title)
         add(2, R.string.open_in_browser_app)
         if (page != null) add(9, R.string.share_page)
         add(10, R.string.downloads)
@@ -978,6 +1090,8 @@ class ChatBrowserPanel(private val a: MainActivity) : BrowserHost, TabManager.Ho
                 13 -> { tabs.closeAll(); close() }
                 14 -> setMode(PanelLayout.Mode.INLINE)
                 15 -> { stopSaga(); changed() }
+                16 -> showTimeline()
+                17 -> a.startActivity(Intent(a, VaultActivity::class.java))
             }
             true
         }
@@ -1108,6 +1222,11 @@ class ChatBrowserPanel(private val a: MainActivity) : BrowserHost, TabManager.Ho
         private const val PAINT_TIMEOUT_MS = 8000L
         /** 0.10.6: the longest the pill says "Reconnecting to Saga…" (the server's SAGA_RECONNECT_GRACE_MS). */
         private const val RECONNECT_PILL_MS = 90_000L
+        /** 0.11.0: the timeline's step pictures: small, at most every [THUMB_EVERY_MS], after the page painted. */
+        private const val THUMB_WIDTH = 192
+        private const val THUMB_BYTES = 12_000
+        private const val THUMB_EVERY_MS = 400L
+        private const val THUMB_DELAY_MS = 650L
         private val PLAIN = ChatRun.Words("Saga is working…", "Saga is paused", "Your turn", "You're in control",
             "Done", "Saga stopped", "Saga couldn't finish", "Saga stopped when the app closed") { "Saga needs you: $it" }
         private const val PREF_LAYOUT = "layout"

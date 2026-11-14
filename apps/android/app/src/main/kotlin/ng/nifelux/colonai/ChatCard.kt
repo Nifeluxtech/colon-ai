@@ -32,6 +32,8 @@ class ChatCard(content: FrameLayout, private val on: Actions) {
         fun back()
         fun reload()
         fun menu(anchor: View)
+        /** 0.11.0: every step of the task (TimelineSheet). */
+        fun timeline()
     }
 
     private val ctx = content.context
@@ -74,7 +76,9 @@ class ChatCard(content: FrameLayout, private val on: Actions) {
         (root as FrameLayout).addView(picture, 0, FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT,
             FrameLayout.LayoutParams.MATCH_PARENT))
         picture.addOnLayoutChangeListener { _, _, _, _, _, _, _, _, _ -> fitPicture() }
-        catcher.setOnClickListener { on.expand() }
+        // 0.11.0: tapping the card (or its status pill) shows Saga's steps; the expand button opens it full screen.
+        catcher.setOnClickListener { on.timeline() }
+        pill.setOnClickListener { on.timeline() }
         expand.setOnClickListener { on.expand() }
         root.findViewById<View>(R.id.focus_close).setOnClickListener { on.collapse() }
         root.findViewById<View>(R.id.focus_more).setOnClickListener { on.menu(it) }

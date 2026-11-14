@@ -159,6 +159,7 @@ class NativeBridge(private val host: MainActivity, private val webView: WebView)
             "bridgeStatus" -> done(true, JSONObject().put("status", ColonApplication.of(host).bridge.status.name
                 .lowercase()), null)
             "takeShare" -> done(true, host.takeShare() ?: JSONObject.NULL, null)
+            "vault" -> vault(a, done)
             else -> done(false, null, "unknown_command")
         }
     }
@@ -193,6 +194,11 @@ class NativeBridge(private val host: MainActivity, private val webView: WebView)
                 } else p.taskStarted(id, a.optString("goal"), a.optString("anchor").ifBlank { null })
             }
             "cards" -> { done(true, p.cardsJson(), null); return }
+            // 0.11.0: a web overlay is open over the chat (drawer, menu, sheet, dialog): the inline panel hides.
+            "suspend" -> p.setSuspended(a.optBoolean("on", false))
+            // 0.11.0: the user set up scheduled browsing from this app: its runs may start without "Let Saga browse?".
+            "schedules" -> { ScheduleConsent.set(host, a.optBoolean("allow", false))
+                done(true, JSONObject().put("allow", ScheduleConsent.allowed(host)), null); return }
             "open" -> p.open(url.ifEmpty { null }, a.optString("layout").ifEmpty { null })
             "navigate" -> if (url.isEmpty()) { done(false, null, "bad_url"); return } else p.open(url)
             "layout" -> {
@@ -220,6 +226,25 @@ class NativeBridge(private val host: MainActivity, private val webView: WebView)
             else -> { done(false, null, "unknown_action"); return }
         }
         done(true, p.state(), null)
+    }
+
+    /**
+     * 0.11.0: Colon Secured Login from the chat page: {action: form, site?} opens the native form (FLAG_SECURE) and
+     * answers {site, login_saved} only (no user name, masked or not, and never the password); {action: has, site}
+     * answers {site, login_saved}; {action: manage} opens Saved logins. The page never sees a stored value.
+     */
+    private fun vault(a: JSONObject, done: (Boolean, Any?, String?) -> Unit) {
+        val site = VaultRules.site(a.optString("site"))
+        when (a.optString("action")) {
+            "form" -> host.openLoginForm(site, null, a.optBoolean("trust", false)) { saved, _ ->
+                done(true, JSONObject().put("site", saved ?: site ?: JSONObject.NULL).put("login_saved", saved != null),
+                    null)
+            }
+            "has" -> if (site == null) done(false, null, "bad_site")
+                else done(true, JSONObject().put("site", site).put("login_saved", LoginVault(host).has(site)), null)
+            "manage" -> { host.startActivity(Intent(host, VaultActivity::class.java)); done(true, null, null) }
+            else -> done(false, null, "unknown_action")
+        }
     }
 
     private fun saveFile(a: JSONObject, done: (Boolean, Any?, String?) -> Unit) {
@@ -264,7 +289,9 @@ class NativeBridge(private val host: MainActivity, private val webView: WebView)
         private val END_KINDS = setOf("done", "error", "stopped")
         val FEATURES = listOf("share", "download", "saveFile", "openTab", "openExternal", "haptic",
             "requestPermission", "checkUpdate", "setTheme", "setSession", "takeShare", "fileInput", "mic", "browserPanel",
-            "browserInline", "browserChats", "browserCard")
+            "browserInline", "browserChats", "browserCard",
+            // 0.11.0
+            "vault", "browserSuspend", "sagaSchedules", "sagaTimeline", "sagaBackground")
 
         /** Defines window.ColonNative (promise API) on top of the channel. Runs once per page, before page scripts. */
         private val SHIM = """
@@ -290,7 +317,7 @@ class NativeBridge(private val host: MainActivity, private val webView: WebView)
   else window.__colonNativeReceive = receive;
   function call(cmd, args) {
     return new Promise(function (res, rej) {
-      var id = 'n' + (++seq), wait = cmd === 'requestPermission' || cmd === 'checkUpdate' ? 120000 : 30000;
+      var id = 'n' + (++seq), wait = cmd === 'vault' ? 900000 : cmd === 'requestPermission' || cmd === 'checkUpdate' ? 120000 : 30000;
       pending[id] = [res, rej, setTimeout(function () {
         if (pending[id]) { delete pending[id]; var e = new Error('timeout'); e.code = 'timeout'; rej(e); }
       }, wait)];
@@ -312,6 +339,7 @@ class NativeBridge(private val host: MainActivity, private val webView: WebView)
     setTheme: function (t) { return call('setTheme', { theme: t }); },
     setSession: function (o) { return call('setSession', o || {}); },
     takeShare: function () { return call('takeShare'); },
+    vault: function (action, o) { var a = o || {}; a.action = action; return call('vault', a); },
     browser: function (action, o) { var a = o || {}; a.action = action; return call('browser', a); }
   });
   call('ready').then(function () {

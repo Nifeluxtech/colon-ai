@@ -29,6 +29,14 @@ class SagaTools(private val a: BrowserHost) {
         try { wv.evaluateJavascript(js) { raw -> done(decode(raw)) } } catch (_: Exception) { done(null) }
     }
 
+    /** 0.11.0: runs a standalone page script from assets/saga ([name].js: extract, login) with [args]. The script is
+     *  one function expression returning a JSON string, evaluated fresh every time, like tools.js. */
+    fun run(wv: WebView, name: String, args: JSONObject, done: (JSONObject?) -> Unit) {
+        val src = scripts.getOrPut(name) { a.activity.assets.open("saga/$name.js").bufferedReader().use { it.readText() } }
+        try { wv.evaluateJavascript("($src)($args)") { raw -> done(decode(raw)) } } catch (_: Exception) { done(null) }
+    }
+    private val scripts = HashMap<String, String>()
+
     /** A JPEG of the visible page, at most 480 px wide and ~40 KB (the bridge's frames are limited to 64 KB). */
     fun screenshot(wv: WebView): JSONObject? {
         if (wv.width <= 0 || wv.height <= 0) return null
@@ -72,7 +80,8 @@ class SagaTools(private val a: BrowserHost) {
  * real element (tools.js `inspect`) always counts. In Shared mode every step that changes the page asks first.
  */
 object SagaApproval {
-    val KINDS = listOf("payment", "purchase", "send_message", "form_submission", "personal_data")
+    /** 0.11.0: "delete" (delete, remove, cancel an order…) asks too, as on the server (policy.js). */
+    val KINDS = listOf("payment", "purchase", "delete", "send_message", "form_submission", "personal_data")
     /** Commands that only read; everything else changes the page or the tabs. */
     val READ_ONLY = setOf("get_page_content", "get_links", "get_tabs", "get_page_state", "screenshot")
 

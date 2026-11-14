@@ -17,6 +17,9 @@ object BridgeProtocol {
         "switch_tab", "close_tab", "get_page_state", "get_tabs",
         // Phase 9 (v0.9.0): Saga's page tools (SagaTools), with approval on the phone for risky steps
         "get_page_content", "get_links", "click", "fill", "scroll", "screenshot",
+        // 0.11.0: Colon Secured Login (the phone's vault fills a trusted site; the server never sees a value) and
+        // tables / lists pulled out of the page for the chat.
+        "sign_in", "extract",
     )
 
     sealed class Incoming {
@@ -27,10 +30,14 @@ object BridgeProtocol {
          *  [say] (0.10.2): Saga's one-line explanation of this step ("Clicking Sign in"), shown on the page in
          *  "AI + me" (SagaNotice); never part of what the step does. */
         data class Command(val id: String, val name: String, val args: JSONObject, val tabId: String?,
-                           val conversationId: String? = null, val say: String? = null) : Incoming()
+                           val conversationId: String? = null, val say: String? = null,
+                           /** 0.11.0: the task's step number (the phone's timeline, StepLog); 0 = not sent. */
+                           val step: Int = 0) : Incoming()
         /** The backend asks to start (or end) AI or Shared control. Starting always needs the user's consent. */
-        data class Control(val mode: ControlState.Mode, val task: String?, val conversationId: String? = null) :
-            Incoming()
+        data class Control(val mode: ControlState.Mode, val task: String?, val conversationId: String? = null,
+                           /** 0.11.0: a scheduled run ({id, name}) the user set up; null for any other task. */
+                           val scheduled: Scheduled? = null) : Incoming()
+        data class Scheduled(val id: Long, val name: String)
         /** Phase 10: Saga reached a secret field; the user types it ([message]) and taps Return to AI. */
         data class Handoff(val kind: String, val message: String, val conversationId: String?,
                            val timeoutMs: Long = 0L) : Incoming()
@@ -51,10 +58,13 @@ object BridgeProtocol {
                 val name = o.optString("name")
                 if (id.isEmpty() || id.length > 64 || name.isEmpty()) Incoming.Unknown
                 else Incoming.Command(id, name, o.optJSONObject("args") ?: JSONObject(),
-                    o.optString("tab_id").ifEmpty { null }, conv(o), line(o.optString("say"), MAX_SAY))
+                    o.optString("tab_id").ifEmpty { null }, conv(o), line(o.optString("say"), MAX_SAY),
+                    o.optInt("step", 0).coerceIn(0, 10_000))
             }
             "control" -> ControlState.Mode.from(o.optString("mode"))
-                ?.let { Incoming.Control(it, o.optString("task").ifEmpty { null }?.take(200), conv(o)) }
+                ?.let { Incoming.Control(it, o.optString("task").ifEmpty { null }?.take(200), conv(o),
+                    o.optJSONObject("scheduled")?.let { s -> Incoming.Scheduled(s.optLong("id"),
+                        line(s.optString("name"), 80) ?: "") }) }
                 ?: Incoming.Unknown
             "handoff" -> Incoming.Handoff(o.optString("kind").ifEmpty { "password" }.take(20),
                 o.optString("message").take(200), conv(o), o.optLong("timeout_ms").coerceIn(0L, MAX_WAIT_MS))

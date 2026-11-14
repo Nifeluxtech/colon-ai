@@ -49,6 +49,21 @@ interface BrowserHost {
      *  picture of the page as it is now, so it never shows blank. */
     fun onSagaStepDone() {}
 
+    /** 0.11.0: Saga sent a step ([step]: its number, for the timeline); [label] is safe to show (no secret value). */
+    fun onSagaCommand(step: Int, command: String, label: String, host: String) {}
+
+    /** 0.11.0: that step was answered ([ok]). */
+    fun onSagaStepResult(step: Int, ok: Boolean) {}
+
+    /** 0.11.0: Saga needs a login this phone doesn't have for [site]: show the Colon Secured Login form. */
+    fun onLoginNeeded(site: String?) {}
+
+    /** 0.11.0: a risky step waits for the user's approval (a notification when the app is in the background). */
+    fun onApprovalAsked(reason: String) {}
+
+    /** 0.11.0: a scheduled run for another chat's browser: switch to it when nothing runs here (true = switched). */
+    fun adoptScheduled(conversationId: String?): Boolean = false
+
     /** 0.10.4: the link to the server is up ([ready]) or reconnecting. */
     fun onBridgeStatus(ready: Boolean) {}
 

@@ -130,6 +130,9 @@ class BrowserSaga(private val a: BrowserHost, private val bridge: BridgeClient) 
 
     /** The backend asks for control. Saga never takes over without the user's yes on the phone. */
     override fun onControlRequest(request: BridgeProtocol.Incoming.Control) {
+        // 0.11.0: a scheduled run for another chat: the panel switches to that chat's browser when it is idle.
+        if (request.scheduled != null && otherChat(request.conversationId) &&
+            request.mode != ControlState.Mode.MANUAL) a.adoptScheduled(request.conversationId)
         if (otherChat(request.conversationId)) {
             if (request.mode != ControlState.Mode.MANUAL) bridge.reportControl(control.mode, control.paused, "declined")
             return
@@ -140,7 +143,8 @@ class BrowserSaga(private val a: BrowserHost, private val bridge: BridgeClient) 
         // The user allowed Saga in this chat's browser a moment ago and is giving it the next instruction in the chat.
         val chat = bridge.conversationId
         val now = System.currentTimeMillis()
-        if (ChatSessionRules.consentStands(allowedChat, allowedAt, chat, now)) {
+        if (ChatSessionRules.consentStands(allowedChat, allowedAt, chat, now) ||
+            (request.scheduled != null && ScheduleConsent.allowed(a.activity))) {
             allowedAt = now
             apply(control.grant(ask.mode, ask.task) ?: "consent")
             return
@@ -207,6 +211,8 @@ class BrowserSaga(private val a: BrowserHost, private val bridge: BridgeClient) 
         if (otherChat(request.conversationId)) return
         a.onSagaHandoff(request.timeoutMs)
         handOff(request.kind, request.message.ifBlank { null })
+        // 0.11.0: no saved login for the site Saga wanted: the Colon Secured Login form (values stay on the phone).
+        if (request.kind == "login") a.onLoginNeeded(lastSignInSite)
     }
 
     /** Hands the page to the user for a secret ([kind]); the prompt shows in the panel and (via state) the chat. */
@@ -217,6 +223,7 @@ class BrowserSaga(private val a: BrowserHost, private val bridge: BridgeClient) 
             SecretFields.PIN -> R.string.handoff_pin
             SecretFields.SIGN_IN -> R.string.handoff_sign_in
             SecretFields.PAYMENT -> R.string.handoff_payment
+            "login" -> R.string.vault_intro
             else -> R.string.handoff_password
         })
         apply(control.handOff(kind, text))
@@ -351,9 +358,17 @@ class BrowserSaga(private val a: BrowserHost, private val bridge: BridgeClient) 
     override fun handle(command: BridgeProtocol.Incoming.Command,
                         answer: (ok: Boolean, result: JSONObject?, error: String?) -> Unit) {
         // 0.10.4: after every finished step the host keeps a picture of the page (the chat's card, never blank).
+        // 0.11.0: the timeline (StepLog): the step and its outcome; a typed value is labelled without its secret.
+        val step = command.step
         val reply: Reply = { ok, result, error ->
             answer(ok, result, error)
+            if (step > 0) a.onSagaStepResult(step, ok)
             if (ok) main.postDelayed({ a.onSagaStepDone() }, STEP_PICTURE_MS)
+        }
+        if (step > 0 && control.canRunCommands() && !otherChat(command.conversationId)) {
+            val t = command.tabId?.let { a.tabs.find(it) } ?: a.tabs.active
+            a.onSagaCommand(step, command.name, StepLog.label(command.name, command.say, command.args),
+                UrlRules.displayUrl(command.args.optString("url").ifEmpty { t?.url ?: "" }))
         }
         if (otherChat(command.conversationId)) { reply(false, null, "other_chat"); return }
         if (!control.canRunCommands()) {
@@ -366,6 +381,7 @@ class BrowserSaga(private val a: BrowserHost, private val bridge: BridgeClient) 
             reply(false, null, "private_tab"); return
         }
         if (command.name == "click" || command.name == "fill") { act(command, tab, reply); return }
+        if (command.name == "sign_in") { signIn(command, tab, reply); return }
         if (command.name == "open_url" || command.name == "new_tab") {
             SecretFields.forStep(command.name, null, null, null, args.optString("url"), BuildConfig.EXTRA_CUSTOM_TAB_HOSTS)
                 ?.let { refuseSecret(it, reply); return }
@@ -417,7 +433,12 @@ class BrowserSaga(private val a: BrowserHost, private val bridge: BridgeClient) 
             "get_page_content", "get_links" -> {
                 val wv = tab?.webView ?: run { reply(false, null, "no_tab"); return }
                 val js = if (command.name == "get_links") "links" else "content"
-                tools.exec(wv, js, args) { r -> pageResult(r, reply) }
+                // 0.11.0: which tab the page is in (multi-tab tasks).
+                tools.exec(wv, js, args) { r -> pageResult(r?.apply { if (!has("error")) put("tab_id", tab.id) }, reply) }
+            }
+            "extract" -> {
+                val wv = tab?.webView ?: run { reply(false, null, "no_tab"); return }
+                tools.run(wv, "extract", args) { r -> pageResult(r, reply) }
             }
             "scroll" -> {
                 // 0.10.2: a real swipe with the pointer, checked; the page's own scrolling container by script else.
@@ -531,6 +552,47 @@ class BrowserSaga(private val a: BrowserHost, private val bridge: BridgeClient) 
         return a.activity.getString(R.string.saga_step, command.name.replace('_', ' '), url ?: "")
     }
 
+    /* ---------- 0.11.0: Colon Secured Login ---------- */
+
+    /** The site of Saga's last signIn: the Colon Secured Login form opens on it when there is no login. */
+    private var lastSignInSite: String? = null
+
+    /** sign_in {site}: the saved login fills the page natively, only on that site's https pages, only when the user
+     *  trusts the site, after their one-time approval. The answer carries no value: ok/submitted, or no_login ·
+     *  not_trusted · wrong_site · approval_denied · no_form. */
+    private fun signIn(command: BridgeProtocol.Incoming.Command, tab: BrowserTab?, reply: Reply) {
+        val site = VaultRules.site(command.args.optString("site")) ?: run { reply(false, null, "bad_site"); return }
+        lastSignInSite = site
+        val wv = tab?.webView ?: run { reply(false, null, "no_tab"); return }
+        val vault = LoginVault(a.activity)
+        val entry = vault.find(site)
+        val use = VaultRules.use(entry, site, tab.url)
+        VaultRules.errorOf(use)?.let { reply(false, null, it); return }
+        val fill: (VaultRules.Entry) -> Unit = { e ->
+            tools.run(wv, "login", JSONObject().put("user", e.user).put("pass", e.pass).put("submit", true)) { r ->
+                when {
+                    r == null -> reply(false, null, "page_error")
+                    r.has("error") -> reply(false, null, r.optString("error").take(20))
+                    else -> reply(true, JSONObject().put("submitted", r.optBoolean("submitted"))
+                        .put("step", r.optString("step").take(20)), null)
+                }
+                reportState()
+            }
+        }
+        if (use == VaultRules.Use.FILL) { fill(entry!!); return }
+        a.onApprovalAsked(a.activity.getString(R.string.vault_sign_in_title))
+        MaterialAlertDialogBuilder(a.activity)
+            .setTitle(R.string.vault_sign_in_title)
+            .setMessage(a.activity.getString(R.string.vault_sign_in_text, site, VaultRules.mask(entry!!.user)))
+            .setPositiveButton(R.string.vault_sign_in_once) { _, _ ->
+                if (!control.canRunCommands()) { reply(false, null, if (control.paused) "paused" else "manual_control") }
+                else { vault.approve(site); fill(entry) }
+            }
+            .setNegativeButton(R.string.saga_decline) { _, _ -> reply(false, null, "approval_denied") }
+            .setCancelable(false)
+            .show()
+    }
+
     /** The approval prompt. Declining, dismissing, or Saga losing control answers "no". */
     private fun askApproval(kind: String, reason: String, done: (Boolean) -> Unit) {
         approvalDialog?.dismiss()
@@ -539,11 +601,13 @@ class BrowserSaga(private val a: BrowserHost, private val bridge: BridgeClient) 
         val label = a.activity.getString(when (kind) {
             "payment" -> R.string.saga_kind_payment
             "purchase" -> R.string.saga_kind_purchase
+            "delete" -> R.string.saga_kind_delete
             "send_message" -> R.string.saga_kind_message
             "form_submission" -> R.string.saga_kind_form
             "personal_data" -> R.string.saga_kind_personal
             else -> R.string.saga_kind_step
         })
+        a.onApprovalAsked(reason)
         approvalDialog = MaterialAlertDialogBuilder(a.activity)
             .setTitle(R.string.saga_approval_title)
             .setMessage(a.activity.getString(R.string.saga_approval_text, label, reason.take(160)))

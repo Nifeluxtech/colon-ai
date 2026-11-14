@@ -65,6 +65,24 @@ class MainActivity : AppCompatActivity() {
         permissionCallbacks.removeFirstOrNull()?.invoke(ok)
     }
 
+    /** 0.11.0: the Colon Secured Login form's answer: the site and the masked user name, never the password. */
+    private var vaultCallback: ((String?, String?) -> Unit)? = null
+    private val vaultLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { r ->
+        val cb = vaultCallback.also { vaultCallback = null } ?: return@registerForActivityResult
+        val i = r.data
+        if (r.resultCode == RESULT_OK && i != null) cb(i.getStringExtra(LoginFormActivity.EXTRA_SITE),
+            i.getStringExtra(LoginFormActivity.RESULT_MASKED))
+        else cb(null, null)
+    }
+
+    /** Opens the Colon Secured Login form for [site]; [done] gets (site saved, masked user) or (null, null). */
+    fun openLoginForm(site: String?, user: String?, trust: Boolean, done: (String?, String?) -> Unit) {
+        vaultCallback?.invoke(null, null)
+        vaultCallback = done
+        try { vaultLauncher.launch(LoginFormActivity.intent(this, site, user, trust)) }
+        catch (_: Exception) { vaultCallback = null; done(null, null) }
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         val splash = installSplashScreen()
         super.onCreate(savedInstanceState)
