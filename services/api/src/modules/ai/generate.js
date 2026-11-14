@@ -8,6 +8,7 @@ const { systemPrompt } = require('./prompts');
 const { classify } = require('./classify');
 const specialists = require('./specialists');
 const modelSet = require('./model-set');
+const support = require('./support');
 const config = require('../../config');
 
 function enabledProviders(cfg = routingDefault) {
@@ -58,11 +59,18 @@ function chainFor({ mode = 'general', language = 'en', model = null, needsVision
   // A config with no Gemma 4 model at all (none set up, or a test's mock) keeps its full chain rather than none.
   if (gemma && !modelSet.gemmaChain(chain).length) return chainFor({ mode, language, model, needsVision, category },
     cfg, now, 'all');
-  const list = gemma ? modelSet.gemmaChain(chain) : chain;
+  // 0.11.0: after Gemma 4, the support models on other free hosts (support.js), one at a time.
+  const list = gemma ? withSupport(modelSet.gemmaChain(chain), providers, needsVision) : chain;
   if (gemma && category) route = `gemma:${category}`;
   const awake = list.filter(c => !(resting.get(keyOf(c)) > now));
   const asleep = list.filter(c => resting.get(keyOf(c)) > now);
   return Object.assign(awake.concat(asleep), { route });
+}
+
+function withSupport(list, providers, needsVision) {
+  const seen = new Set(list.map(keyOf));
+  const extra = support.entries(providers).filter(c => !(needsVision && !c.vision) && !seen.has(keyOf(c)));
+  return list.concat(extra);
 }
 
 function isConfigured(cfg = routingDefault) {

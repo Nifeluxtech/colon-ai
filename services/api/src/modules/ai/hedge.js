@@ -2,6 +2,8 @@
 // cancelled; failed targets "rest" for a while so one dead free model doesn't slow every reply.
 const { streamChat, ProviderError } = require('./client');
 const log = require('../../shared/logger');
+const { fit } = require('./fit');
+const support = require('./support');
 
 // In-memory "rest" per worker: a target that just failed is tried last for a while, so one dead free
 // model doesn't add seconds to every reply. It is still tried as a last resort.
@@ -9,6 +11,17 @@ const resting = new Map();
 const REST_MS = { rate_limited: 60e3, model_not_found: 10 * 60e3, auth: 10 * 60e3, payment_required: 10 * 60e3,
   timeout: 30e3, upstream_error: 30e3 };
 const keyOf = (c) => `${c.providerId}|${c.model}`;
+// 0.11.0: a 429 whose Retry-After is this short (ms) is waited out and the same model asked once more; a longer one
+// rests the model at least that long and the next model is asked. AI_RETRY_WAIT_MS (default 3000, 0 = never wait).
+const retryWait = () => { const n = Number(process.env.AI_RETRY_WAIT_MS); return Number.isFinite(n) && n >= 0
+  ? Math.min(n, 15000) : 3000; };
+// Which model answered the last replies on this worker (Admin › Routing): newest first, at most 20.
+const recent = [];
+function remember(c, ms, tried, route) {
+  recent.unshift({ at: new Date().toISOString(), provider: c.providerId, model: c.model, support: Boolean(c.support),
+    ms, tried, route: route || null });
+  recent.length = Math.min(recent.length, 20);
+}
 
 // Puts targets from different providers into the same wave, so one busy host doesn't sink a whole wave.
 // Demoted targets (weak in this request's category, see specialists.js) are never pulled forward to fill a wave.
@@ -35,7 +48,7 @@ function orderForHedge(chain, hedge) {
 function race(queue, hedge, { o, messages, timeouts, attempts, route }) {
   queue = queue.slice();
   return new Promise((resolve, reject) => {
-    let winner = null, settled = false, running = 0;
+    let winner = null, settled = false, running = 0, waiting = 0;
     const live = new Map();             // AbortController -> target, for every call in flight
     const retried = new Set();
     const onOuter = () => live.forEach((_, ctl) => ctl.abort());
@@ -48,7 +61,7 @@ function race(queue, hedge, { o, messages, timeouts, attempts, route }) {
     const fill = () => {
       while (!settled && winner === null && running < hedge && queue.length && !(o.signal && o.signal.aborted)) start(
         queue.shift());
-      if (!settled && winner === null && running === 0) {
+      if (!settled && winner === null && running === 0 && waiting === 0) {
         if (o.signal && o.signal.aborted) { const a = new Error('aborted'); a.name = 'AbortError'; a.partialText = '';
           a.attempts = attempts; finish(reject, a); }
         else finish(resolve, null);
@@ -67,7 +80,8 @@ function race(queue, hedge, { o, messages, timeouts, attempts, route }) {
         return true;
       };
       streamChat({
-        provider: c.provider, model: c.model, body: c.body, messages, signal: ctl.signal, fetch: o.fetch,
+        provider: c.provider, model: c.model, body: c.body, signal: ctl.signal, fetch: o.fetch,
+        messages: c.maxInputChars ? fit(messages, c.maxInputChars) : messages,
         maxTokens: timeouts.maxTokens, temperature: o.temperature,
         firstTokenTimeoutMs: timeouts.firstTokenTimeoutMs, idleTimeoutMs: timeouts.idleTimeoutMs,
           maxMs: timeouts.maxReplyMs,
@@ -77,10 +91,11 @@ function race(queue, hedge, { o, messages, timeouts, attempts, route }) {
         if (!claim()) return;
         attempts.push({ provider: c.providerId, model: c.model, ok: true, ms: Date.now() - started });
         resting.delete(keyOf(c));
+        remember(c, Date.now() - started, attempts.length, route);
         log.warn('ai_reply_ok', { provider: c.providerId, model: c.model, ms: Date.now() - started,
-          tried: attempts.length, ...(route ? { route } : {}) });
+          tried: attempts.length, ...(route ? { route } : {}), ...(c.support ? { support: true } : {}) });
         finish(resolve, { text, providerId: c.providerId, providerName: c.providerName, model: c.model,
-          target: c.target, attempts });
+          target: c.target, attempts, support: Boolean(c.support) });
       }, (e) => {
         live.delete(ctl); running--;
         if (winner !== null && winner !== ctl) return;            // a slower model we cancelled
@@ -103,8 +118,20 @@ function race(queue, hedge, { o, messages, timeouts, attempts, route }) {
             { status: 502, partialText: text, attempts, providerId: c.providerId, model: c.model }));
         }
         const transient = e.code === 'upstream_error' && (e.status >= 500 || !e.status) && ms < 5000;
+        const wait = e.code === 'rate_limited' && e.retryAfterMs != null ? Number(e.retryAfterMs) : null;
         if (transient && !retried.has(keyOf(c))) { retried.add(keyOf(c)); queue.unshift(c); }
-        else if (REST_MS[e.code]) resting.set(keyOf(c), Date.now() + REST_MS[e.code]);
+        else if (wait != null && wait <= retryWait() && !retried.has(keyOf(c)) && !(o.signal && o.signal.aborted)) {
+          // A short Retry-After: wait it out and ask the same model once more, then (if it fails) move on.
+          retried.add(keyOf(c)); waiting++;
+          const again = () => { waiting--; if (!settled && winner === null) queue.unshift(c); fill(); };
+          setTimeout(again, Math.max(0, wait));
+          return;
+        } else if (support.unavailable(c, e)) {
+          // 0.11.0: a Gemini support model Google withdrew (gemini-2.5-flash): skip it and rest it for a day.
+          resting.set(keyOf(c), Date.now() + support.unavailableRestMs());
+        } else if (REST_MS[e.code]) {
+          resting.set(keyOf(c), Date.now() + Math.max(REST_MS[e.code], e.code === 'rate_limited' && wait ? wait : 0));
+        }
         fill();
       });
     };
@@ -112,4 +139,4 @@ function race(queue, hedge, { o, messages, timeouts, attempts, route }) {
   });
 }
 
-module.exports = { orderForHedge, race, resting, REST_MS, keyOf };
+module.exports = { orderForHedge, race, resting, REST_MS, keyOf, recent, retryWait };

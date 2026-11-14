@@ -14,4 +14,6 @@ module.exports = {
   specialists: require('./specialists'),
   classify: require('./classify'),
   modelSet: require('./model-set'),
+  support: require('./support'),
+  answered: () => require('./hedge').recent.slice(),
 };
