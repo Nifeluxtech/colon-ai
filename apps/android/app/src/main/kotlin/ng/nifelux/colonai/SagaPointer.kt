@@ -14,7 +14,8 @@ import androidx.core.content.ContextCompat
 
 /**
  * 0.10.1: Saga's pointer. A Colon-blue arrow with the brand's two cyan dots, drawn over the page in the browser's
- * content frame (above the WebView and the AI shield). It glides to the element before each click, fill and scroll,
+ * content frame (above the WebView and the AI shield). It glides to the element before each click and fill, and
+ * rides along Saga's scroll swipes (0.10.2),
  * shows a ripple where it taps, then fades. It never takes a touch (not clickable or focusable, onTouchEvent and
  * dispatchTouchEvent answer false), so in "AI + me" the user's fingers reach the page and the shield's Take control
  * button as before. It is never shown on a secret field: SagaClicks only moves it after tools.js `point` passed.
@@ -97,14 +98,8 @@ class SagaPointer(context: Context) : View(context) {
         removeCallbacks(hideLater); postDelayed(hideLater, LINGER_MS)
     }
 
-    /** Scrolling: the pointer drifts up or down the middle of the page, then fades. */
-    fun swipe(target: View, direction: String) {
-        val up = direction == "up" || direction == "top"
-        val x = target.width * 0.62f
-        val from = target.height * (if (up) 0.35f else 0.65f)
-        val to = target.height * (if (up) 0.6f else 0.4f)
-        moveTo(target, x, from) { moveTo(target, x, to) { removeCallbacks(hideLater); postDelayed(hideLater, 400) } }
-    }
+    /** 0.10.2: the gesture is over: the pointer fades after a short moment. */
+    fun release() { removeCallbacks(hideLater); postDelayed(hideLater, 400) }
 
     /** Gone at once: Saga lost control, or a secret field was handed to the user. */
     fun hide() {

@@ -36,6 +36,8 @@ class BridgeClient(private val context: Context, val http: OkHttpClient) {
         fun onControlRequest(request: BridgeProtocol.Incoming.Control) {}
         /** Phase 10: Saga hands a secret field to the user (password, code, card, PIN, sign-in, payment). */
         fun onHandoff(request: BridgeProtocol.Incoming.Handoff) {}
+        /** 0.10.2: Saga tells the user something on the page (its task finished, it needs them). */
+        fun onNotice(notice: BridgeProtocol.Incoming.Notice) {}
     }
 
     /** Runs Saga's commands. Set by the open Colon Browser screen; null when no browser is open. */
@@ -216,6 +218,7 @@ class BridgeClient(private val context: Context, val http: OkHttpClient) {
                 is BridgeProtocol.Incoming.Command -> runCommand(webSocket, msg)
                 is BridgeProtocol.Incoming.Control -> listeners.toList().forEach { it.onControlRequest(msg) }
                 is BridgeProtocol.Incoming.Handoff -> listeners.toList().forEach { it.onHandoff(msg) }
+                is BridgeProtocol.Incoming.Notice -> listeners.toList().forEach { it.onNotice(msg) }
                 is BridgeProtocol.Incoming.Error -> Log.w(TAG, "bridge error ${msg.code}")
                 else -> Unit
             }
@@ -251,7 +254,8 @@ class BridgeClient(private val context: Context, val http: OkHttpClient) {
         }
         var answered = false
         handler.handle(cmd) { ok, result, error ->
-            if (!answered) { answered = true; ws.send(BridgeProtocol.ack(cmd.id, ok, result, error)) }
+            // 0.10.2: trimmed to the server's frame limit, so a long page read is never silently dropped.
+            if (!answered) { answered = true; ws.send(BridgeProtocol.fitAck(cmd.id, ok, result, error)) }
         }
     }
 

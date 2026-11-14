@@ -30,7 +30,9 @@ import com.google.android.material.dialog.MaterialAlertDialogBuilder
  */
 object BrowserWeb {
     fun create(a: BrowserHost, tab: BrowserTab): WebView {
-        val wv = WebView(a.activity)
+        // 0.10.2: the page ignores the user while Saga drives in "AI only" (TabWebView); private tabs are never
+        // Saga's, so they are never locked.
+        val wv = TabWebView(a.activity).also { it.guard = { !tab.incognito && a.userInputBlocked() } }
         if (tab.incognito) PrivateProfiles.apply(wv) // before anything else touches the WebView
         else a.tabProfile()?.let { ChatProfiles.apply(wv, it) } // Phase 10: the chat's own cookies and storage
         wv.setBackgroundColor(if (a.isDark()) 0xFF080F24.toInt() else 0xFFFFFFFF.toInt())

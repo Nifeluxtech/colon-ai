@@ -31,6 +31,13 @@ interface BrowserHost {
     /** Saga's control changed (mode, pause, handoff): the chat page is told (ChatBrowserPanel). */
     fun onControlChanged() {}
 
+    /** 0.10.2: the user may not drive the pages now (Saga has them in "AI only"; TabWebView). */
+    fun userInputBlocked(): Boolean = false
+
+    /** 0.10.2: this browser is in "AI + me" (the chat's mode): Saga's steps and requests show as notices on the page
+     *  (SagaNotice). */
+    fun sharedMode(): Boolean = false
+
     /** The WebView profile a new normal tab uses (Phase 10: the chat's own, ChatSessions); null = the default. */
     fun tabProfile(): String? = null
 

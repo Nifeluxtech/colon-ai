@@ -107,12 +107,17 @@ async function finish(task, r, req, bridge) {
   await store.setStatus(task.id, r.status, { error: r.error, steps: r.steps, answer: r.answer, sources: r.sources });
   await audit(req, 'saga.task_finished', { actorId: task.user_id, targetType: 'saga_task', targetId: task.id,
     meta: { status: r.status, error: r.error || null, steps: r.steps || 0, sources: (r.sources || []).length } });
-  // Saga hands the browser back: the phone leaves AI mode and its shield goes.
+  // Saga hands the browser back: the phone leaves AI mode and its shield goes. Then (0.10.2) a word on the page,
+  // which the phone shows in "AI + me": the answer itself is in the chat.
   if (bridge && r.status !== 'interrupted') {
-    await bridge.askControl('manual', '', { conversation: task.conversation_id || null }).catch(() => {});
+    const conversation = task.conversation_id || null;
+    await bridge.askControl('manual', '', { conversation }).catch(() => {});
+    if (bridge.notice) bridge.notice(ENDED[r.status] || ENDED.failed, 'done', { conversation });
   }
   return r;
 }
+const ENDED = { done: 'Done. Saga’s answer is in the chat.', stopped: 'Saga stopped.',
+  failed: 'Saga couldn’t finish. Details are in the chat.' };
 
 async function launch(task, bridge, deps) {
   if (running.has(task.id) || !(await store.claim(task.id, WORKER, bridge.state.ref))) return null;

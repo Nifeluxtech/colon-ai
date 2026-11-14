@@ -122,9 +122,11 @@
   border-bottom:1px solid var(--line);background:var(--primary-soft,rgba(65,105,225,.12))}
 .cw-native-prompt[hidden]{display:none}
 .cw-native-prompt span{flex:1}
-/* The app's own WebView is laid over this box (inline layout, v0.9.1); the text shows only until it is there. */
-.cw-native-body{height:60vh;min-height:320px;display:flex;align-items:center;justify-content:center;
-  background:var(--surface-solid)}
+/* The app's own WebView is laid over this box (inline layout, v0.9.1); the text shows only until it is there.
+   0.10.2: about a sixth shorter (50vh, was 60vh), and never taller than the space between the header and the
+   composer, so the whole page fits above the message box, keyboard open or not. */
+.cw-native-body{height:50vh;height:min(50vh,calc(var(--vvh,100vh) - var(--composer-h,132px) - 150px));
+  min-height:240px;display:flex;align-items:center;justify-content:center;background:var(--surface-solid)}
 .cw-embed.full{position:fixed;inset:0;z-index:130;margin:0;border-radius:0;display:flex;flex-direction:column;
   padding-top:var(--safe-t)}
 .cw-embed.full .cw-embed-body{flex:1;height:auto}

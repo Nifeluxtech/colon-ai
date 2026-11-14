@@ -23,14 +23,18 @@ object BridgeProtocol {
         /** The server's greeting. bridge=false means the server only has the basic /ws gateway (no Saga commands). */
         data class Hello(val bridge: Boolean, val service: String) : Incoming()
         object Pong : Incoming()
-        /** [conversationId] (Phase 10): the chat whose browser the command is for; null = whichever is shown. */
+        /** [conversationId] (Phase 10): the chat whose browser the command is for; null = whichever is shown.
+         *  [say] (0.10.2): Saga's one-line explanation of this step ("Clicking Sign in"), shown on the page in
+         *  "AI + me" (SagaNotice); never part of what the step does. */
         data class Command(val id: String, val name: String, val args: JSONObject, val tabId: String?,
-                           val conversationId: String? = null) : Incoming()
+                           val conversationId: String? = null, val say: String? = null) : Incoming()
         /** The backend asks to start (or end) AI or Shared control. Starting always needs the user's consent. */
         data class Control(val mode: ControlState.Mode, val task: String?, val conversationId: String? = null) :
             Incoming()
         /** Phase 10: Saga reached a secret field; the user types it ([message]) and taps Return to AI. */
         data class Handoff(val kind: String, val message: String, val conversationId: String?) : Incoming()
+        /** 0.10.2: something Saga tells the user on the page ([kind] step · ask · done), e.g. its task finished. */
+        data class Notice(val text: String, val kind: String, val conversationId: String?) : Incoming()
         data class Error(val code: String, val message: String) : Incoming()
         object Unknown : Incoming()
     }
@@ -46,19 +50,29 @@ object BridgeProtocol {
                 val name = o.optString("name")
                 if (id.isEmpty() || id.length > 64 || name.isEmpty()) Incoming.Unknown
                 else Incoming.Command(id, name, o.optJSONObject("args") ?: JSONObject(),
-                    o.optString("tab_id").ifEmpty { null }, conv(o))
+                    o.optString("tab_id").ifEmpty { null }, conv(o), line(o.optString("say"), MAX_SAY))
             }
             "control" -> ControlState.Mode.from(o.optString("mode"))
                 ?.let { Incoming.Control(it, o.optString("task").ifEmpty { null }?.take(200), conv(o)) }
                 ?: Incoming.Unknown
             "handoff" -> Incoming.Handoff(o.optString("kind").ifEmpty { "password" }.take(20),
                 o.optString("message").take(200), conv(o))
+            "notice" -> line(o.optString("text"), MAX_SAY)?.let {
+                Incoming.Notice(it, o.optString("kind").takeIf { k -> k in NOTICE_KINDS } ?: "step", conv(o))
+            } ?: Incoming.Unknown
             "error" -> Incoming.Error(o.optString("code"), o.optString("message"))
             else -> Incoming.Unknown
         }
     }
 
     private fun conv(o: JSONObject): String? = o.optString("conversation_id").ifEmpty { null }?.take(64)
+
+    const val MAX_SAY = 160
+    val NOTICE_KINDS = setOf("step", "ask", "done")
+
+    /** One short line of text for the screen: control characters and runs of spaces collapsed, at most [max]. */
+    fun line(s: String?, max: Int): String? =
+        s?.replace(Regex("[\\u0000-\\u001f\\u007f\\s]+"), " ")?.trim()?.take(max)?.ifEmpty { null }
 
     private fun base(type: String) = JSONObject().put("v", VERSION).put("type", type)
         .put("ts", System.currentTimeMillis())
@@ -81,6 +95,37 @@ object BridgeProtocol {
         if (error != null) o.put("error", error)
         return o.toString()
     }
+
+    /** The server refuses frames over 64 KB (the ack would be lost and the step time out). */
+    const val MAX_ACK_BYTES = 60_000
+
+    /**
+     * 0.10.2: an ack that fits the bridge's frame limit. A long page read (text, many long links) is trimmed instead
+     * of being dropped by the server: the text is shortened (truncated: true), then the last elements and links go.
+     * Anything still too large is answered as an error the server understands. Never mutates [result].
+     */
+    fun fitAck(ref: String, ok: Boolean, result: JSONObject? = null, error: String? = null,
+               max: Int = MAX_ACK_BYTES): String {
+        var frame = ack(ref, ok, result, error)
+        if (result == null || bytes(frame) <= max) return frame
+        val r = JSONObject(result.toString())
+        var text = r.optString("text")
+        while (text.isNotEmpty() && bytes(frame) > max) {
+            text = text.take(text.length / 2)
+            r.put("text", text).put("truncated", true)
+            frame = ack(ref, ok, r, error)
+        }
+        for (key in listOf("elements", "links")) {
+            val list = r.optJSONArray(key) ?: continue
+            while (list.length() > 0 && bytes(frame) > max) {
+                list.remove(list.length() - 1)
+                frame = ack(ref, ok, r, error)
+            }
+        }
+        return if (bytes(frame) <= max) frame else ack(ref, false, null, "too_large")
+    }
+
+    private fun bytes(s: String): Int = s.toByteArray(Charsets.UTF_8).size
 
     fun control(mode: ControlState.Mode, paused: Boolean, reason: String): String =
         base("control").put("mode", mode.wire).put("paused", paused).put("reason", reason).toString()

@@ -1,17 +1,17 @@
 {
-  "versionName": "0.10.1",
-  "versionCode": 1001,
-  "apkUrl": "https://github.com/Nifeluxtech/colon-ai/releases/download/v0.10.1/colon-ai-0.10.1.apk",
-  "releaseUrl": "https://github.com/Nifeluxtech/colon-ai/releases/tag/v0.10.1",
-  "notes": "Fix: the message box and its Synced line stay at the bottom of the screen while the in-chat browser is open. Only the chat scrolls, and the browser no longer covers the message box.",
+  "versionName": "0.10.2",
+  "versionCode": 1002,
+  "apkUrl": "https://github.com/Nifeluxtech/colon-ai/releases/download/v0.10.2/colon-ai-0.10.2.apk",
+  "releaseUrl": "https://github.com/Nifeluxtech/colon-ai/releases/tag/v0.10.2",
+  "notes": "Saga can really click, type and scroll in the chat's browser, with its pointer moving to each spot. In AI only the page is Saga's until you tap Take control; in AI + me Saga's steps and requests show at the top of the browser. The browser is a little shorter and never covers the message box.",
   "minSupportedVersionCode": 0,
-  "publishedAt": "2026-11-13",
+  "publishedAt": "2026-11-14",
   "browser": {
-    "versionName": "0.10.1",
-    "versionCode": 1001,
-    "apkUrl": "https://github.com/Nifeluxtech/colon-ai/releases/download/v0.10.1/colon-browser-0.10.1.apk",
-    "releaseUrl": "https://github.com/Nifeluxtech/colon-ai/releases/tag/v0.10.1",
-    "notes": "Released alongside Colon AI 0.10.1 (a fix for the chat's message box staying at the bottom of the screen). No changes to Colon Browser itself.",
+    "versionName": "0.10.2",
+    "versionCode": 1002,
+    "apkUrl": "https://github.com/Nifeluxtech/colon-ai/releases/download/v0.10.2/colon-browser-0.10.2.apk",
+    "releaseUrl": "https://github.com/Nifeluxtech/colon-ai/releases/tag/v0.10.2",
+    "notes": "Released alongside Colon AI 0.10.2: Saga's taps, typing and scrolling work for real, AI only keeps your fingers off the page while Saga drives, and AI + me shows what Saga is doing.",
     "minSupportedVersionCode": 0
   }
 }

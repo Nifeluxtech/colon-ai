@@ -306,6 +306,10 @@ class ChatBrowserPanel(private val a: MainActivity) : BrowserHost, TabManager.Ho
 
     override fun onControlChanged() = changed()
 
+    override fun userInputBlocked(): Boolean = saga.blocksUser()
+
+    override fun sharedMode(): Boolean = ChatSessionRules.mode(chats.mode(chatKey)) == "shared"
+
     /** browser('chat'): the chat page now shows [conversationId] (null: a new chat). [adopt]: the new chat just got
      *  its id, so the browser it already has becomes the conversation's (nothing reloads). */
     fun showChat(conversationId: String?, adopt: Boolean) {
@@ -498,7 +502,7 @@ class ChatBrowserPanel(private val a: MainActivity) : BrowserHost, TabManager.Ho
     private fun placeInline() {
         if (!docked) return
         val p = if (isOpen && !collapsed) InlineGeometry.place(anchor, a.resources.displayMetrics.density,
-            a.webView.left, a.webView.top, layer.width, layer.height) else InlineGeometry.NOWHERE
+            a.webView.left, a.webView.top, layer.width, layer.height, a.webView.height) else InlineGeometry.NOWHERE
         if (!p.visible) {
             if (layer.visibility != View.INVISIBLE) layer.visibility = View.INVISIBLE
             return

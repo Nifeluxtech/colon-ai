@@ -33,6 +33,33 @@ object SagaTap {
         return Plan(native = why == null, x = x, y = y, shown = inView && hasView, why = why)
     }
 
+    /** 0.10.2: a real tap that changed nothing at all (not even focus) is tried once more as a script click, unless
+     *  the step needed the user's approval ([retry] false): a payment, purchase, message or form never runs twice. */
+    fun retryWithScript(result: JSONObject, method: String, retry: Boolean): Boolean =
+        retry && method == "tap" && result.optString("changed") == "none"
+
+    /** 0.10.2: a finger swipe for scroll, in the WebView's px. */
+    data class Swipe(val x: Float, val fromY: Float, val toY: Float)
+
+    const val SWIPE_STEPS = 12
+
+    /** "down" moves the page up: the finger goes from 72 % to 30 % of the height (and back for "up"), a little
+     *  right of the middle. top / bottom, or no laid-out view: null (act.js scrolls by script). */
+    fun swipe(direction: String, width: Int, height: Int, attached: Boolean): Swipe? {
+        if (!attached || width <= 0 || height <= 0) return null
+        val x = width * 0.6f
+        return when (direction) {
+            "down" -> Swipe(x, height * 0.72f, height * 0.30f)
+            "up" -> Swipe(x, height * 0.30f, height * 0.72f)
+            else -> null
+        }
+    }
+
+    /** act.js scrollinfo before and after the swipe: did the page (or its scrolling container) move? */
+    fun scrolled(before: JSONObject?, after: JSONObject?): Boolean =
+        before != null && after != null && !after.has("error") && after.has("y") &&
+            after.optInt("y") != before.optInt("y")
+
     /** True when a click result is worth checking once more after a longer wait. */
     fun lookAgain(changed: String?): Boolean = changed == null || changed in LOOK_AGAIN
 

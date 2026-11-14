@@ -1,5 +1,55 @@
 # Changelog
 
+## [0.10.2] — 2026-11-14 · Saga really clicks, types and scrolls; AI only locks the page; AI + me shows Saga's words
+The owner's report from the phone (Colon AI, in-chat browser): the browser panel covered the message box while
+scrolling, Saga's touch and pointer did not work, "AI only" still let the user's fingers in, and "AI + me" showed
+nothing of what Saga was doing or asking. Every version number moves to 0.10.2 (apps, `Colon.version`,
+`version.json` versionCode 1002 for both APKs). No migration.
+### Fixed
+- **The browser never slides over the composer.** Two causes. (1) When the chat shrank (the keyboard opening, the
+  composer growing to two lines), the app re-laid its views a frame or more before the chat page reported the new
+  composer position, and the clip then ran to the bottom of the shrunken layer, right over the message box
+  (`InlineGeometryTest` even described it: "the clip stops at the layer's bottom"). The anchor now carries
+  `pageHeight`, and the app keeps the gap the page saw under the band from the WebView's bottom as it is now
+  (`InlineGeometry.place(…, shellHeight)`). (2) The anchor's numbers were relative to the layout viewport, not the
+  visual viewport the app's WebView shows; with the visual viewport moved (the frame follows it with `--vvt`) the
+  panel and its clip landed lower than the composer. Numbers are now measured from the visual viewport's corner,
+  with its scale in `dpr` (`lib/native-anchor.js` `screenOf`). The composer is looked up on every measure (a
+  re-drawn composer still counts) and its "Latest" button ends the band too.
+- **A shorter panel.** The in-thread body box is 50vh (was 60vh, about a sixth shorter), never taller than the space
+  between the header and the composer, at least 240 px (was 320 px), so the whole page fits above the message box
+  with the keyboard open or not.
+- **Saga types for real.** `fill` set the value with the native setter and fired bare `input` / `change` events,
+  then answered `ok` without checking; rich editors (`contenteditable`) and sites that listen for `beforeinput` /
+  `inputType` ignored it. New `assets/saga/act.js`: focus, select what is there, `execCommand('insertText')` (the
+  browser's own editing path), falling back to the native setter plus an `InputEvent`; `<select>` by option text;
+  Enter submits the form only when the page did not handle Enter itself. `ack.result.typed` says whether the text
+  is really there and the model is told plainly when it is not.
+- **Saga scrolls for real.** `scroll` was `window.scrollBy`, which does nothing on the many sites whose page is one
+  screen with a scrolling container, and always answered `ok`. Now a real finger swipe with the pointer riding
+  along, checked before and after; when nothing moved (or for top / bottom) the scrollable element under the middle
+  of the view, or the page, is scrolled by script. `ack.result.moved` tells the model when it is already at the end.
+- **A tap that did nothing is tried once more.** When a real tap changes nothing at all, the script click follows
+  once (`method: "tap+script"`), never for a step the user had to approve (payments, purchases, messages, forms).
+- **Long page reads are no longer lost.** An ack over the server's 64 KB frame limit (long text, many long links)
+  was refused by the server and the step timed out, so Saga had no element ids to click; the phone now trims it
+  (`BridgeProtocol.fitAck`).
+- **"AI only" locks the page.** While Saga has the browser in AI only (paused too), the page ignores the user: the
+  shield with Take control covers it and the tab's WebView (`TabWebView`) drops the user's touches, wheel and keys
+  and gives the keyboard nothing to type into, so a field Saga tapped can't be typed in by the user either. Saga's
+  own taps and swipes go through. "AI + me" is unchanged: the user interacts normally.
+### Added
+- **Saga's words on the page in "AI + me".** Each command carries Saga's one-line `say` ("Clicking Sign in"); the
+  phone shows it, its requests to the user ("Your turn: enter the code…") and the server's new `notice` frame
+  ("Done. Saga's answer is in the chat.") as a pill at the top of the browser that fades by itself and never takes
+  a touch (`SagaNotice`, `modules/browser/frames.js`). The chat brings the browser card into view when Saga takes
+  the browser, so its pointer can be seen.
+- Docs: `docs/android-bridge.md` (anchor `pageHeight` and visual viewport, `say`, `notice`, fill / scroll results,
+  the AI only lock).
+- Tests: `tests/unit/saga-phone-act.test.js`, `tests/unit/saga-notice.test.js`, the visual viewport and composer
+  cases in `packages/ui/test/native-anchor.test.js`, `SagaTouchTest.kt`, the stale-report case in
+  `InlineGeometryTest.kt`.
+
 ## [0.10.1] — 2026-11-13 · Composer pinned with the in-chat browser open; Saga clicks for real
 A fix from the owner's phone (Infinix SMART 20, app 0.10.0, inline browser card open): the message box ("Ask Colon
 anything…") and its "Synced" line seemed to scroll away with the thread instead of staying at the bottom of the

@@ -3,7 +3,7 @@
 // keyboard (visualViewport) and stop() handled. A fake DOM: elements with a settable client rect and listeners.
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { anchorRect, createAnchor, viewOf } = require('../../../apps/chat/src/lib/native-anchor.js');
+const { anchorRect, coverTop, createAnchor, screenOf, viewOf } = require('../../../apps/chat/src/lib/native-anchor.js');
 
 function target() {
   const ls = {};
@@ -61,7 +61,7 @@ test('reports on open, then at most once per frame and only when something moved
   assert.equal(r.sent.length, 0); assert.equal(r.frames.length, 1);  // first report waits for a frame
   r.flush();
   assert.deepEqual(r.sent, [{ visible: true, x: 16, y: 300, width: 368, height: 480, viewportTop: 56,
-    viewportBottom: 696, dpr: 2.625 }]);
+    viewportBottom: 696, dpr: 2.625, pageHeight: 800 }]);
   for (let i = 0; i < 5; i++) r.scroller.fire('scroll');           // a burst of scroll events: one frame
   assert.equal(r.frames.length, 1);
   r.body.rect = { left: 16, top: 200, width: 368, height: 480 }; r.flush();
@@ -155,4 +155,39 @@ test('createAnchor with cover: viewportBottom is the composer top, and the compo
   body.rect = { left: 10, top: 640, width: 380, height: 480 };              // card now entirely behind the composer
   a.update(); frames.splice(0).forEach((f) => f());
   assert.deepEqual(sent[2], { visible: false });
+});
+
+// 0.10.2: the owner's phone still showed the panel over the composer while scrolling. The numbers are now measured
+// from the visual viewport's corner (what the app's WebView shows) and carry pageHeight, so the app keeps the
+// composer's gap even when its WebView resized (the keyboard) before the page's next report.
+test('screen: numbers relative to the visual viewport, pageHeight, and the pinch scale in dpr', () => {
+  const box = { left: 16, top: 400, width: 368, height: 300 };
+  const p = anchorRect(box, { top: 100, bottom: 700 }, 2, false, { x: 0, y: 60, height: 640, scale: 1 });
+  assert.deepEqual(p, { visible: true, x: 16, y: 340, width: 368, height: 300, viewportTop: 40, viewportBottom: 640,
+    dpr: 2, pageHeight: 640 });
+  assert.equal(anchorRect(box, { top: 100, bottom: 700 }, 2, false, { x: 0, y: 0, height: 800, scale: 1.5 }).dpr, 3);
+  assert.deepEqual(screenOf({ innerHeight: 800, visualViewport: { offsetLeft: 0, offsetTop: 12, height: 500,
+    scale: 1 } }), { x: 0, y: 12, height: 500, scale: 1 });
+  assert.deepEqual(screenOf({ innerHeight: 800, visualViewport: null }), { x: 0, y: 0, height: 800, scale: 1 });
+});
+
+test('cover: looked up on every measure, and the "Latest" button above the composer cuts the band too', () => {
+  const composer = el({ left: 0, top: 668, width: 400, height: 132 });
+  assert.equal(coverTop(() => composer), 668);
+  assert.equal(coverTop(() => null), Infinity);
+  const jump = el({ left: 150, top: 620, width: 100, height: 36 });
+  composer.querySelector = (sel) => (sel === '.cw-jump:not([hidden])' ? jump : null);
+  assert.equal(coverTop(composer), 620);
+  composer.querySelector = () => null;                                     // hidden again
+  assert.equal(coverTop(composer), 668);
+  let current = composer;                                                  // the composer is re-drawn
+  const frames = [], sent = [];
+  const win = Object.assign(target(), { innerHeight: 800, devicePixelRatio: 2, visualViewport: null });
+  createAnchor({ el: el({ left: 0, top: 300, width: 400, height: 480 }), scroller: el({ left: 0, top: 56,
+    width: 400, height: 744 }), cover: () => current, win, send: (p) => sent.push(p), raf: (f) => frames.push(f) });
+  frames.splice(0).forEach((f) => f());
+  assert.equal(sent[0].viewportBottom, 668);
+  current = el({ left: 0, top: 600, width: 400, height: 200 });            // taller (two lines, attachments)
+  win.fire('resize'); frames.splice(0).forEach((f) => f());
+  assert.equal(sent[1].viewportBottom, 600);
 });

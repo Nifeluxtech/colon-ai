@@ -12,6 +12,9 @@ const policy = require('../../src/modules/saga/policy');
 
 const SRC = fs.readFileSync(path.resolve(__dirname, '../../../../apps/android/app/src/main/assets/saga/tools.js'),
   'utf8');
+// 0.10.2: typing and scrolling live in act.js, evaluated with tools.js and passed in as its third argument.
+const ACT = fs.readFileSync(path.resolve(__dirname, '../../../../apps/android/app/src/main/assets/saga/act.js'),
+  'utf8');
 
 // A minimal DOM: enough for content, inspect, click, fill and links.
 function dom(specs) {
@@ -45,8 +48,10 @@ function dom(specs) {
     getComputedStyle: () => ({ visibility: 'visible', display: 'block', opacity: '1' }),
     HTMLInputElement: { prototype: {} }, HTMLTextAreaElement: { prototype: {} }, HTMLSelectElement: { prototype: {} },
     Event: Ev, KeyboardEvent: Ev, scrollTo() {}, scrollBy() {} };
-  const fn = vm.runInNewContext(SRC, { document, window });
-  return { run: (cmd, args = {}) => JSON.parse(fn(cmd, args)), els, events };
+  const ctx = vm.createContext({ document, window });
+  const fn = vm.runInContext(SRC, ctx);
+  const ext = vm.runInContext(ACT, ctx);
+  return { run: (cmd, args = {}) => JSON.parse(fn(cmd, args, ext)), els, events };
 }
 
 const CASES = [
@@ -113,5 +118,5 @@ test('click and fill act on the element; links lists http(s) links once', () => 
   d.run('click', { id: 'c2' });
   assert.ok(d.events.some((e) => e[0] === 'click' && e[1] === 'Search'));
   assert.deepEqual(d.run('links').links, [{ text: 'A', url: 'https://a.ng/' }]);
-  assert.equal(d.run('scroll', { direction: 'down' }).max, 2000);
+  assert.deepEqual(d.run('scroll', { direction: 'down' }), { y: 0, max: 1200, target: 'page', moved: false });
 });

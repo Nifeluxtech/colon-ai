@@ -33,6 +33,31 @@ class InlineGeometryTest {
         assertEquals(824, p.clipBottom)
     }
 
+    /** 0.10.2, the owner's report: the panel slid over the composer. The keyboard (or a taller composer) shrank
+     *  the chat before the page's next report; the composer's gap is kept from the WebView's bottom as it is now. */
+    @Test fun aStaleReportKeepsTheComposersGapFromTheBottom() {
+        // Measured with an 800 CSS px page: the composer's top at 700, so 100 CSS px (300 px) of composer below.
+        val a = g.anchorOf(16f, 300f, 380f, 480f, 56f, 700f, 3f, 800f)
+        assertEquals(800f, a.pageHeight)
+        // Up to date (the WebView is 2400 px = 800 CSS px): nothing changes.
+        assertEquals(2100, g.place(a, 3f, 0, 0, 1080, 2400, 2400).clipBottom)
+        // The keyboard took 1100 px and the page hasn't reported yet: the clip ends 300 px above the new bottom,
+        // where the composer now is, not at the layer's bottom over it.
+        assertEquals(1000, g.place(a, 3f, 0, 0, 1080, 1300, 1300).clipBottom)
+        // With the shell WebView lower in the layer, its offset counts too.
+        assertEquals(1024, g.place(a, 3f, 0, 24, 1080, 1324, 1300).clipBottom)
+        // An older page (no pageHeight) or an unknown height: as before.
+        assertEquals(1300, g.place(g.anchorOf(16f, 300f, 380f, 480f, 56f, 700f, 3f), 3f, 0, 0, 1080, 1300, 1300)
+            .clipBottom)
+        assertEquals(1300, g.place(a, 3f, 0, 0, 1080, 1300).clipBottom)
+        // Nonsense heights are ignored.
+        assertEquals(0f, g.anchorOf(16f, 300f, 380f, 480f, 56f, 700f, 3f, Float.NaN).pageHeight)
+        assertEquals(0f, g.anchorOf(16f, 300f, 380f, 480f, 56f, 700f, 3f, -5f).pageHeight)
+        assertEquals(640f, g.anchorOf(JSONObject().put("visible", true).put("x", 0).put("y", 0).put("width", 10)
+            .put("height", 10).put("viewportTop", 0).put("viewportBottom", 600).put("dpr", 2)
+            .put("pageHeight", 640)).pageHeight)
+    }
+
     @Test fun theClipNeverLeavesTheLayer() {
         // The keyboard shrank the layer below the reported viewport: the clip stops at the layer's bottom.
         val p = g.place(anchor(300f), 3f, 0, 0, 1080, 1200)

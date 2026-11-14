@@ -1,9 +1,10 @@
 /* Colon AI · Saga's page tools (Phase 9). Injected by SagaTools.kt with WebView.evaluateJavascript into the tab
-   Saga drives, as one function expression called with (command, args); it returns a JSON string. It is evaluated
-   fresh for every command and keeps nothing on window, so a page can't swap these functions out.
+   Saga drives, as one function expression called with (command, args, ext); it returns a JSON string. It is
+   evaluated fresh for every command and keeps nothing on window, so a page can't swap these functions out. ext
+   (0.10.2) is act.js, evaluated with it: typing (fill) and scrolling, run only after the checks here.
    Commands: content · links · inspect (the element and its risk, before click/fill) · point (where to tap) ·
-   click (script fallback) · outcome (did the click change anything) · fill · scroll · risk, secret, changed
-   (pure). Element ids (c1, c2, …) are written to data-colon-saga by `content` and are only valid
+   click (script fallback) · outcome (did the click change anything) · fill · scroll · scrollinfo · risk, secret,
+   changed (pure). Element ids (c1, c2, …) are written to data-colon-saga by `content` and are only valid
    until the next `content`.
    Risk (approval on the phone): the phone's own check of the REAL element, independent of the server's. Kinds:
    payment · purchase · send_message · form_submission · personal_data. Mirrors services/api/src/modules/saga/
@@ -12,7 +13,7 @@
    them (secret: kind) and every field of a form that holds one (form_secret), never with their text or value;
    `inspect` reports them, and `click` / `fill` refuse them (error secret_field): the user types these, never Saga.
    Mirrors services/api/src/modules/saga/secrets.js fieldKind (tests/security/saga-secrets.test.js). */
-(function (cmd, args) {
+(function (cmd, args, ext) {
   'use strict';
   var ATTR = 'data-colon-saga';
   var MAX_TEXT = 12000, MAX_ELEMENTS = 60, MAX_LINKS = 80;
@@ -186,12 +187,10 @@
     });
     return JSON.stringify({ links: links });
   }
-  if (cmd === 'scroll') {
-    var h2 = win.innerHeight * 0.8;
-    if (args.direction === 'top') win.scrollTo(0, 0);
-    else if (args.direction === 'bottom') win.scrollTo(0, doc.documentElement.scrollHeight);
-    else win.scrollBy(0, args.direction === 'up' ? -h2 : h2);
-    return JSON.stringify({ y: Math.round(win.scrollY), max: doc.documentElement.scrollHeight });
+  // 0.10.2 (act.js): the page or the container that really scrolls; moved says whether anything did.
+  if (cmd === 'scroll' || cmd === 'scrollinfo') {
+    if (!ext) return JSON.stringify({ error: 'unsupported' });
+    return JSON.stringify(cmd === 'scroll' ? ext.scroll(args, win, doc) : ext.info(win, doc));
   }
   /* 0.10.1: real clicks. `point` scrolls the element to the middle of the view and says where it is, as fractions
      of the visible viewport (Kotlin multiplies by the WebView's size, so zoom and density need no maths there), and
@@ -275,26 +274,11 @@
     return JSON.stringify({ x: p.x, y: p.y, w: p.w, h: p.h, cx: p.cx, cy: p.cy, in_view: p.in_view, hit: onIt,
       covered: onIt ? '' : clip(labelOf(hit) || hit.textContent, 60), before: sig(el) });
   }
+  // 0.10.2 (act.js): typed through the browser's own editing path (input events a page registers), verified.
   if (cmd === 'fill') {
-    el.scrollIntoView({ block: 'center' });
-    el.focus();
-    var v = String(args.value == null ? '' : args.value);
-    if (el.isContentEditable) el.textContent = v;
-    else {
-      // React and similar frameworks watch the native value setter, not the property.
-      var proto = el.tagName === 'TEXTAREA' ? win.HTMLTextAreaElement.prototype : el.tagName === 'SELECT'
-        ? win.HTMLSelectElement.prototype : win.HTMLInputElement.prototype;
-      var setter = Object.getOwnPropertyDescriptor(proto, 'value');
-      if (setter && setter.set) setter.set.call(el, v); else el.value = v;
-    }
-    el.dispatchEvent(new win.Event('input', { bubbles: true }));
-    el.dispatchEvent(new win.Event('change', { bubbles: true }));
-    if (args.submit) {
-      el.dispatchEvent(new win.KeyboardEvent('keydown', { key: 'Enter', code: 'Enter', keyCode: 13, bubbles: true }));
-      var form = el.form || (el.closest && el.closest('form'));
-      if (form) { if (form.requestSubmit) form.requestSubmit(); else form.submit(); }
-    }
-    return JSON.stringify(here());
+    if (!ext) return JSON.stringify({ error: 'unsupported' });
+    var typed = ext.fill(el, args, win, doc);
+    return JSON.stringify(typed.error ? typed : Object.assign(here(), typed));
   }
   return JSON.stringify({ error: 'unsupported' });
 })
