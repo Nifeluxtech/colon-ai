@@ -24,10 +24,13 @@
       .source + '|₦\\s?\\d', 'i'),
     purchase: any(['buy', 'buy now', 'purchase', 'place (?:an |my )?order', 'order now', 'complete (?:the )?order',
       'book now', 'reserve', 'subscribe', 'donate', 'add to (?:cart|bag)', 'rent now']),
+    // 0.11.0: delete is its own kind (Saga stops and asks), as in policy.js.
+    'delete': any(['delete', 'remove', 'discard', 'erase', 'trash', 'deactivate', 'close (?:my |the )?account',
+      'cancel (?:my |the |this )?(?:order|subscription|booking|plan)', 'unsubscribe', 'clear all']),
     send_message: any(['send', 'post', 'publish', 'tweet', 'reply', 'comment', 'share', 'message', 'email', 'invite',
       'upload']),
     form_submission: any(['submit', 'sign ?up', 'register', 'log ?in', 'sign ?in', 'apply', 'continue', 'next',
-      'confirm', 'save', 'delete', 'remove', 'unsubscribe', 'verify'])
+      'confirm', 'save', 'verify'])
   };
   var SENSITIVE = any(['password', 'passcode', 'pin', 'otp', 'cvv', 'cvc', 'card', 'cc-\\w+', 'bvn', 'nin', 'ssn',
     'account ?number', 'iban', 'phone', 'tel', 'mobile', 'email', 'e-mail', 'address', 'street', 'postal', 'zip',
@@ -97,9 +100,9 @@
       return null;
     }
     var acts = !(d.tag === 'a' && d.href && d.role !== 'button');
-    var kinds = ['payment', 'purchase', 'send_message'];
+    var kinds = ['payment', 'purchase', 'delete', 'send_message'];
     for (var i = 0; i < kinds.length; i++) {
-      if ((acts || kinds[i] !== 'send_message') && W[kinds[i]].test(w)) return { kind: kinds[i],
+      if ((acts || kinds[i] === 'payment' || kinds[i] === 'purchase') && W[kinds[i]].test(w)) return { kind: kinds[i],
         reason: 'Click "' + named + '"' };
     }
     var submits = d.type === 'submit' || (d.tag === 'button' && d.form && d.type !== 'button' && d.type !== 'reset')
