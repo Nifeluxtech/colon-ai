@@ -1,6 +1,6 @@
 /* Colon AI · sending a message and streaming the reply; regenerate, stop and edit-and-resend. */
 
-import { handleBrowserText } from './browser-chat.js';
+import { browseFromServer, handleBrowserText } from './browser-chat.js';
 import { guide, loginCard, passwordGuard } from './saga-extras.js';
 import { activeTaskId } from './saga-native.js';
 import { handlePlanText } from './saga-plans.js';
@@ -87,6 +87,8 @@ function run(call, tempUser, replaceId) {
       else if (ev.type === 'status' && msg) { msg.stage = ev.stage; msg.stageCount = ev.count || 0; paint(); }
       else if (ev.type === 'delta' && msg) { if (data.kind === 'remote') msg.content += ev.text; paint(); }
       else if (ev.type === 'done' && msg) { Object.assign(msg, ev.message || {}); }
+      // 0.11.3: the server sent a browser follow-up to Saga (this chat's last browser task goes on).
+      else if (ev.type === 'browse') browseFromServer(ev.goal, (tempUser && tempUser.id) || ev.message_id);
     }
   }).then(function () { finish(); }, function (e) {
     if (msg && msg.status === 'streaming') { msg.status = 'error'; msg.error = { code: e.code, message: e.message }; }

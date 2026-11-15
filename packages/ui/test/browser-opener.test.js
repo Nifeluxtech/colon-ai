@@ -111,3 +111,13 @@ test('needsChatResync: the app names another chat: tell it again, at most MAX_RE
   // Once resynced, the card shows: liveHere agrees.
   assert.equal(liveHere({ chat: 'c2', run: {} }, { chat: 'c2', messages: 2 }), true);
 });
+
+test('0.11.3: a follow-up task (continuing task 42) shows its live card under the follow-up, not the old message',
+  () => {
+    // The follow-up's message u7 opened the browser (showHere) and its continued task 43 is running there.
+    const st = { run: { state: 'running', anchor: 'u7', task: '43', since: 9000 } };
+    assert.deepEqual(liveSpot(st, { id: 'u7', at: 9000 }, 100), { anchor: 'u7', at: 9000, hide: '43' });
+    // Before the app reports the new run (the old task 42 still says done), the follow-up's message holds the card.
+    const before = { run: { state: 'done', anchor: 'u1', task: '42', since: 3000 } };
+    assert.deepEqual(liveSpot(before, { id: 'u7', at: 9000 }, 100), { anchor: 'u7', at: 9000, hide: null });
+  });

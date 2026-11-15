@@ -8,7 +8,8 @@ const { replyLanguage } = require('../../ai').prompts;
 const store = require('../store');
 const files = require('../files');
 const { forMode } = require('../context');
-const { respond, stopLocal } = require('../reply');
+const { respond, stopLocal, openStream } = require('../reply');
+const browseFollow = require('../browse-follow');
 const safety = require('../../safety');
 const { MAX_CONTENT, wantsWeb, previousUserText, loadSettings, fileNames } = require('./chat-common');
 
@@ -53,7 +54,9 @@ async function historyFor(req, conv, uptoMessageId) {
     && (m.status === 'complete' || m.status === 'stopped') && m.content));
   const latest = turns.length - 1;
   const fileLists = await files.forModel(req.user.id, turns.map(m => m.attachments || []), latest);
-  return turns.map((m, i) => ({ role: m.role, content: m.content, files: fileLists[i] }));
+  // 0.11.3: Saga's step lists stay out of the model's history (a chat model imitated them instead of browsing).
+  return turns.map((m, i) => ({ role: m.role, content: m.origin === 'browse' ? String(m.content).replace(
+    /\n+\*\*How Saga browsed\*\*[\s\S]*$/, '') : m.content, files: fileLists[i] }));
 }
 
 async function seqOf(id) {
@@ -99,6 +102,15 @@ const postConversationsByIdMessages = async (req, res) => {
   const title = conv.title === 'New chat' ? store.titleFrom(content || (atts[0] && atts[0].name)) : null;
   await store.touch(conv, { title, preview: content || (atts[0] && atts[0].name) });
   const fresh = await store.getConv(req.user.id, conv.id);
+  // 0.11.3: a follow-up to the chat's browser task goes to Saga (the app runs it), never to the chat model.
+  const goal = atts.length ? '' : browseFollow.route(userMsg, await store.messages(conv.id));
+  if (goal) {
+    const sse = openStream(res);
+    sse.send('user', { message: userMsg, conversation: store.convOut(fresh) });
+    sse.send('browse', { goal, message_id: userMsg.id });
+    sse.send('done', { message: null });
+    return sse.end();
+  }
   await streamFor(req, res, fresh, userMsg, { onOpen: (sse) => sse.send('user', { message: userMsg,
     conversation: store.convOut(fresh) }) });
 };

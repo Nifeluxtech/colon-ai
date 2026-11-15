@@ -1,17 +1,17 @@
 {
-  "versionName": "0.11.2",
-  "versionCode": 1102,
-  "apkUrl": "https://github.com/Nifeluxtech/colon-ai/releases/download/v0.11.2/colon-ai-0.11.2.apk",
-  "releaseUrl": "https://github.com/Nifeluxtech/colon-ai/releases/tag/v0.11.2",
-  "notes": "Fixes from your report: Saga now deals with pop-ups first (cookie banners such as Google's \"Before you continue\", dialogs and overlays): it declines cookies with \"Reject all\" and never taps something hidden behind a pop-up. Saga is quicker: it reads the page for itself after each change and stops waiting as soon as a page answers a tap. Minimise in full screen now really puts the browser back into the chat.",
+  "versionName": "0.11.3",
+  "versionCode": 1103,
+  "apkUrl": "https://github.com/Nifeluxtech/colon-ai/releases/download/v0.11.3/colon-ai-0.11.3.apk",
+  "releaseUrl": "https://github.com/Nifeluxtech/colon-ai/releases/tag/v0.11.3",
+  "notes": "Fixes from your report: after Saga finishes something in a chat's browser, your next message that carries on (\"open the repository\", \"click the second result\", \"check\") goes straight to Saga in the same browser, with the live card under your message, in any mode (Developer stays Developer). Saga now does the clicking itself instead of asking you to tap, finds things you name loosely, and only finishes when the page is really there.",
   "minSupportedVersionCode": 0,
-  "publishedAt": "2026-11-14",
+  "publishedAt": "2026-11-15",
   "browser": {
-    "versionName": "0.11.2",
-    "versionCode": 1102,
-    "apkUrl": "https://github.com/Nifeluxtech/colon-ai/releases/download/v0.11.2/colon-browser-0.11.2.apk",
-    "releaseUrl": "https://github.com/Nifeluxtech/colon-ai/releases/tag/v0.11.2",
-    "notes": "Released alongside Colon AI 0.11.2: Saga deals with pop-ups and cookie banners first and answers taps sooner here too.",
+    "versionName": "0.11.3",
+    "versionCode": 1103,
+    "apkUrl": "https://github.com/Nifeluxtech/colon-ai/releases/download/v0.11.3/colon-browser-0.11.3.apk",
+    "releaseUrl": "https://github.com/Nifeluxtech/colon-ai/releases/tag/v0.11.3",
+    "notes": "Released alongside Colon AI 0.11.3: follow-up messages keep Saga working in the same browser.",
     "minSupportedVersionCode": 0
   }
 }

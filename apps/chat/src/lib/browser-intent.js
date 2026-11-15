@@ -23,7 +23,13 @@
    a live web search ("search for…", "google…", "look … up online"), checking or visiting a site ("check yolotask",
    "see what's new on nairaland", any message naming a domain with something to do there), signing in ("log in to
    github"), filling a form, comparing prices, buying / booking / finding on a named site, and a question about a
-   named site's live data ("how much is rice on jumia?"). Ordinary questions stay chat. */
+   named site's live data ("how much is rice on jumia?"). Ordinary questions stay chat.
+   0.11.3 (owner): after a browser task in this chat, on any site (ctx.recent: the chat has a Saga run, or ctx.open), a
+   message that plausibly continues it is a Saga task in the same browser session, whatever specialist the chat is in
+   ({ follow: true }): open / go to / click / select / scroll / next / more, check / find / look for / read…, "that
+   one", "the second result", "continue", or a fragment like "in the logged in account" (read with the user's
+   previous message, ctx.prev). "open the browser and check…" is a task anywhere. Code and explain requests stay chat.
+   */
 
 var SITES = {
   google: 'https://www.google.com/', youtube: 'https://www.youtube.com/', gmail: 'https://mail.google.com/',
@@ -90,6 +96,17 @@ var CHECK = new RegExp("^(?:check|check out|look at|browse|see what'?s (?:new |h
   + "check what'?s (?:new )?on)\\s+(.+)$");
 var SHOP = /^(?:find|buy|order|book|get|search|show me|look for)\b/;
 var LIVE_Q = /\b(?:price|prices|cost|how much|in stock|available|availability|latest|today|right now|currently|new)\b/;
+// 0.11.3: follow-ups to a browser task (only with ctx.open or ctx.recent). Generic: any site, nothing site-specific.
+var BROWSER_AND = new RegExp("^(?:open|show|launch|use|bring up)\\s+(?:the |my |this chat'?s )?(?:colon )?browser"
+  + '\\s+(?:and|to|then)\\s+\\S');
+var GO_VERB = new RegExp('^(?:open|go(?! ahead| on\\b)|goto|visit|navigate|browse|take me|head|click|tap|press|select|'
+  + 'choose|pick|scroll|swipe|sign out|log ?out|refresh|reload|switch to|add (?:it|this|that|one)|next|more)\\b');
+var LOOK = /^(?:check|look|find|search|look for|look up|see|read|show me (?:the|my|that|this|what)|get me the)\b/;
+var THAT_ONE = new RegExp('^(?:the |that |this )?(?:first|second|third|fourth|fifth|last|next|top|other|same|\\d+(?:st'
+  + '|nd|rd|th))?\\s*(?:one|result|link|item|page|option|product|tab)s?(?:\\s+(?:please|instead|then))?$');
+var FRAGMENT = /^(?:in|on|inside|from|at|into|with|under|for)\b/;
+var CHAT_WORDS = new RegExp('\\b(?:code|function|error|bug|snippet|syntax|compile|explain|meaning|translate|'
+  + 'write me|essay|new chat|conversation|sidebar)\\b');
 var ONLINE = /\b(?:online|on the (?:web|internet)|live on|on google)\b/;
 
 function clean(text) {
@@ -124,6 +141,15 @@ function needsBrowser(t) {
   return SHOP.test(t) && (namesSite(t) || ONLINE.test(t));
 }
 
+/** 0.11.3: a follow-up to this chat's browser task (cleaned text t; only asked with ctx.open or ctx.recent). */
+function followUp(t) {
+  var n = t.split(' ').length;
+  if (n > 25 || CHAT_WORDS.test(t)) return false;
+  if (QUESTION.test(t)) return /\b(?:open|go to|navigate|click|tap)\b/.test(t) && n <= 15;
+  if (GO_VERB.test(t) || THAT_ONE.test(t)) return true;
+  return (LOOK.test(t) || FRAGMENT.test(t)) && n <= 12;
+}
+
 function parseIntent(text, ctx) {
   ctx = ctx || {};
   var original = String(text || '').trim();
@@ -133,6 +159,7 @@ function parseIntent(text, ctx) {
   if (QUESTION.test(t) && !ACTIONS.test(t) && !LOST.test(t)) return needsBrowser(t) ? { kind: 'task', goal: original,
     open: true } : null;
   if (CLOSE.test(t)) return { kind: 'close' };
+  if (BROWSER_AND.test(t)) return { kind: 'task', goal: original, open: true, follow: true };
   var m = OPEN.exec(t);
   if ((m && BROWSER.test(m[1])) || LOST.test(t)) return { kind: 'open' };
   // 0.10.4: the chat's last task ended (or was cut off): "continue", "I've logged in, continue" carry it on.
@@ -153,7 +180,16 @@ function parseIntent(text, ctx) {
     if (PLACE.test(g[1]) && g[1].split(' ').length <= 8) return { kind: 'task', goal: original, open: true };
   }
   if (ctx.open && ACTIONS.test(t) && t.split(' ').length <= 40) return { kind: 'task', goal: original, open: true };
+  if ((ctx.open || ctx.recent) && followUp(t)) return { kind: 'task', goal: withPrev(original, t, ctx.prev),
+    open: true, follow: true };
   return needsBrowser(t) ? { kind: 'task', goal: original, open: true } : null;
 }
 
-export { SITES, clean, needsBrowser, parseIntent, siteUrl };
+// 0.11.3: "In the logged in GitHub account" (no verb) carries the previous message: "Go to Colon repo (in the…)".
+function withPrev(original, t, prev) {
+  var p = String(prev || '').replace(/\s+/g, ' ').trim();
+  if (!p || p.length > 200 || !FRAGMENT.test(t)) return original;
+  return p.replace(/[.!?…]+$/, '') + ' (' + original.replace(/[.!?…]+$/, '') + ')';
+}
+
+export { SITES, clean, followUp, needsBrowser, parseIntent, siteUrl };
