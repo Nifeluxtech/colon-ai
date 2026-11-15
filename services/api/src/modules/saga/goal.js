@@ -87,8 +87,9 @@ const pathOf = (u) => { try { const x = new URL(u); return decodeURIComponent(x.
 /**
  * check({ goal, page: { url, title } | null, acted }) -> null when the finish may stand, else the reason (for Saga).
  *   acted: successful browser actions in THIS task (a continuation counts its own, not the earlier task's).
+ *   account: what the last page read says about signing in (signed-in.js detect().state), when known.
  */
-function check({ goal, page, acted, answer = '' }) {
+function check({ goal, page, acted, answer = '', account = '' }) {
   const want = parseGoal(goal);
   const url = page && page.url ? String(page.url) : '';
   const title = page && page.title ? String(page.title) : '';
@@ -99,6 +100,8 @@ function check({ goal, page, acted, answer = '' }) {
     return `Not done yet: the task needs ${want.host}. ${where} Open it with openUrl (or navigate there), then check `
       + 'the page before you finish.';
   }
+  // 0.11.4: a sign-in goal is met when the page shows the user is signed in (signed-in.js detect: 'signed_in').
+  if (want.login && account === 'signed_in' && !ASKS_USER.test(answer)) return null;
   if (want.nav && want.login && url && !LOGIN_PAGE.test(`${url} ${title}`)) {
     return `Not done yet: the task asks for a sign-in page. ${where} Open the sign-in page, then finish.`;
   }

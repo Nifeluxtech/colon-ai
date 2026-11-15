@@ -14,8 +14,10 @@ console.log = () => {};
 const wait = (ms) => new Promise((r) => setTimeout(r, ms));
 const CAPS = ['open_url', 'get_page_content', 'get_links', 'click', 'fill', 'scroll', 'screenshot', 'back',
   'forward', 'reload', 'get_tabs'];
+// 0.11.4: a sign-in is handed to the user only on a page with a password / code field (or a sign-in page).
 const PAGE = { ok: true, result: { url: 'https://yolotask.com.ng/', title: 'Yolotask', text: 'Login',
-  elements: [{ id: 'c1', tag: 'button', text: 'Login' }] } };
+  elements: [{ id: 'c1', tag: 'button', text: 'Login' }, { id: 'c2', tag: 'input', type: 'password',
+    label: 'Password' }] } };
 // A plain button (no approval needed) for the click tests.
 const MORE = { ok: true, result: { url: 'https://yolotask.com.ng/tasks', title: 'Tasks', text: 'Tasks',
   elements: [{ id: 'c1', tag: 'button', text: 'Show more' }] } };

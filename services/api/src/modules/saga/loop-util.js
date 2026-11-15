@@ -90,4 +90,25 @@ const blocked = (url) => safety.blockedHost(new URL(url).hostname, { extra: [pro
   || ''] }).blocked;
 const cite = (p) => ({ n: p.n, title: p.title || p.url, url: p.url });
 
-module.exports = { timed, forLog, compact, handBack, userMoved, guidanceText, sentence, blocked, cite, T, KEEP_FULL };
+const SPEED_TEXT = 3000;                        // speed mode: less page text per observation (slow networks)
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+// Speed mode: waits (no model call) until the phone says the page finished loading, at most ~3 s.
+const LOAD_POLLS = 8, LOAD_POLL_MS = 350;
+async function waitLoad(o, opts) {
+  for (let i = 0; i < LOAD_POLLS; i++) {
+    const a = await o.command('get_page_state', {}, opts).catch(() => null);
+    if (!a || !a.ok || !a.result || !a.result.loading) return;
+    await sleep(LOAD_POLL_MS);
+  }
+}
+
+// What the log (and the chat's table / CSV) keeps of an extracted table: at most 100 rows of 100-character cells.
+function forChat(t) {
+  const cut = (v) => String(v).slice(0, 100);
+  return { what: t.what, caption: t.caption, columns: t.columns.map(cut), rows: t.rows.slice(0, 100)
+    .map((r) => r.map(cut)), total: t.total };
+}
+
+module.exports = { waitLoad, forChat, SPEED_TEXT, timed, forLog, compact, handBack, userMoved, guidanceText, sentence,
+  blocked, cite, T, KEEP_FULL };

@@ -1,5 +1,29 @@
 # Changelog
 
+## [0.11.4] — 2026-11-15 · Saga no longer asks you to sign in when you already are
+Owner's report on 0.11.3 (phone screenshot): "Login to GitHub" with github.com already signed in (the dashboard,
+"Good evening, Nifeluxtech!", the repositories listed, no login form) ended with "Saga needs you: Your saved login
+didn't get you in here. Sign in yourself (or enter the code), then tap Return to AI." Every version number moves to
+0.11.4 (apps, `Colon.version`, `?v=` cache-busting, `version.json` versionCode 1104 for both APKs, the API's
+package-lock). No migration, no API change, no new config key.
+### Fixed
+- **A sign-in was handed to the user on a signed-in page.** Saga called signIn on the dashboard; the phone's fill
+  script found no login form there and answered `no_form`. The loop had already marked the site as "saved login
+  tried", the answer reached Saga as a plain failure, and Saga's next sign-in request (requestUserControl) went
+  straight to the hand-over with "your saved login didn't get you in" (`saved-login.js` `handoffMessage` only looked
+  at the tried set, never at the page). Now (any site, `modules/saga/signed-in.js`):
+  - the page is read before a sign-in hand-over and checked for a signed-in account: no password / code / card / PIN
+    field, not a /login page, and an account or avatar menu, Sign out / Log out, "Signed in as …" or a greeting with a
+    name (a greeting or account menu counts only when no Sign in / Log in button is shown);
+  - already signed in: no saved login and no hand-over; a goal that is only "log in to <site>" ends as done with
+    "You're already signed in to github.com as Nifeluxtech.", any other goal carries on (Saga is told);
+  - `no_form` is not a failed login: the site is not counted as tried, and Saga is told to open the sign-in page;
+  - a sign-in is handed over only when the page holds a secret field or is a sign-in page (after 2 refusals Saga may
+    still hand over, with the plain message); "your saved login didn't get you in" only with a secret field there;
+  - the finish check accepts a sign-in goal on a signed-in page ("go to GitHub and log in" on the dashboard).
+- Tests: `saga-already-signed-in.test.js` (GitHub dashboard, Jumia account page, yolotask.com.ng dashboard, Google
+  Account page; a real login form with the saved login, and the hand-over only when it fails).
+
 ## [0.11.3] — 2026-11-15 · Follow-ups keep Saga working in the same browser
 Owner's report on 0.11.2 (Infinix SMART 20, Developer mode): "Login to GitHub" worked, then "Go to Colon repo",
 "In the logged in GitHub account", "Open the browser and check", "Go to the repository named colon ai" were answered

@@ -22,12 +22,15 @@
 // 0.11.2: o.autoRead (the runner sets it) reads the page for Saga after a step that opens, changes or scrolls it, in
 // every mode, once loaded (polls of 350 ms); pop-ups (prompt.observe -> overlay); before a password / sign-in
 // hand-over, the phone's saved login or its Colon Secured Login form card, once per site (saved-login.js).
+// 0.11.4: the page is read before a saved login or a sign-in hand-over: already signed in ends a sign-in as done, no
+// form is not a failed login, and a sign-in is handed over only for a secret field or a sign-in page (signed-in.js).
 const secrets = require('./secrets');
 const tools = require('./tools');
 const policy = require('./policy');
 const prompt = require('./prompt');
 const goal = require('./goal');
 const saved = require('./saved-login');
+const signed = require('./signed-in');
 const U = require('./loop-util');
 const safety = require('../safety');
 const { parseDecision } = require('./parse');
@@ -36,7 +39,6 @@ const INTERRUPTS = ['manual_control', 'paused', 'disconnected', 'not_ready', 'br
 const USER_HOLDS = ['manual_control', 'paused'];
 const NAV_GRACE_MS = 3000;                      // page_state after Saga's own navigation is not the user's
 const MAX_TABS = 6;
-const LOAD_POLLS = 8, LOAD_POLL_MS = 350;
 const READ = { say: '', action: 'getPageContent', args: {}, auto: true };
 
 async function run(o) {
@@ -46,7 +48,7 @@ async function run(o) {
   const log = o.log || (async () => {});
   let started = now();
   const pages = [], tables = [];
-  let elements = null, here = '', hereTitle = '', seenAt = now(), queued = [], tabs = 0, overlay = null;
+  let read = null, elements = null, here = '', hereTitle = '', seenAt = now(), queued = [], tabs = 0, overlay = null;
   let steps = 0, badReplies = 0, phoneTimeouts = 0, modelFails = 0, acted = 0, refused = 0, lastSay = '';
   const messages = [{ role: 'user', content: `The user's task: ${String(o.goal).slice(0, 1000)}` }];
   if (o.history) messages.push({ role: 'user', content: guard.clean(String(o.history), 'web').slice(0, 2500) });
@@ -58,7 +60,7 @@ async function run(o) {
   const observe = (content) => messages.push({ role: 'user', observation: true, content });
   const backFromUser = (text) => {
     const note = typeof o.takeNote === 'function' ? String(o.takeNote() || '').slice(0, 500) : '';
-    elements = null; queued = [];
+    elements = null; queued = []; read = null;
     observe(note ? `${text} The user's message when they gave it back (their words, not page content): "${note}"`
       : text);
   };
@@ -70,8 +72,14 @@ async function run(o) {
   // page is read next), { end } the task ended meanwhile, null: hand over as before.
   const viaSaved = saved.forLoop({ o, log, tried, url, waiting, handBack: U.handBack,
     opts: (say) => ({ ...cmdOpts(true), say: say || 'Signing in with your saved login', step: steps }),
-    signed: (r) => { elements = null; acted++; queued = [{ ...READ }]; observe(saved.signedIn(r.site, r.result)); } });
-  const hand = (s) => ({ ...s, message: saved.handoffMessage(s.kind, url(), tried, s.message) });
+    signed: (r) => { elements = null; read = null; acted++; queued = [{ ...READ }];
+      observe(saved.signedIn(r.site, r.result)); } });
+  const sess = signed.forLoop({ o, goal: o.goal, log, observe, url, viaSaved, tried, opts: () => cmdOpts(null),
+    page: () => (read && read.url === url() ? read : null), keep: (p) => { read = p; } });
+  const hand = (s, secret) => ({ ...s, message: saved.handoffMessage(s.kind, url(), tried, s.message, secret) });
+  // 0.11.4: what sess.before / already / noForm said: the task's end, or null to go on deciding.
+  const settled = async (g) => (g.end ? end('interrupted', { error: g.end }) : g.done ? (await log({ kind: 'finish',
+    say: g.result, sources: [] }), end('done', { answer: g.done, result: g.result })) : null);
 
   while (true) {
     if (await o.isStopped()) { await log({ kind: 'end', status: 'stopped' }); return end('stopped'); }
@@ -88,6 +96,7 @@ async function run(o) {
     const moved = U.userMoved(o, here, seenAt);
     if (moved) {
       here = moved.url; hereTitle = String(moved.title || ''); seenAt = moved.at; elements = null; queued = [];
+      read = null;
       observe(`The user changed the page in the browser: it is now ${moved.url}${moved.title ? ` ("${guard.clean(
         moved.title, 'web').slice(0, 120)}")` : ''}. Your element ids are out of date: call getPageContent before you `
         + 'click or fill anything.');
@@ -126,9 +135,9 @@ async function run(o) {
         : d.args }) });
     if (d.action === 'requestUserControl') {
       const ask = tools.userRequest(d.args);
-      const v = ask.kind === 'sign_in' ? await viaSaved('sign_in', d.say) : null;
-      if (v) { if (v.end) return end('interrupted', { error: v.end }); continue; }
-      const back = await waiting(U.handBack(o, log, { ...hand(ask), say: d.say, tool: d.action,
+      const g = ask.kind === 'sign_in' ? await sess.before('sign_in', d.say) : { secret: true };
+      const fin = await settled(g); if (fin) return fin; if (g.skip) continue;
+      const back = await waiting(U.handBack(o, log, { ...hand(ask, g.secret), say: d.say, tool: d.action,
         name: 'request_user_control', asked: true }));
       if (back !== 'return_to_ai') return end('interrupted', { error: back });
       backFromUser(U.T.HANDED_BACK_ASKED);
@@ -139,7 +148,8 @@ async function run(o) {
       // 0.10.6: the finish must match where the browser really is (goal.js); refused at most MAX_REFUSALS times.
       const page = here ? { url: here, title: hereTitle } : (typeof o.pageState === 'function' && o.pageState())
         || null;
-      const why = refused < goal.MAX_REFUSALS ? goal.check({ goal: o.goal, page, acted, answer: goal.said(d) }) : null;
+      const why = refused < goal.MAX_REFUSALS ? goal.check({ goal: o.goal, page, acted, answer: goal.said(d),
+        account: sess.current().state }) : null;
       if (why) {
         refused++;
         await log({ kind: 'error', say: d.say, tool: 'finish', error: 'goal_not_met' });
@@ -177,18 +187,22 @@ async function run(o) {
       observe(`You already opened ${MAX_TABS} tabs. Close one (tabs close) or reuse a tab.`);
       continue;
     }
+    const st = cmd.name === 'sign_in' ? sess.current() : null;  // 0.11.4: already signed in: no saved login
+    if (st && st.state === 'signed_in') { queued = []; const fin = await settled(await sess.already(st));
+      if (fin) return fin; continue; }
     if (cmd.name === 'sign_in') tried.add(cmd.args.site);
     const secret = secrets.check(cmd, { elements, url: here });
     if (secret) {
       queued = [];
-      const v = await viaSaved(secret.kind);
-      if (v) { if (v.end) return end('interrupted', { error: v.end }); continue; }
-      const back = await waiting(U.handBack(o, log, { ...hand(secret), say: d.say, tool: cmd.tool, name: cmd.name }));
+      const g = await sess.before(secret.kind, '', secret.kind === 'sign_in' ? 'sign_in_page' : 'secret');
+      const fin = await settled(g); if (fin) return fin; if (g.skip) continue;
+      const back = await waiting(U.handBack(o, log, { ...hand(secret, g.secret), say: d.say, tool: cmd.tool,
+        name: cmd.name }));
       if (back !== 'return_to_ai') return end('interrupted', { error: back });
       backFromUser(U.T.HANDED_BACK);
       continue;
     }
-    if (d.auto && (o.speed || o.autoRead)) await waitLoad(o, cmdOpts(null));
+    if (d.auto && (o.speed || o.autoRead)) await U.waitLoad(o, cmdOpts(null));
     const need = policy.approval(cmd, { elements });
     const args = { ...cmd.args, ...(need ? { approval: { kind: need.kind, reason: need.reason } } : {}),
       // 0.11.2: a password field the phone finds is left to the server, which tries the saved login first.
@@ -211,12 +225,16 @@ async function run(o) {
       // 0.11.2: a phone that left the hand-over to the server (deferred) tries the saved login first.
       const s2 = { kind: String(res.kind || 'password').slice(0, 20), reason: 'The phone found a secret field',
         message: secrets.message(res.kind), say: d.say, tool: cmd.tool, name: cmd.name, phone: !res.deferred };
-      const v = res.deferred ? await viaSaved(s2.kind) : null;
-      if (v) { if (v.end) return end('interrupted', { error: v.end }); continue; }
+      const g = res.deferred ? await sess.before(s2.kind, '', 'secret') : {};
+      const fin = await settled(g); if (fin) return fin; if (g.skip) continue;
       const back = await waiting(U.handBack(o, log, hand(s2)));
       if (back !== 'return_to_ai') return end('interrupted', { error: back });
       backFromUser(U.T.HANDED_BACK);
       continue;
+    }
+    if (!ack.ok && ack.error === 'no_form' && cmd.name === 'sign_in') {
+      await log(entry);                             // 0.11.4: no form here is not a failed login
+      const fin = await settled(await sess.noForm(cmd.args.site)); if (fin) return fin; continue;
     }
     if (!ack.ok && ack.error === 'no_login' && cmd.name === 'sign_in') {
       // 0.11.0: no saved login for the site: the phone shows the Colon Secured Login form; Saga waits for it.
@@ -251,7 +269,8 @@ async function run(o) {
       if (++phoneTimeouts >= 2) return end('failed', { error: 'phone_timeout' });
     } else phoneTimeouts = 0;
     const shown = cmd.name === 'get_page_content' && ack.ok ? { ...ack, result: secrets.redactContent(res) } : ack;
-    const ob = prompt.observe(cmd, shown, { guard, pages, maxText: o.speed ? SPEED_TEXT : 0, overlay });
+    if (shown !== ack) read = shown.result;
+    const ob = prompt.observe(cmd, shown, { guard, pages, maxText: o.speed ? U.SPEED_TEXT : 0, overlay });
     if (ob.elements) overlay = ob.overlay || null;
     if (res.url) { here = String(res.url).slice(0, 2048); hereTitle = String(res.title || '').slice(0, 200); }
     else if (ack.ok && cmd.args.url) { here = cmd.args.url; hereTitle = ''; }
@@ -260,12 +279,12 @@ async function run(o) {
     seenAt = now() + (ack.ok && tools.NAVIGATES.has(cmd.name) ? NAV_GRACE_MS : 0);
     if (ob.page) { entry.url = entry.url || ob.page.url; entry.title = entry.title || ob.page.title;
       entry.page = ob.page.n; if (!hereTitle && ob.page.url === here) hereTitle = String(ob.page.title || ''); }
-    if (ob.table) { tables.push(ob.table); Object.assign(entry, { kind: 'extract', args: forChat(ob.table) }); }
+    if (ob.table) { tables.push(ob.table); Object.assign(entry, { kind: 'extract', args: U.forChat(ob.table) }); }
     if (ack.error !== 'timeout') await log(entry);
     const navigated = ack.ok && tools.NAVIGATES.has(cmd.name) && !(cmd.name === 'click'
       && prompt.KEEPS_ELEMENTS.has(res.changed));
     if (ob.elements) elements = ob.elements;
-    else if (navigated) elements = null;
+    else if (navigated) { elements = null; read = null; }
     const note = { approval_denied: U.T.DENIED, reconnected: U.T.RECONNECTED, not_trusted: U.T.NOT_TRUSTED,
       wrong_site: U.T.WRONG_SITE }[ack.error] || '';
     if (ack.error === 'reconnected') elements = null;
@@ -277,23 +296,4 @@ async function run(o) {
   }
 }
 
-const SPEED_TEXT = 3000;                        // speed mode: less page text per observation (slow networks)
-const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
-
-// Speed mode: waits (no model call) until the phone says the page finished loading, at most ~3 s.
-async function waitLoad(o, opts) {
-  for (let i = 0; i < LOAD_POLLS; i++) {
-    const a = await o.command('get_page_state', {}, opts).catch(() => null);
-    if (!a || !a.ok || !a.result || !a.result.loading) return;
-    await sleep(LOAD_POLL_MS);
-  }
-}
-
-// What the log (and the chat's table / CSV) keeps of an extracted table: at most 100 rows of 100-character cells.
-function forChat(t) {
-  const cut = (v) => String(v).slice(0, 100);
-  return { what: t.what, caption: t.caption, columns: t.columns.map(cut), rows: t.rows.slice(0, 100)
-    .map((r) => r.map(cut)), total: t.total };
-}
-
-module.exports = { run, forLog: U.forLog, timed: U.timed, forChat, MAX_TABS };
+module.exports = { run, forLog: U.forLog, timed: U.timed, forChat: U.forChat, MAX_TABS };

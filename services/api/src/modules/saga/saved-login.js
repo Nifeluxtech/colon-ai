@@ -38,7 +38,8 @@ async function signIn(c, site) {
 
 /**
  * first({ kind, url, caps, tried, command, opts, log, say, offerForm(site) }) -> null (hand over as before) |
- * { site, result } (signed in) | { end } (the user or the phone ended the task during the form). offerForm shows
+ * { site, result } (signed in) | { end } (the user or the phone ended the task during the form) | { noForm: site }
+ * (0.11.4: the page had no sign-in form; the site does not count as tried). offerForm shows
  * the Colon Secured Login form card and answers true (a login was saved), false (closed without saving) or why the
  * wait ended. tried: the sites a login was already tried on in this task (the model's own signIn adds to it too).
  */
@@ -52,6 +53,8 @@ async function first(c) {
     if (saved === true) ack = await signIn(c, site);
     else if (saved !== false) return { end: String(saved || 'handoff_ended').slice(0, 40) };
   }
+  // 0.11.4: no sign-in form on the page (already signed in, or not the sign-in page) is not a failed login.
+  if (!ack.ok && ack.error === 'no_form') { c.tried.delete(site); return { noForm: site }; }
   return ack.ok ? { site, result: ack.result && typeof ack.result === 'object' ? ack.result : {} } : null;
 }
 
@@ -81,11 +84,12 @@ const signedIn = (site, r) => `Colon signed in on ${site} with the login the use
   + 'in. If it says the password is wrong or asks for a one-time / 2FA code, choose that step again and Colon hands '
   + 'it to the user.';
 
-// The hand-over after a saved login was tried on this site: the user knows why they are asked.
+// The hand-over after a saved login was tried on this site: the user knows why they are asked. 0.11.4: only while
+// the page still holds a secret field (secret !== false); never on a page with no password or code to type.
 const AFTER_TRY = 'Your saved login didn’t get you in here. Sign in yourself (or enter the code), then tap Return '
   + 'to AI.';
-const handoffMessage = (kind, url, tried, message) => (KINDS.has(kind) && tried.has(siteOf(url) || '') ? AFTER_TRY
-  : message);
+const handoffMessage = (kind, url, tried, message, secret) => (secret !== false && KINDS.has(kind)
+  && tried.has(siteOf(url) || '') ? AFTER_TRY : message);
 
 module.exports = { first, forLoop, can, eligible, siteOf, signedIn, handoffMessage, formMessage, SAVED_NOTE, KINDS,
   AFTER_TRY };
