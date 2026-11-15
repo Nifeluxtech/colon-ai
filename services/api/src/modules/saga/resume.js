@@ -50,7 +50,8 @@ function historyOf(actions) {
 /** The note Saga's loop starts from when there is history. */
 function prompt(history) {
   return history ? `${history}\n\nThis continues that work in the same browser, which kept its page (things may `
-    + 'have changed since). Call getPageContent first to see where the page is now, then carry on toward the goal. '
+    + 'have changed since). Call getPageContent first to see where the page is now, then carry on toward the goal '
+    + '(it may be the user\'s next instruction after that work: do it on this site, from this page). '
     + 'Do not redo steps that already worked; if the user was asked to sign in, check whether they did.' : '';
 }
 

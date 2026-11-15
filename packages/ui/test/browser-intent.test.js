@@ -47,11 +47,14 @@ test('while the browser is open, instructions for it become Saga tasks run on it
 
 test('ordinary messages, questions about browsers and long texts stay chat', () => {
   for (const t of ['How do I open the browser on my phone?', 'what is the capital of Nigeria?',
-    'Which browser is best for Android?', 'open a new chat', 'open my email', 'I like google.com a lot',
+    'Which browser is best for Android?', 'open a new chat', 'I like google.com a lot',
     'Write me a poem about the browser', '', 'open the browser\nand then write an essay']) {
     assert.equal(parseIntent(t, OPEN), null, t);
   }
   assert.equal(parseIntent('search for ' + 'x '.repeat(200), OPEN), null);
+  // 0.11.3: with this chat's browser open, "open my email" is a follow-up for Saga (it was chat before).
+  assert.deepEqual(parseIntent('open my email', OPEN), { kind: 'task', goal: 'open my email', open: true,
+    follow: true });
 });
 
 test('modes and control: "let me help", "you do it", "take control", "done", "stop"', () => {
@@ -121,4 +124,38 @@ test('0.11.2: questions answerable without a browser stay ordinary chat', () => 
     'check this sentence for errors: I has a pen', 'what does google mean?']) {
     assert.equal(parseIntent(t), null, t);
   }
+});
+
+// 0.11.3 (owner's report on 0.11.2, Developer mode): after a browser task, follow-ups went to the chat model.
+const { followUp } = require('../../../apps/chat/src/lib/browser-intent.js');
+const AFTER = (prev) => ({ recent: true, prev: prev || '' });
+const FOLLOW = (goal) => ({ kind: 'task', goal, open: true, follow: true });
+
+test('0.11.3: after a browser task, follow-ups on any site continue it in the same browser', () => {
+  // GitHub (the owner's report)
+  for (const t of ['Go to Colon repo', 'Go to the repository named colon ai', 'Open the colon ai repository',
+    'open repository']) assert.deepEqual(parseIntent(t, AFTER()), FOLLOW(t), t);
+  assert.deepEqual(parseIntent('In the logged in GitHub account', AFTER('Go to Colon repo')),
+    FOLLOW('Go to Colon repo (In the logged in GitHub account)'));
+  // Jumia, yolotask.com.ng, Google results
+  for (const t of ['open the Infinix Smart 20', 'add it to cart', 'click the cheapest one', 'go to my earnings',
+    'check my withdrawals', 'open the second result', 'the first one', 'that one', 'next', 'scroll down',
+    'find the price', 'show me the reviews', 'on the jumia page']) {
+    assert.deepEqual(parseIntent(t, AFTER()), FOLLOW(t), t);
+  }
+  // With the browser open (no earlier task) it works too.
+  assert.deepEqual(parseIntent('Go to Colon repo', { open: true }), FOLLOW('Go to Colon repo'));
+});
+
+test('0.11.3: "open the browser and check" is a task anywhere; ordinary messages stay chat after a task', () => {
+  assert.deepEqual(parseIntent('Open the browser and check'), FOLLOW('Open the browser and check'));
+  assert.deepEqual(parseIntent('open the browser'), { kind: 'open' });
+  for (const t of ['Explain this code', 'Fix the bug in my function', 'What is a closure?', 'go ahead', 'thanks',
+    'show me how to write a loop in python', 'Write me a Python function that reverses a list', 'hello']) {
+    assert.equal(parseIntent(t, AFTER()), null, t);
+  }
+  // Without a browser task in this chat, a follow-up-looking message stays chat.
+  assert.equal(parseIntent('Go to Colon repo', {}), null);
+  assert.equal(parseIntent('check', {}), null);
+  assert.ok(followUp('click the first one') && !followUp('explain the error'));
 });

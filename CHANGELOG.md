@@ -1,5 +1,34 @@
 # Changelog
 
+## [0.11.3] — 2026-11-15 · Follow-ups keep Saga working in the same browser
+Owner's report on 0.11.2 (Infinix SMART 20, Developer mode): "Login to GitHub" worked, then "Go to Colon repo",
+"In the logged in GitHub account", "Open the browser and check", "Go to the repository named colon ai" were answered
+by the chat model ("provide the full URL"), with no browser and no card, and "Open the colon ai repository" ended
+with "if you can see it, tap on it". Every version number moves to 0.11.3 (apps, `Colon.version`, `?v=`
+cache-busting, `version.json` versionCode 1103 for both APKs). No migration, no new config key; one new SSE event.
+### Fixed
+- **Follow-ups went to the chat model.** The chat only sent narrow commands to Saga ("go to <domain>", "search
+  for…"); "go to Colon repo" named no domain or "site" word, so it fell through to Developer mode's model, which
+  then imitated Saga's step lists from the history. Now, after a browser task in a chat (any site), a message that
+  plausibly continues it is a Saga task in the same browser session (`browser-intent.js` `followUp`): open / go to /
+  click / select / scroll / next / more, check / find / look for / read, "that one", "the second result",
+  "continue", "open the browser and check…", and a fragment like "in the logged in account" (read with the
+  previous message). Code and explain requests stay chat. The chat's specialist is kept: a browsing follow-up in
+  Developer mode is Developer + AI Browse. The follow-up continues the last task (`continue_of`), so Saga starts from
+  what it already did, on the page it left.
+- **Server-side guard.** `POST /conversations/:id/messages` sends the same follow-ups (a browser turn among the last
+  6 messages) back to the app as SSE `browse {goal, message_id}` instead of calling the model
+  (`modules/chat/browse-follow.js`), so routing no longer depends on the page alone. Saga's step lists are left out
+  of the chat model's history.
+- **No live card on follow-ups.** They never reached Saga; every follow-up now runs through the 0.11.2
+  ensureChat / open path and shows the live card under the user's message (also for the server's `browse`).
+- **Saga talked instead of acting.** A finish that asks the user to tap or click something Saga could do, or that
+  only narrates ("I am attempting…"), is refused; a "go to / open <name>" goal needs that name in the page's address
+  or title, matched loosely on any site ("colon ai" = colon-ai = colon_ai = ColonAI; a search results page doesn't
+  count). Refusals before a finish is accepted: 3 (was 2). The rules, written out for Gemini 3.5 Flash-Lite: do the
+  clicking, find loosely named things in elements → getLinks → scroll → site search → a guessed address, state the
+  outcome in the past tense, and try at least 3 ways before giving up.
+
 ## [0.11.2] — 2026-11-14 · Saga clears pop-ups first, works faster, and Minimise really minimises
 Owner's report on 0.11.1 (Infinix SMART 20, Colon AI app). Every version number moves to 0.11.2 (apps,
 `Colon.version`, `?v=` cache-busting, `version.json` versionCode 1102 for both APKs). No migration, no API change,

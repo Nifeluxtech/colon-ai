@@ -114,6 +114,9 @@ So a request goes: middleware → **thin route** (`http/routes/<area>/*.js`, wir
 `POST /conversations/:id/messages` (and regenerate, edit, and `/chat/guest` for signed-out visitors, which saves
 nothing) streams server-sent events from `modules/chat/reply.js`: `start` → `delta`… → `done`, or `error`.
 The safety layer (below) runs first and keeps this format for refusals and stopped replies.
+0.11.3: a message that continues the chat's browser task (a browser turn among the last 6 messages;
+`modules/chat/browse-follow.js`) is not sent to a model: the stream is `user` → `browse {goal, message_id}` →
+`done {message: null}`, and the app has Saga do it in the same browser session (the chat keeps its mode).
 
 - **Routing** (`modules/ai/routing.js`, overridable from Admin › Routing through `modules/ai/dynamic.js`): every
   mode tries **Gemma 4 26B on Google AI Studio first**, then MiniMax M3.1 Flash (NVIDIA) → Gemma 4 31B → Qwen →

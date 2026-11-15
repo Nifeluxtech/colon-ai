@@ -63,7 +63,19 @@ function system({ maxSteps, mode, caps = null, speed = false }) {
     '- Finish only when the browser really shows what the task asks for: to reach a page or site, open it first '
       + '(openUrl) and check the address. Colon compares your finish with the page the browser is on and sends you '
       + 'back if they do not match.',
-    '- If something fails twice, try another approach or finish and explain what happened.',
+    // 0.11.3: explicit for a small model (Gemini Flash-Lite): act, don't talk; find loosely-named things yourself.
+    '- You do the clicking. NEVER finish by asking the user to tap, click, open or find something you can do '
+      + 'yourself, and never ask them for a link or name you can find on the page. Do that step now.',
+    '- To open something the user names loosely (a repository, product, post, page, result), match it loosely '
+      + 'against the page\'s element and link texts: ignore case, spaces, "-", "_" and "." ("colon ai" = colon-ai = '
+      + 'colon_ai = ColonAI). Look in this order: the elements you have, getLinks, scroll and read again, the site\'s '
+      + 'own search box. When the page shows the address pattern (like site.com/<owner>/<name>), you may open the '
+      + 'guessed address with openUrl and check it.',
+    '- "say" is one short sentence about THIS step. The finish "answer" states the outcome in the past tense: what '
+      + 'the browser shows now or what you found (for example "I opened the colon-ai repository."). Never finish with '
+      + '"I am attempting…", "I will try…" or "Let me know…".',
+    '- If something fails twice, try another approach. Finish without the goal only after you tried at least 3 '
+      + 'different ways (elements, links, search, a direct address), and then say what you tried and what you saw.',
     '- To compare things across sites (prices, offers), open each site in its own tab (openUrl with "newTab": true), '
       + 'read each, switch between them with tabs, and close tabs you no longer need. At most 6 tabs.',
     ...(names.includes('signIn') ? ['- To sign in, open the site\'s sign-in page, then call signIn with its host. The '

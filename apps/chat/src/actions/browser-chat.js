@@ -10,7 +10,11 @@
    in, continue"); "let me help" no longer switches to a shared mode.
    0.10.4: "reshow / show / reopen the browser" brings this chat's live browser back on its page (in view), and
    "continue" / "carry on" after a task ended (or was cut off) continues it (the card's Continue); neither goes to
-   the chat model as plain chat. */
+   the chat model as plain chat.
+   0.11.3 (owner): a follow-up to the chat's last browser task ({ follow: true }, any site, any specialist: the chat's
+   Developer / Study / Research mode is kept) continues that task's browser session (continue_of: Saga starts from
+   what it did), and its live card shows under the user's message. The server sends the same follow-ups back here
+   (event browse) when this page didn't catch one (browseFromServer). */
 
 import { browseNative, continueNative, sagaActive, stopSaga } from './saga-native.js';
 import { addThreadNote, nativeBrowser, openBrowser, revealInThread, setChatMode, setLayout, syncChat, syncNative }
@@ -30,9 +34,18 @@ var ENDED = ['done', 'error', 'stopped'];
 function nativeCtx() {
   var st = S.browser.nativeState || {}, run = st.run || {};
   return { open: !!st.open, waiting: !!(st.handoff && st.handoff.message), resumable: !!st.resumable,
-    ended: ENDED.indexOf(run.state) >= 0 && !!(run.goal || run.task), busy: sagaActive() };
+    ended: ENDED.indexOf(run.state) >= 0 && !!(run.goal || run.task), busy: sagaActive(),
+    recent: !!(run.task || run.goal), prev: prevUserText() };
 }
-function webCtx() { return { open: S.browser.layout !== 'none' }; }
+// 0.11.3: the user's last message in this chat (a follow-up fragment is read with it).
+function prevUserText() {
+  for (var i = (S.messages || []).length - 1; i >= 0; i--) {
+    var m = S.messages[i];
+    if (m && m.role === 'user' && m.content) return String(m.content);
+  }
+  return '';
+}
+function webCtx() { return { open: S.browser.layout !== 'none', prev: prevUserText() }; }
 function host(u) { return ColonURL.displayUrl(u).replace(/^www\./, '').split('/')[0] || u; }
 function say(text) { return addThreadNote(text, {}).catch(function () {}); }
 // 0.10.5: the reopened browser's live card goes under this reply and scrolls into view. 0.11.1: kept per chat
@@ -50,9 +63,13 @@ function showHere(m) {
 
 // Saga in the app: the task runs on this chat's browser; its answer (and each step) lands in the thread. anchor: the
 // message the task's card goes under (the user's instruction).
-function runTask(goal, anchor) {
+function runTask(goal, anchor, follow) {
   if (sagaActive()) return say('Saga is still working on your last instruction. Say “stop” to end it, or wait '
     + 'for its answer.');
+  // 0.11.3: a follow-up carries on from the chat's last task, in the same browser session (its steps go to Saga).
+  var prev = follow ? ((S.browser.nativeState || {}).run || {}).task : null;
+  if (prev && /^\d+$/.test(String(prev))) { continueNative({ task: prev, goal: goal, anchor: anchor || '' });
+    return Promise.resolve(); }
   // Saga's tasks belong to an account; signed out (or offline Preview), the web reader does the browsing.
   browseNative(goal, { chat: true, anchor: anchor || '' });
   return Promise.resolve();
@@ -93,10 +110,10 @@ function inApp(i, note) {
       // this chat's browser first) and the live card shows at once under the user's message.
       if (!(S.browser.nativeState && S.browser.nativeState.open)) {
         return ensureChat().then(function () { return nativeBrowser('open', {}); }).then(function (st) {
-          syncNative(st); showHere(note); return runTask(i.goal, anchor); });
+          syncNative(st); showHere(note); return runTask(i.goal, anchor, i.follow); });
       }
       showHere(note);
-      return runTask(i.goal, anchor);
+      return runTask(i.goal, anchor, i.follow);
   }
   return Promise.resolve();
 }
@@ -142,4 +159,15 @@ function handleBrowserText(text) {
   return true;
 }
 
-export { handleBrowserText };
+/** 0.11.3: the server found a browser follow-up this page didn't (event browse): the user's message (id) is in the
+    thread already; Saga does it in this chat's browser, its live card under that message. */
+function browseFromServer(goal, id) {
+  var app = C.native.hasPanel() && C.native.can('browserChats');
+  var i = { kind: 'task', goal: String(goal || ''), open: true, follow: true };
+  if (!i.goal) return;
+  syncChat();
+  (app ? inApp(i, { id: id }) : onWeb(i)).catch(function (e) {
+    C.toast((e && e.message) || 'The browser didn’t respond. Try again.', 'bad'); });
+}
+
+export { browseFromServer, handleBrowserText };

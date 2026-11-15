@@ -139,7 +139,7 @@ async function run(o) {
       // 0.10.6: the finish must match where the browser really is (goal.js); refused at most MAX_REFUSALS times.
       const page = here ? { url: here, title: hereTitle } : (typeof o.pageState === 'function' && o.pageState())
         || null;
-      const why = refused < goal.MAX_REFUSALS ? goal.check({ goal: o.goal, page, acted }) : null;
+      const why = refused < goal.MAX_REFUSALS ? goal.check({ goal: o.goal, page, acted, answer: goal.said(d) }) : null;
       if (why) {
         refused++;
         await log({ kind: 'error', say: d.say, tool: 'finish', error: 'goal_not_met' });
