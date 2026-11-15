@@ -14,8 +14,10 @@ const wait = (ms) => new Promise((r) => setTimeout(r, ms));
 const CAPS = ['open_url', 'get_page_content', 'get_links', 'click', 'fill', 'scroll', 'screenshot', 'back',
   'forward', 'reload', 'get_tabs'];
 let nextUser = 8100;
+// 0.11.4: a sign-in is handed to the user only on a page with a password / code field (or a sign-in page).
 const PAGE = { ok: true, result: { url: 'https://dash.example.com/', title: 'Dashboard', text: 'Deploy',
-  elements: [{ id: 'c1', tag: 'button', text: 'Deploy' }] } };
+  elements: [{ id: 'c1', tag: 'button', text: 'Deploy' }, { id: 'c2', tag: 'input', type: 'password',
+    label: 'Password' }] } };
 
 // A phone that answers like the 0.10.3 app: consent, acks, and o.onHandoff / o.onCommand for the user's part.
 async function phone(o = {}) {

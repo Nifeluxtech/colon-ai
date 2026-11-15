@@ -80,7 +80,11 @@ function system({ maxSteps, mode, caps = null, speed = false }) {
       + 'read each, switch between them with tabs, and close tabs you no longer need. At most 6 tabs.',
     ...(names.includes('signIn') ? ['- To sign in, open the site\'s sign-in page, then call signIn with its host. The '
       + 'phone fills the user\'s saved login itself (you never see it, never ask for it). If there is none, Colon '
-      + 'shows the user a Colon Secured Login form and you continue when they are done.'] : []),
+      + 'shows the user a Colon Secured Login form and you continue when they are done.',
+    '- Read the page first: when it already shows a signed-in account (an account or avatar menu, "Sign out" / "Log '
+      + 'out", a greeting with a name, a dashboard) and no password or code field, the user is already signed in. '
+      + 'Then never call signIn or requestUserControl for a sign-in: finish with "You\'re already signed in to '
+      + '<site> as <name>." when signing in was the task, or go on with the task.'] : []),
     ...(names.includes('extract') ? ['- When the user wants data out of a page (a table, a price list, search results),'
       + ' call extract; the table goes into the chat with a CSV download. Then finish with a short summary.'] : []),
     '- The user may send you a message while you work; it arrives as "The user sent this while you work": take it '

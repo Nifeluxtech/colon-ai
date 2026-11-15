@@ -1,17 +1,17 @@
 {
-  "versionName": "0.11.3",
-  "versionCode": 1103,
-  "apkUrl": "https://github.com/Nifeluxtech/colon-ai/releases/download/v0.11.3/colon-ai-0.11.3.apk",
-  "releaseUrl": "https://github.com/Nifeluxtech/colon-ai/releases/tag/v0.11.3",
-  "notes": "Fixes from your report: after Saga finishes something in a chat's browser, your next message that carries on (\"open the repository\", \"click the second result\", \"check\") goes straight to Saga in the same browser, with the live card under your message, in any mode (Developer stays Developer). Saga now does the clicking itself instead of asking you to tap, finds things you name loosely, and only finishes when the page is really there.",
+  "versionName": "0.11.4",
+  "versionCode": 1104,
+  "apkUrl": "https://github.com/Nifeluxtech/colon-ai/releases/download/v0.11.4/colon-ai-0.11.4.apk",
+  "releaseUrl": "https://github.com/Nifeluxtech/colon-ai/releases/tag/v0.11.4",
+  "notes": "Fix from your report: when you ask Saga to log in to a site you are already signed in to (GitHub, Jumia, YOLOTASK, Google or any other), it now sees the signed-in page and tells you \"You’re already signed in\" instead of asking you to take control. It only hands a sign-in to you when the page really asks for a password or a code that your saved login could not fill.",
   "minSupportedVersionCode": 0,
   "publishedAt": "2026-11-15",
   "browser": {
-    "versionName": "0.11.3",
-    "versionCode": 1103,
-    "apkUrl": "https://github.com/Nifeluxtech/colon-ai/releases/download/v0.11.3/colon-browser-0.11.3.apk",
-    "releaseUrl": "https://github.com/Nifeluxtech/colon-ai/releases/tag/v0.11.3",
-    "notes": "Released alongside Colon AI 0.11.3: follow-up messages keep Saga working in the same browser.",
+    "versionName": "0.11.4",
+    "versionCode": 1104,
+    "apkUrl": "https://github.com/Nifeluxtech/colon-ai/releases/download/v0.11.4/colon-browser-0.11.4.apk",
+    "releaseUrl": "https://github.com/Nifeluxtech/colon-ai/releases/tag/v0.11.4",
+    "notes": "Released alongside Colon AI 0.11.4: Saga no longer asks you to sign in when you already are.",
     "minSupportedVersionCode": 0
   }
 }
