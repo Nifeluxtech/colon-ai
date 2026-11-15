@@ -9,6 +9,7 @@
 // fill failed, the phone can't (no sign_in capability), or a login was already tried on this site in this task (a
 // wrong password, a 2FA / one-time code after it). Codes, cards and PINs are never tried: they are the user's.
 const tools = require('./tools');
+const { T } = require('./loop-util');
 
 const KINDS = new Set(['password', 'sign_in']);
 
@@ -65,19 +66,44 @@ function forLoop(c) {
     const back = await c.waiting(c.handBack(c.o, c.log, { kind: 'login', reason: 'No saved login', tool: 'signIn',
       name: 'sign_in', message: formMessage(site) }));
     if (back !== 'return_to_ai') return back;
-    return SAVED_NOTE.test(typeof c.o.takeNote === 'function' ? String(c.o.takeNote() || '') : '');
+    return savedFrom(typeof c.o.takeNote === 'function' ? String(c.o.takeNote() || '') : '');
   };
-  return async (kind, say) => {
+  const viaSaved = async (kind, say) => {
     const r = await first({ kind, url: c.url(), caps: c.o.caps, tried: c.tried, command: c.o.command, log: c.log,
       say, offerForm, opts: c.opts(say) });
     if (r && r.site) c.signed(r);
     return r;
   };
+  // 0.11.6: Saga's own signIn answered no_login (loop.js): the form card, then at once the saved login.
+  //   -> { signed } · { handOver } (closed without saving, or still no login) · { note: for Saga } · { end: why }
+  viaSaved.form = async (site, say) => {
+    const back = await offerForm(site);
+    if (back === false) return { handOver: true };
+    if (back !== true) return { end: String(back || 'handoff_ended').slice(0, 40) };
+    const ack = await signIn({ command: c.o.command, log: c.log, opts: c.opts(say), say: say
+      || `Signing in with your saved ${site} login` }, site);
+    if (ack.ok) { const r = { site, result: ack.result && typeof ack.result === 'object' ? ack.result : {} };
+      c.signed(r); return { signed: r }; }
+    return ack.error === 'no_login' ? { handOver: true } : { note: FAILED[ack.error] || `signIn with the login the `
+      + `user just saved did not work (${String(ack.error || 'error').slice(0, 30)}). Call getPageContent, then `
+      + 'requestUserControl (kind sign_in) so the user signs in themselves, or continue without signing in.' };
+  };
+  return viaSaved;
 }
+
+// 0.11.6: what the phone's hand-back says about the form. "Login saved for …" (the form, or a typed "I've saved it"
+// the phone matched in its vault) and a bare Give back both try the saved login once (the phone answers no_login when
+// there is none); only "I didn't save a login." skips it. The 10-minute silent wait is gone either way.
+const FAILED = { not_trusted: T.NOT_TRUSTED, wrong_site: T.WRONG_SITE, approval_denied: T.DENIED };
+const DECLINED_NOTE = /^I didn.t save a login/i;
+const savedFrom = (note) => SAVED_NOTE.test(note) || !DECLINED_NOTE.test(note);
 
 const formMessage = (site) => `Save your ${site} login in Colon Secured Login (it stays on this phone) and Saga signs `
   + 'in for you. Close the form to sign in yourself instead.';
 const SAVED_NOTE = /^Login saved for /;
+// The hand-over when the user closed the form: they sign in themselves (a password field is theirs to type).
+const yourself = (site) => ({ kind: 'sign_in', reason: 'No saved login', message: `Sign in to ${site} yourself in the `
+  + 'browser (Take control), then give it back to Saga.' });
 
 const signedIn = (site, r) => `Colon signed in on ${site} with the login the user saved on their phone (you never `
   + `see it)${r && r.submitted ? ' and sent the form' : ''}. The page is read for you next: check that you are signed `
@@ -92,4 +118,4 @@ const handoffMessage = (kind, url, tried, message, secret) => (secret !== false 
   && tried.has(siteOf(url) || '') ? AFTER_TRY : message);
 
 module.exports = { first, forLoop, can, eligible, siteOf, signedIn, handoffMessage, formMessage, SAVED_NOTE, KINDS,
-  AFTER_TRY };
+  AFTER_TRY, DECLINED_NOTE, savedFrom, yourself };

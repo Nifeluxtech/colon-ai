@@ -26,6 +26,7 @@ const loop = require('./loop');
 const prompt = require('./prompt');
 const resume = require('./resume');
 const extra = require('./runner-extra');
+const loginWait = require('./login-wait');
 const { createLink } = require('./link');
 
 const WORKER = `${os.hostname()}:${process.pid}`.slice(0, 64);
@@ -56,7 +57,9 @@ const STATUS_FOR = { declined: ['stopped', 'declined'], stop: ['stopped', 'decli
 // 0.10.4: 'reconnected' too (the phone's socket dropped and came back: the user is still on it).
 const STILL_WAITING = ['handoff', 'take_control', 'pause', 'resume', 'mode', 'reconnected'];
 // What ends a wait well: the user gave the browser back (or, after a pause, resumed).
-const BACK = { handoff: ['return_to_ai'], user_control: ['return_to_ai'], paused: ['return_to_ai', 'resume'] };
+// 0.11.6: login_saved (the phone saved the login Saga waited for) reads as return_to_ai.
+const BACK = { handoff: ['return_to_ai', 'login_saved'], user_control: ['return_to_ai', 'login_saved'],
+  paused: ['return_to_ai', 'resume'] };
 const SLICE_MS = 3000;                      // a Stop pressed on another worker is noticed within this
 
 /** Saga waits while the user types a secret in the panel or does what Saga asked: 'return_to_ai' or why it ended. */
@@ -66,7 +69,10 @@ async function waitHandoff(task, link, info, o, L) {
   const w = link.waitControl(Math.min(SLICE_MS, L.handoffTimeoutMs));
   if (!o.phoneStarted && !send()) return 'other_chat';
   // A socket that came back gets the request again (the phone shows it once; a repeat changes nothing).
-  return waitBack(task, link, 'handoff', L.handoffTimeoutMs, w, send);
+  // 0.11.6: a wait on the login form also ends when the phone reports the login saved (login-wait.js).
+  const login = info.kind === 'login' ? { since: Date.now(), L } : null;
+  try { return await waitBack(task, link, 'handoff', L.handoffTimeoutMs, w, send, login); }
+  finally { if (login) loginWait.done(link); }
 }
 
 /** 0.10.3: the user took the browser (why: manual_control) or paused it (paused): wait for it to come back. */
@@ -80,13 +86,15 @@ function waitUser(task, link, why, L) {
     L.userControlTimeoutMs)));
 }
 
-async function waitBack(task, link, phase, ms, first, again) {
+async function waitBack(task, link, phase, ms, first, again, login) {
   const until = Date.now() + ms;
   let w = first;
   await store.setPhase(task.id, phase);
   for (;;) {
     const reason = await w;
-    if (BACK[phase].includes(reason)) { await store.setPhase(task.id, 'running'); return reason; }
+    if (BACK[phase].includes(reason)) {
+      await store.setPhase(task.id, 'running'); return reason === 'login_saved' ? 'return_to_ai' : reason;
+    }
     if (link.moved) return 'moved';
     if (reason !== 'timeout' && !STILL_WAITING.includes(reason)) return reason;
     if (reason === 'reconnected' && again) again();
@@ -94,6 +102,9 @@ async function waitBack(task, link, phase, ms, first, again) {
     // Re-armed before anything else is awaited, so a Return to AI tapped meanwhile is never missed.
     w = link.waitControl(Math.min(SLICE_MS, until - Date.now()));
     if (await store.isStopped(task.id)) return 'stop';
+    if (login && await loginWait.saved(link, login.since, task, login.L)) {
+      await store.setPhase(task.id, 'running'); return 'return_to_ai';
+    }
   }
 }
 

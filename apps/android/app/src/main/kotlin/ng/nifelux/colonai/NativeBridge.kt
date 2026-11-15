@@ -302,7 +302,9 @@ class NativeBridge(private val host: MainActivity, private val webView: WebView)
             // 0.11.2
             "browserChrome", "cardShot",
             // 0.11.5
-            "pageSummary")
+            "pageSummary",
+            // 0.11.6: browser('control', {op: login_form}) reopens the login form Saga waits on.
+            "loginWait")
 
         /** Defines window.ColonNative (promise API) on top of the channel. Runs once per page, before page scripts. */
         private val SHIM = """

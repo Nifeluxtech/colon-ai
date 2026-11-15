@@ -25,13 +25,48 @@ object VaultRules {
         return h.takeIf { HOST.matches(it) }
     }
 
-    /** True when [pageUrl]'s host is [site] or one of its subdomains (accounts.github.com for github.com), https only
-     *  (http only for localhost-free test hosts is refused too: a login never goes over plain http). */
+    /** True when [pageUrl]'s host is [site], one of its subdomains (accounts.github.com for github.com) or, 0.11.6, its
+     *  parent on the same registrable domain (yolotask.com.ng for reviewer.yolotask.com.ng), https only (a login never
+     *  goes over plain http), never across registrable domains (evil.com.ng is not com.ng's). */
     fun pageMatches(pageUrl: String?, site: String): Boolean {
         val url = pageUrl?.trim() ?: return false
         if (!url.startsWith("https://", ignoreCase = true)) return false
         val host = site(url) ?: return false
-        return host == site || host.endsWith(".$site")
+        return sameFamily(host, site)
+    }
+
+    /** Second-level labels under a two-letter country code that are a public suffix (com.ng, co.uk, gov.ng…). */
+    private val SECOND_LEVEL = setOf("com", "co", "org", "net", "gov", "edu", "ac", "sch", "mil", "name", "info",
+        "biz", "mobi", "ltd", "plc", "nom", "or", "ne", "go", "gob", "nic", "web")
+
+    /** 0.11.6: the registrable domain, a public-suffix approximation with no list to ship: "reviewer.yolotask.com.ng"
+     *  -> "yolotask.com.ng", "accounts.github.com" -> "github.com", "bbc.co.uk" -> "bbc.co.uk"; null for a bare
+     *  suffix ("com.ng", "com"). */
+    fun registrable(host: String): String? {
+        val l = host.lowercase().removePrefix("www.").split('.').filter { it.isNotEmpty() }
+        if (l.size < 2) return null
+        val n = if (l.last().length == 2 && l[l.size - 2] in SECOND_LEVEL) 3 else 2
+        return if (l.size < n) null else l.takeLast(n).joinToString(".")
+    }
+
+    /** One site family: [a] is [b], or one is a subdomain of the other, on the same registrable domain. */
+    fun sameFamily(a: String, b: String): Boolean {
+        val r = registrable(a) ?: return false
+        if (r != registrable(b)) return false
+        return a == b || a.endsWith(".$b") || b.endsWith(".$a")
+    }
+
+    /**
+     * 0.11.6: the saved login for [site] (LoginVault.find): the entry for the site itself; else the closest parent
+     * domain's (longest wins: a login for yolotask.com.ng serves reviewer.yolotask.com.ng); else, when [site] is the
+     * parent, a subdomain's entry (the shortest, then the newest). Never across registrable domains, never a sibling.
+     */
+    fun match(list: List<Entry>, site: String): Entry? {
+        list.firstOrNull { it.site == site }?.let { return it }
+        val reg = registrable(site) ?: return null
+        val family = list.filter { registrable(it.site) == reg }
+        family.filter { site.endsWith(".${it.site}") }.maxByOrNull { it.site.length }?.let { return it }
+        return family.filter { it.site.endsWith(".$site") }.minByOrNull { it.site.length }
     }
 
     /** "ada.lovelace@example.com" -> "ad•••@example.com"; "nife" -> "n•••". Never the password. */

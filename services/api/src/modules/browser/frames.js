@@ -35,4 +35,11 @@ function note(v) {
       ? '[number hidden]' : m));
 }
 
-module.exports = { line, say, notice, note, KINDS, MAX, MAX_NOTE };
+// 0.11.6: the phone saved a login while Saga waited for one (control login_saved {site}, or a Give back's note).
+const SAVED = /^Login saved for /;
+const HOST = /^(?=.{3,253}$)(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,24}$/;
+/** The note a login_saved control stands for ('' without a valid site). */
+const saved = (site) => { const s = String(site || '').trim().toLowerCase().replace(/^www\./, '');
+  return HOST.test(s) ? `Login saved for ${s} in Colon Secured Login` : ''; };
+
+module.exports = { line, say, notice, note, saved, SAVED, KINDS, MAX, MAX_NOTE };

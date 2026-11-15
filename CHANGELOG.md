@@ -1,5 +1,56 @@
 # Changelog
 
+## [0.11.6] — 2026-11-15 · Saga login wait never sticks
+Owner's report on 0.11.5 (Android): Saga was asked to log in to yolotask (the reviewer sign-in page). signIn answered
+`no_login`, Saga showed the Colon Secured Login form and waited for Give back; the user filled it and SAVED it, and
+Saga stayed stuck, and the next chat messages ("Login n", "Hi") got no reply at all. Three causes: the phone sent
+Give back (`return_to_ai`) only when its card was already in `needs_user`, a state that arrives asynchronously from
+the control state (or never, when it was lost), so the server waited the whole `SAGA_HANDOFF_TIMEOUT_MS`; every
+message typed while a task was live was only queued for "Saga's next step", which never came while it waited; and a
+saved login matched its exact host only. Every version number moves to 0.11.6 (apps, `Colon.version`, `?v=`
+cache-busting, `version.json` versionCode 1106 for both APKs, the API's package.json and package-lock). No migration,
+no new config key.
+### Fixed
+- **Saving the login form always resumes Saga** (Android `LoginWait`, `ChatBrowserPanel`, `MainActivity`). After the
+  form of a login hand-over, Give back goes to the server whatever the card shows, with "Login saved for <site> in
+  Colon Secured Login" (or "I didn't save a login."); a lost control state is put back first (0.10.4's
+  `restoreWaiting`). A form whose callback was lost (the screen was rebuilt while it was open), a login saved from
+  another form (the chat's card), and the app coming back with the login now in the vault resume it too.
+- **Saga signs in at once** (`saga/saved-login.js` `forLoop().form`, `loop.js`): when Saga's own signIn answered
+  `no_login`, the form's "Login saved" note (or a bare Give back) sends `sign_in` again straight away, with no model
+  step in between; a closed form hands the sign-in to the user ("Sign in to <site> yourself…, then give it back").
+  Only "I didn't save a login." skips the retry.
+- **Server safety net** (`saga/login-wait.js`, `browser/bridge.js`, `control.js`, `frames.js`, `runner.js`): while
+  the loop waits on the login form (hand-over kind `login`), a login saved on the phone through any path the bridge
+  sees ends the wait: control `login_saved {site}` (a Give back with the saved note), or a "Login saved for …" note
+  on any control frame, also one up to a minute before the wait began. When Saga lost control meanwhile it asks for
+  it again the usual way.
+- **Messages while Saga waits get a reply** (`apps/chat/src/lib/saga-route.js`, `actions/saga-wait.js`,
+  `send-message.js`, `browser-chat.js`). While Saga waits for the user (the login form, a hand-over, Take control, a
+  pause; from the card's state or the server's task status, whichever knows first) a message is a normal chat turn.
+  "continue", "login", "try again", "I've saved it", "done"… carry Saga on (`return_to_ai` with the user's words; the
+  phone turns them into "Login saved for <site>" when its vault has the login, so Saga signs in at once; `resume`
+  after a pause) and "stop" / "cancel" stop it. The browse tool called meanwhile carries Saga on with its task as the
+  user's words. While Saga works, messages still steer its next step (`guide`), now kept in the thread with a visible
+  line instead of a toast only; `POST /browser/agent/:id/guide` answers 409 `waiting` while the task waits, and the
+  app sends the message to the chat model instead. The chat model's browser state says "Saga is WAITING for a login
+  on <site>" (or for the user, or paused) with what the user can say (`chat/browser-state.js` `task.waiting`).
+- **A saved login matches its domain family** (Android `VaultRules.match`, `registrable`, `sameFamily`;
+  `LoginVault.find`): the site's own entry, else the closest parent domain's (longest wins: a login for
+  yolotask.com.ng signs in on reviewer.yolotask.com.ng), else a subdomain's when the parent is asked for (shortest,
+  then newest); never a sibling, never across registrable domains (com.ng, co.uk… are suffixes). `pageMatches` stays
+  https-only and on the same registrable domain (and no longer accepts a bare suffix as a site). The form edits the
+  exact entry (`LoginVault.exact`); the one-time approval is stored on the entry's own site. No site-specific rules.
+- **The waiting card and note show what to do**: the card's pill (and the chat's card header, control `login`) offers
+  **Save login** (reopens the form: `browser('control', {op: 'login_form'})`, app feature `loginWait`) and Stop; the
+  thread note "Saga is waiting for a login" has [Open the login form] · [Stop Saga] links (`#colon-login`,
+  `#colon-stop`), and a hand-over note has Stop.
+- Tests: `saga-login-wait.test.js` (end to end on the bridge: `login_saved` ends the wait and Saga signs in at once,
+  the safety net on another control frame, a closed form hands the sign-in over, a bare Give back, guide 409 while
+  waiting, the browser state), `saga-0110.test.js` (signed in at once after the form), `saga-route.test.js` (routing
+  while waiting vs working), `card-chrome.test.js` (the login control); Android `VaultRulesTest` (domain matching),
+  `LoginWaitTest` (Give back whatever the card shows, notes, the login pill).
+
 ## [0.11.5] — 2026-11-15 · Browser follow-ups via tool routing: the chat model decides when to browse
 Owner's spec: after a browser task, follow-ups like "go to Colon repo", "open it", "click the second one" or "check my
 orders" often went to plain chat instead of Saga, or Saga handed the step back to the user, because routing was guessed

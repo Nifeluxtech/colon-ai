@@ -572,7 +572,8 @@ class BrowserSaga(private val a: BrowserHost, private val bridge: BridgeClient) 
     /* ---------- 0.11.0: Colon Secured Login ---------- */
 
     /** The site of Saga's last signIn: the Colon Secured Login form opens on it when there is no login. */
-    private var lastSignInSite: String? = null
+    var lastSignInSite: String? = null
+        private set
 
     /** sign_in {site}: the saved login fills the page natively, only on that site's https pages, only when the user
      *  trusts the site, after their one-time approval. The answer carries no value: ok/submitted, or no_login ·
@@ -603,7 +604,7 @@ class BrowserSaga(private val a: BrowserHost, private val bridge: BridgeClient) 
             .setMessage(a.activity.getString(R.string.vault_sign_in_text, site, VaultRules.mask(entry!!.user)))
             .setPositiveButton(R.string.vault_sign_in_once) { _, _ ->
                 if (!control.canRunCommands()) { reply(false, null, if (control.paused) "paused" else "manual_control") }
-                else { vault.approve(site); fill(entry) }
+                else { vault.approve(entry.site); fill(entry) }   // 0.11.6: the entry's own site (its family)
             }
             .setNegativeButton(R.string.saga_decline) { _, _ -> reply(false, null, "approval_denied") }
             .setCancelable(false)

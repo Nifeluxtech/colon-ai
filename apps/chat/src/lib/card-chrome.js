@@ -46,7 +46,7 @@ function statusOf(run) {
 
 /**
  * The live card's chrome from the app's state (browser('state')): { domain, favicon, title, status, line,
- * controls }. controls, in order: expand · minimise, take · give, pause · resume, stop (only what applies now).
+ * controls }. controls, in order: expand · minimise, take · give · login, pause · resume, stop (only what applies now).
  */
 function liveChrome(st) {
   st = st || {};
@@ -54,6 +54,8 @@ function liveChrome(st) {
   var controls = [st.focus ? 'minimise' : 'expand'];
   if (status === 'yours') controls.push('give');
   else if (status !== 'waiting') controls.push('take');
+  // 0.11.6: Saga waits for a login: reopen the Colon Secured Login form (or Stop).
+  else if ((run.request || {}).kind === 'login') controls.push('login');
   if (status === 'working') controls.push('pause');
   if (status === 'paused') controls.push('resume');
   if (live) controls.push('stop');

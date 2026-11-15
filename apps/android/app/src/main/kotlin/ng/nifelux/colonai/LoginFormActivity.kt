@@ -41,7 +41,7 @@ class LoginFormActivity : AppCompatActivity() {
         val vault = LoginVault(this)
         val given = VaultRules.site(intent.getStringExtra(EXTRA_SITE))
         site.setText(given.orEmpty())
-        if (given != null) vault.find(given)?.let { user.setText(it.user); trust.isChecked = it.trusted }
+        if (given != null) vault.exact(given)?.let { user.setText(it.user); trust.isChecked = it.trusted }
         intent.getStringExtra(EXTRA_USER)?.takeIf { user.text.isNullOrEmpty() }?.let { user.setText(it.take(512)) }
         trust.isChecked = trust.isChecked || intent.getBooleanExtra(EXTRA_TRUST, false)
         (if (given == null) site else if (user.text.isNullOrEmpty()) user else pass).requestFocus()

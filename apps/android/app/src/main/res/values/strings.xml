@@ -181,6 +181,7 @@
     <string name="card_give_back">Give back to Saga</string>
     <string name="card_give_back_short">Give back</string>
     <string name="card_retry">Retry</string>
+    <string name="card_login_form">Save login</string>
     <string name="card_stop">Stop Saga</string>
     <string name="card_expand">Open the browser full screen</string>
     <string name="card_collapse">Back to the chat</string>

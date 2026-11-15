@@ -12,6 +12,8 @@ import { ColonStore } from '../../../../packages/ui/js/store.js';
 import { S } from '../core/state.js';
 import { looksLikePassword } from '../lib/secret-text.js';
 import { createOverlayWatch } from '../lib/overlay-watch.js';
+import { guideNote } from '../lib/saga-route.js';
+import { CW } from '../core/cw.js';
 import { csvName, csvOf, markdownTable, rowsFromTable } from '../lib/table-csv.js';
 
 var C = Colon, esc = C.esc;
@@ -78,12 +80,15 @@ function passwordGuard(text) {
 }
 
 /* ---------- Ask while it works ---------- */
-/** A message for the running task: Saga takes it into account at its next step, without stopping. */
+/** A message for the running task: Saga takes it into account at its next step, without stopping. 0.11.6: kept in
+ *  the thread with a visible line (not only a toast); rejects with code 'waiting' when Saga waits for the user
+ *  (nothing is added then: the caller sends it to the chat model instead). */
 function guide(taskId, text) {
-  return addThreadNote(text, { role: 'user', title: text }).then(function () {
-    return C.api('/browser/agent/' + encodeURIComponent(taskId) + '/guide', { method: 'POST', body: { text: text } });
-  }).then(function () { C.toast('Saga will take that into account at its next step.', 'ok'); },
-  function (e) { C.toast((e && e.message) || 'Saga couldn’t get that message.', 'bad'); });
+  return C.api('/browser/agent/' + encodeURIComponent(taskId) + '/guide', { method: 'POST', body: { text: text } })
+    .then(function () {
+      return addThreadNote(text, { role: 'user', title: text }).then(function () {
+        return addThreadNote(guideNote(), {}); });
+    });
 }
 
 /* ---------- Extracted tables ---------- */
@@ -127,9 +132,14 @@ function install(root) {
   if (!clicks) {
     clicks = true;
     document.addEventListener('click', function (e) {
-      var a = e.target.closest && e.target.closest('a[href="#colon-csv"]');
+      var a = e.target.closest && e.target.closest('a[href="#colon-csv"], a[href="#colon-login"], '
+        + 'a[href="#colon-stop"]');
       if (!a) return;
-      e.preventDefault(); downloadCsv(a);
+      e.preventDefault();
+      // 0.11.6: the waiting note's actions (saga-wait.js): reopen the login form, Stop.
+      if (a.getAttribute('href') !== '#colon-csv') { if (CW.sagaWaitLink) CW.sagaWaitLink(a.getAttribute('href'));
+        return; }
+      downloadCsv(a);
     });
   }
   if (S.browser) S.browser.speed = speedOn;

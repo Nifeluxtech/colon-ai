@@ -86,11 +86,15 @@ async function listTasks(req) {
 }
 
 // 0.11.0: POST /browser/agent/:id/guide { text }: the user's message while the task runs, for Saga's next step.
+// 0.11.6: 409 waiting while Saga waits for the user.
 async function guideTask(req) {
   const id = taskId(req);
   const row = await store.getFor(req.user.id, id);
   if (!row) throw fail(404, 'not_found', 'Unknown task.');
   if (store.TERMINAL.includes(row.status)) throw fail(409, 'ended', 'That task has already ended.');
+  // 0.11.6: Saga is waiting for the user (a login form, a hand-over, paused): there is no next step to read it, so
+  // the app sends the message to the chat model instead (a reply, never a silent queue).
+  if (store.WAITING.includes(row.status)) throw fail(409, 'waiting', 'Saga is waiting for you, not working.');
   const text = String((req.body || {}).text || '').slice(0, 1000);
   const kept = await guidance.add(req.user.id, id, text);
   if (!kept) throw fail(422, 'invalid', 'Say what Saga should take into account.');

@@ -35,6 +35,8 @@ class ChatCard(content: FrameLayout, private val on: Actions) {
         fun menu(anchor: View)
         /** 0.11.0: every step of the task (TimelineSheet). */
         fun timeline()
+        /** 0.11.6: Saga waits for a login: reopen the Colon Secured Login form. */
+        fun loginForm()
     }
 
     private val ctx = content.context
@@ -165,6 +167,7 @@ class ChatCard(content: FrameLayout, private val on: Actions) {
         }))
         text.text = p.text
         val label = when {
+            p.login -> R.string.card_login_form
             p.takeControl && !full -> R.string.take_control
             p.giveBack -> R.string.card_give_back_short
             p.cont -> R.string.card_continue
@@ -178,6 +181,7 @@ class ChatCard(content: FrameLayout, private val on: Actions) {
                 when (label) {
                     R.string.take_control -> on.takeControl()
                     R.string.card_give_back_short -> on.giveBack()
+                    R.string.card_login_form -> on.loginForm()
                     else -> on.retry()
                 }
             }

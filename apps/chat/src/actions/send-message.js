@@ -1,8 +1,8 @@
 /* Colon AI · sending a message and streaming the reply; regenerate, stop and edit-and-resend. */
 
 import { browseFromServer, browserFromServer, handleBrowserText, pageState } from './browser-chat.js';
-import { guide, loginCard, passwordGuard } from './saga-extras.js';
-import { activeTaskId } from './saga-native.js';
+import { loginCard, passwordGuard } from './saga-extras.js';
+import { sagaTyped } from './saga-wait.js';
 import { handlePlanText } from './saga-plans.js';
 import { Colon } from '../../../../packages/ui/js/colon.js';
 import { ColonMarkdown } from '../../../../packages/ui/js/markdown/index.js';
@@ -26,9 +26,15 @@ function send() {
   // Phase 10: "open the browser", "open google.com", "scroll down"… go to this chat's browser (actions/browser-chat).
   if (!atts.length && handleBrowserText(text)) { ta.value = ''; autoGrow(); syncComposer(); return; }
   if (!atts.length && sagaText(ta, text)) return;
+  ta.value = ''; autoGrow(); S.media.clear(true); syncComposer();
+  sendChat(text, atts);
+}
+/** The message as a chat turn (the chat model replies). 0.11.6: also a message Saga can't take while it waits. */
+function sendChat(text, atts) {
+  var ta = $('#cw-input');
+  atts = atts || [];
   var conv = S.current && !S.loadingConv ? Promise.resolve(S.current) : data.createConversation({ mode: S.draftMode,
     model: S.draftModel || defaultModel() });
-  ta.value = ''; autoGrow(); S.media.clear(true); syncComposer();
   conv.then(function (c) {
     var fresh = !S.current || S.current.id !== c.id;
     if (fresh) {
@@ -66,9 +72,9 @@ function sagaText(ta, text) {
     return true;
   }
   if (handlePlanText(text)) { clearComposer(ta); return true; }
-  var task = activeTaskId();
-  if (task) { clearComposer(ta); guide(task, text); return true; }
-  return false;
+  // 0.11.6 (lib/saga-route.js): while Saga waits for the user a message is a chat turn (except continue / login /
+  // try again / I've saved it, and stop); while Saga works it steers the next step (guide, noted in the thread).
+  return sagaTyped(text, function () { clearComposer(ta); }, function (t) { sendChat(t, []); });
 }
 function run(call, tempUser, replaceId) {
   var ctl = new AbortController(), msg = null;

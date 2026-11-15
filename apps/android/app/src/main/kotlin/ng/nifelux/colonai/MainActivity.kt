@@ -68,11 +68,15 @@ class MainActivity : AppCompatActivity() {
     /** 0.11.0: the Colon Secured Login form's answer: the site and the masked user name, never the password. */
     private var vaultCallback: ((String?, String?) -> Unit)? = null
     private val vaultLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { r ->
-        val cb = vaultCallback.also { vaultCallback = null } ?: return@registerForActivityResult
         val i = r.data
-        if (r.resultCode == RESULT_OK && i != null) cb(i.getStringExtra(LoginFormActivity.EXTRA_SITE),
-            i.getStringExtra(LoginFormActivity.RESULT_MASKED))
-        else cb(null, null)
+        val saved = if (r.resultCode == RESULT_OK && i != null) i.getStringExtra(LoginFormActivity.EXTRA_SITE) else null
+        val cb = vaultCallback.also { vaultCallback = null }
+        val panel = if (::browserPanel.isInitialized) browserPanel else null
+        // 0.11.6: a form whose callback was lost (this screen was rebuilt while it was open) still resumes a Saga
+        // that waits for a login; a login saved from another form (the chat's card) resumes it too.
+        if (cb == null) { panel?.onLoginFormLost(saved); return@registerForActivityResult }
+        if (saved != null) cb(saved, i?.getStringExtra(LoginFormActivity.RESULT_MASKED)) else cb(null, null)
+        if (saved != null) panel?.onLoginSaved(saved)
     }
 
     /** Opens the Colon Secured Login form for [site]; [done] gets (site saved, masked user) or (null, null). */

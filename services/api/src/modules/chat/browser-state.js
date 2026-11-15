@@ -8,6 +8,8 @@
 //   fromClient(body.browser) -> sanitized page | null
 //   load({ userId, conversationId, page, store?, now? }) -> state | null (no session)
 //   block(state, guard) -> the system-prompt text   ·   item(state, n) -> the n-th clickable item | null
+// 0.11.6: a task waiting for the user says so (task.waiting: a login on <site>, a hand-over, a pause), so a message
+// sent meanwhile gets a real reply that can explain it.
 const safety = require('../safety');
 
 const MAX_SUMMARY = 1500;
@@ -68,7 +70,29 @@ async function load({ userId, conversationId, page = null, store = null, now = D
   const p = page || { url: web(last.url), title: str(last.title, 200), summary: '', items: [], open: false };
   return { url: p.url, title: p.title, summary: p.summary, items: p.items, fromApp: Boolean(page),
     account: account(page, saga), task: task ? { id: Number(task.id), goal: str(task.goal, 300), status: task.status,
-      result: str(task.result, 120) } : null, steps: steps.map(stepLine) };
+      result: str(task.result, 120), waiting: waitingFor(task, steps) } : null, steps: steps.map(stepLine) };
+}
+
+// 0.11.6: what Saga waits for while its task is waiting for the user: { kind: login · user · paused, site, say }.
+const WAITING = ['handoff', 'user_control', 'paused'];
+function waitingFor(task, steps) {
+  if (!WAITING.includes(task.status)) return null;
+  const ask = [...steps].reverse().find((a) => a.kind === 'handoff') || {};
+  const tried = [...steps].reverse().find((a) => a.args && a.args.site && ([a.name, a.command].includes('sign_in')
+    || a.tool === 'signIn')) || {};
+  const site = str((tried.args && tried.args.site) || '', 120) || str((/https?:\/\/(?:www\.)?([^/?#:]+)/i
+    .exec(ask.url || tried.url || '') || [])[1], 120);
+  const kind = task.status === 'paused' ? 'paused' : ask.error === 'login' ? 'login' : 'user';
+  return { kind, site, say: str(ask.say, 200) };
+}
+
+function waitingLine(w) {
+  if (w.kind === 'login') return `Saga is WAITING for a login on ${w.site || 'the site'}: the user is asked to save `
+    + 'it in Colon Secured Login (a secure form on their phone; never ask for the password in the chat). Saga signs '
+    + 'in by itself once it is saved. The user can say "continue" (or "I\'ve saved it") to carry on, or "stop".';
+  if (w.kind === 'paused') return 'Saga is PAUSED by the user. They can say "continue" to resume, or "stop".';
+  return `Saga is WAITING for the user to act in the browser${w.say ? ` ("${w.say}")` : ''}: they tap Take control `
+    + 'on the browser card, then say "continue"; or "stop".';
 }
 
 function accountLine(a, url) {
@@ -88,6 +112,7 @@ function block(s, guard = safety.collector()) {
   if (s.task) {
     lines.push(`Last browser task: "${clean(s.task.goal)}" (${s.task.status}${s.task.result ? `: ${clean(
       s.task.result)}` : ''})`);
+    if (s.task.waiting) lines.push(clean(waitingLine(s.task.waiting)));
     if (s.steps.length) lines.push('Its last steps:', ...s.steps.map((l, i) => `${i + 1}. ${clean(l)}`));
   }
   lines.push('Page summary:', s.summary ? clean(s.summary) : '(not read)');
@@ -100,4 +125,4 @@ function block(s, guard = safety.collector()) {
 
 const item = (s, n) => (s && Number.isInteger(Number(n)) ? s.items.find((x) => x.n === Number(n)) || null : null);
 
-module.exports = { fromClient, load, block, item, stepLine, MAX_SUMMARY, MAX_ITEMS, STEPS };
+module.exports = { fromClient, load, block, item, stepLine, waitingFor, waitingLine, MAX_SUMMARY, MAX_ITEMS, STEPS };

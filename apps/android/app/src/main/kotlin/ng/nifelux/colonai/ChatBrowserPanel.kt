@@ -467,12 +467,49 @@ class ChatBrowserPanel(private val a: MainActivity) : BrowserHost, TabManager.Ho
 
     override fun onLoginNeeded(site: String?) {
         if (!isOpen) open(null)
-        a.openLoginForm(site, null, true) { saved, _ ->
-            // Saga carries on either way; with a saved login it signs in, else it asks the user to sign in. The note
-            // names the site only (not even the masked user name: nothing typed in the form reaches the server).
-            giveBack(if (saved != null) "Login saved for $saved in Colon Secured Login" else "I didn't save a login.")
-            changed()
-        }
+        loginWaitSite = LoginWait.site(site, saga.lastSignInSite, tabs.active?.url) ?: ""
+        openLoginWaitForm()
+    }
+
+    /** 0.11.6: the site Saga waits for a login on ("" when unknown); null when no login wait is open. */
+    private var loginWaitSite: String? = null
+
+    private fun openLoginWaitForm() {
+        a.openLoginForm(loginWaitSite?.ifEmpty { null }, null, true) { saved, _ -> loginFormDone(saved) }
+    }
+
+    /** The form's answer always reaches Saga (0.11.6: whatever the card shows): saved, it signs in at once; closed,
+     *  it hands the sign-in to the user. The note names the site only (nothing typed in the form leaves the phone). */
+    private fun loginFormDone(saved: String?) {
+        if (!LoginWait.open(run, loginWaitSite) || ChatRun.ended(run.state)) { loginWaitSite = null; return }
+        giveBack(LoginWait.formNote(saved))
+        changed()
+    }
+
+    /** 0.11.6: browser('control', {op: login_form}) and the card's Save login: the form again for the waiting site. */
+    private fun reopenLogin(): Boolean {
+        if (!LoginWait.open(run, loginWaitSite) || ChatRun.ended(run.state)) return false
+        if (!isOpen) open(null)
+        if (loginWaitSite == null) loginWaitSite = LoginWait.site(null, saga.lastSignInSite, tabs.active?.url) ?: ""
+        openLoginWaitForm()
+        return true
+    }
+
+    /** 0.11.6 (MainActivity): a login was saved from any form while Saga waits for one (the chat's form card, a form
+     *  whose callback was lost when the screen was rebuilt, the app coming back): Saga resumes and signs in. */
+    fun onLoginSaved(site: String?) {
+        if (!LoginWait.open(run, loginWaitSite) || ChatRun.ended(run.state)) return
+        val want = LoginWait.site(loginWaitSite?.ifEmpty { null }, saga.lastSignInSite, tabs.active?.url)
+        val got = site ?: want?.let { w -> LoginVault(a).find(w)?.site }
+        if (got == null || (want != null && !VaultRules.sameFamily(got, want))) return
+        giveBack(LoginWait.savedNote(want ?: got))
+        changed()
+    }
+
+    /** 0.11.6: the form was answered but its callback was lost (the screen was rebuilt meanwhile): resume anyway. */
+    fun onLoginFormLost(saved: String?) {
+        if (saved != null) { onLoginSaved(saved); return }
+        if (LoginWait.open(run, loginWaitSite) && !ChatRun.ended(run.state)) { giveBack(LoginWait.DECLINED); changed() }
     }
 
     override fun onApprovalAsked(reason: String) {
@@ -557,6 +594,7 @@ class ChatBrowserPanel(private val a: MainActivity) : BrowserHost, TabManager.Ho
         when (op) {
             "take_control" -> takeControl()
             "return_to_ai" -> giveBack(note)
+            "login_form" -> return reopenLogin()     // 0.11.6: reopen the Colon Secured Login form Saga waits on
             "stop" -> stopSaga()
             else -> saga.userControl(op)
         }
@@ -652,6 +690,8 @@ class ChatBrowserPanel(private val a: MainActivity) : BrowserHost, TabManager.Ho
     fun onResume() {
         // 0.10.4: the chat page re-reads the card's state (the task may have moved on while the app was away).
         changed()
+        // 0.11.6: Saga waits for a login the vault now holds (saved while the app was away): it carries on.
+        if (loginWaitSite == null) onLoginSaved(null)
         if (!isOpen) return
         tabs.active?.webView?.onResume()
         if (reloadOnReturn) { reloadOnReturn = false; tabs.active?.webView?.reload() }
@@ -703,6 +743,7 @@ class ChatBrowserPanel(private val a: MainActivity) : BrowserHost, TabManager.Ho
         override fun reload() { reloadPage() }
         override fun menu(anchor: View) = showMenu(anchor)
         override fun timeline() = showTimeline()
+        override fun loginForm() { reopenLogin(); changed() }
     }
 
     /** The full-screen view over the chat (true) or the card in the thread; the same WebView grows or shrinks. */
@@ -760,17 +801,21 @@ class ChatBrowserPanel(private val a: MainActivity) : BrowserHost, TabManager.Ho
      *  note of what the user said and where the page is (never what they typed in the page). */
     fun giveBack(message: String?) {
         val t = tabs.active
-        val note = HandoffNote.build(message, t?.url, t?.title)
+        // 0.11.6: while Saga waits for a login, Give back always reaches the server (LoginWait), and a "continue"
+        // says the login is saved when the vault has one for the site (Saga then signs in at once).
+        val loginWait = LoginWait.open(run, loginWaitSite) && !ChatRun.ended(run.state)
+        val site = if (loginWait) LoginWait.site(loginWaitSite?.ifEmpty { null }, saga.lastSignInSite, t?.url) else null
+        val has = site?.takeIf { LoginVault(a).find(it) != null }
+        val note = HandoffNote.build(LoginWait.note(message, loginWait, has), t?.url, t?.title)
         val asked = run.state == ChatRun.State.NEEDS_USER || run.resumes
         // 0.10.4: never "Saga stopped" here: a lost control state is put back first (BrowserSaga.userControl), and
         // the server, which kept the task, decides what carries on (the chat page follows the task's end).
-        if (asked && (run.state == ChatRun.State.USER_CONTROL || run.state == ChatRun.State.NEEDS_USER)) {
-            saga.userControl("return_to_ai", note)
-        }
+        if (LoginWait.sends(run, loginWait)) saga.userControl("return_to_ai", note)
+        loginWaitSite = null
         val kind = run.request?.kind
         setRun(ChatRun.giveBack(run, System.currentTimeMillis()))
         setFocus(false)
-        if (asked && message?.startsWith("Login saved for") != true) offerSave(kind)
+        if (asked && !loginWait && message?.startsWith("Login saved for") != true) offerSave(kind)
     }
 
     /** Stop: Saga's task ends here and on the server (the chat page also asks the server to stop it). */
@@ -878,7 +923,7 @@ class ChatBrowserPanel(private val a: MainActivity) : BrowserHost, TabManager.Ho
         if (before.state == ChatRun.State.NEEDS_USER && next.state != ChatRun.State.NEEDS_USER) {
             Notifications.cancelSaga(a)
         }
-        if (ChatRun.ended(next.state) && !ChatRun.ended(before.state)) ended(next)
+        if (ChatRun.ended(next.state) && !ChatRun.ended(before.state)) { loginWaitSite = null; ended(next) }
         // 0.11.0: a running task keeps going in the background (foreground service); it goes when the task ends.
         if (ChatRun.live(next.state) && !ChatRun.live(before.state)) SagaService.start(a, next.goal)
         if (!ChatRun.live(next.state) && ChatRun.live(before.state)) SagaService.end(a)
@@ -969,6 +1014,7 @@ class ChatBrowserPanel(private val a: MainActivity) : BrowserHost, TabManager.Ho
         val p = ChatRun.pill(run, if (::card.isInitialized) card.words else PLAIN, pageAlive(), linked)
         return JSONObject().put("icon", p.icon).put("text", p.text).put("takeControl", p.takeControl)
             .put("giveBack", p.giveBack).put("retry", p.retry).put("stop", p.stop).put("continue", p.cont)
+            .put("login", p.login)
     }
 
     /* ---------- layout ---------- */

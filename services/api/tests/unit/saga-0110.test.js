@@ -54,24 +54,26 @@ test('extract: the table goes to the chat (r.tables, a logged extract row) and S
   assert.match(text(m.seen[1]), /UNTRUSTED/);
 });
 
-test('signIn: offered only to phones that can; no saved login -> Colon Secured Login hand-over, then retried',
+test('signIn: offered only to phones that can; no saved login -> Colon Secured Login hand-over, then signed in',
   async () => {
     assert.ok(!tools.available(['get_page_content']).includes('signIn'));
     assert.ok(tools.available(['get_page_content', 'sign_in']).includes('signIn'));
     assert.doesNotMatch(prompt.system({ maxSteps: 5, caps: ['get_page_content'] }), /signIn \{/);
     let tries = 0;
-    const m = model([{ say: 'Signing in', action: 'signIn', args: { site: 'https://www.GitHub.com/login' } },
-      { say: 'Again', action: 'signIn', args: { site: 'github.com' } }, FIN]);
+    // 0.11.6: once the login is saved Colon signs in at once (no second decision needed).
+    const m = model([{ say: 'Signing in', action: 'signIn', args: { site: 'https://www.GitHub.com/login' } }, FIN]);
     const p = phone({ sign_in: () => (tries++ === 0 ? { ok: false, error: 'no_login' }
       : { ok: true, result: { submitted: true, url: 'https://github.com/' } }) });
     const handoffs = [];
     const r = await go({ decide: m.decide, command: p.command, caps: ['get_page_content', 'sign_in'],
       handoff: async (info) => { handoffs.push(info); return 'return_to_ai'; }, takeNote: () => 'Login saved' });
     assert.equal(r.status, 'done');
-    assert.deepEqual(p.calls.map((c) => c.args), [{ site: 'github.com' }, { site: 'github.com' }]);
+    assert.deepEqual(p.calls.filter((c) => c.name === 'sign_in').map((c) => c.args), [{ site: 'github.com' },
+      { site: 'github.com' }]);
+    assert.equal(p.calls[2].name, 'get_page_content');           // the page is read for Saga after signing in
     assert.equal(handoffs[0].kind, 'login');
     assert.match(handoffs[0].message, /Colon Secured Login/);
-    assert.match(text(m.seen[1]), /saved a login for this site/);
+    assert.match(text(m.seen[1]), /Colon signed in on github\.com with the login the user saved/);
     // Only the site ever goes to the phone; no field of a sign_in command can carry a credential.
     assert.throws(() => tools.toCommand('signIn', { site: 'not a site' }), /host name/);
     assert.deepEqual(tools.toCommand('signIn', { site: 'x.ng', password: 'hunter2', user: 'me' }).args,

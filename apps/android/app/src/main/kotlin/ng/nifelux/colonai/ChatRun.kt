@@ -152,9 +152,10 @@ object ChatRun {
     fun linkUp(status: String): Boolean = status == "BRIDGE_READY" || status == "CONNECTED"
 
     /** The status pill: [icon] spinner · check · error · turn · pause · none. [cont] (0.10.4): the ended card's
-     *  button is Continue (the chat's browser still has the page: Saga carries on there), else Retry. */
+     *  button is Continue (the chat's browser still has the page: Saga carries on there), else Retry. [login]
+     *  (0.11.6): Saga waits for a login: the button reopens the Colon Secured Login form. */
     data class Pill(val icon: String, val text: String, val takeControl: Boolean, val giveBack: Boolean,
-                    val retry: Boolean, val stop: Boolean, val cont: Boolean = false)
+                    val retry: Boolean, val stop: Boolean, val cont: Boolean = false, val login: Boolean = false)
 
     /** [page]: the chat's browser still has a web page open (Continue instead of Retry). [linked]: the phone's link
      *  to the server is up (else a running task says it is reconnecting: the server waits for the phone). */
@@ -170,7 +171,10 @@ object ChatRun {
         State.IDLE -> Pill("none", "", false, false, false, false)
         State.RUNNING -> Pill("spinner", r.step.ifEmpty { words.working }, false, false, false, true)
         State.PAUSED -> Pill("pause", words.paused, false, false, false, true)
-        State.NEEDS_USER -> Pill("turn", words.needsYou(r.request?.message ?: ""), true, false, false, true)
+        // 0.11.6: Saga waits for a login: the card reopens the Colon Secured Login form (or Stop), no Take control.
+        State.NEEDS_USER -> if (r.request?.kind == "login") {
+            Pill("turn", words.needsYou(r.request?.message ?: ""), false, false, false, true, login = true)
+        } else Pill("turn", words.needsYou(r.request?.message ?: ""), true, false, false, true)
         State.USER_CONTROL -> Pill("turn", when {
             r.step == APP_CLOSED -> words.appPaused
             r.resumes -> words.yourTurn

@@ -238,13 +238,13 @@ async function run(o) {
       const fin = await settled(await sess.noForm(cmd.args.site)); if (fin) return fin; continue;
     }
     if (!ack.ok && ack.error === 'no_login' && cmd.name === 'sign_in') {
-      // 0.11.0: no saved login for the site: the phone shows the Colon Secured Login form; Saga waits for it.
-      await log(entry);
-      const back = await waiting(U.handBack(o, log, { kind: 'login', reason: 'No saved login', tool: cmd.tool,
-        name: cmd.name, message: `Save your ${cmd.args.site} login in Colon Secured Login (it stays on this phone), `
-          + 'then give the browser back.' }));
+      await log(entry);                             // 0.11.6: the form, then at once the saved login (saved-login.js)
+      const f = await viaSaved.form(cmd.args.site, d.say);
+      if (f.end) return end('interrupted', { error: f.end }); if (f.note) observe(f.note); if (!f.handOver) continue;
+      const back = await waiting(U.handBack(o, log, { ...saved.yourself(cmd.args.site), tool: cmd.tool,
+        name: cmd.name }));
       if (back !== 'return_to_ai') return end('interrupted', { error: back });
-      backFromUser(U.T.LOGIN_SAVED);
+      backFromUser(U.T.HANDED_BACK);
       continue;
     }
     if (need && ack.ok && !approvedOnPhone) {

@@ -31,7 +31,11 @@ class LoginVault(context: Context, private val crypt: Crypt = KeystoreCrypt()) {
         VaultRules.fromJson(String(crypt.decrypt(Base64.decode(raw, Base64.NO_WRAP)), Charsets.UTF_8))
     } catch (_: Exception) { emptyList() } // a lost key (the user cleared credentials) reads as an empty vault
 
-    fun find(site: String): VaultRules.Entry? = all().firstOrNull { it.site == site }
+    /** 0.11.6: the site's own login, else its domain family's (VaultRules.match: parent or subdomain, same domain). */
+    fun find(site: String): VaultRules.Entry? = VaultRules.match(all(), site)
+
+    /** The entry saved for exactly [site] (the form edits that one). */
+    fun exact(site: String): VaultRules.Entry? = all().firstOrNull { it.site == site }
 
     fun has(site: String): Boolean = find(site) != null
 

@@ -1,17 +1,17 @@
 {
-  "versionName": "0.11.5",
-  "versionCode": 1105,
-  "apkUrl": "https://github.com/Nifeluxtech/colon-ai/releases/download/v0.11.5/colon-ai-0.11.5.apk",
-  "releaseUrl": "https://github.com/Nifeluxtech/colon-ai/releases/tag/v0.11.5",
-  "notes": "Follow-ups after a browser task now work the way you say them: “go to Colon repo”, “open it”, “click the second one” or “check my orders” go straight to Saga in the same browser, with the live card under your message. Colon itself decides when to browse (in every mode), reads the page you are on, clears common cookie banners on its own, and Saga no longer ends by asking you to tap something it can do.",
+  "versionName": "0.11.6",
+  "versionCode": 1106,
+  "apkUrl": "https://github.com/Nifeluxtech/colon-ai/releases/download/v0.11.6/colon-ai-0.11.6.apk",
+  "releaseUrl": "https://github.com/Nifeluxtech/colon-ai/releases/tag/v0.11.6",
+  "notes": "Saving a login for Saga now always carries it on: once you save it in Colon Secured Login, Saga signs in at once (close the form and Saga hands the sign-in to you, never a silent wait). While Saga waits for you, your messages get a real reply; say “continue” or “I’ve saved it” to carry on, or “stop”. A login saved for a site also works on its subdomains (yolotask.com.ng for reviewer.yolotask.com.ng), and the waiting card offers the login form again or Stop.",
   "minSupportedVersionCode": 0,
   "publishedAt": "2026-11-15",
   "browser": {
-    "versionName": "0.11.5",
-    "versionCode": 1105,
-    "apkUrl": "https://github.com/Nifeluxtech/colon-ai/releases/download/v0.11.5/colon-browser-0.11.5.apk",
-    "releaseUrl": "https://github.com/Nifeluxtech/colon-ai/releases/tag/v0.11.5",
-    "notes": "Released alongside Colon AI 0.11.5: Saga clears common cookie banners by itself and reads pages more cleanly.",
+    "versionName": "0.11.6",
+    "versionCode": 1106,
+    "apkUrl": "https://github.com/Nifeluxtech/colon-ai/releases/download/v0.11.6/colon-browser-0.11.6.apk",
+    "releaseUrl": "https://github.com/Nifeluxtech/colon-ai/releases/tag/v0.11.6",
+    "notes": "Released alongside Colon AI 0.11.6: a saved login now also matches the site’s subdomains.",
     "minSupportedVersionCode": 0
   }
 }

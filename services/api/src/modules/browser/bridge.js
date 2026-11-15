@@ -5,6 +5,7 @@
 // Phase 9: command(), waitControl(), hello `capabilities`. Phase 10: per device AND conversation, `other_chat`,
 // `handoff`, the latest `page_state` in memory. 0.10.2: `say`, notice(). 0.10.3: control `note`, `timeout_ms`.
 // 0.10.4: hello `resumable`, `state.closed`, live.js (onConnect). 0.11.0: command `step`, control `scheduled`.
+// 0.11.6: control `login_saved` and `state.loginSaved` (a login saved while Saga waited for one).
 const store = require('./store');
 const S = require('./session');
 const C = require('./control');
@@ -28,7 +29,7 @@ function createBridge(o) {
   const audit = o.audit || (async () => {});
   const st = { ref: null, deviceId: null, app: null, maxTabs: S.MAX_TABS, consented: false, lastSync: 0,
     queued: null, timer: null, pending: new Map(), seq: 0, writing: Promise.resolve(), capabilities: [],
-    watchers: new Set(), seen: 0, conv: '', page: null, note: '', closed: false };
+    watchers: new Set(), seen: 0, conv: '', page: null, note: '', closed: false, loginSaved: 0 };
   const api = { handle, requestSession, command, askControl, waitControl, hasControl, supports, close, handoff,
     notice, pageState: () => st.page, takeNote, state: st, user };
   const sk = () => ({ ref: st.ref, conv: st.conv });
@@ -125,7 +126,9 @@ function createBridge(o) {
     if (d.error) return error('bad_control', 'Unknown control reason.');
     st.consented = d.consented;
     // 0.10.3: the user's words when they give the browser back ("I've logged in, continue"), for Saga's next step.
-    if (m.reason === 'return_to_ai') st.note = F.note(m.note);
+    // 0.11.6: login_saved {site} is a Give back with "Login saved for <site>"; such a note is kept (loginSaved).
+    if (m.reason === 'return_to_ai' || m.reason === 'login_saved') st.note = F.note(m.note) || F.saved(m.site);
+    if (F.SAVED.test(st.note) || F.SAVED.test(F.note(m.note))) st.loginSaved = now();
     st.lastReason = m.reason;                    // 0.10.4: for a Saga task that re-attaches to this socket
     if (d.cancel) cancelPending();
     const after = d.next ? await store.setControl(user.id, sk(), d.next) : cur;
@@ -171,10 +174,7 @@ function createBridge(o) {
   }
 
   /** Phase 10: is the phone's panel on this conversation now? ('' = any: a task without a conversation). */
-  function onChat(conv) {
-    return !conv || store.convId(conv) === st.conv;
-  }
-
+  function onChat(conv) { return !conv || store.convId(conv) === st.conv; }
   function supports(name) { return st.capabilities.includes(name); }
 
   function onAck(m) {

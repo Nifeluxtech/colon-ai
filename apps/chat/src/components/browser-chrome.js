@@ -9,13 +9,14 @@
 import { liveChrome, stepsOf, summaryOf } from '../lib/card-chrome.js';
 import { withInline } from '../lib/native-panel.js';
 import { Colon } from '../../../../packages/ui/js/colon.js';
+import { CW } from '../core/cw.js';
 import { S } from '../core/state.js';
 
 var C = Colon, icon = C.icon, esc = C.esc;
 var BUTTONS = {
   expand: ['expand', 'Full screen'], minimise: ['collapse', 'Back to the chat'], take: ['hand', 'Take control'],
   give: ['play', 'Give back to Saga'], pause: ['pause', 'Pause Saga'], resume: ['play', 'Resume Saga'],
-  stop: ['stop', 'Stop Saga']
+  stop: ['stop', 'Stop Saga'], login: ['lock', 'Open the login form']
 };
 
 function browser(action, o) {
@@ -104,6 +105,7 @@ function cardAction(el) {
   if (ctl) return browser('control', { op: ctl });
   if (op === 'expand' || op === 'minimise') return browser('layout', { layout: op === 'expand' ? 'full' : 'inline' });
   if (op === 'reopen') return browser('open');
+  if (op === 'login' && CW.sagaWaitLink) return CW.sagaWaitLink('#colon-login');   // 0.11.6 (saga-wait.js)
   if (op === 'timeline') return browser('timeline');
   if (op === 'run' && fig) {
     var id = fig.getAttribute('data-card'), run = (S.browser.nativeState || {}).run || {};

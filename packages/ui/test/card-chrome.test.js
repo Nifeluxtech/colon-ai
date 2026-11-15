@@ -44,6 +44,9 @@ test('liveChrome: the header, one status line and only the buttons that apply no
   assert.deepEqual(ch.liveChrome({ run: { state: 'user_control' } }).controls, ['expand', 'give', 'stop']);
   assert.deepEqual(ch.liveChrome({ run: { state: 'paused' } }).controls, ['expand', 'take', 'resume', 'stop']);
   assert.deepEqual(ch.liveChrome({ run: { state: 'needs_user' } }).controls, ['expand', 'stop']);
+  // 0.11.6: waiting for a login: reopen the login form, or Stop.
+  assert.deepEqual(ch.liveChrome({ run: { state: 'needs_user', request: { kind: 'login' } } }).controls,
+    ['expand', 'login', 'stop']);
   // Finished: no pause or stop; the step line falls back to run.step.
   const done = ch.liveChrome({ run: { state: 'done', step: 'Found 3 phones' } });
   assert.deepEqual([done.controls, done.line, done.status], [['expand', 'take'], 'Found 3 phones', 'done']);

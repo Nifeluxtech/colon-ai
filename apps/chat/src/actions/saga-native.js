@@ -49,6 +49,13 @@ function webFallback(goal, why) {
   if (b && goal) b.startTask(goal);
 }
 
+// 0.11.6: the waiting note's actions (answered by saga-wait.js) and the site a login wait is for.
+var WAIT_LINKS = '[🔒 Open the login form](#colon-login) · [⏹ Stop Saga](#colon-stop)';
+function siteOf(t) {
+  var s = t.steps.filter(function (x) { return (x.tool === 'signIn' || x.command === 'sign_in') && x.args
+    && x.args.site; }).pop();
+  return s ? String(s.args.site) : host(((t.steps.filter(function (x) { return x.url; }).pop()) || {}).url);
+}
 function host(u) { try { return new URL(u).hostname.replace(/^www\./, ''); } catch (e) { return ''; } }
 function line(s) { return String(s || '').replace(/[\r\n]+/g, ' ').replace(/([*_`[\]<>])/g, '\\$1'); }
 
@@ -78,21 +85,26 @@ function poll(t) {
       t.resumed = false;
       (d.actions || []).forEach(function (a) {
         t.seq = Math.max(t.seq, a.seq); t.steps.push(a);
+        if (a.kind === 'handoff') { t.waitKind = a.error === 'login' ? 'login' : 'user'; t.waitSite = siteOf(t); }
         if (quiet) return;
         if (a.kind === 'action' && a.say && a.say !== t.lastSay) { t.lastSay = a.say; C.toast('Saga: ' + a.say); }
         // 0.11.0: no saved login for the site Saga wants: the Colon Secured Login card (the app opens its form too).
+        // 0.11.6: the note says what to do next, with its actions (reopen the form, Stop; saga-wait.js).
         if (a.kind === 'handoff' && a.error === 'login') {
-          var site = ((t.steps.filter(function (x) { return x.tool === 'signIn'; }).pop() || {}).args || {}).site;
+          var site = t.waitSite;
           if (!C.native.can('vault')) loginCard(site || '', 'Saga needs a login for ' + (site || 'this site') + '.');
-          addThreadNote('**Saga needs a login** for ' + line(site || 'this site') + '. Save it in **Colon Secured '
-            + 'Login** (it stays on your phone; Saga never sees it), then Saga carries on.', {}).catch(function () {});
+          addThreadNote('**Saga is waiting for a login** for ' + line(site || 'this site') + '. Save it in **Colon '
+            + 'Secured Login** (it stays on your phone; Saga never sees it) and Saga signs in by itself. You can keep '
+            + 'chatting meanwhile; say “continue” when it’s saved.\n\n' + WAIT_LINKS, {}).catch(function () {});
           return;
         }
         // Saga needs the user (a secret, a sign-in, a code, a captcha…): the request goes in the thread too.
         if (a.kind === 'handoff' && a.say) { C.toast(a.say); addThreadNote('**Saga needs you:** ' + line(a.say)
           + ' Tap **Take control** on the browser card, do it there (Saga never sees what you type in the page), '
-          + 'then tell me here, like “I’ve logged in, continue”.', {}).catch(function () {}); }
+          + 'then tell me here, like “I’ve logged in, continue”.\n\n[⏹ Stop Saga](#colon-stop)', {})
+          .catch(function () {}); }
       });
+      t.status = d.task.status;
       if (TERMINAL.indexOf(d.task.status) < 0) return poll(t);
       active = null;
       tellCard(t, d.task);
@@ -162,6 +174,9 @@ function browseNative(goal, o) {
 function sagaActive() { return !!active; }
 /** 0.11.0: the running task's id (messages sent now steer it), and the chat's last finished task (routines). */
 function activeTaskId() { return active ? String(active.id) : null; }
+/** 0.11.6: the running task as the server last said ({ status, kind: login · user, site }), or null. */
+function polledWait() { return active ? { status: active.status || '', kind: active.waitKind || '',
+  site: active.waitSite || '' } : null; }
 function lastDoneTask() { return lastDone; }
 
 /** Stop from the chat: the server stops the task too (the app's Stop already tells it through the phone). */
@@ -197,4 +212,4 @@ CW.sagaFollow = function (st) {
   poll(active);
 };
 
-export { activeTaskId, browseNative, continueNative, lastDoneTask, sagaActive, stopSaga };
+export { activeTaskId, browseNative, continueNative, lastDoneTask, polledWait, sagaActive, stopSaga };

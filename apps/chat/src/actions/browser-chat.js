@@ -30,7 +30,8 @@ import { ColonURL } from '../../../../packages/ui/js/url.js';
 import { S, signedIn } from '../core/state.js';
 import { parseIntent } from '../lib/browser-intent.js';
 import { modeLabel } from '../lib/browser-modes.js';
-import { givesBack, holdsIdle } from '../lib/saga-card.js';
+import { holdsIdle } from '../lib/saga-card.js';
+import { browseWhileWaiting } from './saga-wait.js';
 
 var C = Colon;
 
@@ -68,6 +69,8 @@ function showHere(m) {
 // Saga in the app: the task runs on this chat's browser; its answer (and each step) lands in the thread. anchor: the
 // message the task's card goes under (the user's instruction).
 function runTask(goal, anchor, follow) {
+  // 0.11.6: the chat model's browse while Saga waits for the user: Saga carries on, with this as the user's words.
+  if (browseWhileWaiting(goal)) return Promise.resolve();
   if (sagaActive()) return say('Saga is still working on your last instruction. Say “stop” to end it, or wait '
     + 'for its answer.');
   // 0.11.3: a follow-up carries on from the chat's last task, in the same browser session (its steps go to Saga).
@@ -141,15 +144,8 @@ function onWeb(i) {
 function handleBrowserText(text) {
   var app = C.native.hasPanel() && C.native.can('browserChats');
   var run = app && S.browser.nativeState ? S.browser.nativeState.run : null;
-  // The user has the browser: their message gives it back to Saga, with these words as the note.
-  if (givesBack(run)) {
-    addThreadNote(text, { role: 'user', mode: S.draftMode, title: text }).then(function () {
-      return nativeBrowser('control', { op: 'return_to_ai', note: text }).then(function (st) { syncNative(st);
-        return say('Thanks. Saga has the browser again and is carrying on.'); }, function () {
-        return say('Saga isn’t waiting for the browser any more. Tell me what to do next.'); });
-    }).catch(function (e) { C.toast((e && e.message) || 'The browser didn’t respond. Try again.', 'bad'); });
-    return true;
-  }
+  // 0.11.6: while Saga waits for the user only the browser's controls are read here ("continue", "stop", "take
+  // control"); any other message goes on to saga-wait.js / the chat model (it used to be taken as the hand-back).
   // They took an idle browser: the full-screen view closes and the message goes on as usual.
   if (holdsIdle(run)) nativeBrowser('control', { op: 'return_to_ai' }).then(syncNative, function () {});
   var intent = parseIntent(text, app ? nativeCtx() : webCtx());

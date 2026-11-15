@@ -16,7 +16,8 @@ function next(reason, row, o = {}) {
   const out = (n, consented = was, cancel = false) => ({ next: n, consented, cancel });
   switch (reason) {
     case 'consent': return out({ control: mode, control_owner: 'saga', paused: false }, true);
-    case 'return_to_ai':
+    // 0.11.6: login_saved: the phone saved the login Saga waited for (bridge.js keeps its note): a Give back too.
+    case 'return_to_ai': case 'login_saved':
       if (!was) return { next: null, consented: was, cancel: false, error: 'needs_consent' };
       return out({ control: mode, control_owner: 'saga', paused: false });
     case 'declined': case 'stop':
