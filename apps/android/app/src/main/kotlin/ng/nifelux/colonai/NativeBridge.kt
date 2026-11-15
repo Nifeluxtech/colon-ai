@@ -194,6 +194,8 @@ class NativeBridge(private val host: MainActivity, private val webView: WebView)
                 } else p.taskStarted(id, a.optString("goal"), a.optString("anchor").ifBlank { null })
             }
             "cards" -> { done(true, p.cardsJson(), null); return }
+            // 0.11.5: the page for the chat model (summary and numbered clickable items; feature "pageSummary").
+            "page" -> { p.pageSummary { r -> done(true, r ?: JSONObject.NULL, null) }; return }
             // 0.11.2: an older card's picture, one at a time; the timeline; the page draws the card's chrome.
             "cardShot" -> { done(true, JSONObject().put("id", a.optString("id")).put("snapshot",
                 p.cardShot(a.optString("id").take(40)) ?: JSONObject.NULL), null); return }
@@ -298,7 +300,9 @@ class NativeBridge(private val host: MainActivity, private val webView: WebView)
             // 0.11.0
             "vault", "browserSuspend", "sagaSchedules", "sagaTimeline", "sagaBackground",
             // 0.11.2
-            "browserChrome", "cardShot")
+            "browserChrome", "cardShot",
+            // 0.11.5
+            "pageSummary")
 
         /** Defines window.ColonNative (promise API) on top of the channel. Runs once per page, before page scripts. */
         private val SHIM = """

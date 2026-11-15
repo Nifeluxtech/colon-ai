@@ -11,6 +11,10 @@
 //      Colon.version and every package.json version match it.
 //   5. Config: config/api.env.example lists exactly the keys of the API config schema
 //      (services/api/src/config/defaults.js), so the documented environment never drifts from what is read.
+//   6. Vendored code (0.11.5): third-party files live only in a vendor/<name>/ directory (Android's
+//      assets/saga/vendor/: Readability, Turndown, Consent-O-Matic's rules). They keep their own formatting, so they
+//      are exempt from the size rules (rule 2) but still syntax-checked, and each vendor/<name>/ must hold that
+//      project's LICENSE file, or the check fails.
 const { execFileSync } = require('child_process');
 const fs = require('fs');
 const path = require('path');
@@ -26,6 +30,7 @@ const EXEMPT = [
   /^services\/api\/bench\/(sets|results)\//, // benchmark question sets and recorded runs
   /^database\/migrations\//,          // SQL migrations are append-only history
   /^packages\/ui\/fonts\//,           // font files
+  /(^|\/)vendor\/[^/]+\//,             // third-party code, kept as published (rule 6: its LICENSE must be there)
 ];
 const SKIP_DIRS = new Set(['node_modules', '.git']);
 
@@ -183,6 +188,17 @@ else {
   }
   console.log(`Config: ${schemaKeys.size} schema keys documented in config/api.env.example`);
 }
+
+/* ---------- 6. Vendored code ---------- */
+const vendorDirs = new Set(files.map(rel).map((r) => (/^(.*(?:^|\/)vendor\/[^/]+)\//.exec(r) || [])[1])
+  .filter(Boolean));
+for (const d of vendorDirs) {
+  const names = fs.readdirSync(path.join(ROOT, d));
+  if (!names.some((n) => /^(?:LICEN[CS]E|COPYING)(?:\.(?:md|txt))?$/i.test(n))) {
+    fail('vendor', `${d}: vendored code without its LICENSE file`);
+  }
+}
+console.log(`Vendored: ${vendorDirs.size} director${vendorDirs.size === 1 ? 'y' : 'ies'}, each with its LICENSE`);
 
 if (failures.length) {
   console.error('\n' + failures.join('\n'));

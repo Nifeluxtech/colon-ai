@@ -439,8 +439,18 @@ class BrowserSaga(private val a: BrowserHost, private val bridge: BridgeClient) 
             "get_page_content", "get_links" -> {
                 val wv = tab?.webView ?: run { reply(false, null, "no_tab"); return }
                 val js = if (command.name == "get_links") "links" else "content"
-                // 0.11.0: which tab the page is in (multi-tab tasks).
-                tools.exec(wv, js, args) { r -> pageResult(r?.apply { if (!has("error")) put("tab_id", tab.id) }, reply) }
+                // 0.11.0: which tab the page is in (multi-tab tasks). 0.11.5: a known cookie banner Consent-O-Matic's
+                // rules cleared first is named in the result (consent), so Saga knows it is gone.
+                val read: (JSONObject?) -> Unit = { cleared ->
+                    tools.exec(wv, js, args) { r ->
+                        if (r != null && !r.has("error")) {
+                            r.put("tab_id", tab.id)
+                            if (cleared != null) r.put("consent", cleared)
+                        }
+                        pageResult(r, reply)
+                    }
+                }
+                if (command.name == "get_page_content") tools.clearConsent(wv, read) else read(null)
             }
             "extract" -> {
                 val wv = tab?.webView ?: run { reply(false, null, "no_tab"); return }

@@ -8,8 +8,10 @@ const { replyLanguage } = require('../../ai').prompts;
 const store = require('../store');
 const files = require('../files');
 const { forMode } = require('../context');
-const { respond, stopLocal, openStream } = require('../reply');
-const browseFollow = require('../browse-follow');
+const { respond, stopLocal } = require('../reply');
+const ai = require('../../ai');
+const browserState = require('../browser-state');
+const browserTools = require('../browser-tools');
 const safety = require('../../safety');
 const { MAX_CONTENT, wantsWeb, previousUserText, loadSettings, fileNames } = require('./chat-common');
 
@@ -39,6 +41,8 @@ function persistedStore(conv, { version = 1 } = {}) {
       if (content) await store.touch(conv, { preview: content });
       return store.getMessage(conv.id, id);
     },
+    // 0.11.5: a turn that only started browsing keeps no assistant message (Saga's own note follows).
+    async drop() { await db.query('DELETE FROM chat_messages WHERE id = ?', [id]); },
     async isStopped() {
       const row = await db.one('SELECT status FROM chat_messages WHERE id = ?', [id]);
       return Boolean(row && row.status === 'stopped');
@@ -67,6 +71,11 @@ async function seqOf(id) {
 async function streamFor(req, res, conv, userMsg, { version = 1, onOpen, route = 'chat.send' } = {}) {
   const counters = await limits.resolveCounters(req, conv.mode);
   const guard = safety.collector();   // injection flags found in attached files (logged as safety events)
+  // 0.11.5: the chat model decides whether to browse (browser tools), with this chat's browser state in context.
+  const all = await store.messages(conv.id);
+  const state = await browserState.load({ userId: req.user.id, conversationId: conv.id,
+    page: browserState.fromClient(req.body && req.body.browser) }).catch(() => null);
+  const generate = (args) => browserTools.turn(args, { state, userMsg, messages: all, guard, generate: ai.generate });
   return historyFor(req, conv, userMsg.id).then(history => {
     // Developer mode: the project context comes from every file attached so far in this conversation.
     const built = forMode(history, { mode: conv.mode, guard, message: userMsg.content });
@@ -74,7 +83,7 @@ async function streamFor(req, res, conv, userMsg, { version = 1, onOpen, route =
       req, res, mode: conv.mode, model: conv.model, language: replyLanguage(req.user.language, userMsg.content),
         name: req.user.name, route, guard, userText: userMsg.content, project: built.project,
       attachments: fileNames((history[history.length - 1] || {}).files),
-      history: built.messages, counters, store: persistedStore(conv, { version }), onOpen,
+      history: built.messages, counters, store: persistedStore(conv, { version }), onOpen, generate,
       webSearch: wantsWeb(conv.mode), searchText: userMsg.content, searchPrevious: previousUserText(history),
     });
   });
@@ -102,15 +111,7 @@ const postConversationsByIdMessages = async (req, res) => {
   const title = conv.title === 'New chat' ? store.titleFrom(content || (atts[0] && atts[0].name)) : null;
   await store.touch(conv, { title, preview: content || (atts[0] && atts[0].name) });
   const fresh = await store.getConv(req.user.id, conv.id);
-  // 0.11.3: a follow-up to the chat's browser task goes to Saga (the app runs it), never to the chat model.
-  const goal = atts.length ? '' : browseFollow.route(userMsg, await store.messages(conv.id));
-  if (goal) {
-    const sse = openStream(res);
-    sse.send('user', { message: userMsg, conversation: store.convOut(fresh) });
-    sse.send('browse', { goal, message_id: userMsg.id });
-    sse.send('done', { message: null });
-    return sse.end();
-  }
+  // 0.11.5: browsing is the chat model's own choice (browser-tools.js); keyword routing only when it fails.
   await streamFor(req, res, fresh, userMsg, { onOpen: (sse) => sse.send('user', { message: userMsg,
     conversation: store.convOut(fresh) }) });
 };

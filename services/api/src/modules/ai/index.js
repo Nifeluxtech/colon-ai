@@ -15,5 +15,6 @@ module.exports = {
   classify: require('./classify'),
   modelSet: require('./model-set'),
   support: require('./support'),
+  toolCall: require('./tool-call'),   // 0.11.5: the chat model's function calling (browser tools)
   answered: () => require('./hedge').recent.slice(),
 };

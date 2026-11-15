@@ -71,7 +71,9 @@ async function streamChat(o) {
   const maxTimer = setTimeout(() => { timeoutReason = 'max'; ctl.abort(); }, maxMs);
   arm(firstTokenMs, 'first_token');
 
-  let text = '', finishReason = null, usage = null, live = false;
+  let text = '', finishReason = null, usage = null, live = false, called = false;
+  // 0.11.5: a Gemini function call (o.onCall gets the raw parts); a reply that is only a call is not empty.
+  const call = (g) => { if (!g.calls || !g.calls.length) return; called = true; if (o.onCall) o.onCall(g.calls); };
   const trace = { headers: false, reasoning: 0 };   // for timeout errors: did the host answer at all, did it think
   const filter = thinkFilter();
   const emit = (piece) => {
@@ -119,12 +121,12 @@ async function streamChat(o) {
         for (const j of list) {
           if (j.error) throw new ProviderError(errorMessage(JSON.stringify(j)), { code: 'upstream_error' });
           const g = geminiChunk(j);
-          emit(filter.push(g.text));
+          emit(filter.push(g.text)); call(g);
           if (g.finish) finishReason = g.finish;
           if (g.usage) usage = g.usage;
         }
         emit(filter.flush());
-        if (!live && finishReason !== 'length') throw new ProviderError(geminiEmptyReason(list)
+        if (!live && !called && finishReason !== 'length') throw new ProviderError(geminiEmptyReason(list)
           || 'The model returned an empty reply.', { code: 'empty' });
         return { text, finishReason, usage };
       }
@@ -145,7 +147,7 @@ async function streamChat(o) {
       if (native) {
         const g = geminiChunk(j);
         if (g.alive) arm(idleMs, 'idle');
-        emit(filter.push(g.text));
+        emit(filter.push(g.text)); call(g);
         if (g.finish) finishReason = g.finish;
         if (g.usage) usage = g.usage;
         return;
@@ -180,7 +182,7 @@ async function streamChat(o) {
     if (ctl.signal.aborted) throw new Error('aborted');
     parser.end();
     emit(filter.flush());
-    if (!live && finishReason !== 'length') throw new ProviderError('The model returned an empty reply.',
+    if (!live && !called && finishReason !== 'length') throw new ProviderError('The model returned an empty reply.',
       { code: 'empty' });
     return { text, finishReason, usage };
   } catch (e) {

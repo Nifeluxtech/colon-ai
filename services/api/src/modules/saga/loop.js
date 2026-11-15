@@ -2,28 +2,25 @@
 // Pure orchestration with injected pieces, so it is tested without a model, a phone or a database:
 //   run({ goal, decide(messages, signal) -> text, command(name, args, { timeoutMs, say, step }) -> ack, log(entry),
 //         isStopped(), limits: { maxSteps, taskTimeoutMs, modelTimeoutMs, stepTimeoutMs, approvalTimeoutMs },
-//         guard, now, mode, history, pageState(), handoff(info, o), waitUser(why), takeNote(),
-//         caps, speed, guidance() })
+//         guard, now, mode, history, pageState(), handoff(info, o), waitUser(why), takeNote(), caps, speed,
+//         guidance() })
 //   -> { status, answer, sources: [{ n, title, url }], steps, error, flags, result, tables }
 // status: done · step_limit · timeout · stopped (the user's Stop) · interrupted (the user or the phone ended it) ·
 // failed (model or phone kept failing, or an approval went missing).
-// Approval: policy.approval() runs on every command the model asks for; when it says so, the command carries
-// `approval` and the phone must answer with result.approval = 'approved' after the user's tap. An ok answer without
-// it ends the task (approval_missing): the server never assumes an approval it didn't see.
+// Approval: policy.approval() runs on every command; when it says so, the command carries `approval` and the phone
+// must answer result.approval = 'approved' after the user's tap, else the task ends (approval_missing).
 // Secrets (Phase 10, secrets.js): an action on a password, code, card or PIN field, a sign-in or payment page, is never
 // sent: the page is handed to the user (handoff) and Saga goes on only after Give back. Page snapshots are redacted.
 // 0.10.3: requestUserControl, Take control and Pause wait for the user instead of ending; their hand-back message is
 // folded into the next observation and waiting time doesn't count. 0.10.4: o.history follows the goal; a step answered
 // 'reconnected' is told to the model as "may or may not have happened". 0.10.6: finish is checked against the page.
-// 0.11.0: guidance() (the user's messages mid-task, before every decision); signIn (the phone's saved login: no
-// login -> a Colon Secured Login hand-over); extract (tables into the chat: r.tables); at most 6 tabs Saga opens;
-// speed mode (o.speed): pages read for Saga after it navigates (waiting for the load), and up to 3 follow-up steps
-// from one decision ("then"), each through the same policy, secret and approval checks as any step.
-// 0.11.2: o.autoRead (the runner sets it) reads the page for Saga after a step that opens, changes or scrolls it, in
-// every mode, once loaded (polls of 350 ms); pop-ups (prompt.observe -> overlay); before a password / sign-in
-// hand-over, the phone's saved login or its Colon Secured Login form card, once per site (saved-login.js).
-// 0.11.4: the page is read before a saved login or a sign-in hand-over: already signed in ends a sign-in as done, no
-// form is not a failed login, and a sign-in is handed over only for a secret field or a sign-in page (signed-in.js).
+// 0.11.0: guidance() (the user's messages mid-task); signIn (the phone's saved login, else a Colon Secured Login
+// hand-over); extract (r.tables); at most 6 tabs; speed mode (o.speed): pages read after navigating, and up to 3
+// follow-up steps from one decision ("then"), each through the same policy, secret and approval checks.
+// 0.11.2: o.autoRead reads the page after a step that opens, changes or scrolls it; pop-ups (prompt.observe ->
+// overlay); before a password / sign-in hand-over, the phone's saved login or its login form card (saved-login.js).
+// 0.11.4: the page is read before a saved login or a sign-in hand-over (signed-in.js). 0.11.5: Saga acts: a finish
+// telling the user to tap is always refused; requestUserControl "other" / a reachable consent is Saga's (goal.js).
 const secrets = require('./secrets');
 const tools = require('./tools');
 const policy = require('./policy');
@@ -135,6 +132,10 @@ async function run(o) {
         : d.args }) });
     if (d.action === 'requestUserControl') {
       const ask = tools.userRequest(d.args);
+      const self = ['other', 'consent'].includes(ask.kind) && goal.selfStep(ask, { overlay, page: (await sess.state())
+        .state });
+      if (self) { await log({ kind: 'error', say: d.say, tool: d.action, error: 'do_it_yourself' }); observe(self);
+        continue; }
       const g = ask.kind === 'sign_in' ? await sess.before('sign_in', d.say) : { secret: true };
       const fin = await settled(g); if (fin) return fin; if (g.skip) continue;
       const back = await waiting(U.handBack(o, log, { ...hand(ask, g.secret), say: d.say, tool: d.action,
@@ -149,7 +150,7 @@ async function run(o) {
       const page = here ? { url: here, title: hereTitle } : (typeof o.pageState === 'function' && o.pageState())
         || null;
       const why = refused < goal.MAX_REFUSALS ? goal.check({ goal: o.goal, page, acted, answer: goal.said(d),
-        account: sess.current().state }) : null;
+        account: sess.current().state }) : goal.handsBack(goal.said(d));
       if (why) {
         refused++;
         await log({ kind: 'error', say: d.say, tool: 'finish', error: 'goal_not_met' });

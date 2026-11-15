@@ -1,5 +1,54 @@
 # Changelog
 
+## [0.11.5] — 2026-11-15 · Browser follow-ups via tool routing: the chat model decides when to browse
+Owner's spec: after a browser task, follow-ups like "go to Colon repo", "open it", "click the second one" or "check my
+orders" often went to plain chat instead of Saga, or Saga handed the step back to the user, because routing was guessed
+from keywords (`apps/chat/src/lib/browser-intent.js`, `services/api/src/modules/chat/browse-follow.js`). Now: one
+model, with the browser as a tool. Every version number moves to 0.11.5 (apps, `Colon.version`, `?v=` cache-busting,
+`version.json` versionCode 1105 for both APKs, the API's package.json and package-lock). No migration. New config keys
+(all optional): `CHAT_BROWSER_TOOLS`, `CHAT_TOOL_MODEL`, `CHAT_TOOL_FALLBACK_MODEL`, `CHAT_TOOL_TIMEOUT_MS`.
+### Changed
+- **The chat model has browser tools** (`modules/chat/browser-tools.js`, `modules/ai/tool-call.js`). Gemini function
+  declarations on every turn, in every specialist mode (the mode and its instructions never change):
+  `browse(task, item?, url?)` starts or continues Saga in this chat's browser session (SSE `browse`, the app's live
+  card opens under the user's message every time), `read_page()` answers from a short summary of the current page,
+  `stop_browsing()` closes the browser (SSE `browser {op: 'close'}`). Google AI Studio's native
+  `streamGenerateContent` with tools: `CHAT_TOOL_MODEL` (default gemini-3.5-flash-lite), then
+  `CHAT_TOOL_FALLBACK_MODEL` (default gemma-4-26b-a4b-it: Gemma 4 supports native function calling on the Gemini API,
+  ai.google.dev/gemma/docs/core/gemma_on_gemini_api). Text streams as the reply; function calls keep their Gemini 3
+  `thoughtSignature` for the next round. A turn that only browses keeps no assistant message (`done {dropped}`).
+- **Browser state in context** (`modules/chat/browser-state.js`). When the chat has a browser session (the page the
+  app sent, or a Saga task in this chat within 6 hours), the system prompt holds, fenced as untrusted: the URL and
+  title, signed-in status (0.11.4's `signed-in.js` check on the page read), the last task and its last 5 steps (one
+  line each; Saga's step lists are still never fed back as text), a page summary (≤ 1,500 characters) and the visible
+  clickable items, numbered. `browse` with `item: n` gives Saga that item's text and address.
+- **Keyword routing is only the fallback.** The app reads only the browser's own controls when signed in (open / close
+  the browser, stop, take control, done, continue: `ctx.tools`); everything else goes to the chat model. The server's
+  `browse-follow.js` (now also with 0.11.2's `needsBrowser` as `starts`) decides only when both tool models fail (no
+  key, quota, errors before any text); the reply then comes from the usual `AI_MODEL_SET` chain, so nothing is worse
+  than 0.11.4. `CHAT_BROWSER_TOOLS=off` restores the 0.11.4 routing.
+- **Better page reading** (Android, `assets/saga/summary.js`, feature `pageSummary`, bridge action `page`): Mozilla
+  Readability 0.6.0 (Apache-2.0) picks the main content and Turndown 7.2.5 (MIT) turns it into Markdown, both injected
+  into the WebView in one function scope; pages that are not articles use the visible text of `<main>`. Each message
+  carries it (`POST …/messages` `browser`), within 1.5 s.
+- **Cookie banners clear with no model call** (Android, `assets/saga/consent.js`): Consent-O-Matic's rules (MIT, a
+  curated 51 of ~200: the common consent platforms and big sites; detectors and reject methods only, built by
+  `scripts/vendor-consent-rules.js`) run before Saga reads a page, rejecting every category and saving; Saga is told
+  ("Colon closed a cookie banner"). The 0.11.2 pop-up handling ("Reject all" by Saga) stays the fallback.
+- **Saga acts.** A finish that tells the user to tap, click or open something ("tap it yourself", "you'll need to
+  click…", "Tap the repo to open it") is refused and sent back as an observation every time, also after the 3 usual
+  refusals (the step limit still applies). `requestUserControl` is only for a password, code, card or PIN field, a
+  captcha, a payment or a consent frame Colon can't read; "other" on a page without a secret field is refused. The
+  prompt says so.
+- **Vendored code** lives in `apps/android/app/src/main/assets/saga/vendor/<name>/` with its LICENSE file.
+  `scripts/check.js` exempts `vendor/<name>/` from the size rules only (still syntax-checked) and fails when a vendor
+  directory has no LICENSE (new rule 6).
+- Tests: `chat-browser-tools.test.js` (GitHub → "go to Colon repo", Jumia → "open the second one", yolotask →
+  "check my tasks", Developer mode chat vs browse, "in the logged in account", read_page / stop_browsing, the keyword
+  fallback), `chat-tool-call.test.js` (native function calling, fallback model, a whole browse reply),
+  `saga-acts.test.js` ("tap it yourself", hand-overs), `saga-phone-consent.test.js` (consent.js, summary.js, the
+  vendored files), `browser-intent.test.js` (`ctx.tools`).
+
 ## [0.11.4] — 2026-11-15 · Saga no longer asks you to sign in when you already are
 Owner's report on 0.11.3 (phone screenshot): "Login to GitHub" with github.com already signed in (the dashboard,
 "Good evening, Nifeluxtech!", the repositories listed, no login form) ended with "Saga needs you: Your saved login

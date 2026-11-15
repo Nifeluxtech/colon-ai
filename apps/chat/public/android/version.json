@@ -1,17 +1,17 @@
 {
-  "versionName": "0.11.4",
-  "versionCode": 1104,
-  "apkUrl": "https://github.com/Nifeluxtech/colon-ai/releases/download/v0.11.4/colon-ai-0.11.4.apk",
-  "releaseUrl": "https://github.com/Nifeluxtech/colon-ai/releases/tag/v0.11.4",
-  "notes": "Fix from your report: when you ask Saga to log in to a site you are already signed in to (GitHub, Jumia, YOLOTASK, Google or any other), it now sees the signed-in page and tells you \"You’re already signed in\" instead of asking you to take control. It only hands a sign-in to you when the page really asks for a password or a code that your saved login could not fill.",
+  "versionName": "0.11.5",
+  "versionCode": 1105,
+  "apkUrl": "https://github.com/Nifeluxtech/colon-ai/releases/download/v0.11.5/colon-ai-0.11.5.apk",
+  "releaseUrl": "https://github.com/Nifeluxtech/colon-ai/releases/tag/v0.11.5",
+  "notes": "Follow-ups after a browser task now work the way you say them: “go to Colon repo”, “open it”, “click the second one” or “check my orders” go straight to Saga in the same browser, with the live card under your message. Colon itself decides when to browse (in every mode), reads the page you are on, clears common cookie banners on its own, and Saga no longer ends by asking you to tap something it can do.",
   "minSupportedVersionCode": 0,
   "publishedAt": "2026-11-15",
   "browser": {
-    "versionName": "0.11.4",
-    "versionCode": 1104,
-    "apkUrl": "https://github.com/Nifeluxtech/colon-ai/releases/download/v0.11.4/colon-browser-0.11.4.apk",
-    "releaseUrl": "https://github.com/Nifeluxtech/colon-ai/releases/tag/v0.11.4",
-    "notes": "Released alongside Colon AI 0.11.4: Saga no longer asks you to sign in when you already are.",
+    "versionName": "0.11.5",
+    "versionCode": 1105,
+    "apkUrl": "https://github.com/Nifeluxtech/colon-ai/releases/download/v0.11.5/colon-browser-0.11.5.apk",
+    "releaseUrl": "https://github.com/Nifeluxtech/colon-ai/releases/tag/v0.11.5",
+    "notes": "Released alongside Colon AI 0.11.5: Saga clears common cookie banners by itself and reads pages more cleanly.",
     "minSupportedVersionCode": 0
   }
 }

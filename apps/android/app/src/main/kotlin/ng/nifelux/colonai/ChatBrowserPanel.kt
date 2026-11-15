@@ -362,6 +362,16 @@ class ChatBrowserPanel(private val a: MainActivity) : BrowserHost, TabManager.Ho
         return ok
     }
 
+    /** 0.11.5: reads the page this chat's browser shows for the chat model (SagaTools.read: Readability + Turndown):
+     *  {url, title, summary, items, open}, or null with no web page (or a private tab). */
+    fun pageSummary(done: (JSONObject?) -> Unit) {
+        val t = tabs.active
+        val wv = t?.webView
+        if (t == null || wv == null || t.incognito || !UrlRules.isWebUrl(t.url)) { done(null); return }
+        reader.read(wv) { r -> done(r?.put("open", isOpen)) }
+    }
+    private val reader by lazy { SagaTools(this) }
+
     /** What the chat page sees (the "browser" event and the "state" action). */
     fun state(): JSONObject {
         val t = tabs.active

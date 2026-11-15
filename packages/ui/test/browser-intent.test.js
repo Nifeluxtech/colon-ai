@@ -159,3 +159,22 @@ test('0.11.3: "open the browser and check" is a task anywhere; ordinary messages
   assert.equal(parseIntent('check', {}), null);
   assert.ok(followUp('click the first one') && !followUp('explain the error'));
 });
+
+// 0.11.5 (owner): signed in, the chat model decides whether to browse (its browse tool), so the page keeps only the
+// browser's own controls; tasks and follow-ups go to the chat model as messages.
+test('ctx.tools: only the browser\'s controls are read here; tasks and follow-ups go to the chat model', () => {
+  const T = { tools: true, open: true, recent: true, prev: 'Go to Colon repo' };
+  for (const t of ['go to Colon repo', 'open it', 'click the second one', 'check my orders', 'In the logged in account',
+    'Login to GitHub', 'open yolotask.com.ng', 'search for phones on jumia', 'open the browser and check my tasks',
+    'scroll down', 'how much is rice on jumia?']) {
+    assert.equal(parseIntent(t, T), null, t);
+  }
+  assert.deepEqual(parseIntent('open the browser', T), { kind: 'open' });
+  assert.deepEqual(parseIntent('close the browser', T), { kind: 'close' });
+  assert.deepEqual(parseIntent('stop', T), { kind: 'control', op: 'stop' });
+  assert.deepEqual(parseIntent('take control', T), { kind: 'control', op: 'take_control' });
+  assert.deepEqual(parseIntent('done', { ...T, waiting: true }), { kind: 'control', op: 'return_to_ai' });
+  assert.deepEqual(parseIntent('continue', { ...T, ended: true }), { kind: 'continue' });
+  // Without the tools (signed out, the web reader), the 0.11.3 rules still apply.
+  assert.equal(parseIntent('go to Colon repo', { open: true, recent: true }).kind, 'task');
+});

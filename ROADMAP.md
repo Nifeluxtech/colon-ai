@@ -235,6 +235,12 @@ sessions replace sharing Colon Browser's tabs with Colon AI (Colon Browser keeps
   (migration 0011), mid-task steering, up to 6 tabs, extract to a table with CSV, speed mode; support models after
   Gemma 4 (Gemini Flash-Lite latest, 3.5 Flash-Lite, 2.5 Flash, Groq gpt-oss-120b, OpenRouter free Gemma). The
   card hides under the chat's overlays and stays steady while scrolling
+- [x] **Browser as a tool (v0.11.5):** the chat model decides on each turn whether to browse (Gemini function calling:
+  browse / read_page / stop_browsing, in every mode), with the chat's browser state in context (page, sign-in, last
+  task's steps, a Readability + Turndown summary, numbered clickable items); keyword routing only as the fallback;
+  known cookie banners cleared by Consent-O-Matic's rules with no model call; Saga never ends with "tap it yourself"
+- [ ] 0.11.5 on real phones: follow-ups ("open it", "the second one") on GitHub, Jumia and yolotask.com.ng; banner
+  clearing on Nigerian news sites; the page summary's 1.5 s budget on low-end phones
 - [ ] 0.11.0 on real phones: background runs on aggressive battery savers (Infinix/Tecno), schedules while the app
   is closed (no FCM yet: a schedule runs when Colon AI next connects), the vault after a device-lock change
 - [ ] Release standard on real phones: mode, layout and chat switching checked across devices with no lost state

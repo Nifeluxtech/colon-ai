@@ -41,6 +41,72 @@ class SagaTools(private val a: BrowserHost) {
         try { wv.evaluateJavascript("($src)($args)") { raw -> done(decode(raw)) } } catch (_: Exception) { done(null) }
     }
     private val scripts = HashMap<String, String>()
+    private fun asset(path: String): String =
+        scripts.getOrPut(path) { a.activity.assets.open(path).bufferedReader().use { it.readText() } }
+
+    /**
+     * 0.11.5: the page for the chat model (summary.js with the vendored Mozilla Readability and Turndown, all in one
+     * function scope so nothing stays on window): {url, title, summary (Markdown, at most ~1,500 characters), items}.
+     */
+    fun read(wv: WebView, done: (JSONObject?) -> Unit) {
+        val js = try {
+            "(function(){\n${asset("saga/vendor/readability/Readability.js")}\n" +
+                "${asset("saga/vendor/turndown/turndown.js")}\n" +
+                "return (${asset("saga/summary.js")})(Readability, TurndownService, {max: 1500});\n})()"
+        } catch (_: Exception) { done(null); return }
+        try { wv.evaluateJavascript(js) { raw -> done(decode(raw)) } } catch (_: Exception) { done(null) }
+    }
+
+    /** Consent-O-Matic's rules (vendor/consent-o-matic/rules.json): name -> rule, parsed once. */
+    private val consentRules: JSONObject by lazy {
+        try { JSONObject(asset("saga/vendor/consent-o-matic/rules.json")).optJSONObject("rules") ?: JSONObject() }
+        catch (_: Exception) { JSONObject() }
+    }
+    /** The same rules with their detectors only (the first pass on every page is small). */
+    private val consentDetectors: String by lazy {
+        val out = JSONObject()
+        consentRules.keys().forEach { k ->
+            consentRules.optJSONObject(k)?.let { out.put(k, JSONObject().put("detectors", it.opt("detectors"))) }
+        }
+        out.toString()
+    }
+
+    /**
+     * 0.11.5: clears a known cookie banner before Saga reads the page, rejecting everything (consent.js running
+     * Consent-O-Matic's rules), with no model call. [done] gets {cleared: true, cmp} when one was cleared, else null
+     * (the 0.11.2 pop-up handling, Saga's "Reject all", stays the fallback). A rule that waits for the page is resumed
+     * after the delay it asks for, at most [MAX_CONSENT_ROUNDS] times.
+     */
+    fun clearConsent(wv: WebView, done: (JSONObject?) -> Unit) {
+        val src = try { asset("saga/consent.js") } catch (_: Exception) { done(null); return }
+        fun pass(rules: String, resume: JSONObject, round: Int) {
+            try {
+                wv.evaluateJavascript("($src)($rules,$resume)") { raw ->
+                    val r = decode(raw)
+                    val cmp = r?.optString("cmp").orEmpty()
+                    when {
+                        r == null -> done(null)
+                        r.optString("state") == "found" && round == 0 && cmp.isNotEmpty() -> {
+                            val rule = consentRules.optJSONObject(cmp)
+                            if (rule == null) done(null)
+                            else pass(JSONObject().put(cmp, rule).toString(), JSONObject().put("cmp", cmp), 1)
+                        }
+                        r.optString("state") == "wait" && round < MAX_CONSENT_ROUNDS -> {
+                            val resume = r.optJSONObject("resume") ?: JSONObject()
+                            val name = resume.optString("cmp")
+                            val rule = consentRules.optJSONObject(name)
+                            if (rule == null) done(null)
+                            else wv.postDelayed({ pass(JSONObject().put(name, rule).toString(), resume, round + 1) },
+                                r.optLong("ms", 200L).coerceIn(50L, 1000L))
+                        }
+                        r.optBoolean("cleared") -> done(JSONObject().put("cleared", true).put("cmp", cmp.take(40)))
+                        else -> done(null)
+                    }
+                }
+            } catch (_: Exception) { done(null) }
+        }
+        pass(consentDetectors, JSONObject(), 0)
+    }
 
     /** A JPEG of the visible page, at most 480 px wide and ~40 KB (the bridge's frames are limited to 64 KB). */
     fun screenshot(wv: WebView): JSONObject? {
@@ -71,6 +137,8 @@ class SagaTools(private val a: BrowserHost) {
     companion object {
         private const val MAX_WIDTH = 480f
         private const val MAX_BYTES = 40_000
+        /** 0.11.5: consent.js runs (one per click or wait) before a banner counts as not cleared: ~4 s at most. */
+        private const val MAX_CONSENT_ROUNDS = 20
 
         /** evaluateJavascript hands back the JSON encoding of the returned value: a JSON string to unwrap. */
         fun decode(raw: String?): JSONObject? = try {

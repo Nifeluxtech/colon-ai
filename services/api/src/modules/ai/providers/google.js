@@ -35,7 +35,8 @@ function geminiBody(o) {
     if (msg.role === 'system') { const t = typeof msg.content === 'string' ? msg.content : geminiParts(msg.content).map(
       x => x.text || '').join('\n'); if (t) system.push(t); continue; }
     const role = msg.role === 'assistant' ? 'model' : 'user';
-    const parts = geminiParts(msg.content);
+    // 0.11.5: raw native parts (a model's functionCall with its thoughtSignature, a functionResponse) pass as they are.
+    const parts = Array.isArray(msg.parts) ? msg.parts : geminiParts(msg.content);
     if (!parts.length) continue;
     const last = contents[contents.length - 1];
     if (last && last.role === role) last.parts.push(...parts); else contents.push({ role, parts });
@@ -52,6 +53,8 @@ function geminiBody(o) {
     contents,
     ...(system.length ? { systemInstruction: { parts: [{ text: system.join('\n\n') }] } } : {}),
     ...(Object.keys(gen).length ? { generationConfig: gen } : {}),
+    // 0.11.5: function declarations for the chat model (modules/ai/tool-call.js).
+    ...(Array.isArray(o.tools) && o.tools.length ? { tools: [{ functionDeclarations: o.tools }] } : {}),
   };
 }
 
@@ -59,8 +62,10 @@ function geminiChunk(j) {
   const c = j && Array.isArray(j.candidates) ? j.candidates[0] : null;
   let text = '', alive = false;
   const parts = (c && c.content && c.content.parts) || [];
+  const calls = [];                          // 0.11.5: function calls, kept whole (Gemini 3 thought signatures)
   for (const p of parts) {
     alive = true;
+    if (p.functionCall && p.functionCall.name) { calls.push(p); continue; }
     if (p.thought) continue;                 // hidden reasoning
     if (typeof p.text === 'string') text += p.text;
   }
@@ -70,7 +75,7 @@ function geminiChunk(j) {
   const u = j && j.usageMetadata;
   const usage = u ? { prompt_tokens: u.promptTokenCount || 0, completion_tokens: u.candidatesTokenCount || 0,
     total_tokens: u.totalTokenCount || 0 } : null;
-  return { text, alive, finish, usage };
+  return { text, alive, finish, usage, calls };
 }
 
 function geminiEmptyReason(list) {

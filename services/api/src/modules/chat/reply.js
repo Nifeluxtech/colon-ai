@@ -101,7 +101,8 @@ async function respond(o) {
     try {
       const webContext = web
         ? webSearch.contextBlock({ sources: web.sources, failed: !web.ok, now: o.now, guard }) : '';
-      result = await ai.generate({
+      // 0.11.5: o.generate = the chat model with browser tools (browser-tools.js), else the plain chain.
+      result = await (o.generate || ai.generate)({
         mode: o.mode, language: o.language, model: o.model, name: o.name, signal: ctl.signal, routing: cfg,
         messages: safety.redactMessages(o.history).messages, fetch: o.fetch,
         taskText: o.userText != null ? o.userText : o.searchText, attachments: o.attachments,
@@ -118,6 +119,8 @@ async function respond(o) {
       if (!stop) stop = out.final(result.text);
       if (stop) throw Object.assign(new Error('safety stop'), { name: 'AbortError', providerId: result.providerId,
         model: result.model });
+      // 0.11.5: the model used the browser (event browse / browser); a turn that is only a browse keeps no reply.
+      if (result.action) sse.send(result.action.event, result.action.data);
     } catch (e) {
       if (e.name !== 'AbortError') logCalls(e.attempts, e.code || 'error');
       if (e.code === 'no_provider' || e.code === 'no_vision' || (e.code === 'provider_down'
@@ -125,6 +128,11 @@ async function respond(o) {
       throw e;
     }
     finished = true;
+    if (result.drop && !prefix && store.drop) {
+      await store.drop();
+      sse.send('done', { message: null, dropped: message.id });
+      return;
+    }
     const final = await store.finish({ content: prefix + result.text, status: 'complete',
       providerId: result.providerId, providerModel: result.model, ...saved() });
     sse.send('done', { message: final });

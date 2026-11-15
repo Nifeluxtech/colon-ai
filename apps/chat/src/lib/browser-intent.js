@@ -29,7 +29,11 @@
    ({ follow: true }): open / go to / click / select / scroll / next / more, check / find / look for / read…, "that
    one", "the second result", "continue", or a fragment like "in the logged in account" (read with the user's
    previous message, ctx.prev). "open the browser and check…" is a task anywhere. Code and explain requests stay chat.
-   */
+   0.11.5 (owner): routing by keywords is gone where the chat model can decide (ctx.tools: signed in, the server's
+   chat model has browser tools): only the browser's own controls stay here ("open / show / close the browser",
+   "stop", "take control", "done" while Saga waits, "continue" after a task ended). Everything else, tasks and
+   follow-ups included, goes to the chat model, which calls browse. The old rules still run with ctx.tools unset
+   (signed out, the web reader) and on the server as the fallback when the model call fails (browse-follow.js). */
 
 var SITES = {
   google: 'https://www.google.com/', youtube: 'https://www.youtube.com/', gmail: 'https://mail.google.com/',
@@ -156,10 +160,10 @@ function parseIntent(text, ctx) {
   if (!original || original.length > 300 || /\n/.test(original)) return null;
   var t = clean(original);
   if (!t) return null;
-  if (QUESTION.test(t) && !ACTIONS.test(t) && !LOST.test(t)) return needsBrowser(t) ? { kind: 'task', goal: original,
-    open: true } : null;
+  if (QUESTION.test(t) && !ACTIONS.test(t) && !LOST.test(t)) return needsBrowser(t) && !ctx.tools ? { kind: 'task',
+    goal: original, open: true } : null;
   if (CLOSE.test(t)) return { kind: 'close' };
-  if (BROWSER_AND.test(t)) return { kind: 'task', goal: original, open: true, follow: true };
+  if (BROWSER_AND.test(t)) return ctx.tools ? null : { kind: 'task', goal: original, open: true, follow: true };
   var m = OPEN.exec(t);
   if ((m && BROWSER.test(m[1])) || LOST.test(t)) return { kind: 'open' };
   // 0.10.4: the chat's last task ended (or was cut off): "continue", "I've logged in, continue" carry it on.
@@ -172,6 +176,7 @@ function parseIntent(text, ctx) {
     if (SHARED.test(t)) return { kind: 'mode', mode: 'shared' };
     if (AI_ONLY.test(t)) return { kind: 'mode', mode: 'ai' };
   }
+  if (ctx.tools) return null;            // 0.11.5: the chat model decides (browse tool)
   var g = GO.exec(t);
   if (g) {
     var url = siteUrl(g[1], original);

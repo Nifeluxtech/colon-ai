@@ -50,8 +50,9 @@ function RemoteChatData() {
     exportAll: function () { return api('/conversations/export'); },
     send: function (o) {
       if (temp.has(o.conversationId)) return temp.send(o);
+      // 0.11.5: browser = this chat's browser now (page, summary, numbered clickable items) for the chat model.
       return sse(conv(o.conversationId) + '/messages', { content: o.content, attachment_ids: (o.attachments || []).map(
-        function (a) { return a.id; }) }, o, o.conversationId);
+        function (a) { return a.id; }), browser: o.browser || undefined }, o, o.conversationId);
     },
     regenerate: function (o) {
       if (temp.has(o.conversationId)) return temp.regenerate(o);

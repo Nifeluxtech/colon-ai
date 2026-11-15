@@ -35,7 +35,12 @@ const DOMAIN = /\b((?:[a-z0-9-]+\.)+(?:com|org|net|ng|io|dev|app|ai|co|edu|gov|u
 // Asking the user to do what Saga can, or a finish that only says what Saga is about to do.
 const ASKS_USER = new RegExp('\\b(?:(?:you can|please|simply|just|kindly)\\s+(?:tap|click|press|open|select|scroll)|'
   + '(?:tap|click) on it|if you can see|let me know (?:if|when|which)|tell me (?:which|the exact|exactly)|'
-  + '(?:could|can) you (?:tap|click|open|provide|tell me)|provide (?:me with )?the (?:full )?(?:url|link|name))', 'i');
+  + '(?:could|can) you (?:tap|click|open|provide|tell me)|provide (?:me with )?the (?:full )?(?:url|link|name)|'
+  // 0.11.5: "tap it yourself", "you'll need to click…", "Tap the repo to open it", "go ahead and open…"
+  + '\\b(?:tap|click|press|select|open|scroll)\\b[^.!?\\n]{0,60}\\byourself\\b|'
+  + "\\byou(?: will| would|'ll|'d)? (?:need|have) to (?:tap|click|press|select|open|scroll|find)\\b|"
+  + '(?:go ahead and|feel free to) (?:tap|click|press|open|select)\\b|'
+  + '(?:^|[.!?:]\\s+)(?:tap|click|press)\\s+(?:on\\s+)?(?:the|it|that|this|"))', 'i');
 const NARRATES = new RegExp("^\\s*(?:i am|i'm|i will|i'll|let me|i am going to|i'm going to)\\s+(?:now\\s+)?"
   + '(?:attempting|trying|try|going|navigate|navigating|look|looking|search|searching|check|checking|find|open)', 'i');
 // Words around a name in "open the X repository / page / account named X": not part of what to match.
@@ -123,8 +128,30 @@ function check({ goal, page, acted, answer = '', account = '' }) {
   return null;
 }
 
+// 0.11.5 (owner): Saga acts; it never finishes by telling the user to tap something. This part of check() holds
+// after MAX_REFUSALS too (the step limit still ends a task that keeps trying).
+const HANDS_BACK = 'Not done yet: you never finish by telling the user to tap, click or open something in the browser '
+  + '(that is your job), and you never finish with what you are about to do. Do that step now yourself: find it in '
+  + 'the page\'s elements or links (getLinks), scroll, use the site\'s search, or open its address with openUrl. Then '
+  + 'finish with what the browser shows, in the past tense.';
+const handsBack = (answer) => (ASKS_USER.test(String(answer || '')) || NARRATES.test(String(answer || ''))
+  ? HANDS_BACK : null);
+
+// 0.11.5: requestUserControl is only for what Saga can't do: secret fields (password, code, card, PIN), a captcha,
+// a payment, a consent frame Colon can't read inside. "Other" (and a consent banner Colon can reach) is Saga's.
+const SELF = 'Not handed to the user: the page has no password, code, card or PIN field, and this step is one you can '
+  + 'do yourself in the browser (click, scroll, search, open an address). Do it now; hand the browser over only for '
+  + 'a secret field, a captcha or a payment.';
+function selfStep(ask, { overlay = null, page = '' } = {}) {
+  if (page === 'secret' || page === 'sign_in_page') return null;
+  if (ask.kind === 'other') return SELF;
+  if (ask.kind === 'consent' && !(overlay && overlay.frame)) return SELF;
+  return null;
+}
+
 /** 0.11.3: what a finish tells the user (its answer and result line, else its say), for check's answer. */
 const said = (d) => `${(d.args && d.args.answer) || ''} ${(d.args && d.args.result) || ''}`.trim()
   || String(d.say || '');
 
-module.exports = { said, check, parseGoal, targetHost, hostOf, sameSite, wantedName, MAX_REFUSALS };
+module.exports = { said, check, handsBack, selfStep, HANDS_BACK, SELF,
+  parseGoal, targetHost, hostOf, sameSite, wantedName, MAX_REFUSALS };

@@ -1,6 +1,6 @@
 /* Colon AI · sending a message and streaming the reply; regenerate, stop and edit-and-resend. */
 
-import { browseFromServer, handleBrowserText } from './browser-chat.js';
+import { browseFromServer, browserFromServer, handleBrowserText, pageState } from './browser-chat.js';
 import { guide, loginCard, passwordGuard } from './saga-extras.js';
 import { activeTaskId } from './saga-native.js';
 import { handlePlanText } from './saga-plans.js';
@@ -41,8 +41,10 @@ function send() {
     var temp = { id: C.uid('tmp'), role: 'user', content: text, attachments: atts, created_at: new Date().toISOString(
       ) };
     S.messages.push(temp); renderThread(); updateHeader(); scrollBottom(true);
-    run(function (o) { return data.send(Object.assign({ conversationId: c.id, content: text, attachments: atts,
-      mode: c.mode, model: c.model || defaultModel() }, o)); }, temp);
+    // 0.11.5: the chat model sees this chat's browser (page, summary, numbered items) and decides to browse.
+    run(function (o) { return pageState().then(function (b) { return data.send(Object.assign({ conversationId: c.id,
+      content: text, attachments: atts, mode: c.mode, model: c.model || defaultModel(), browser: b }, o)); }); },
+      temp);
   }).catch(function (e) { ta.value = text; autoGrow(); syncComposer(); C.toast(e.message, 'bad'); });
 }
 /* 0.11.0 (ADR 0007): logins never go in the chat, plans and routines, and messages that steer a running task. */
@@ -86,7 +88,11 @@ function run(call, tempUser, replaceId) {
       else if (ev.type === 'sources' && msg) { msg.sources = ev.sources; renderThread(); scrollBottom(); }
       else if (ev.type === 'status' && msg) { msg.stage = ev.stage; msg.stageCount = ev.count || 0; paint(); }
       else if (ev.type === 'delta' && msg) { if (data.kind === 'remote') msg.content += ev.text; paint(); }
+      else if (ev.type === 'done' && msg && ev.dropped) {
+        // 0.11.5: the turn only started browsing: no reply bubble (Saga's own note and card follow).
+        S.messages = S.messages.filter(function (m) { return m !== msg; }); msg = null; renderThread(); }
       else if (ev.type === 'done' && msg) { Object.assign(msg, ev.message || {}); }
+      else if (ev.type === 'browser') browserFromServer(ev);
       // 0.11.3: the server sent a browser follow-up to Saga (this chat's last browser task goes on).
       else if (ev.type === 'browse') browseFromServer(ev.goal, (tempUser && tempUser.id) || ev.message_id);
     }

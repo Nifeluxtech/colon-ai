@@ -14,7 +14,11 @@
    0.11.3 (owner): a follow-up to the chat's last browser task ({ follow: true }, any site, any specialist: the chat's
    Developer / Study / Research mode is kept) continues that task's browser session (continue_of: Saga starts from
    what it did), and its live card shows under the user's message. The server sends the same follow-ups back here
-   (event browse) when this page didn't catch one (browseFromServer). */
+   (event browse) when this page didn't catch one (browseFromServer).
+   0.11.5 (owner): signed in, the chat model decides whether to browse (its browse tool; the server sends event
+   browse, and the live card opens under the user's message in this chat's session on every call). Only the
+   browser's own controls are read here (ctx.tools). Each message carries this chat's browser state (pageState):
+   the page, a short summary and the numbered clickable items the phone read (Readability + Turndown). */
 
 import { browseNative, continueNative, sagaActive, stopSaga } from './saga-native.js';
 import { addThreadNote, nativeBrowser, openBrowser, revealInThread, setChatMode, setLayout, syncChat, syncNative }
@@ -35,7 +39,7 @@ function nativeCtx() {
   var st = S.browser.nativeState || {}, run = st.run || {};
   return { open: !!st.open, waiting: !!(st.handoff && st.handoff.message), resumable: !!st.resumable,
     ended: ENDED.indexOf(run.state) >= 0 && !!(run.goal || run.task), busy: sagaActive(),
-    recent: !!(run.task || run.goal), prev: prevUserText() };
+    recent: !!(run.task || run.goal), prev: prevUserText(), tools: signedIn() };
 }
 // 0.11.3: the user's last message in this chat (a follow-up fragment is read with it).
 function prevUserText() {
@@ -45,7 +49,7 @@ function prevUserText() {
   }
   return '';
 }
-function webCtx() { return { open: S.browser.layout !== 'none', prev: prevUserText() }; }
+function webCtx() { return { open: S.browser.layout !== 'none', prev: prevUserText(), tools: signedIn() }; }
 function host(u) { return ColonURL.displayUrl(u).replace(/^www\./, '').split('/')[0] || u; }
 function say(text) { return addThreadNote(text, {}).catch(function () {}); }
 // 0.10.5: the reopened browser's live card goes under this reply and scrolls into view. 0.11.1: kept per chat
@@ -170,4 +174,26 @@ function browseFromServer(goal, id) {
     C.toast((e && e.message) || 'The browser didn’t respond. Try again.', 'bad'); });
 }
 
-export { browseFromServer, handleBrowserText };
+/** 0.11.5: the chat model closed this chat's browser (its stop_browsing tool; event browser {op: 'close'}). */
+function browserFromServer(ev) {
+  if (!ev || ev.op !== 'close') return;
+  var app = C.native.hasPanel() && C.native.can('browserChats');
+  if (!app) { setLayout('none'); return; }
+  if (sagaActive()) stopSaga();
+  nativeBrowser('close').then(syncNative, function () {});
+}
+
+/** 0.11.5: this chat's browser now, sent with the message for the chat model: { url, title, summary, items } (the
+    phone reads the page: feature pageSummary), else the page the panel shows; null with no browser. At most ~1.5 s. */
+function pageState() {
+  var app = C.native.hasPanel() && C.native.can('browserChats');
+  var st = S.browser.nativeState || {};
+  if (!app || !signedIn() || !(st.url || (st.run && (st.run.task || st.run.goal)))) return Promise.resolve(null);
+  var plain = st.url ? { url: st.url, title: st.title || '', open: !!st.open } : null;
+  if (!C.native.can('pageSummary') || !st.url) return Promise.resolve(plain);
+  var late = new Promise(function (ok) { setTimeout(function () { ok(plain); }, 1500); });
+  return Promise.race([nativeBrowser('page').then(function (p) { return p && p.url ? p : plain; },
+    function () { return plain; }), late]);
+}
+
+export { browseFromServer, browserFromServer, handleBrowserText, pageState };

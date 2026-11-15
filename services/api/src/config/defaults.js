@@ -44,6 +44,12 @@ const SCHEMA = [
   num('AI_FIRST_TOKEN_TIMEOUT_MS', 25000, 'give up on a model that has not started answering'),
   oneOf('AI_MODEL_SET', ['gemma', 'all'], 'gemma',
     'gemma = Saga uses Gemma 4 only (26B, 31B on failure, one at a time); all = the full routing table'),
+  // 0.11.5: the chat model decides itself whether to browse (Gemini function calling, modules/ai/tool-call.js)
+  oneOf('CHAT_BROWSER_TOOLS', ['on', 'off'], 'on',
+    'on = the chat model gets the browser tools (browse, read_page, stop_browsing); off = keyword routing only'),
+  str('CHAT_TOOL_MODEL', 'gemini-3.5-flash-lite', 'chat / tool model on Google AI Studio (needs GEMINI_API_KEY)'),
+  str('CHAT_TOOL_FALLBACK_MODEL', 'gemma-4-26b-a4b-it', 'tool model when the first fails ("off" to skip)'),
+  num('CHAT_TOOL_TIMEOUT_MS', 15000, 'a tool model that has not started answering by then hands over to the next'),
   str('AI_SUPPORT_MODELS', '', 'support models after Gemma 4, "provider:model, ..." in order; off = none; empty = '
     + 'GEMINI_SUPPORT_MODELS, GROQ_SUPPORT_MODEL then OPENROUTER_SUPPORT_MODEL (0.11.0)'),
   str('GEMINI_SUPPORT_MODELS', 'gemini-flash-lite-latest,gemini-3.5-flash-lite,gemini-2.5-flash',

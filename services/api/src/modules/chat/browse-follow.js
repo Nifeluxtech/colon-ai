@@ -1,3 +1,7 @@
+// 0.11.5: FALLBACK ONLY. The chat model now decides itself whether to browse (browser-tools.js, Gemini function
+// calling); these keyword rules run only when the tool models fail (no key, quota, errors), so routing is never worse
+// than 0.11.4. With a browser session in the chat (session) a follow-up counts even without a recent browser turn,
+// and starts() (the app's 0.11.2 needsBrowser, moved here) opens the browser for a first "log in to github".
 // 0.11.3 (owner): browser follow-ups never reach the chat model. After a browser task in a chat (an AI Browse turn
 // in the last few messages), a message that plausibly continues it ("go to Colon repo", "open the second result",
 // "check", "in the logged in account", "open the browser and check") goes back to the app as event `browse`, and
@@ -48,16 +52,33 @@ function goalFor(text, prev) {
   return `${p.replace(/[.!?…]+$/, '')} (${original.replace(/[.!?…]+$/, '')})`;
 }
 
-/** messages: the conversation's messages (store.messages), the user's new one included. now: for tests. */
-function route(userMsg, messages, now = Date.now()) {
-  if (!userMsg || !followUp(userMsg.content) || (userMsg.attachments || []).length) return '';
+// 0.11.2's needsBrowser (from the app): a message that needs the live web, with or without a browser session.
+const LIVE = new RegExp('^(?:(?:search|browse)(?:\\s+(?:the web|the internet|online|google|the net))?(?:\\s+for)?|'
+  + 'google|look (?:\\S+ )*up (?:online|on the web|on google)|(?:sign|log) ?(?:in|on)(?:to)?(?: to| into| on| at)?|'
+  + 'login(?: to| into| on| at)?|sign up(?: on| at| for| with)?|register (?:on|at|with)|compare (?:the )?(?:prices?|'
+  + 'deals|offers|rates)|check (?:the )?(?:price|prices|availability|stock|status) (?:of|for|on))\\s+\\S');
+const SITE = /\b[a-z0-9-]+(?:\.[a-z0-9-]+)*\.(?:com|ng|org|net|io|gov|edu|co|app|dev|info|me)(?:\.[a-z]{2})?\b/;
+const SITE_ACT = /^(?:open|go to|visit|check|check out|find|buy|order|book|search|look for|show me)\b/;
+function starts(text) {
+  const t = clean(text);
+  if (!t || t.split(' ').length > 40 || CHAT_WORDS.test(t)) return false;
+  return LIVE.test(t) || /^fill (?:in|out) (?:\S+ ){0,4}(?:form|application|registration)\b/.test(t)
+    || (SITE_ACT.test(t) && SITE.test(t));
+}
+
+/** messages: the conversation's messages (store.messages), the user's new one included. now: for tests.
+ *  session (0.11.5): the chat has a browser session now (a page open or a recent Saga task). */
+function route(userMsg, messages, now = Date.now(), session = false) {
+  if (!userMsg || (userMsg.attachments || []).length) return '';
+  if (!followUp(userMsg.content)) return starts(userMsg.content) ? String(userMsg.content).trim() : '';
   const all = messages || [];
   const at = all.findIndex((m) => m.id === userMsg.id);
   const before = all.slice(Math.max(0, (at < 0 ? all.length : at) - WINDOW), at < 0 ? all.length : at);
-  const recent = before.some((m) => m.origin === 'browse' && now - new Date(m.created_at).getTime() < RECENT_MS);
+  const recent = session || before.some((m) => m.origin === 'browse'
+    && now - new Date(m.created_at).getTime() < RECENT_MS);
   if (!recent) return '';
   const prev = [...before].reverse().find((m) => m.role === 'user' && m.content);
   return goalFor(userMsg.content, prev ? prev.content : '');
 }
 
-module.exports = { followUp, goalFor, route, RECENT_MS, WINDOW };
+module.exports = { followUp, goalFor, route, starts, RECENT_MS, WINDOW };

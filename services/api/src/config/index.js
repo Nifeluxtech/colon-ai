@@ -48,6 +48,11 @@ module.exports = {
     firstTokenTimeoutMs: Number(env('AI_FIRST_TOKEN_TIMEOUT_MS', 25000)),
     modelSet: env('AI_MODEL_SET', 'gemma'),   // gemma | all; read live by modules/ai/model-set.js
     hedge: Number(env('AI_HEDGE', 2)),   // models asked at once per wave (1 = one after another)
+    // 0.11.5: browser tools for the chat model (CHAT_TOOL_* are read live by modules/ai/tool-call.js).
+    browserTools: env('CHAT_BROWSER_TOOLS', 'on') !== 'off',
+    toolModel: env('CHAT_TOOL_MODEL', 'gemini-3.5-flash-lite'),
+    toolFallbackModel: env('CHAT_TOOL_FALLBACK_MODEL', 'gemma-4-26b-a4b-it'),
+    toolTimeoutMs: Number(env('CHAT_TOOL_TIMEOUT_MS', 15000)),
     specialistRouting: env('AI_SPECIALIST_ROUTING', 'on') !== 'off',   // read live by modules/ai/specialists.js
     idleTimeoutMs: Number(env('AI_IDLE_TIMEOUT_MS', 30000)),
     maxReplyMs: Number(env('AI_MAX_REPLY_MS', 180000)),

@@ -117,6 +117,12 @@ The safety layer (below) runs first and keeps this format for refusals and stopp
 0.11.3: a message that continues the chat's browser task (a browser turn among the last 6 messages;
 `modules/chat/browse-follow.js`) is not sent to a model: the stream is `user` → `browse {goal, message_id}` →
 `done {message: null}`, and the app has Saga do it in the same browser session (the chat keeps its mode).
+0.11.5: the chat model decides itself whether to browse (`modules/chat/browser-tools.js`: Gemini function calling,
+`browse` / `read_page` / `stop_browsing`, on `CHAT_TOOL_MODEL` then `CHAT_TOOL_FALLBACK_MODEL` through
+`modules/ai/tool-call.js`), with the chat's browser state in its system prompt (`modules/chat/browser-state.js`: the
+page the app read with Readability + Turndown, signed-in status, the last task's last 5 steps, numbered clickable
+items). A browse turn streams `user` → `start` → `browse {goal, message_id, how}` → `done {message: null, dropped}`.
+The keyword rules (`browse-follow.js`) run only when the tool models fail.
 
 - **Routing** (`modules/ai/routing.js`, overridable from Admin › Routing through `modules/ai/dynamic.js`): every
   mode tries **Gemma 4 26B on Google AI Studio first**, then MiniMax M3.1 Flash (NVIDIA) → Gemma 4 31B → Qwen →
