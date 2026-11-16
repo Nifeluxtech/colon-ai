@@ -127,7 +127,7 @@ function race(queue, hedge, { o, messages, timeouts, attempts, route }) {
           setTimeout(again, Math.max(0, wait));
           return;
         } else if (support.unavailable(c, e)) {
-          // 0.11.0: a Gemini support model Google withdrew (gemini-2.5-flash): skip it and rest it for a day.
+          // 0.11.0: a Gemini support model Google withdrew ("not found" / "not available"): skip it, rest it a day.
           resting.set(keyOf(c), Date.now() + support.unavailableRestMs());
         } else if (REST_MS[e.code]) {
           resting.set(keyOf(c), Date.now() + Math.max(REST_MS[e.code], e.code === 'rate_limited' && wait ? wait : 0));
