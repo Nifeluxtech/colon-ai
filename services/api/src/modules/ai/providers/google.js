@@ -44,7 +44,8 @@ function geminiBody(o) {
   const gen = {};
   if (o.maxTokens) gen.maxOutputTokens = o.maxTokens;
   if (o.temperature !== undefined) gen.temperature = o.temperature;
-  // A target's own thinkingConfig (body.thinkingConfig, e.g. Gemini 2.5's thinkingBudget) wins over the provider's.
+  // A target's own thinkingConfig (body.thinkingConfig, e.g. Gemini 3.8 Flash's thinkingLevel "low", since it rejects
+  // "minimal") wins over the provider's.
   const own = o.body && o.body.thinkingConfig !== undefined;
   const thinking = own ? o.body.thinkingConfig : o.provider.thinkingLevel ? { thinkingLevel: o.provider.thinkingLevel }
     : null;
