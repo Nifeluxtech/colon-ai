@@ -233,7 +233,7 @@ sessions replace sharing Colon Browser's tabs with Colon AI (Colon Browser keeps
   (logins only in the phone's Keystore vault; the server and model see `{site, login_saved}` only), approval before
   submit / pay / delete / send, background runs with a notification, scheduled browsing and saved routines
   (migration 0011), mid-task steering, up to 6 tabs, extract to a table with CSV, speed mode; support models after
-  Gemma 4 (Gemini Flash-Lite latest, 3.5 Flash-Lite, 2.5 Flash, Groq gpt-oss-120b, OpenRouter free Gemma). The
+  Gemma 4 (Gemini Flash-Lite latest, 3.5 Flash-Lite, 3.8 Flash since 0.11.7, Groq gpt-oss-120b, OpenRouter free Gemma). The
   card hides under the chat's overlays and stays steady while scrolling
 - [x] **Browser as a tool (v0.11.5):** the chat model decides on each turn whether to browse (Gemini function calling:
   browse / read_page / stop_browsing, in every mode), with the chat's browser state in context (page, sign-in, last

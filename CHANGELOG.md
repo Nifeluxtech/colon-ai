@@ -1,5 +1,22 @@
 # Changelog
 
+## [0.11.7] — 2026-11-16 · Gemini 3.8 Flash replaces Gemini 2.5 Flash
+Google retires `gemini-2.5-flash` on 1 Dec 2026 (from then its requests are routed to `gemini-3.5-flash-lite`), so the
+third Google AI Studio support model after Gemma 4 is now **`gemini-3.8-flash`** (stable, no shutdown date announced;
+model id checked on Google's Gemini API models page on 2026-11-16). API-only change: every version number moves to
+0.11.7 (`Colon.version`, `?v=` cache-busting, package.json files); `version.json` stays on 0.11.6, so phones are not
+offered an app update. No migration.
+### Changed
+- **Support order** (`support.js`, `config/defaults.js`, `config/api.env.example`): `gemini-flash-lite-latest` →
+  `gemini-3.5-flash-lite` → `gemini-3.8-flash` → Groq `openai/gpt-oss-120b` → OpenRouter free Gemma. Same
+  `GEMINI_API_KEY`, nothing new to set.
+- **Thinking level**: Gemini 3.8 Flash rejects `thinkingLevel: "minimal"` (Gemma's default here) with an error, so it
+  is sent `"low"`, its fastest level (`support.js` `geminiBody`; Gemini 4 and 3.1 Pro would get the same). A
+  `GEMINI_SUPPORT_MODELS` that still names `gemini-2.5-flash` keeps `thinkingBudget: 0`.
+### Deploy
+- Pull and restart the API server. If its env sets `GEMINI_SUPPORT_MODELS` explicitly with `gemini-2.5-flash`, change
+  it to `gemini-flash-lite-latest,gemini-3.5-flash-lite,gemini-3.8-flash` (or delete the line to use the default).
+
 ## [0.11.6] — 2026-11-15 · Saga login wait never sticks
 Owner's report on 0.11.5 (Android): Saga was asked to log in to yolotask (the reviewer sign-in page). signIn answered
 `no_login`, Saga showed the Colon Secured Login form and waited for Give back; the user filled it and SAVED it, and
