@@ -52,7 +52,7 @@ const SCHEMA = [
   num('CHAT_TOOL_TIMEOUT_MS', 15000, 'a tool model that has not started answering by then hands over to the next'),
   str('AI_SUPPORT_MODELS', '', 'support models after Gemma 4, "provider:model, ..." in order; off = none; empty = '
     + 'GEMINI_SUPPORT_MODELS, GROQ_SUPPORT_MODEL then OPENROUTER_SUPPORT_MODEL (0.11.0)'),
-  str('GEMINI_SUPPORT_MODELS', 'gemini-flash-lite-latest,gemini-3.5-flash-lite,gemini-2.5-flash',
+  str('GEMINI_SUPPORT_MODELS', 'gemini-flash-lite-latest,gemini-3.5-flash-lite,gemini-3.8-flash',
     'Google AI Studio support models after Gemma 4, comma list in order (needs GEMINI_API_KEY; off = skip)'),
   oneOf('GEMINI_SUPPORT_VISION', ['0', '1'], '1', 'Gemini support models read images (1) or not (0)'),
   num('GEMINI_SUPPORT_UNAVAILABLE_REST_HOURS', 24,
