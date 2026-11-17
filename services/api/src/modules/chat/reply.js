@@ -16,6 +16,7 @@ const calls = require('../ai').calls;
 const limits = require('../ai').limits;
 const sseLib = require('../ai').sse;
 const webSearch = require('../search');
+const billing = require('../billing');
 const safety = require('../safety');
 const { SECURITY_HEADERS } = require('../../shared/security-headers');
 const log = require('../../shared/logger');
@@ -45,6 +46,9 @@ function openStream(res) {
  * store.finish(result) -> final message sent in "done" ({ content, status, error, providerId, providerModel, sources,
  * web })
  *   store.isStopped()             -> optional: true when another request asked to stop this reply
+ *   billing                       optional: the credit engine (modules/billing); default when o.routing is unset.
+ *                                 Signed-in users reserve credits after the daily limit, settle on a reply, and get
+ *                                 them back when nothing was delivered.
  */
 async function respond(o) {
   const { req, res, store } = o;
@@ -63,6 +67,8 @@ async function respond(o) {
   let prefix = '';     // the "web search unavailable" notice, kept at the top of the saved answer
   let web = null;      // { ok, sources, provider, ms, read } when Research mode searched
   const saved = () => (web ? { sources: web.ok ? webSearch.publicSources(web.sources) : [], web: webMeta(web) } : {});
+  const engine = o.billing || (o.routing ? null : billing);
+  let bill = null;     // { requestId, done } once credits are reserved for this reply
   try {
     if (o.onOpen) await o.onOpen(sse);
     message = await store.start();
@@ -91,6 +97,16 @@ async function respond(o) {
     if (!ai.isConfigured(cfg)) { logCalls([], 'no_provider'); throw Object.assign(new Error(
       'Colon isn’t connected to an AI provider yet.'), { code: 'no_provider' }); }
     await limits.consumeAll(o.counters, o.db);
+    if (engine && req.user) {
+      const requestId = `chat:${message.id}`;
+      try {
+        const r = await engine.reserve({ user: req.user, requestId, feature: 'chat', mode: o.mode || 'general' });
+        if (r) bill = { requestId, done: false };
+      } catch (e) {
+        if (e.code === 'quota') { await limits.refundAll(o.counters, o.db); throw e; }
+        log.warn('billing_reserve_failed', { err: String(e.message || '').slice(0, 160), code: e.code });
+      }
+    }
     // Research mode: search and read pages first. Never fatal: on failure the answer streams with a notice.
     if (o.webSearch) {
       web = await searchFirst(o, sse, ctl.signal, cfg);
@@ -135,6 +151,13 @@ async function respond(o) {
     }
     const final = await store.finish({ content: prefix + result.text, status: 'complete',
       providerId: result.providerId, providerModel: result.model, ...saved() });
+    if (bill) {
+      bill.done = true;
+      await engine.settle({ user: req.user, requestId: bill.requestId, provider: result.providerId,
+        model: result.model, inputTokens: result.usage && result.usage.input,
+        outputTokens: result.usage && result.usage.output })
+        .catch((err) => log.warn('billing_settle_failed', { err: err.message }));
+    }
     sse.send('done', { message: final });
   } catch (e) {
     finished = true;
@@ -161,6 +184,14 @@ async function respond(o) {
       sse.send('error', { code, message: msg });
     }
   } finally {
+    // Credits for a reply that ended any other way: charged when some answer reached the user, else given back.
+    if (bill && !bill.done) {
+      bill.done = true;
+      const delivered = text.length > prefix.length;
+      await (delivered ? engine.settle({ user: req.user, requestId: bill.requestId })
+        : engine.refund({ user: req.user, requestId: bill.requestId }))
+        .catch((err) => log.warn('billing_close_failed', { err: err.message }));
+    }
     if (guard.flags.length) await safety.recordInjection(guard.flags, meta).catch(() => {});
     clearInterval(ping); clearInterval(poll);
     if (message) active.delete(message.id);
