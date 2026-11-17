@@ -37,7 +37,8 @@ test('default: every mode, language and category is Gemma 4 26B then 31B on Goog
     // 0.11.0: then the support models (support.js), never MiniMax, Qwen, DeepSeek, GLM, NVIDIA.
     assert.deepEqual(ids(chain), ['gemini:gemma-4-26b-a4b-it', 'gemini:gemma-4-31b-it',
       'gemini:gemini-flash-lite-latest', 'gemini:gemini-3.5-flash-lite', 'gemini:gemini-3.8-flash',
-      'groq:openai/gpt-oss-120b', 'openrouter:google/gemma-4-31b-it:free'], JSON.stringify(o));
+      'gemini:gemini-4-hydrogen', 'groq:openai/gpt-oss-120b', 'openrouter:google/gemma-4-31b-it:free'],
+      JSON.stringify(o));
     assert.match(chain.route, /^gemma/);
   }
 });
