@@ -75,7 +75,9 @@ function create({ store = sqlStore(), cfg = config.billing, now = () => new Date
     const p = period(now());
     const plan = await planFor(userId, q);
     let w = await q.lockWallet(userId);
+    let fresh = false;
     if (!w || w.period !== p) {
+      fresh = true;
       const left = w ? Number(w.balance) : 0;
       const grant = monthlyCredits(plan);
       if (w && left !== 0) {
@@ -87,7 +89,7 @@ function create({ store = sqlStore(), cfg = config.billing, now = () => new Date
         kind: 'grant', period: p, description: `${plan.name} plan credits for ${p}` });
       await q.saveWallet(w);
     }
-    return { wallet: { ...w, balance: Number(w.balance) }, plan, period: p };
+    return { wallet: { ...w, balance: Number(w.balance) }, plan, period: p, fresh };
   }
 
   // Reserves credits for one request. Idempotent on requestId. -> { reserved, balance, enforced } or null when
@@ -167,6 +169,26 @@ function create({ store = sqlStore(), cfg = config.billing, now = () => new Date
     return { allowed: cfg.mode !== 'enforce' || remaining > 0, limit: ent.limit, used, remaining };
   }
 
+  // After a paid upgrade (modules/payments): tops this month's balance up by the difference between the new and the
+  // old plan's monthly credits. Idempotent on ref. Skipped when the wallet was just opened, since that already
+  // granted the new plan's full credits. -> { added, balance } or null.
+  async function planChanged({ userId, ref, fromCode = 'free' }) {
+    if (cfg.mode === 'off') return null;
+    const all = await catalogue();
+    return tx(async (q) => {
+      const { wallet, plan, period: p, fresh } = await openWallet(q, userId);
+      const before = all[fromCode] || all.free;
+      const added = fresh || !before ? 0 : Math.max(0, monthlyCredits(plan) - monthlyCredits(before));
+      const balance = wallet.balance + added;
+      if (added > 0) {
+        await q.addLedger({ ref: `plan:${ref}`, user_id: userId, amount: added, balance_after: balance,
+          kind: 'grant', period: p, description: `Upgraded to ${plan.name}` });
+      }
+      await q.saveWallet({ ...wallet, balance, plan_code: plan.code });
+      return { added, balance };
+    }).catch((e) => { if (e.code === 'ER_DUP_ENTRY') return null; throw e; });
+  }
+
   // GET /account/billing: the user's plan, this month's credits and recent ledger entries.
   async function summary(user, { ledgerLimit = 20 } = {}) {
     const all = await catalogue();
@@ -175,9 +197,12 @@ function create({ store = sqlStore(), cfg = config.billing, now = () => new Date
     }
     const state = await tx((q) => openWallet(q, user.id));
     const ledger = await store.ledger(user.id, ledgerLimit);
+    const sub = await store.subscription(user.id);
     return {
       mode: cfg.mode, billable: true,
       plan: { code: state.plan.code, name: state.plan.name, entitlements: state.plan.entitlements },
+      subscription: sub && sub.plan_code === state.plan.code && state.plan.code !== 'free'
+        ? { plan: sub.plan_code, period_end: sub.period_end || null } : null,
       credits: { balance: state.wallet.balance, monthly: monthlyCredits(state.plan), period: state.period,
         renews: nextPeriodName(state.period) },
       ledger: ledger.map((e) => ({ amount: Number(e.amount), balance_after: Number(e.balance_after), kind: e.kind,
@@ -186,7 +211,7 @@ function create({ store = sqlStore(), cfg = config.billing, now = () => new Date
     };
   }
 
-  return { reserve, settle, refund, checkQuota, summary, planFor, catalogue,
+  return { reserve, settle, refund, checkQuota, summary, planFor, catalogue, planChanged,
     _clearCache() { cache = null; } };
 }
 
@@ -204,4 +229,5 @@ module.exports = {
   refund: (o) => instance().refund(o),
   checkQuota: (u, f) => instance().checkQuota(u, f),
   summary: (u, o) => instance().summary(u, o),
+  planChanged: (o) => instance().planChanged(o),
 };
