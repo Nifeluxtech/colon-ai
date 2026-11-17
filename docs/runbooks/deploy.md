@@ -74,6 +74,16 @@ it). It must send `Cache-Control: no-cache` for `index.html`, so phones always f
 Merge it with anything cPanel already wrote there (HTTPS redirects, PHP handlers). Do not enable `mod_deflate` for
 `text/event-stream` on the API subdomain, or chat replies arrive all at once.
 
+## Release notes: 0.12.0
+
+- **Migration** `0012_plans_credits.sql` (plans, entitlements, subscriptions, credit wallets, ledger, usage events)
+  runs at start-up; take a dump first. `/health` → `database.migrations` should end with `0012_plans_credits`.
+- **Environment** (optional): `BILLING_MODE` (default `shadow`: record credit use, never block; `enforce` refuses
+  replies when a user's monthly credits run out; `off` records nothing), `BILLING_CREDITS_CHAT`,
+  `BILLING_CREDITS_RESEARCH`, `BILLING_CREDITS_SAGA`. Leave it on `shadow` until quotas are agreed and Korapay is in.
+- **Check**: as a normal user, send a chat, then `GET https://api.apparatus.name.ng/account/billing` shows the Free
+  plan with 99 credits for the month.
+
 ## Release notes: 0.11.0
 
 - **Migration** `0011_saga_schedules_routines.sql` (tables for scheduled checks and routines) runs at start-up;
