@@ -10,7 +10,7 @@ African AI registry, voice, browser (placeholder), system settings, web search a
 | `src/main.js` | Boot only |
 | `src/core/` | `state.js` (`window.ColonAdmin`), `auth.js` (role check and staff 2FA gate), `router.js` (sections and routes) |
 | `src/components/` | `page.js`, `form.js`, `provider-sheet.js` |
-| `src/pages/` | one file per section: `overview.js`, `users.js`, `moderation.js`, `ai-providers.js`, `routing.js`, `limits.js`, `evaluation.js`, `registry.js`, `voice.js`, `browser.js`, `settings.js`, `web-search.js`, `security.js` |
+| `src/pages/` | one file per section: `overview.js`, `users.js`, `moderation.js`, `ai-providers.js`, `routing.js`, `limits.js`, `plans.js`, `credits.js` (with payments), `costs.js`, `evaluation.js`, `registry.js`, `voice.js`, `browser.js`, `settings.js`, `web-search.js`, `security.js` |
 
 The API enforces every permission (the UI only hides what a role can't use). Permissions and the API:
 [docs/phases/phase-4.md](../../docs/phases/phase-4.md).
