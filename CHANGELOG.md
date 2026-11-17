@@ -1,5 +1,42 @@
 # Changelog
 
+## [0.14.0] — 2026-11-17 · Admin plans, credits and costs (Blueprint steps A6 and A7)
+Staff can now run the business side from the Admin Dashboard: edit plan prices and monthly allowances, look up any
+member's plan, balance and ledger, grant or revoke credits, set or comp a plan, list payments, and see what the AI
+costs per day, model, plan and member. Every change is admin / Super Admin only, needs a reason, and is written to
+the audit log with the acting admin. Each provider call now records who asked, their plan, the tokens the provider
+reported and its cost in kobo. Prices default to 0 (the free tiers in use today), so spend reads ₦0 until
+`AI_MODEL_COSTS` is set; tokens are counted either way. A daily spend alert can be switched on; it only warns and
+never blocks a reply. Nothing changes for members.
+### Added
+- **Migration `0014_admin_billing.sql`**: `ai_calls` gains `user_id`, `plan_code`, `input_tokens`, `output_tokens`
+  and `cost_minor` (kobo, `DECIMAL(14,4)`: one call is usually a fraction of a kobo), plus an index on
+  `(user_id, created_at)`. Older rows keep the defaults.
+- **Cost logging** (`modules/ai/costs.js`, `calls.js`, `hedge.js`): the winning attempt keeps the provider's token
+  counts (`usage`), which now also reach `billing.settle`; every `ai_calls` row is priced from `AI_MODEL_COSTS`
+  (`"provider:model"`, then `"model"`, then `"provider:*"`). Chat and the Study CBT log the signed-in user.
+- **`modules/billing/admin.js`** (+ `admin-store.js`): plan edits (Free stays ₦0 and on; the plan cache is cleared
+  at once), manual credits as one ledger entry of kind `grant` or `revoke` in a locked transaction, idempotent on the
+  admin's key and never below 0, set / comp a plan for N days (subscription provider `admin`, credits topped up like
+  an upgrade; Free cancels), payments by status, and costs per UTC day, model, plan and top members with today's
+  spend against the cap (warn at 80 %, over at 100 %).
+- **Admin API** (admin and Super Admin, 2FA, audited with the reason): `GET /admin/billing/plans`,
+  `PATCH /admin/billing/plans/:code`, `GET /admin/billing/users/:id` (id or email),
+  `POST /admin/billing/users/:id/credits {amount, reason, key}`, `POST /admin/billing/users/:id/plan
+  {plan, days, reason, key}`, `GET /admin/billing/payments?status=`, `GET /admin/billing/costs?days=N` (1–30). Nobody
+  changes their own credits or plan.
+- **Admin pages**: Plans (prices typed in naira, stored in kobo; allowances), Credits (find a member, balance,
+  ledger, grant / revoke / set plan with a reason and a confirmation; Payments tab), Costs (spend or tokens per day,
+  per model, per plan, top members, the daily alert). The Overview shows a banner when today's spend passes 80 %.
+- Tests: `tests/unit/billing-admin.test.js` (12).
+### Config
+- `AI_MODEL_COSTS` (JSON, kobo per 1M tokens, `{"model": [input, output]}`; empty = every model costs 0),
+  `BILLING_DAILY_SPEND_CAP_MINOR` (kobo, 0 = no alert; display only).
+### Deploy
+- Take a database dump, deploy, then restart the API; `/health` → `database.migrations` should end with
+  `0014_admin_billing`. Optional: set `AI_MODEL_COSTS` for any paid model and `BILLING_DAILY_SPEND_CAP_MINOR` in
+  cPanel → Setup Node.js App → environment variables, then restart. Staff need 2FA to open the new pages.
+
 ## [0.13.0] — 2026-11-17 · Korapay payments and the plan page (Blueprint steps A5 and A8)
 Signed-in users can now see their plan and this month's credits, and buy a paid plan with **Korapay** (card or bank
 transfer). A plan is only granted after the server has asked Korapay for the charge and checked the exact amount and
