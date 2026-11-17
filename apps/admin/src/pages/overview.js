@@ -24,7 +24,10 @@ function overview(view) {
       var stat = function (v, l, cls) { return '<div class="stat' + (cls ? ' ' + cls : '') + '"><b>' + v + '</b><span>'
         + esc(l) + '</span></div>'; };
       var rq = d.requests, failPct = rq.day ? Math.round(rq.failed_day / rq.day * 100) : 0;
-      $('#ov', view).innerHTML =
+      var cap = d.spend_cap || { level: 'off' };
+      $('#ov', view).innerHTML = (cap.level === 'warn' || cap.level === 'over' ? '<a class="banner' + (cap.level
+        === 'over' ? ' bad' : '') + '" role="alert" href="#/costs">' + C.icon('alert') + '<span><b>AI spend today is '
+        + cap.pct + '% of the daily alert.</b> Nothing is blocked. Open Costs.</span></a>' : '') +
         '<div class="section-title">Users</div><div class="grid cols-4">' + stat(num(d.users.users), 'Users') + stat(
           num(d.users.active_7d), 'Active 7 days') + stat(num(d.users.new_24h), 'New today') + stat(num(
           d.users.suspended), 'Suspended') + '</div>' +
@@ -56,7 +59,8 @@ function overview(view) {
           }).join('') + '</div>' : '') +
         '<div class="section-title">Manage</div><div class="list">' + C.row('#/models', 'bot', 'Models and providers',
           'Add models, keys, enable or disable') + C.row('#/routing', 'lightning', 'Routing',
-          'Model order per mode, live') + C.row('#/limits', 'target', 'Usage and limits', 'Daily quotas') + '</div>';
+          'Model order per mode, live') + C.row('#/limits', 'target', 'Usage and limits', 'Daily quotas')
+          + C.row('#/costs', 'flame', 'Costs', 'AI spend and tokens') + '</div>';
     }).catch(function (e) { fail($('#ov', view), e); });
   });
 }
