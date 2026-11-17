@@ -54,7 +54,8 @@ async function makeTest(o) {
         messages: [{ role: 'user', content: cbt.userPrompt(o.input, cbt.COUNT, { rng: o.rng, avoid: steer }) }],
         context: [o.guidance, cbt.systemContext()].filter(Boolean).join('\n\n'), temperature: cbt.TEMPERATURE,
         timeouts: cfg.hedge ? { hedge: cfg.hedge } : undefined });
-      d.record({ mode: 'study', route, guest: !o.req.user, attempts: r.attempts || [] }, o.db);
+      d.record({ mode: 'study', route, guest: !o.req.user, userId: o.req.user && o.req.user.id,
+        attempts: r.attempts || [] }, o.db);
       if (d.streamGuard({ enabled: o.enabled }).final(r.text)) { lastError = err(502, 'bad_output', BAD_OUTPUT);
         continue; }
       const got = parseQuestions(r.text, { max: cbt.COUNT - questions.length, seen, rng: o.rng, accepted, avoid,
@@ -64,8 +65,8 @@ async function makeTest(o) {
         total: questions.length, held: held.length, chars: String(r.text || '').length });
     } catch (e) {
       if (e.name === 'AbortError' || (o.signal && o.signal.aborted)) throw e;
-      d.record({ mode: 'study', route, guest: !o.req.user, attempts: e.attempts || [], code: e.code || 'error' },
-        o.db);
+      d.record({ mode: 'study', route, guest: !o.req.user, userId: o.req.user && o.req.user.id,
+        attempts: e.attempts || [], code: e.code || 'error' }, o.db);
       lastError = e;
       if (e.code === 'no_provider' || e.code === 'no_vision') break;
     }
