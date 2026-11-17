@@ -9,13 +9,16 @@
 - Uploads outside the web root (`UPLOAD_DIR`), per-user paths; rate limits; audit log; backup runbook.
 - Admin: overview, users, limits, routing, AI, evaluation, moderation, safety, audit.
 
+## Progress
+- A1–A3 done in v0.12.0 (17 Nov 2026), shadow mode. Next: A4 seeded plans editable in admin (A7), A5 Korapay.
+
 ## Gaps, in build order
-### A. Business engine (blueprint phase 2) — biggest gap, needed for launch
+### A. Business engine (blueprint phase 2) — biggest gap, needed for launch. Payments: Korapay.
 1. Migration 0012: plans, subscriptions, entitlements, credit wallets, credit ledger (immutable), usage events (user, feature, model, tokens, cost, credits, request_id UNIQUE). Money in kobo.
 2. Credit service: reserve → call → reconcile/refund, one transaction, idempotency key per request.
 3. Entitlement checks server-side before every model/tool call (replaces the flat `daily_limit` / `chat_usage`).
 4. Five plans seeded (Free, Startup, Pro, Pro Plus, Max) with the blueprint's draft quotas, editable in admin.
-5. Paystack: checkout, signed + idempotent webhook, grant only after verified payment.
+5. Korapay (user decision 17 Nov 2026, not Paystack): checkout, signed + idempotent webhook, grant only after verified payment.
 6. Add user_id, tokens and cost to `ai_calls` (or write usage events) so cost per user/model/plan is visible.
 7. Admin: Plans, Credits (grant/revoke with reason), Costs (daily spend, global caps, alerts).
 8. User UI: plan page, balance, usage history, upgrade.
