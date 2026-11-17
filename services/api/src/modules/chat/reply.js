@@ -93,7 +93,7 @@ async function respond(o) {
     const cfg = o.routing || await dynamic.load(o.db);
     const route = cfg.africanLanguages.includes(o.language) ? 'african' : (o.mode || 'general');
     const logCalls = (attempts, code) => { if (!o.routing) calls.record({ mode: o.mode, route, guest: !req.user,
-      attempts: attempts || [], code }, o.db); };
+      attempts: attempts || [], code, userId: req.user && req.user.id, plan: bill ? bill.plan : '' }, o.db); };
     if (!ai.isConfigured(cfg)) { logCalls([], 'no_provider'); throw Object.assign(new Error(
       'Colon isn’t connected to an AI provider yet.'), { code: 'no_provider' }); }
     await limits.consumeAll(o.counters, o.db);
@@ -101,7 +101,7 @@ async function respond(o) {
       const requestId = `chat:${message.id}`;
       try {
         const r = await engine.reserve({ user: req.user, requestId, feature: 'chat', mode: o.mode || 'general' });
-        if (r) bill = { requestId, done: false };
+        if (r) bill = { requestId, done: false, plan: r.plan || '' };
       } catch (e) {
         if (e.code === 'quota') { await limits.refundAll(o.counters, o.db); throw e; }
         log.warn('billing_reserve_failed', { err: String(e.message || '').slice(0, 160), code: e.code });
