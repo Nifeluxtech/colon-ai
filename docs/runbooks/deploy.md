@@ -82,13 +82,14 @@ Merge it with anything cPanel already wrote there (HTTPS redirects, PHP handlers
   `GEMINI_SUPPORT_MODELS`, `GEMINI_SUPPORT_VISION`, `GEMINI_SUPPORT_UNAVAILABLE_REST_HOURS`, `GROQ_SUPPORT_MODEL`,
   `OPENROUTER_SUPPORT_MODEL`, `GROQ_SUPPORT_MAX_INPUT_TOKENS`, `OPENROUTER_SUPPORT_MAX_INPUT_TOKENS`,
   `GROQ_SUPPORT_REASONING`, `AI_RETRY_WAIT_MS`, `SAGA_SCHEDULES_MAX`. Support order after Gemma 4 26B → 31B:
-  `gemini-flash-lite-latest` → `gemini-3.5-flash-lite` → `gemini-3.8-flash` (all on the existing `GEMINI_API_KEY`,
+  `gemini-flash-lite-latest` → `gemini-3.5-flash-lite` → `gemini-3.8-flash` → `gemini-4-hydrogen` (all on the existing `GEMINI_API_KEY`,
   nothing new to set) → Groq `openai/gpt-oss-120b` → OpenRouter free Gemma. Set `GROQ_API_KEY` and
   `OPENROUTER_API_KEY` for the last two (Admin › Routing shows which are on). Since 0.11.7 the third is
   `gemini-3.8-flash` (stable, no shutdown date), replacing `gemini-2.5-flash`, which Google retires on 1 Dec 2026.
   If the server's env still sets `GEMINI_SUPPORT_MODELS` with `gemini-2.5-flash`, change it to
-  `gemini-flash-lite-latest,gemini-3.5-flash-lite,gemini-3.8-flash` (or delete the line to use the default). A model
-  Google refuses is skipped for 24 h. `GEMINI_SUPPORT_MODELS=off` turns the three off.
+  `gemini-flash-lite-latest,gemini-3.5-flash-lite,gemini-3.8-flash,gemini-4-hydrogen` (or delete the line to use the default). A model
+  Google refuses is skipped for 24 h. `GEMINI_SUPPORT_MODELS=off` turns the four off. Since 0.11.8 the fourth is `gemini-4-hydrogen`
+  (free tier; Gemini 4 Argon and Carbon are paid-only).
 - **Android**: publish `colon-ai-0.11.0.apk` and `colon-browser-0.11.0.apk` on the GitHub Release `v0.11.0`;
   `version.json` (versionCode 1100) is deployed with the chat app, so phones are offered the update only after the
   release exists. Older apps keep working: the chat checks `ColonNative.can('vault' | 'browserSuspend' | …)`.
