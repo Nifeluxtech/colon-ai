@@ -10,7 +10,10 @@
 - Admin: overview, users, limits, routing, AI, evaluation, moderation, safety, audit.
 
 ## Progress
-- A1–A3 done in v0.12.0 (17 Nov 2026), shadow mode. Next: A4 seeded plans editable in admin (A7), A5 Korapay.
+- A1–A3 done in v0.12.0 (17 Nov 2026), shadow mode. A5 (Korapay) and A8 (plan page) done in v0.13.0. A4, A6 and A7
+  (plans editable in admin, per-call tokens and cost in `ai_calls`, Admin › Plans / Credits / Payments / Costs, daily
+  spend alert) done in v0.14.0 (17 Nov 2026). Step A is complete except switching `BILLING_MODE` to `enforce`.
+  Next: B (memory and projects).
 
 ## Gaps, in build order
 ### A. Business engine (blueprint phase 2) — biggest gap, needed for launch. Payments: Korapay.
