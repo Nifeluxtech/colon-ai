@@ -67,6 +67,9 @@ module.exports = {
       research: Number(env('BILLING_CREDITS_RESEARCH')),
       saga: Number(env('BILLING_CREDITS_SAGA')),
     },
+    // v0.14.0 (A6): per-model prices (modules/ai/costs.js) and the daily spend alert. Display only.
+    modelCosts: env('AI_MODEL_COSTS'),
+    dailySpendCapMinor: Number(env('BILLING_DAILY_SPEND_CAP_MINOR')),
   },
   // v0.13.0 payments (modules/payments): Korapay Checkout Redirect. Off while KORAPAY_SECRET_KEY is empty.
   payments: {

@@ -44,6 +44,11 @@ const SCHEMA = [
   num('BILLING_CREDITS_CHAT', 1, 'credits per chat reply (General, Study, Developer)'),
   num('BILLING_CREDITS_RESEARCH', 3, 'credits per Research mode reply (web search + reading)'),
   num('BILLING_CREDITS_SAGA', 2, 'credits per Saga browser task (not charged yet)'),
+  // Costs (v0.14.0, Blueprint A6): AI spend in kobo, shown in Admin › Costs. Display only, never blocks.
+  str('AI_MODEL_COSTS', '', 'JSON prices in kobo per 1M tokens, {"model" | "provider:model" | "provider:*": '
+    + '[input, output]}; empty = every model costs 0 (free tiers); tokens are always recorded'),
+  num('BILLING_DAILY_SPEND_CAP_MINOR', 0, 'daily AI spend alert in kobo (Admin › Costs warns at 80% and 100%); '
+    + '0 = off'),
   // Payments (v0.13.0): Korapay Checkout Redirect for plan upgrades (modules/payments). Off until the key is set.
   secret('KORAPAY_SECRET_KEY', 'Korapay secret key (sk_test_… or sk_live_…); payments are off while empty'),
   url('KORAPAY_API_URL', 'https://api.korapay.com/merchant/api/v1', 'Korapay merchant API base URL'),
