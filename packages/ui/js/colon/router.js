@@ -1,5 +1,6 @@
 /* Colon App core · hash router with smooth transitions, the app shell, and start(). */
 
+import { paymentReturn } from './account-plan.js';
 import { authRoutes } from './account.js';
 import { api, refreshUser } from './api.js';
 import { $, esc } from './dom.js';
@@ -92,6 +93,7 @@ function start(opts) {
   state.allowSignup = opts.allowSignup !== false;
   state.guestMode = opts.guestMode === true;  // usable signed out (Colon AI): sign in/out reloads the app
   state.tabbar = opts.tabbar !== false;  // false: no bottom tab bar on shared screens (Colon AI, Colon Browser)
+  paymentReturn();  // Korapay's return (?payment=korapay) opens the plan page
   var all = (opts.routes || []).concat(authRoutes);
   routes = all.map(function (r) { return Object.assign({}, r, { re: new RegExp('^' + r.path.replace(/:[a-z]+/g,
     '([^/]+)') + '$') }); });

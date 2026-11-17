@@ -1,5 +1,6 @@
 /* Colon App core · account routes and screens: auth routes, legal pages, verify banner, account home. */
 
+import { planPage } from './account-plan.js';
 import { profilePage, securityPage, sessionsPage } from './account-security.js';
 import { api, refreshUser } from './api.js';
 import { authFlow, authPage, signedOut } from './auth.js';
@@ -61,7 +62,8 @@ var authRoutes = [
   { path: '/account', auth: true, title: 'Account', render: accountHome },
   { path: '/account/profile', auth: true, title: 'Profile', back: '/account', render: profilePage },
   { path: '/account/security', auth: true, title: 'Security', back: '/account', render: securityPage },
-  { path: '/account/sessions', auth: true, title: 'Devices', back: '/account', render: sessionsPage }
+  { path: '/account/sessions', auth: true, title: 'Devices', back: '/account', render: sessionsPage },
+  { path: '/account/plan', auth: true, title: 'Plan & credits', back: '/account', render: planPage }
 ];
 
 var TERMS = ('<p><b>Draft, November 2026.</b> These terms will be finalised before public launch (Roadmap Phase '
@@ -107,6 +109,7 @@ function accountHome(view) {
     '<div style="margin-top:6px;display:flex;gap:6px;flex-wrap:wrap"><span class="badge flame">' + roleName(u.role)
       + '</span>' + (u.totp_enabled ? '<span class="badge ok">2FA on</span>' : '') + '</div></div></div>' +
     '<div class="section-title">Settings</div><div class="list">' +
+    row('#/account/plan', 'sparkle', 'Plan & credits', 'Your plan, credits and upgrades') +
     row('#/account/profile', 'user', 'Profile', 'Name and language: ' + LANGS[u.language]) +
     row('#/account/security', 'shield', 'Security', u.totp_enabled ? 'Two-factor on · Password' :
       'Turn on two-factor · Password') +
