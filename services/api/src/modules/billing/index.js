@@ -101,7 +101,8 @@ function create({ store = sqlStore(), cfg = config.billing, now = () => new Date
     const amount = credits != null ? credits : cost(feature, mode, cfg);
     return tx(async (q) => {
       const seen = await q.usage(requestId, true);
-      if (seen) return { reserved: Number(seen.credits_reserved), balance: null, enforced, replay: true };
+      if (seen) return { reserved: Number(seen.credits_reserved), balance: null, enforced, replay: true,
+        plan: seen.plan_code };
       const { wallet, plan, period: p } = await openWallet(q, user.id);
       const ent = plan.entitlements.ai_credits;
       if (enforced && (!ent || !ent.enabled || wallet.balance < amount)) {
@@ -113,7 +114,7 @@ function create({ store = sqlStore(), cfg = config.billing, now = () => new Date
       await q.addLedger({ ref: `use:${requestId}`, user_id: user.id, amount: -amount, balance_after: balance,
         kind: 'usage', period: p, description: mode ? `${feature} (${mode})` : feature });
       await q.saveWallet({ ...wallet, balance });
-      return { reserved: amount, balance, enforced };
+      return { reserved: amount, balance, enforced, plan: plan.code };
     });
   }
 
@@ -211,8 +212,12 @@ function create({ store = sqlStore(), cfg = config.billing, now = () => new Date
     };
   }
 
-  return { reserve, settle, refund, checkQuota, summary, planFor, catalogue, planChanged,
-    _clearCache() { cache = null; } };
+  // v0.14.0 (A7, modules/billing/admin.js): runs fn(q, { wallet, plan, period }) in one transaction with the
+  // user's wallet locked and its month opened, for manual grants and revokes from the Admin Dashboard.
+  const walletTx = (userId, fn) => tx(async (q) => fn(q, await openWallet(q, userId)));
+
+  return { reserve, settle, refund, checkQuota, summary, planFor, catalogue, planChanged, walletTx, monthlyCredits,
+    store, _clearCache() { cache = null; } };
 }
 
 const publicPlans = (all) => Object.values(all).filter((p) => p.active).sort((a, b) => a.sort - b.sort)
@@ -221,6 +226,8 @@ const publicPlans = (all) => Object.values(all).filter((p) => p.active).sort((a,
 
 let shared = null;
 const instance = () => (shared || (shared = create()));
+let sharedAdmin = null;
+const admin = () => (sharedAdmin || (sharedAdmin = require('./admin').create({ engine: instance() })));
 
 module.exports = {
   create, instance, cost, billable, period, nextPeriodName, monthRange, memoryStore, FEATURES,
@@ -230,4 +237,6 @@ module.exports = {
   checkQuota: (u, f) => instance().checkQuota(u, f),
   summary: (u, o) => instance().summary(u, o),
   planChanged: (o) => instance().planChanged(o),
+  admin, createAdmin: (o) => require('./admin').create(o), adminReason: (r) => require('./admin').reasonOf(r),
+  capStatus: (s, c) => require('./admin').capStatus(s, c),
 };

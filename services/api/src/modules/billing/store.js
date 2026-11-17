@@ -48,6 +48,14 @@ function sqlStore(db = require('../../db')) {
       [f.status, f.credits_charged, f.provider || '', f.model || '', f.input_tokens || 0, f.output_tokens || 0,
         requestId]);
     },
+    async saveSubscription(x) {
+      await q.query(`INSERT INTO subscriptions (user_id, plan_code, status, period_start, period_end, provider,
+        provider_ref) VALUES (?,?,?,?,?,?,?) ON DUPLICATE KEY UPDATE plan_code = VALUES(plan_code),
+        status = VALUES(status), period_start = VALUES(period_start), period_end = VALUES(period_end),
+        provider = VALUES(provider), provider_ref = VALUES(provider_ref)`,
+      [x.user_id, x.plan_code, x.status, x.period_start, x.period_end, x.provider, x.provider_ref]);
+    },
+    async ledgerRef(ref) { return q.one('SELECT ref, amount, balance_after FROM credit_ledger WHERE ref = ?', [ref]); },
     async monthCount(userId, feature, period) {
       const r = await q.one(`SELECT COUNT(*) AS n FROM usage_events WHERE user_id = ? AND feature = ?
         AND status <> 'refunded' AND created_at >= ? AND created_at < ?`, [userId, feature, ...monthRange(period)]);
@@ -74,7 +82,11 @@ function memoryStore(seed = {}) {
   const api = {
     _s: s,
     async plans() { return { plans: s.plans, entitlements: s.entitlements }; },
-    async subscription(userId) { return s.subs.get(String(userId)) || null; },
+    async subscription(userId) {
+      const x = s.subs.get(String(userId));
+      return x && (!x.status || x.status === 'active') && (!x.period_end || new Date(x.period_end) > new Date())
+        ? x : null;
+    },
     async lockWallet(userId) { const w = s.wallets.get(String(userId)); return w ? { ...w } : null; },
     async wallet(userId) { return api.lockWallet(userId); },
     async saveWallet(w) { s.wallets.set(String(w.user_id), { ...w }); },
@@ -90,14 +102,18 @@ function memoryStore(seed = {}) {
       s.usage.set(u.request_id, { ...u, status: 'reserved', credits_charged: 0, created_at: new Date() });
     },
     async updateUsage(requestId, f) { s.usage.set(requestId, { ...s.usage.get(requestId), ...f }); },
+    async saveSubscription(x) { s.subs.set(String(x.user_id), { ...x }); },
+    async ledgerRef(ref) { return s.ledger.find((e) => e.ref === ref) || null; },
     async monthCount(userId, feature) {
       return [...s.usage.values()].filter((u) => String(u.user_id) === String(userId) && u.feature === feature
         && u.status !== 'refunded').length;
     },
     async tx(fn) {
       const snap = { w: new Map([...s.wallets].map(([k, v]) => [k, { ...v }])), l: [...s.ledger],
-        u: new Map([...s.usage].map(([k, v]) => [k, { ...v }])) };
-      try { return await fn(api); } catch (e) { s.wallets = snap.w; s.ledger = snap.l; s.usage = snap.u; throw e; }
+        u: new Map([...s.usage].map(([k, v]) => [k, { ...v }])), s: new Map(s.subs) };
+      try { return await fn(api); } catch (e) {
+        s.wallets = snap.w; s.ledger = snap.l; s.usage = snap.u; s.subs = snap.s; throw e;
+      }
     },
   };
   return api;
