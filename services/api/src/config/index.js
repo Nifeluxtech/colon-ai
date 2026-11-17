@@ -59,6 +59,15 @@ module.exports = {
     maxTokens: Number(env('AI_MAX_TOKENS', 4096)),
     developerMaxTokens: Number(env('AI_DEVELOPER_MAX_TOKENS', 8192)),  // Developer mode replies (full files)
   },
+  // v0.12.0 billing (modules/billing): plans, credits, usage events. See docs/blueprint-roadmap.md step A.
+  billing: {
+    mode: env('BILLING_MODE'),   // off | shadow | enforce
+    credits: {
+      chat: Number(env('BILLING_CREDITS_CHAT')),
+      research: Number(env('BILLING_CREDITS_RESEARCH')),
+      saga: Number(env('BILLING_CREDITS_SAGA')),
+    },
+  },
   // Safety layer (modules/safety, ADR 0003). Admin › Safety can switch provider moderation and categories live.
   safety: {
     enabled: env('SAFETY') !== 'off',

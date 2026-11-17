@@ -38,6 +38,12 @@ const SCHEMA = [
   num('CHAT_DAILY_LIMIT', 100, 'replies per signed-in user per UTC day'),
   num('CHAT_GUEST_DAILY_LIMIT', 15, 'replies per guest browser per UTC day'),
   num('CHAT_GUEST_IP_DAILY_LIMIT', 300, 'replies for all guests on one IP per UTC day'),
+  // Billing (v0.12.0): plans and the credit ledger (modules/billing)
+  oneOf('BILLING_MODE', ['off', 'shadow', 'enforce'], 'shadow',
+    'off: no billing | shadow: record credit use, never block | enforce: refuse when credits run out'),
+  num('BILLING_CREDITS_CHAT', 1, 'credits per chat reply (General, Study, Developer)'),
+  num('BILLING_CREDITS_RESEARCH', 3, 'credits per Research mode reply (web search + reading)'),
+  num('BILLING_CREDITS_SAGA', 2, 'credits per Saga browser task (not charged yet)'),
   str('UPLOAD_DIR', path.resolve(__dirname, '../../storage/uploads'), 'uploaded files, outside every web root'),
   num('UPLOAD_QUOTA_MB', 200, 'per-user upload quota'),
   // Model router tuning
