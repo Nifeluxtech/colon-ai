@@ -81,4 +81,27 @@ async function migrate() {
   }
 }
 
-module.exports = { getPool, query, one, check, migrate };
+// Runs fn(tx) inside one InnoDB transaction on one pooled connection: tx.query / tx.one as above. Commits when fn
+// resolves, rolls back when it throws (and rethrows). Used for the credit ledger (modules/billing).
+async function transaction(fn) {
+  const p = getPool();
+  if (!p) throw Object.assign(new Error('database not configured'), { status: 503, code: 'db_not_configured' });
+  const conn = await p.getConnection();
+  const tx = {
+    async query(sql, params = []) { const [rows] = await conn.query(sql, params); return rows; },
+    async one(sql, params) { const rows = await tx.query(sql, params); return rows[0] || null; },
+  };
+  try {
+    await conn.beginTransaction();
+    const out = await fn(tx);
+    await conn.commit();
+    return out;
+  } catch (e) {
+    await conn.rollback().catch(() => {});
+    throw e;
+  } finally {
+    conn.release();
+  }
+}
+
+module.exports = { getPool, query, one, check, migrate, transaction };
