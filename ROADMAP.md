@@ -247,7 +247,7 @@ sessions replace sharing Colon Browser's tabs with Colon AI (Colon Browser keeps
   (the Android code is not compiled or run in CI here yet for this release)
 
 ## Phase 11 — Launch readiness
-- Plans and billing: free tier plus paid plans through a Nigerian gateway (Paystack or AfrStar), with limits enforced per plan.
+- Plans and billing: free tier plus paid plans through a Nigerian gateway (Korapay), with limits enforced per plan.
 - Play Store listing, policy review and release (AAB).
 - Public landing page, SEO, help centre and FAQ, and contact and support inbox.
 - Monitoring and alerts (uptime, errors, provider quota), status page, and performance tuning for slow networks.

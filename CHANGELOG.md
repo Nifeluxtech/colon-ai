@@ -1,5 +1,36 @@
 # Changelog
 
+## [0.12.0] — 2026-11-17 · Plans and credits (Blueprint steps A1–A3)
+First slice of the Production Blueprint's business engine (`docs/blueprint-roadmap.md`, step A). Plans,
+entitlements, subscriptions, a monthly credit wallet, an insert-only credit ledger and usage events, with credits
+reserved before every signed-in chat reply and settled or refunded after it. Ships in **shadow** mode: credit use is
+recorded but nobody is blocked, so real usage can be measured before quotas are switched on
+(`BILLING_MODE=enforce`). Payments come later through **Korapay** (step A5; Paystack dropped). Guests keep the daily
+limits; staff are never charged. The daily reply limits stay as an abuse guard.
+### Added
+- **Migration `0012_plans_credits.sql`**: `plans`, `plan_entitlements`, `subscriptions`, `credit_wallets`,
+  `credit_ledger` (unique `ref`, `balance_after`), `usage_events` (unique `request_id`). Seeds Free, Startup, Pro,
+  Pro Plus and Max with the blueprint's draft monthly quotas (AI credits 100 / 600 / 2,000 / 5,000 / 12,000; image
+  credits, research tasks, background jobs, projects, memory tier). Prices stay 0 until Korapay is wired.
+- **`modules/billing`**: `reserve` → `settle` | `refund`, idempotent on the request id (a retry is never charged
+  twice), every change in one InnoDB transaction with the wallet row locked (`db.transaction`, new). A new UTC month
+  expires what is left and grants the plan's credits again (no rollover). `checkQuota(user, feature)` for monthly
+  counted features (used by later steps). `store.js` holds every billing SQL statement; `memoryStore()` for tests.
+- **Chat** (`chat/reply.js`): after the daily limit, a signed-in reply reserves 1 credit (Research mode 3); settled
+  when an answer reached the user, refunded when nothing did. In enforce mode an empty wallet ends the reply with
+  the `quota` error ("You’ve used this month’s 100 Colon credits on the Free plan. They renew on 1 December.") before
+  any provider call, and the daily counter is given back.
+- **`GET /account/billing`**: plan, entitlements, this month's balance, renewal date, last 20 ledger entries and
+  the plan list (for the plan page in step A8).
+- Tests: `tests/unit/billing.test.js` (14), `tests/integration/billing-flow.test.js` (4).
+### Config
+- `BILLING_MODE` (`off` | `shadow` | `enforce`, default `shadow`), `BILLING_CREDITS_CHAT` (1),
+  `BILLING_CREDITS_RESEARCH` (3), `BILLING_CREDITS_SAGA` (2, not charged yet).
+### Deploy
+- Take a database dump, then pull and restart the API server; `/health` → `database.migrations` should end with
+  `0012_plans_credits`. Nothing else to set. `version.json` moves to 0.12.0 (versionCode 1200); the app itself is
+  unchanged.
+
 ## [0.11.8] — 2026-11-17 · Gemini 4 Hydrogen joins the support models
 Google put **`gemini-4-hydrogen`** on the Gemini API free tier on 12 Nov 2026 (checked on Google's pricing page on
 2026-11-17), so it is now the fourth Google AI Studio support model after Gemma 4. Gemini 4 Argon and Gemini 4 Carbon
