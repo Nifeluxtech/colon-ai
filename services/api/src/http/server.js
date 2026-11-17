@@ -68,7 +68,10 @@ async function handle(req, res) {
     const match = router.match(req.method, path);
     if (!match) return send(res, 404, { error: 'not_found' });
     if (match.methodNotAllowed) return send(res, 405, { error: 'method_not_allowed' });
-    if (!csrfOk(req)) return send(res, 403, { error: 'csrf', message: 'Request blocked.' });
+    // { csrf: false }: provider webhooks (no browser, no Origin); they authenticate with their own signature.
+    if (match.opts.csrf !== false && !csrfOk(req)) {
+      return send(res, 403, { error: 'csrf', message: 'Request blocked.' });
+    }
     req.ip = clientIp(req);
     req.query = url.searchParams;
     req.params = match.params;
