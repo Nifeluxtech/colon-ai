@@ -44,6 +44,11 @@ const SCHEMA = [
   num('BILLING_CREDITS_CHAT', 1, 'credits per chat reply (General, Study, Developer)'),
   num('BILLING_CREDITS_RESEARCH', 3, 'credits per Research mode reply (web search + reading)'),
   num('BILLING_CREDITS_SAGA', 2, 'credits per Saga browser task (not charged yet)'),
+  // Payments (v0.13.0): Korapay Checkout Redirect for plan upgrades (modules/payments). Off until the key is set.
+  secret('KORAPAY_SECRET_KEY', 'Korapay secret key (sk_test_… or sk_live_…); payments are off while empty'),
+  url('KORAPAY_API_URL', 'https://api.korapay.com/merchant/api/v1', 'Korapay merchant API base URL'),
+  url('APP_URL_API', 'https://api.apparatus.name.ng', 'public API URL (Korapay webhook: /payments/korapay/webhook)'),
+  num('PAYMENT_PERIOD_DAYS', 30, 'days one plan payment lasts; paying again extends it'),
   str('UPLOAD_DIR', path.resolve(__dirname, '../../storage/uploads'), 'uploaded files, outside every web root'),
   num('UPLOAD_QUOTA_MB', 200, 'per-user upload quota'),
   // Model router tuning

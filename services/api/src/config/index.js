@@ -68,6 +68,14 @@ module.exports = {
       saga: Number(env('BILLING_CREDITS_SAGA')),
     },
   },
+  // v0.13.0 payments (modules/payments): Korapay Checkout Redirect. Off while KORAPAY_SECRET_KEY is empty.
+  payments: {
+    korapaySecret: env('KORAPAY_SECRET_KEY'),
+    korapayUrl: String(env('KORAPAY_API_URL')).replace(/\/+$/, ''),
+    apiUrl: String(env('APP_URL_API')).replace(/\/+$/, ''),
+    returnUrl: String(env('APP_URL_CHAT', 'https://chat.apparatus.name.ng')).replace(/\/+$/, '') + '/',
+    periodDays: Number(env('PAYMENT_PERIOD_DAYS')),
+  },
   // Safety layer (modules/safety, ADR 0003). Admin › Safety can switch provider moderation and categories live.
   safety: {
     enabled: env('SAFETY') !== 'off',
