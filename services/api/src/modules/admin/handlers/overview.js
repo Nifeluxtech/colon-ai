@@ -8,6 +8,8 @@
 const db = require('../../../db');
 const dynamic = require('../../ai').dynamic;
 const ai = require('../../ai');
+const billing = require('../../billing');
+const config = require('../../../config');
 const { n } = require('./admin-common');
 
 /* ---------- Overview (admin+) ---------- */
@@ -55,6 +57,10 @@ const getAdminOverview = async () => {
   const [msgErr] = await db.query(
     "SELECT COUNT(*) AS n FROM chat_messages WHERE status = 'error' AND created_at > UTC_TIMESTAMP() - INTERVAL 1 DAY");
   const [modOpen] = await db.query("SELECT COUNT(*) AS n FROM moderation_reports WHERE status = 'open'");
+  // v0.14.0 (A6): today's AI spend against the daily alert (display only; Admin › Costs has the detail).
+  const cap = config.billing.dailySpendCapMinor;
+  const [spent] = cap > 0 ? await db.query('SELECT COALESCE(SUM(cost_minor), 0) AS s FROM ai_calls '
+    + 'WHERE created_at >= UTC_DATE()').catch(() => [{ s: 0 }]) : [{ s: 0 }];
   const cfg = await dynamic.load();
   const enabled = Object.keys(ai.enabledProviders(cfg));
   return [200, {
@@ -71,6 +77,7 @@ const getAdminOverview = async () => {
     errors: errors.map(e => ({ code: e.code || 'error', n: n(e.n) })),
     moderation_open: n(modOpen.n),
     routing_source: cfg.source,
+    spend_cap: billing.capStatus(Number((spent || {}).s) || 0, cap),
   }];
 };
 
