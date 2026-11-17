@@ -1,17 +1,17 @@
 {
-  "versionName": "0.11.6",
-  "versionCode": 1106,
-  "apkUrl": "https://github.com/Nifeluxtech/colon-ai/releases/download/v0.11.6/colon-ai-0.11.6.apk",
-  "releaseUrl": "https://github.com/Nifeluxtech/colon-ai/releases/tag/v0.11.6",
-  "notes": "Saving a login for Saga now always carries it on: once you save it in Colon Secured Login, Saga signs in at once (close the form and Saga hands the sign-in to you, never a silent wait). While Saga waits for you, your messages get a real reply; say “continue” or “I’ve saved it” to carry on, or “stop”. A login saved for a site also works on its subdomains (yolotask.com.ng for reviewer.yolotask.com.ng), and the waiting card offers the login form again or Stop.",
+  "versionName": "0.11.8",
+  "versionCode": 1108,
+  "apkUrl": "https://github.com/Nifeluxtech/colon-ai/releases/download/v0.11.8/colon-ai-0.11.8.apk",
+  "releaseUrl": "https://github.com/Nifeluxtech/colon-ai/releases/tag/v0.11.8",
+  "notes": "Colon now has more free AI backups when its main model is busy, including Google’s new Gemini 4 Hydrogen and Gemini 3.8 Flash, so you should see “Colon couldn’t reach an AI provider” far less often.",
   "minSupportedVersionCode": 0,
-  "publishedAt": "2026-11-15",
+  "publishedAt": "2026-11-17",
   "browser": {
-    "versionName": "0.11.6",
-    "versionCode": 1106,
-    "apkUrl": "https://github.com/Nifeluxtech/colon-ai/releases/download/v0.11.6/colon-browser-0.11.6.apk",
-    "releaseUrl": "https://github.com/Nifeluxtech/colon-ai/releases/tag/v0.11.6",
-    "notes": "Released alongside Colon AI 0.11.6: a saved login now also matches the site’s subdomains.",
+    "versionName": "0.11.8",
+    "versionCode": 1108,
+    "apkUrl": "https://github.com/Nifeluxtech/colon-ai/releases/download/v0.11.8/colon-browser-0.11.8.apk",
+    "releaseUrl": "https://github.com/Nifeluxtech/colon-ai/releases/tag/v0.11.8",
+    "notes": "Released alongside Colon AI 0.11.8. No changes to the browser itself.",
     "minSupportedVersionCode": 0
   }
 }
