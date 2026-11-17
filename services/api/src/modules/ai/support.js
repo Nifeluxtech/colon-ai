@@ -1,20 +1,21 @@
 // Support models (0.11.0): with AI_MODEL_SET=gemma, Gemma 4 on Google AI Studio's free tier was the only model, and
 // Saga's many browser decisions used up its rate limit ("Colon couldn't reach an AI provider"). After Gemma 4 26B ->
 // 31B on Google, the chain now goes on to support models, one at a time:
-//   1-3. Google AI Studio (same GEMINI_API_KEY; each model has its own free quota, so a 429 on Gemma rests only Gemma):
+//   1-4. Google AI Studio (same GEMINI_API_KEY; each model has its own free quota, so a 429 on Gemma rests only Gemma):
 //        gemini-flash-lite-latest (alias Google moves to each new Flash-Lite), gemini-3.5-flash-lite (stable), then
 //        gemini-3.8-flash (stable, no shutdown date; 0.11.7 replaced gemini-2.5-flash, which Google retires on
-//        1 Dec 2026). A "not found" / "not available" answer rests a model for a day instead of failing the reply.
+//        1 Dec 2026), then gemini-4-hydrogen (0.11.8; the only Gemini 4 on the free tier, thinks "low").
+//        A "not found" / "not available" answer rests a model for a day instead of failing the reply.
 //        GEMINI_SUPPORT_MODELS.
-//   4. Groq openai/gpt-oss-120b (free: 30 RPM, 1,000 RPD, 8K TPM, 200K TPD per model)
-//   5. OpenRouter google/gemma-4-31b-it:free (free: 20 RPM, 50 a day; 1,000 a day after $10 of credits)
+//   5. Groq openai/gpt-oss-120b (free: 30 RPM, 1,000 RPD, 8K TPM, 200K TPD per model)
+//   6. OpenRouter google/gemma-4-31b-it:free (free: 20 RPM, 50 a day; 1,000 a day after $10 of credits)
 // Each is used only when its provider's key is set. AI_SUPPORT_MODELS overrides the list ("provider:model, ...", in
 // order; "off" = none); otherwise GEMINI_SUPPORT_MODELS (comma list), GROQ_SUPPORT_MODEL and OPENROUTER_SUPPORT_MODEL
 // name them (each "off" to skip).
 // Low-TPM hosts get a prompt budget (maxInputChars): fit.js trims the request (Saga's page snapshots first) to it.
 const env = (k, d, e = process.env) => (e[k] !== undefined && e[k] !== '' ? e[k] : d);
 
-const DEFAULTS = { gemini: 'gemini-flash-lite-latest,gemini-3.5-flash-lite,gemini-3.8-flash',
+const DEFAULTS = { gemini: 'gemini-flash-lite-latest,gemini-3.5-flash-lite,gemini-3.8-flash,gemini-4-hydrogen',
   groq: 'openai/gpt-oss-120b', openrouter: 'google/gemma-4-31b-it:free' };
 const MAX = 8;
 // A Gemini support model Google has withdrawn (404/403/400 "not found", "not available", deprecated) rests this long.
