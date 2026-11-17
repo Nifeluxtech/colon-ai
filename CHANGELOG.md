@@ -1,5 +1,22 @@
 # Changelog
 
+## [0.11.8] — 2026-11-17 · Gemini 4 Hydrogen joins the support models
+Google put **`gemini-4-hydrogen`** on the Gemini API free tier on 12 Nov 2026 (checked on Google's pricing page on
+2026-11-17), so it is now the fourth Google AI Studio support model after Gemma 4. Gemini 4 Argon and Gemini 4 Carbon
+are paid-only ("not available on the Free tier"), so they are not added. API-only change: every version number moves
+to 0.11.8 (`Colon.version`, `?v=` cache-busting, package.json files and the API's package-lock, which was still on
+0.11.0) and `version.json` moves to 0.11.8 (versionCode 1108, both APKs) so `android-version.test.js` passes again
+(0.11.7 had left it on 0.11.6). No migration.
+### Changed
+- **Support order** (`support.js`, `config/defaults.js`, `config/api.env.example`): `gemini-flash-lite-latest` →
+  `gemini-3.5-flash-lite` → `gemini-3.8-flash` → `gemini-4-hydrogen` → Groq `openai/gpt-oss-120b` → OpenRouter free
+  Gemma. Same `GEMINI_API_KEY`, nothing new to set.
+- **Thinking level**: Hydrogen defaults to `"high"` and has no `"minimal"`, so it is sent `"low"` (already covered by
+  `geminiBody`'s Gemini 4 rule).
+### Deploy
+- Pull and restart the API server. If its env sets `GEMINI_SUPPORT_MODELS` explicitly, append `,gemini-4-hydrogen`
+  (or delete the line to use the default).
+
 ## [0.11.7] — 2026-11-16 · Gemini 3.8 Flash replaces Gemini 2.5 Flash
 Google retires `gemini-2.5-flash` on 1 Dec 2026 (from then its requests are routed to `gemini-3.5-flash-lite`), so the
 third Google AI Studio support model after Gemma 4 is now **`gemini-3.8-flash`** (stable, no shutdown date announced;
