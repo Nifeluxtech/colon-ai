@@ -13,4 +13,5 @@ module.exports = new Router()
   .use(require('./platform'))
   .use(require('./web-search'))
   .use(require('./safety'))
-  .use(require('./saga'));
+  .use(require('./saga'))
+  .use(require('./billing'));
