@@ -1,5 +1,36 @@
 # Changelog
 
+## [0.13.0] — 2026-11-17 · Korapay payments and the plan page (Blueprint steps A5 and A8)
+Signed-in users can now see their plan and this month's credits, and buy a paid plan with **Korapay** (card or bank
+transfer). A plan is only granted after the server has asked Korapay for the charge and checked the exact amount and
+currency; the browser's word and the webhook's body are never trusted on their own. Plans are bought one period at a
+time (30 days, no automatic renewal); paying again for the same plan adds another period. Upgrading tops up this
+month's credits by the difference between the two plans. Payments stay **off** until `KORAPAY_SECRET_KEY` is set.
+### Added
+- **Migration `0013_payments.sql`**: `payments` (our own unique reference, pending → success | failed | abandoned,
+  amount in kobo, checkout URL, fee, failure reason) and `payment_events` (webhook audit, signature result). Sets the
+  monthly prices: Startup ₦7,000, Pro ₦21,000, Pro Plus ₦53,000, Max ₦125,000 (only where the price is still 0, so
+  later admin edits are kept).
+- **`modules/payments`**: Korapay client (`POST /charges/initialize`, `GET /charges/:reference`), HMAC-SHA256
+  webhook signature check (`x-korapay-signature`, constant-time), checkout / confirm / webhook / status / history.
+  Confirm runs once per reference inside a transaction.
+- **Routes**: `POST /account/billing/checkout {plan}` (10 an hour per user), `GET /account/billing/payments/:reference`,
+  `POST /payments/korapay/webhook` (no session, no CSRF header, signature required). Route option `csrf: false`.
+- **`GET /account/billing`** now also returns `payments` (on/off), `subscription.period_end` and the last 5 payments.
+- **Plan & credits page** (`#/account/plan`, linked from Profile): current plan, credits left this month with a
+  meter, the plans with their prices and allowances, Korapay checkout, return handling (`?payment=korapay`), a
+  "Check again" state for slow bank transfers, and recent payments.
+- Tests: `tests/unit/payments.test.js` (10).
+### Config
+- `KORAPAY_SECRET_KEY` (secret, empty = payments off), `KORAPAY_API_URL`
+  (default `https://api.korapay.com/merchant/api/v1`), `APP_URL_API` (default `https://api.apparatus.name.ng`),
+  `PAYMENT_PERIOD_DAYS` (30).
+### Deploy
+- Take a database dump, deploy, then restart the API; `/health` → `database.migrations` should end with
+  `0013_payments`. In the Korapay dashboard (Settings → API Configuration) set the webhook URL to
+  `https://api.apparatus.name.ng/payments/korapay/webhook`, then add `KORAPAY_SECRET_KEY` in cPanel → Setup Node.js
+  App → environment variables and restart.
+
 ## [0.12.0] — 2026-11-17 · Plans and credits (Blueprint steps A1–A3)
 First slice of the Production Blueprint's business engine (`docs/blueprint-roadmap.md`, step A). Plans,
 entitlements, subscriptions, a monthly credit wallet, an insert-only credit ledger and usage events, with credits
