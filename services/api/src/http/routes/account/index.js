@@ -5,4 +5,5 @@ module.exports = new Router()
   .use(require('./profile'))
   .use(require('./sessions'))
   .use(require('./totp'))
-  .use(require('./delete'));
+  .use(require('./delete'))
+  .use(require('./billing'));
