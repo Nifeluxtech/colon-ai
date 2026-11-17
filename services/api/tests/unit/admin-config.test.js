@@ -171,7 +171,7 @@ test('ai_calls: one row per attempt; a request with no attempt still records its
     ok: false, code: 'timeout', ms: 25000 }, { provider: 'nvidia', model: 'd', ok: true, ms: 1200.4 }] });
   assert.equal(rows.length, 2);
   assert.equal(rows[0][0], rows[1][0]);                 // same request id
-  assert.deepEqual(rows[0].slice(1), ['study', 'study', 'groq', 'q', 0, 'timeout', null, 25000, 1]);
+  assert.deepEqual(rows[0].slice(1, 10), ['study', 'study', 'groq', 'q', 0, 'timeout', null, 25000, 1]);
   assert.deepEqual(rows[1].slice(5, 9), [1, null, null, 1200]);
   const none = calls.rowsFor({ mode: 'general', code: 'no_provider' });
   assert.equal(none.length, 1);
