@@ -1,5 +1,6 @@
 /* Colon Admin (Phase 4): overview, users, moderation, models and providers, routing, usage limits,
-   evaluation, African AI registry, voice, browser, system settings, safety (Phase 5) and security.
+   plans, credits and payments, costs (v0.14.0), evaluation, African AI registry, voice, browser, system settings,
+   safety (Phase 5) and security.
    The API enforces every permission; the menu only hides what a role can't open.
      moderator    moderation + read-only users
      admin        everything except admin roles, provider keys and system settings
@@ -12,10 +13,13 @@ import { Colon } from '../../../../packages/ui/js/colon.js';
 import { head } from '../components/page.js';
 import { models } from '../pages/ai-providers.js';
 import { browser } from '../pages/browser.js';
+import { costs } from '../pages/costs.js';
+import { credits } from '../pages/credits.js';
 import { evaluation } from '../pages/evaluation.js';
 import { limitsPage } from '../pages/limits.js';
 import { moderation } from '../pages/moderation.js';
 import { overview } from '../pages/overview.js';
+import { plans } from '../pages/plans.js';
 import { registry } from '../pages/registry.js';
 import { routing } from '../pages/routing.js';
 import { safety } from '../pages/safety.js';
@@ -34,6 +38,9 @@ var SECTIONS = [
   ['/models', 'bot', 'Models and providers', 'Models, providers and API keys', 'admin'],
   ['/routing', 'lightning', 'Routing', 'Model order per mode, live', 'admin'],
   ['/limits', 'target', 'Usage and limits', 'Daily quotas per user and mode', 'admin'],
+  ['/plans', 'tabs', 'Plans', 'Prices and monthly allowances', 'admin'],
+  ['/credits', 'sparkle', 'Credits', 'Member credits, manual grants, plans and payments', 'admin'],
+  ['/costs', 'flame', 'Costs', 'AI spend and tokens per day, model and plan', 'admin'],
   ['/evaluation', 'list', 'Evaluation', 'Benchmark runs and model feedback', 'admin'],
   ['/registry', 'globe', 'African AI registry', 'Language models and datasets', 'admin'],
   ['/voice', 'mic', 'Voice', 'STT and TTS engines', 'admin'],
@@ -69,8 +76,9 @@ A.start = function () {
         'moderator'), { back: '/users' }),
       r('/moderation', moderation, 'Moderation', 'moderator'), r('/models', models, 'Models', 'admin'), r('/routing',
         routing, 'Routing', 'admin'),
-      r('/limits', limitsPage, 'Limits', 'admin'), r('/evaluation', evaluation, 'Evaluation', 'admin'), r('/registry',
-        registry, 'African AI', 'admin'),
+      r('/limits', limitsPage, 'Limits', 'admin'), r('/plans', plans, 'Plans', 'admin'), r('/credits', credits,
+        'Credits', 'admin'), r('/costs', costs, 'Costs', 'admin'),
+      r('/evaluation', evaluation, 'Evaluation', 'admin'), r('/registry', registry, 'African AI', 'admin'),
       r('/voice', voice, 'Voice', 'admin'), r('/browser', browser, 'Browser', 'admin'), r('/system', system, 'System',
         'super_admin'),
       r('/safety', safety, 'Safety', 'admin'),
