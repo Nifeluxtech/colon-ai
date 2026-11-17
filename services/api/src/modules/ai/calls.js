@@ -1,17 +1,29 @@
 // AI call log (Phase 4): one row per provider attempt, so the Admin Dashboard can show requests, errors,
 // provider success rates and latency from stored data. Logging never delays or breaks a reply.
+// v0.14.0 (Blueprint A6): each row also carries who asked (user_id, plan_code), the tokens the provider reported
+// and the cost in kobo (modules/ai/costs.js, from AI_MODEL_COSTS; 0 when the model has no price).
 const crypto = require('crypto');
 const log = require('../../shared/logger');
+const costs = require('./costs');
 
-function rowsFor({ mode = '', route = '', guest = false, attempts = [], code = null }) {
+const COLS = 'request_id, mode, route, provider, model, ok, code, http_status, ms, guest, user_id, plan_code, '
+  + 'input_tokens, output_tokens, cost_minor';
+
+function rowsFor({ mode = '', route = '', guest = false, attempts = [], code = null, userId = null, plan = '' },
+  table = costs.table()) {
   const rid = crypto.randomBytes(8).toString('hex');
   const list = attempts.length ? attempts : [{ provider: '', model: '', ok: false, code: code || 'no_attempt', ms: 0 }];
-  return list.map(a => [
-    rid, String(mode || '').slice(0, 16), String(route || '').slice(0, 16), String(a.provider || '').slice(0, 32),
-      String(a.model || '').slice(0, 128),
-    a.ok ? 1 : 0, a.ok ? null : String(a.code || code || 'error').slice(0, 32), Number(a.status) || null, Math.max(0,
-      Math.round(Number(a.ms) || 0)), guest ? 1 : 0,
-  ]);
+  return list.map(a => {
+    const t = costs.tokens(a.usage) || { input: 0, output: 0 };
+    return [
+      rid, String(mode || '').slice(0, 16), String(route || '').slice(0, 16), String(a.provider || '').slice(0, 32),
+        String(a.model || '').slice(0, 128),
+      a.ok ? 1 : 0, a.ok ? null : String(a.code || code || 'error').slice(0, 32), Number(a.status) || null, Math.max(0,
+        Math.round(Number(a.ms) || 0)), guest ? 1 : 0,
+      Number(userId) > 0 ? Number(userId) : null, String(plan || '').slice(0, 20), t.input, t.output,
+      costs.costOf({ provider: a.provider, model: a.model, input: t.input, output: t.output }, table),
+    ];
+  });
 }
 
 async function record(info, db) {
@@ -19,8 +31,8 @@ async function record(info, db) {
     const rows = rowsFor(info);
     if (!rows.length) return;
     await (db || require('../../db')).query(
-      (`INSERT INTO ai_calls (request_id, mode, route, provider, model, ok, code, http_status, ms, guest, `
-        + `created_at) VALUES ${rows.map(() => '(?,?,?,?,?,?,?,?,?,?, UTC_TIMESTAMP(3))').join(',')}`),
+      (`INSERT INTO ai_calls (${COLS}, created_at) VALUES `
+        + rows.map(() => '(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?, UTC_TIMESTAMP(3))').join(',')),
       rows.flat()
     );
   } catch (e) {

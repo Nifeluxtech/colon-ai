@@ -4,6 +4,7 @@ const { streamChat, ProviderError } = require('./client');
 const log = require('../../shared/logger');
 const { fit } = require('./fit');
 const support = require('./support');
+const { tokens } = require('./costs');
 
 // In-memory "rest" per worker: a target that just failed is tried last for a while, so one dead free
 // model doesn't add seconds to every reply. It is still tried as a last resort.
@@ -86,16 +87,18 @@ function race(queue, hedge, { o, messages, timeouts, attempts, route }) {
         firstTokenTimeoutMs: timeouts.firstTokenTimeoutMs, idleTimeoutMs: timeouts.idleTimeoutMs,
           maxMs: timeouts.maxReplyMs,
         onDelta: (piece) => { if (!claim()) return; text += piece; if (o.onDelta) o.onDelta(piece); },
-      }).then(() => {
+      }).then((r) => {
         live.delete(ctl); running--;
         if (!claim()) return;
-        attempts.push({ provider: c.providerId, model: c.model, ok: true, ms: Date.now() - started });
+        const usage = tokens(r && r.usage);   // v0.14.0: tokens for ai_calls and settle, when the host reports them
+        attempts.push({ provider: c.providerId, model: c.model, ok: true, ms: Date.now() - started,
+          ...(usage ? { usage } : {}) });
         resting.delete(keyOf(c));
         remember(c, Date.now() - started, attempts.length, route);
         log.warn('ai_reply_ok', { provider: c.providerId, model: c.model, ms: Date.now() - started,
           tried: attempts.length, ...(route ? { route } : {}), ...(c.support ? { support: true } : {}) });
         finish(resolve, { text, providerId: c.providerId, providerName: c.providerName, model: c.model,
-          target: c.target, attempts, support: Boolean(c.support) });
+          target: c.target, attempts, support: Boolean(c.support), ...(usage ? { usage } : {}) });
       }, (e) => {
         live.delete(ctl); running--;
         if (winner !== null && winner !== ctl) return;            // a slower model we cancelled
