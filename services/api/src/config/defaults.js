@@ -49,6 +49,10 @@ const SCHEMA = [
     + '[input, output]}; empty = every model costs 0 (free tiers); tokens are always recorded'),
   num('BILLING_DAILY_SPEND_CAP_MINOR', 0, 'daily AI spend alert in kobo (Admin › Costs warns at 80% and 100%); '
     + '0 = off'),
+  // Memory and projects (v0.15.0, Blueprint B9-B10): modules/memory, modules/projects
+  num('MEMORY_TOKEN_BUDGET', 500, 'most tokens of saved memories added to one reply (keyword overlap + recency); '
+    + '0 = none'),
+  num('MEMORY_MAX_ITEMS', 200, 'most memories one user can keep'),
   // Payments (v0.13.0): Korapay Checkout Redirect for plan upgrades (modules/payments). Off until the key is set.
   secret('KORAPAY_SECRET_KEY', 'Korapay secret key (sk_test_… or sk_live_…); payments are off while empty'),
   url('KORAPAY_API_URL', 'https://api.korapay.com/merchant/api/v1', 'Korapay merchant API base URL'),

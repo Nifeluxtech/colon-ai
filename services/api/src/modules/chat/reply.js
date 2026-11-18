@@ -43,6 +43,8 @@ function openStream(res) {
  *   store.start()                 -> message object sent in "start" (status 'streaming')
  *   webSearch, searchText, searchPrevious   Research mode: search the web for searchText first (see src/modules/search)
  *   project                       Developer mode: { block } from modules/developer, added to the system context
+ *   extraContext                  v0.15.0: the chat's project instructions and files, and the user's memories
+ *                                 (chat/extra-context.js), added to the system context
  * store.finish(result) -> final message sent in "done" ({ content, status, error, providerId, providerModel, sources,
  * web })
  *   store.isStopped()             -> optional: true when another request asked to stop this reply
@@ -123,7 +125,8 @@ async function respond(o) {
         messages: safety.redactMessages(o.history).messages, fetch: o.fetch,
         taskText: o.userText != null ? o.userText : o.searchText, attachments: o.attachments,
         web: Boolean(web && web.ok),
-        context: [verdict.guidance, webContext, o.project && o.project.block].filter(Boolean).join('\n\n'),
+        context: [verdict.guidance, webContext, o.project && o.project.block, o.extraContext].filter(Boolean)
+          .join('\n\n'),
         timeouts: cfg.hedge ? { ...(o.timeouts || {}), hedge: cfg.hedge } : o.timeouts,
         onDelta: (piece) => {
           if (stop) return;

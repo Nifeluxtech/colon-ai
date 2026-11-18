@@ -78,6 +78,7 @@ function RemoteChatData() {
         var x = new XMLHttpRequest(), fd = new FormData(); fd.append('file', file);
         if (o.fromRecorder) fd.append('recorder', '1');
         if (o.duration) fd.append('duration', String(o.duration));
+        if (o.projectId) fd.append('project_id', String(o.projectId));   // v0.15.0: a project file
         x.open('POST', C.API + '/uploads'); x.withCredentials = true; x.setRequestHeader('X-Colon-Client', 'chat');
         if (o.signal) o.signal.addEventListener('abort', function () { x.abort(); });
         x.upload.onprogress = function (e) { if (e.lengthComputable && o.onProgress) o.onProgress(e.loaded / e.total);
@@ -101,7 +102,23 @@ function RemoteChatData() {
     saveSettings: function (p) { return api('/chat/settings', { method: 'PATCH', body: p }).then(function (d) {
       settings = Object.assign({}, DEFAULT_SETTINGS, d.settings); return settings; }); },
     stats: function () { return api('/chat/stats').catch(function () { return { where: 'Your Colon account' }; }); },
-    cbt: function (o) { return api('/study/cbt', { method: 'POST', body: o }); }  // CBT practice test (v0.5.7)
+    cbt: function (o) { return api('/study/cbt', { method: 'POST', body: o }); },  // CBT practice test (v0.5.7)
+    // v0.15.0 (Blueprint B): memory and projects, signed-in only (pages/memory.js, pages/projects.js).
+    getMemory: function (q) { return api('/memory' + (q && q.projectId ? '?project_id=' + encodeURIComponent(
+      q.projectId) : '')); },
+    setMemoryConsent: function (on) { return api('/memory/consent', { method: 'PUT', body: { enabled: on } }); },
+    addMemory: function (m) { return api('/memories', { method: 'POST', body: m }).then(function (d) {
+      return d.memory; }); },
+    editMemory: function (id, content) { return api('/memories/' + encodeURIComponent(id), { method: 'PATCH',
+      body: { content: content } }).then(function (d) { return d.memory; }); },
+    deleteMemory: function (id) { return api('/memories/' + encodeURIComponent(id), { method: 'DELETE' }); },
+    clearMemory: function () { return api('/memories', { method: 'DELETE' }); },
+    listProjects: function () { return api('/projects'); },
+    getProject: function (id) { return api('/projects/' + encodeURIComponent(id)); },
+    createProject: function (p) { return api('/projects', { method: 'POST', body: p }); },
+    updateProject: function (id, p) { return api('/projects/' + encodeURIComponent(id), { method: 'PATCH', body: p })
+      .then(function (d) { return d.project; }); },
+    deleteProject: function (id) { return api('/projects/' + encodeURIComponent(id), { method: 'DELETE' }); }
   };
   return self;
 }

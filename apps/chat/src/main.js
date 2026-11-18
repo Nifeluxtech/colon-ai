@@ -15,6 +15,8 @@ import './pages/explore.js';
 import './pages/guest.js';
 import './pages/help.js';
 import './pages/settings.js';
+import './pages/memory.js';
+import './pages/projects.js';
 import './pages/cbt.js';
 import './pages/chat.js';
 
@@ -40,7 +42,7 @@ document.addEventListener('DOMContentLoaded', function () {
     routes: [
       ws('/', ''), ws('/c/:id', ''), ws('/history', 'History'), ws('/saved', 'Saved'),
       ws('/explore', 'Explore'), ws('/settings', 'Settings'), ws('/help', 'Help'), ws('/share/:token', 'Shared chat'),
-      ws('/cbt', 'CBT practice test')
+      ws('/cbt', 'CBT practice test'), ws('/memory', 'Memory'), ws('/projects', 'Projects'), ws('/p/:id', 'Project')
     ]
   });
 });

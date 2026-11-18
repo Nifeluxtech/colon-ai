@@ -1,17 +1,17 @@
 {
-  "versionName": "0.14.0",
-  "versionCode": 1400,
-  "apkUrl": "https://github.com/Nifeluxtech/colon-ai/releases/download/v0.14.0/colon-ai-0.14.0.apk",
-  "releaseUrl": "https://github.com/Nifeluxtech/colon-ai/releases/tag/v0.14.0",
-  "notes": "Behind-the-scenes work on plans and credits for the Colon team. Nothing changes in the app; your chats work exactly as before.",
+  "versionName": "0.15.0",
+  "versionCode": 1500,
+  "apkUrl": "https://github.com/Nifeluxtech/colon-ai/releases/download/v0.15.0/colon-ai-0.15.0.apk",
+  "releaseUrl": "https://github.com/Nifeluxtech/colon-ai/releases/tag/v0.15.0",
+  "notes": "Memory and projects: turn on memory in Settings to let Colon remember what you ask it to (off until you choose), and group chats, files and instructions into projects.",
   "minSupportedVersionCode": 0,
-  "publishedAt": "2026-11-17",
+  "publishedAt": "2026-11-18",
   "browser": {
-    "versionName": "0.14.0",
-    "versionCode": 1400,
-    "apkUrl": "https://github.com/Nifeluxtech/colon-ai/releases/download/v0.14.0/colon-browser-0.14.0.apk",
-    "releaseUrl": "https://github.com/Nifeluxtech/colon-ai/releases/tag/v0.14.0",
-    "notes": "Released alongside Colon AI 0.14.0. No changes to the browser itself.",
+    "versionName": "0.15.0",
+    "versionCode": 1500,
+    "apkUrl": "https://github.com/Nifeluxtech/colon-ai/releases/download/v0.15.0/colon-browser-0.15.0.apk",
+    "releaseUrl": "https://github.com/Nifeluxtech/colon-ai/releases/tag/v0.15.0",
+    "notes": "Released alongside Colon AI 0.15.0. No changes to the browser itself.",
     "minSupportedVersionCode": 0
   }
 }

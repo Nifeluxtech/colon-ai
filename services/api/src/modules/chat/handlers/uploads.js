@@ -8,6 +8,7 @@ const store = require('../store');
 const files = require('../files');
 const extract = require('../../extract');
 const developer = require('../../developer');
+const projects = require('../../projects');
 const { SECURITY_HEADERS } = require('../../../shared/security-headers');
 const { readMultipartFile } = require('../../../shared/multipart');
 
@@ -31,15 +32,17 @@ const postUploads = async (req) => {
       `Your file storage is full (${config.chat.uploadQuotaMb} MB). Clear uploaded files in Settings → Data.`),
       { status: 413, code: 'quota' });
   }
+  // v0.15.0: a file saved to one of the user's projects (its text goes into every chat in that project).
+  const projectId = fields.project_id ? (await projects.owned(req.user.id, String(fields.project_id))).id : null;
   const { text, meta } = readUpload(file.data, s, file.name);
   if (s.kind === 'audio' && fields.duration) meta.duration = Math.max(0, Math.min(3600, Math.round(Number(
     fields.duration) || 0))) || undefined;
   const id = store.newId();
   const rel = await files.save(req.user.id, id, file.data);
   await db.query(
-    ('INSERT INTO chat_attachments (id, user_id, name, mime, size, kind, path, text, meta, created_at) VALUES '
-      + '(?,?,?,?,?,?,?,?,?, UTC_TIMESTAMP(3))'),
-    [id, req.user.id, file.name, s.mime, file.data.length, s.kind, rel, text || null, JSON.stringify(meta)]
+    ('INSERT INTO chat_attachments (id, user_id, project_id, name, mime, size, kind, path, text, meta, created_at) '
+      + 'VALUES (?,?,?,?,?,?,?,?,?,?, UTC_TIMESTAMP(3))'),
+    [id, req.user.id, projectId, file.name, s.mime, file.data.length, s.kind, rel, text || null, JSON.stringify(meta)]
   );
   const row = await db.one('SELECT * FROM chat_attachments WHERE id = ?', [id]);
   return [201, { attachment: store.attachmentOut(row) }];

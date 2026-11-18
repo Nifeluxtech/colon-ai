@@ -66,11 +66,15 @@ const getAdminUsersById = async (req) => {
       OR (target_type = 'user' AND target_id = ?))
       ORDER BY id DESC LIMIT 15`, [id, String(id)]);
   const [chat] = await db.query('SELECT COUNT(*) AS convs FROM chat_conversations WHERE user_id = ?', [id]);
+  // v0.15.0: projects and memories (counts only; staff never see a memory's text). 0 before migration 0015.
+  const [extra] = await db.query(`SELECT (SELECT COUNT(*) FROM colon_projects WHERE user_id = ?) AS projects,
+    (SELECT COUNT(*) FROM colon_memories WHERE user_id = ?) AS memories`, [id, id]).catch(() => [{}]);
   await audit(req, 'admin.user_viewed', { actorId: req.user.id, targetType: 'user', targetId: id });
   return [200, {
     user: { ...u, verified: Boolean(u.verified), totp_enabled: Boolean(u.totp_enabled), locked: Boolean(u.locked),
       has_google: Boolean(u.has_google) },
     suspension: susp || null, daily_limit: lim ? Number(lim.daily_limit) : null, conversations: n(chat.convs),
+    projects: n(extra.projects), memories: n(extra.memories),
     sessions, logins,
   }];
 };

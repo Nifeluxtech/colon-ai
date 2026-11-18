@@ -8,6 +8,8 @@ const { replyLanguage } = require('../../ai').prompts;
 const store = require('../store');
 const files = require('../files');
 const { forMode } = require('../context');
+const extra = require('../extra-context');
+const memory = require('../../memory');
 const { respond, stopLocal } = require('../reply');
 const ai = require('../../ai');
 const browserState = require('../browser-state');
@@ -76,10 +78,12 @@ async function streamFor(req, res, conv, userMsg, { version = 1, onOpen, route =
   const state = await browserState.load({ userId: req.user.id, conversationId: conv.id,
     page: browserState.fromClient(req.body && req.body.browser) }).catch(() => null);
   const generate = (args) => browserTools.turn(args, { state, userMsg, messages: all, guard, generate: ai.generate });
+  // v0.15.0: the chat's project (instructions, files) and the user's memories, when they turned memory on.
+  const more = await extra.build({ user: req.user, conv, text: userMsg.content, guard });
   return historyFor(req, conv, userMsg.id).then(history => {
     // Developer mode: the project context comes from every file attached so far in this conversation.
     const built = forMode(history, { mode: conv.mode, guard, message: userMsg.content });
-    return respond({
+    return respond({ extraContext: more.block,
       req, res, mode: conv.mode, model: conv.model, language: replyLanguage(req.user.language, userMsg.content),
         name: req.user.name, route, guard, userText: userMsg.content, project: built.project,
       attachments: fileNames((history[history.length - 1] || {}).files),
@@ -111,9 +115,14 @@ const postConversationsByIdMessages = async (req, res) => {
   const title = conv.title === 'New chat' ? store.titleFrom(content || (atts[0] && atts[0].name)) : null;
   await store.touch(conv, { title, preview: content || (atts[0] && atts[0].name) });
   const fresh = await store.getConv(req.user.id, conv.id);
+  // v0.15.0: "remember that …" saves a memory when the user turned memory on (never on Colon's own initiative).
+  const saved = await memory.fromChat({ user: req.user, text: content, projectId: fresh.project_id || null,
+    conversationId: fresh.id });
   // 0.11.5: browsing is the chat model's own choice (browser-tools.js); keyword routing only when it fails.
-  await streamFor(req, res, fresh, userMsg, { onOpen: (sse) => sse.send('user', { message: userMsg,
-    conversation: store.convOut(fresh) }) });
+  await streamFor(req, res, fresh, userMsg, { onOpen: (sse) => {
+    sse.send('user', { message: userMsg, conversation: store.convOut(fresh) });
+    if (saved) sse.send('memory', { memory: saved });
+  } });
 };
 
 // POST /conversations/:id/messages/:mid/regenerate

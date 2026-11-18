@@ -99,6 +99,7 @@ function run(call, tempUser, replaceId) {
         S.messages = S.messages.filter(function (m) { return m !== msg; }); msg = null; renderThread(); }
       else if (ev.type === 'done' && msg) { Object.assign(msg, ev.message || {}); }
       else if (ev.type === 'browser') browserFromServer(ev);
+      else if (ev.type === 'memory') C.toast('Saved to memory. Manage it in Settings › Memory.', 'ok');   // v0.15.0
       // 0.11.3: the server sent a browser follow-up to Saga (this chat's last browser task goes on).
       else if (ev.type === 'browse') browseFromServer(ev.goal, (tempUser && tempUser.id) || ev.message_id);
     }

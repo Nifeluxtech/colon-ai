@@ -27,6 +27,7 @@ function convOut(c) {
     id: c.id, title: c.title, mode: c.mode, model: c.model, pinned: Boolean(c.pinned), archived: Boolean(c.archived),
     preview: c.preview || '', shared: Boolean(c.share_token), created_at: c.created_at, updated_at: c.updated_at,
     browser_mode: c.browser_mode === 'ai' || c.browser_mode === 'shared' ? c.browser_mode : null,
+    project_id: c.project_id || null,   // v0.15.0: the project this chat is in (null = none)
   };
 }
 
@@ -56,9 +57,10 @@ async function getConv(userId, id) {
   return c;
 }
 
-async function listConvs(userId, { q = '', archived = '0' } = {}) {
+async function listConvs(userId, { q = '', archived = '0', project = '' } = {}) {
   const where = ['c.user_id = ?'];
   const params = [userId];
+  if (project) { where.push('c.project_id = ?'); params.push(String(project)); }
   if (archived !== 'all') { where.push('c.archived = ?'); params.push(archived === '1' || archived === 'true' ? 1 : 0);
     }
   if (q) {
@@ -73,12 +75,14 @@ async function listConvs(userId, { q = '', archived = '0' } = {}) {
   return rows.map(convOut);
 }
 
-async function createConv(userId, { mode, model }) {
+// projectId: already checked to be the user's (modules/projects owned), or null.
+async function createConv(userId, { mode, model, projectId = null }) {
   const id = newId();
   await db.query(
-    ('INSERT INTO chat_conversations (id, user_id, title, mode, model, created_at, updated_at) VALUES (?,?,?,?,?, '
-      + 'UTC_TIMESTAMP(3), UTC_TIMESTAMP(3))'),
-    [id, userId, 'New chat', MODES.includes(mode) ? mode : 'general', model ? String(model).slice(0, 64) : null]
+    ('INSERT INTO chat_conversations (id, user_id, project_id, title, mode, model, created_at, updated_at) VALUES '
+      + '(?,?,?,?,?,?, UTC_TIMESTAMP(3), UTC_TIMESTAMP(3))'),
+    [id, userId, projectId || null, 'New chat', MODES.includes(mode) ? mode : 'general',
+      model ? String(model).slice(0, 64) : null]
   );
   return getConv(userId, id);
 }
