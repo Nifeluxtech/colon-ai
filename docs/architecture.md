@@ -46,7 +46,7 @@ colon-ai/
 │       │   │                    admin,chat}/ and routes/{study,voice,browser}.js (wiring only)
 │       │   ├── ws/              WebSocket gateway (/ws; signed-in sockets get the browser session bridge)
 │       │   ├── modules/         account, admin, ai, auth, bench, browser, chat, developer, extract, health,
-│       │   │                    saga, safety, search, study, voice; each has an index.js facade and its handlers/ where it serves
+│       │   │                    memory, projects (v0.15.0), payments, billing, saga, safety, search, study, voice; each has an index.js facade and its handlers/ where it serves
 │       │   │                    routes (developer: project-files context; extract/zip.js: the one ZIP reader)
 │       │   ├── shared/          logger, request-context, crypto, audit, settings, mailer, validate,
 │       │   │                    ratelimit, security-headers, multipart

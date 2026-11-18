@@ -13,6 +13,7 @@ import { autoGrow, composerHtml, renderModeChips, scrollBottom, syncComposer,
   syncJump } from '../components/composer.js';
 import { renderThread } from '../components/message.js';
 import { updateHeader } from '../components/model-picker.js';
+import { bindNotice, noticeBanner } from '../components/notice.js';
 import { applySidebar, closeDrawer, refreshConvs, renderConvs } from '../components/sidebar.js';
 import { CW } from '../core/cw.js';
 import { ColonChatData } from '../core/data.js';
@@ -23,27 +24,6 @@ import { startNativeShell } from '../lib/native-shell.js';
 import { pinFrame } from '../lib/thread-scroll.js';
 import { ReadAloud } from '../lib/read-aloud.js';
 var C = Colon, icon = C.icon, esc = C.esc;
-function noticeBanner() {
-  var cfg = C.config || {}, out = '';
-  if (cfg.maintenance && cfg.maintenance.on) out += '<div class="banner bad cw-notice" role="status">' + icon('alert')
-    + '<span>' + esc(cfg.maintenance.message) + '</span></div>';
-  var a = cfg.announcement;
-  if (a && a.text) {
-    var key = 'colon.banner.' + a.text.length + '.' + a.text.slice(0, 24);
-    var hidden = false; try { hidden = sessionStorage.getItem(key) === '1'; } catch (e) {}
-    if (!hidden) out += '<div class="banner ' + (a.tone === 'warn' ? '' : 'info')
-      + ' cw-notice" role="status" data-banner="' + esc(key) + '">' + icon(a.tone === 'warn' ? 'alert' : 'bell')
-      + '<span>' + esc(a.text)
-      + '</span><button type="button" class="icon-btn sm" data-banner-x aria-label="Hide announcement">' + icon('x')
-      + '</button></div>';
-  }
-  return out;
-}
-function bindNotice(root) {
-  var b = root.querySelector('[data-banner-x]'); if (!b) return;
-  b.addEventListener('click', function () { var box = b.closest('[data-banner]'); try { sessionStorage.setItem(
-    box.getAttribute('data-banner'), '1'); } catch (e) {} box.remove(); });
-}
 function login(mode) { if (typeof C.authModal === 'function') C.authModal({ mode: mode || 'login',
   lead: mode === 'signup' ? 'Save your chats, upload images and pick up on any device.' :
   'Log in to save your chats and pick up on any device.' }); else C.go(mode === 'signup' ? '/register' : '/login'); }
@@ -69,7 +49,7 @@ function mount(view, ctx) {
         + 'class="kbd cw-hide-touch">Ctrl K</span></label>') +
       '<nav class="nav-list cw-nav" aria-label="Main">' +
         navLink('/', 'home', 'Home') + navLink('/explore', 'explore', 'Explore') +
-        navLink('/cbt', 'target', 'CBT practice') +
+        navLink('/cbt', 'target', 'CBT practice') + (signedIn() ? navLink('/projects', 'folder', 'Projects') : '') +
         (ephemeral() ? '' : navLink('/saved', 'saved', 'Saved') + navLink('/history', 'history', 'History')) +
         (signedIn() ? navLink('/settings', 'settings', 'Settings') : '') + navLink('/help', 'help', 'Help & Support')
           + '</nav>' +
@@ -205,9 +185,12 @@ function route(a, b) {
   var sh = /^\/share\/([^/]+)$/.exec(p);
   if (sh) return showShared(decodeURIComponent(sh[1]));
   var pages = { '/history': 'history', '/saved': 'saved', '/explore': 'explore', '/settings': 'settings',
-    '/help': 'help', '/cbt': 'cbt' };
-  if (pages[p] && ((ephemeral() && (p === '/history' || p === '/saved')) || (!signedIn()
-    && p === '/settings'))) return showPage('login', ctx);
+    '/help': 'help', '/cbt': 'cbt', '/memory': 'memory', '/projects': 'projects' };
+  var pr = /^\/p\/([^/]+)$/.exec(p);   // v0.15.0: one project's page (signed in, like Settings, Memory, Projects)
+  var mine = p === '/settings' || p === '/memory' || p === '/projects' || pr;
+  if ((pages[p] || pr) && ((ephemeral() && (p === '/history' || p === '/saved')) || (!signedIn()
+    && mine))) return showPage('login', ctx);
+  if (pr) return showPage('project', Object.assign({}, ctx, { projectId: decodeURIComponent(pr[1]) }));
   if (pages[p]) return showPage(pages[p], ctx);
   newChat(true);
 }

@@ -1,5 +1,53 @@
 # Changelog
 
+## [0.15.0] — 2026-11-18 · Memory and projects (Blueprint step B, items 9 and 10)
+Signed-in members can now let Colon remember things and group their work into projects. **Memory is off until each
+member turns it on** (Settings › Memory, with a plain notice of what it does): the blueprint does not ask for it on
+by default, so it is opt-in. Colon only keeps what the member writes there or asks for in a chat ("remember that
+…"); it never saves anything on its own. Relevant memories are added to replies by keyword overlap and recency
+within a token budget (no vector database). A **project** has a name and instructions, and holds chats, files and
+memories; its instructions, file text and memories go into every reply in it. How many projects a member may have
+comes from their plan (`projects` entitlement: Free 2, Startup 5, Pro 15, Pro Plus 30, Max 100), enforced only when
+`BILLING_MODE=enforce` (shadow, today, allows and logs). Guests and temporary chats are unchanged.
+### Added
+- **Migration `0015_memory_projects.sql`**: `colon_projects` (id, user, name, instructions), `colon_memories`
+  (user, nullable project and chat, scope `user` | `project` | `task`, content ≤ 1,000 characters, source
+  `settings` | `chat`; deleting is a hard `DELETE`, and a user, project or chat takes its memories with it),
+  `colon_memory_consent` (no row = off), and `project_id` on `chat_conversations` and `chat_attachments`
+  (`ON DELETE SET NULL`: deleting a project keeps its chats and files).
+- **`modules/memory`**: consent, list / add / edit / delete / delete all, scopes checked against the member's own
+  project or chat, a per-member cap (`MEMORY_MAX_ITEMS`), `retrieve.js` (keywords in any script, stop words, scope
+  and recency boost, greedy fill within `MEMORY_TOKEN_BUDGET`; a memory that does not fit is skipped, never cut),
+  and `fromChat` for "remember that …" / "remember: …" (questions and "remember when" are ignored).
+- **`modules/projects`**: CRUD, plan limit from `billing.planFor` (enforce: 402 `quota`, reason `projects`;
+  shadow: allowed, `over_limit: true`, logged `projects_over_limit`; off and staff: no limit), project chats and
+  files, and the context for replies.
+- **Chat**: `chat/extra-context.js` adds the project's instructions, its file text (fenced as untrusted, 8,000
+  characters in all) and the member's memories (only with consent) to the system context of every signed-in reply.
+  `POST /conversations` and `PATCH /conversations/:id` take `project_id` (the member's own project, or `null` to move
+  a chat out); `GET /conversations?project_id=` filters; `POST /uploads` takes a `project_id` field. A message that
+  saves a memory adds a `memory` event to the stream.
+- **Routes** (signed in, every statement scoped to the member; another member's id answers 404): `GET /memory`,
+  `PUT /memory/consent`, `POST /memories`, `PATCH /memories/:id`, `DELETE /memories/:id`, `DELETE /memories`,
+  `GET /projects`, `POST /projects`, `GET /projects/:id`, `PATCH /projects/:id`, `DELETE /projects/:id`. Consent
+  changes, clearing memory and project create / delete are audited.
+- **Chat app**: Memory screen (`#/memory`: on/off with the notice, add, edit, delete, delete all), Projects
+  (`#/projects`: list with the plan's limit, create, rename, delete) and a project page (`#/p/:id`: instructions,
+  chats, New chat, files, project memories), a Projects link in the sidebar, "Move to project" in a chat's menu, a
+  Memory and projects section in Settings, and a "Saved to memory" toast. The welcome banners moved to
+  `components/notice.js` (no change).
+- **Admin › Users**: a member's page shows their project and memory counts (never a memory's text).
+- Tests: `tests/unit/memory.test.js` (9), `tests/unit/projects.test.js` (5),
+  `tests/security/memory-projects-ownership.test.js` (6).
+### Config
+- `MEMORY_TOKEN_BUDGET` (500 tokens of memories per reply, ≈ 4 characters a token; 0 = none), `MEMORY_MAX_ITEMS`
+  (200 per member).
+### Deploy
+- Take a database dump, deploy, then restart the API; `/health` → `database.migrations` should end with
+  `0015_memory_projects`. Nothing to set (the defaults are fine). `version.json` moves to 0.15.0 (versionCode 1500,
+  both APKs; the apps themselves are unchanged), so publish the v0.15.0 release with this deploy. Check steps:
+  `docs/runbooks/deploy.md` (Release notes: 0.15.0).
+
 ## [0.14.0] — 2026-11-17 · Admin plans, credits and costs (Blueprint steps A6 and A7)
 Staff can now run the business side from the Admin Dashboard: edit plan prices and monthly allowances, look up any
 member's plan, balance and ledger, grant or revoke credits, set or comp a plan, list payments, and see what the AI

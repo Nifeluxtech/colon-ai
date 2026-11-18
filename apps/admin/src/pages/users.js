@@ -67,7 +67,8 @@ function userPage(view, ctx) {
           ? '<span class="badge bad">Suspended</span>' : '') + (u.has_google ? '<span class="badge">Google</span>' :
           '') + '</div></div></div>' +
         '<p class="tiny muted">Joined ' + C.ago(u.created_at) + ' · ' + esc(C.LANGS[u.language] || u.language) + ' · '
-          + num(d.conversations) + ' saved chats · daily limit ' + (d.daily_limit == null ? 'default' : num(
+          + num(d.conversations) + ' saved chats · ' + num(d.projects || 0) + ' projects · ' + num(d.memories || 0)
+          + ' memories · daily limit ' + (d.daily_limit == null ? 'default' : num(
           d.daily_limit)) + '</p>' +
         (d.suspension ? '<div class="banner bad">' + icon('lock') + '<span>Suspended ' + C.ago(d.suspension.created_at)
           + (d.suspension.by_email ? ' by ' + esc(d.suspension.by_email) : '') + (d.suspension.reason ? ': '

@@ -9,6 +9,8 @@ module.exports = new Router()
   .use(require('./payments'))
   .use(require('./admin'))
   .use(require('./chat'))
+  .use(require('./memory'))
+  .use(require('./projects'))
   .use(require('./study'))
   .use(require('./voice'))
   .use(require('./browser'));

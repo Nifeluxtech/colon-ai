@@ -74,6 +74,23 @@ it). It must send `Cache-Control: no-cache` for `index.html`, so phones always f
 Merge it with anything cPanel already wrote there (HTTPS redirects, PHP handlers). Do not enable `mod_deflate` for
 `text/event-stream` on the API subdomain, or chat replies arrive all at once.
 
+## Release notes: 0.15.0
+
+- **Migration** `0015_memory_projects.sql` runs at start-up: new tables `colon_projects`, `colon_memories`,
+  `colon_memory_consent`, and a nullable `project_id` (foreign key, `ON DELETE SET NULL`) on `chat_conversations`
+  and `chat_attachments`. Take a database dump first. `/health` → `database.migrations` should end with
+  `0015_memory_projects`. The two `ALTER TABLE`s touch every chat row once; on today's table size that is seconds.
+- **Environment** (optional, defaults are fine): `MEMORY_TOKEN_BUDGET` (500, tokens of memories added to one reply;
+  0 = none) and `MEMORY_MAX_ITEMS` (200 per user). Nothing else to set. Project limits come from the existing plan
+  entitlement `projects` (Admin › Plans) and follow `BILLING_MODE` (shadow today: over-limit projects are allowed
+  and logged as `projects_over_limit`).
+- **Check** (as a normal user on chat.apparatus.name.ng): Settings › Memory shows memory **off**; turn it on, add
+  "I live in Ibadan", then ask "Where do I live?" in a new chat: the answer uses it. Turn memory off and ask again:
+  it does not. Create a project, add instructions ("Always answer in Pidgin"), start a chat from the project page
+  and check the reply follows them; move another chat into it from the chat's menu. Admin › Users › a user shows
+  their project and memory counts. `version.json` moves to 0.15.0 (versionCode 1500): publish the v0.15.0 release
+  (Android workflow) before or with this deploy.
+
 ## Release notes: 0.12.0
 
 - **Migration** `0012_plans_credits.sql` (plans, entitlements, subscriptions, credit wallets, ledger, usage events)

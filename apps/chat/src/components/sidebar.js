@@ -66,10 +66,24 @@ CW.convMenu = function (anchor, c, after) {
       { pinned: !c.pinned }, c.pinned ? 'Removed from Saved.' : 'Saved.', after); } },
     { label: c.archived ? 'Unarchive' : 'Archive', icon: 'archive', onClick: function () { patchConv(c,
       { archived: !c.archived }, c.archived ? 'Moved back to Recent.' : 'Archived. Find it in History.', after); } },
+  ]).concat(canShare && data.listProjects ? [{ label: 'Move to project', icon: 'folder', onClick: function () {
+    moveToProject(anchor, c, after); } }] : []).concat([
     '-',
     { label: 'Delete', icon: 'trash', danger: true, onClick: function () { deleteConv(c, after); } }
   ]), { align: 'right', label: 'Conversation options' });
 };
+// v0.15.0: move a chat into one of the user's projects, or out of its project.
+function moveToProject(anchor, c, after) {
+  data.listProjects().then(function (d) {
+    var items = d.projects.filter(function (p) { return p.id !== c.project_id; }).map(function (p) {
+      return { label: p.name, icon: 'folder', onClick: function () { patchConv(c, { project_id: p.id },
+        'Moved to ' + p.name + '.', after); } }; });
+    if (c.project_id) items.push('-', { label: 'Remove from project', icon: 'x', onClick: function () {
+      patchConv(c, { project_id: null }, 'Removed from the project.', after); } });
+    if (!items.length) items.push({ label: 'New project…', icon: 'plus', onClick: function () { C.go('/projects'); } });
+    C.menu(anchor, [{ head: 'Move to project' }].concat(items), { align: 'right', label: 'Move to project' });
+  }).catch(function (e) { C.toast(e.message, 'bad'); });
+}
 function applySidebar() {
   S.el.classList.toggle('side-collapsed', S.collapsed && !isMobile());
   var side = $('#cw-side');

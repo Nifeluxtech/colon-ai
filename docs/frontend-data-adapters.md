@@ -79,6 +79,18 @@ request (Stop) cancels the provider call and saves the partial reply with `statu
 
 **Modes** are per conversation (`general`, `study`, `developer`, `research`); switching keeps history.
 
+**Memory and projects** (v0.15.0, signed in only; another user's id answers 404):
+`GET /memory?project_id=` → `{ memory: { enabled, chosen, count, max, token_budget, notice }, memories[] }` ·
+`PUT /memory/consent { enabled }` · `POST /memories { content, scope?: user|project|task, project_id?,
+conversation_id? }` (409 `memory_off` while memory is off, 409 `memory_full`) · `PATCH /memories/:id { content }` ·
+`DELETE /memories/:id` · `DELETE /memories`. `GET /projects` → `{ projects[], limit: { limit, used, mode, plan } }` ·
+`POST /projects { name, instructions? }` → `{ project, over_limit }` (402 `quota` over the plan limit when
+`BILLING_MODE=enforce`) · `GET /projects/:id` → `{ project, chats[], files[] }` · `PATCH /projects/:id` ·
+`DELETE /projects/:id` (chats and files stay, leave the project). Chats join a project with `POST /conversations
+{ project_id }` or `PATCH /conversations/:id { project_id | null }`; files with `POST /uploads` field `project_id`;
+`GET /conversations?project_id=` filters. A send that starts with "remember that …" saves a memory when memory is on
+and the stream then carries `memory { memory }` after `user`.
+
 ## Colon Browser endpoints expected
 
 | Method | Path | Notes |

@@ -13,6 +13,7 @@ const store = require('../store');
 const files = require('../files');
 const browser = require('../../browser');
 const saga = require('../../saga');
+const projects = require('../../projects');
 
 /* ---------- Share links (read-only, anyone with the link) ---------- */
 const shareUrl = (token) => `${config.urls.chat}/#/share/${token}`;
@@ -37,12 +38,14 @@ const getChatUsage = async (req) => {
 const getConversations = async (req) => {
   const archived = String(req.query.get('archived') || '0');
   return [200, { conversations: await store.listConvs(req.user.id, { q: String(req.query.get('q') || '').trim(),
-    archived }) }];
+    archived, project: String(req.query.get('project_id') || '') }) }];
 };
 
 // POST /conversations
 const postConversations = async (req) => {
-  const conv = await store.createConv(req.user.id, { mode: req.body.mode, model: req.body.model });
+  // v0.15.0: a chat started inside a project (it must be the user's own).
+  const projectId = req.body.project_id ? (await projects.owned(req.user.id, String(req.body.project_id))).id : null;
+  const conv = await store.createConv(req.user.id, { mode: req.body.mode, model: req.body.model, projectId });
   return [201, { conversation: store.convOut(conv) }];
 };
 
@@ -104,6 +107,11 @@ const patchConversationsById = async (req) => {
       v.fail('browser_mode', 'Choose AI only (ai) or AI + me (shared).');
     }
     sets.push('browser_mode = ?'); params.push(b.browser_mode);
+  }
+  // v0.15.0: move the chat into one of the user's projects, or out of it (null).
+  if (b.project_id !== undefined) {
+    sets.push('project_id = ?'); params.push(b.project_id ? (await projects.owned(req.user.id, String(b.project_id))).id
+      : null);
   }
   let modeChanged = false;
   if (b.mode !== undefined) {

@@ -14,6 +14,11 @@
   (plans editable in admin, per-call tokens and cost in `ai_calls`, Admin › Plans / Credits / Payments / Costs, daily
   spend alert) done in v0.14.0 (17 Nov 2026). Step A is complete except switching `BILLING_MODE` to `enforce`.
   Next: B (memory and projects).
+- B9 and B10 done in v0.15.0 (18 Nov 2026): `colon_memories` with per-user consent (off by default, opt-in),
+  Settings › Memory (view, add, edit, delete, on/off), "remember that …" in chat, retrieval by keyword overlap +
+  recency within `MEMORY_TOKEN_BUDGET`; projects with instructions, chats, files and memories, limited by the plan's
+  `projects` entitlement (enforced only when `BILLING_MODE=enforce`). No vector DB, no model-suggested memories.
+  Next: C (jobs and cron).
 
 ## Gaps, in build order
 ### A. Business engine (blueprint phase 2) — biggest gap, needed for launch. Payments: Korapay.
