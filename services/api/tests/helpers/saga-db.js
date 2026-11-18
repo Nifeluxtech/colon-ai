@@ -155,6 +155,9 @@ function create() {
     if (/^SELECT \* FROM saga_schedules WHERE status = 'active' AND next_run_at <= \?/.test(s)) {
       return t.schedules.filter((x) => x.status === 'active' && x.next_run_at <= p[0] && p[1].includes(x.user_id))
         .map((x) => ({ ...x })); }
+    if (/^SELECT \* FROM saga_schedules WHERE status = 'active'( AND user_id IN \(\?\))? ORDER BY id/.test(s)) {
+      return t.schedules.filter((x) => x.status === 'active' && (p.length < 2 || p[0].includes(x.user_id)))
+        .map((x) => ({ ...x })); }
     if (/^UPDATE saga_schedules SET next_run_at = \?, last_run_at/.test(s)) {
       const x = sch(p[4]);
       if (!x || x.next_run_at.getTime() !== new Date(p[5]).getTime()) return { affectedRows: 0 };

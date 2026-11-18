@@ -19,6 +19,14 @@
   recency within `MEMORY_TOKEN_BUDGET`; projects with instructions, chats, files and memories, limited by the plan's
   `projects` entitlement (enforced only when `BILLING_MODE=enforce`). No vector DB, no model-suggested memories.
   Next: C (jobs and cron).
+- C11–C13 done in v0.16.0 (19 Nov 2026): `colon_jobs` (lease token, attempts, exponential backoff, dead-letter,
+  idempotency key) and `colon_cron_runs`; the cPanel cron dispatcher is a CLI (`services/api/scripts/cron.js`, every
+  `JOBS_CRON_INTERVAL_MIN` = 5 min, direct DB, no HTTP because of ALTCHA) with a secret-header HTTP trigger as a
+  secondary; Saga schedules are `saga.schedule` jobs (run by the worker holding the phone, re-queued on each run);
+  replies cut off by a restart are reconciled (`chat.reconcile`: credits refunded or settled); Admin › Jobs (counts,
+  stale leases, dead letters, retry / cancel with reason, cron last-run warning at 3 × the interval). Research mode
+  still streams inside its request (no timer to move); a resumable background research job is D16.
+  Next: D (tools and media).
 
 ## Gaps, in build order
 ### A. Business engine (blueprint phase 2) — biggest gap, needed for launch. Payments: Korapay.
@@ -58,4 +66,8 @@
 
 ## Conflicts to settle
 - Blueprint says the API runs on cPanel; check where the API server actually runs today (cron and Passenger steps depend on it).
-- Hosting checks still open: cron minimum interval, MySQL connection ceiling, outbound HTTPS policy (cPGuard blocks some fetches).
+  Settled (0.16.0): the API runs on AfeesHost cPanel under Passenger (Setup Node.js App, Node 24), so the dispatcher
+  is a cPanel cron job running a CLI with the app's env from a private env file.
+- Hosting checks still open: cron minimum interval (0.16.0 assumes 5 minutes; `JOBS_CRON_INTERVAL_MIN` follows the
+  real one), MySQL connection ceiling (the cron opens its own pool of at most 5), outbound HTTPS policy (cPGuard
+  blocks some fetches; ALTCHA blocks some non-browser clients on subdomains, hence no curl-based cron).

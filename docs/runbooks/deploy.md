@@ -74,6 +74,49 @@ it). It must send `Cache-Control: no-cache` for `index.html`, so phones always f
 Merge it with anything cPanel already wrote there (HTTPS redirects, PHP handlers). Do not enable `mod_deflate` for
 `text/event-stream` on the API subdomain, or chat replies arrive all at once.
 
+## Release notes: 0.16.0
+
+- **Migration** `0016_jobs_cron.sql` runs at start-up: new tables `colon_jobs` (the job queue) and `colon_cron_runs`
+  (one row per dispatcher run), and one queued `saga.schedule` job for every active Saga schedule (its next due
+  time). Take a database dump first. `/health` → `database.migrations` should end with `0016_jobs_cron`.
+- **Environment** (optional, defaults are fine; add them in Setup Node.js App **and** in the cron env file below):
+  `JOBS_CRON_INTERVAL_MIN` (5, must match the cron schedule), `JOBS_BATCH_SIZE` (10), `JOBS_TIME_LIMIT_MS` (50000),
+  `JOBS_LEASE_MS` (300000), `JOBS_MAX_ATTEMPTS` (5), `JOBS_BACKOFF_MS` (60000, doubles each retry, at most 6 h),
+  `JOBS_KEEP_DAYS` (14), `JOBS_INPROCESS` (`off`; `on` only as a stop-gap while cron is not set up) and
+  `CRON_SECRET` (empty = the HTTP trigger is off).
+- **Cron env file** (once). cPanel cron does not see the Setup Node.js App variables, so over SSH create
+  `/home/apparatu/.colon-cron.env` with the same values the API uses (at least `NODE_ENV=production`, `DB_HOST`,
+  `DB_PORT`, `DB_USER`, `DB_PASSWORD`, `DB_NAME`, `BILLING_MODE=enforce` and any `BILLING_` / `JOBS_` keys you set),
+  one `KEY=value` per line, then `chmod 600 /home/apparatu/.colon-cron.env`. It is outside every web root and the
+  repository. When you change a DB or billing variable in Setup Node.js App, change it here too.
+- **Cron job** (cPanel › Cron Jobs › Add New Cron Job; Common Settings "Once Per Five Minutes", i.e. `*/5 * * * *`;
+  use the same number of minutes as `JOBS_CRON_INTERVAL_MIN`). Command, on one line:
+  ```sh
+  cd /home/apparatu/repositories/colon-ai/services/api && /home/apparatu/nodevenv/repositories/colon-ai/services/api/24/bin/node --env-file=/home/apparatu/.colon-cron.env scripts/cron.js --quiet >> /home/apparatu/logs/colon-cron.log 2>&1
+  ```
+  Confirm the node path first: cPanel › Setup Node.js App › the API app shows "Enter to the virtual environment"
+  with `source /home/apparatu/nodevenv/repositories/colon-ai/services/api/24/bin/activate`; the node binary is the
+  `bin/node` beside that `activate` (the `24` is the Node major version; it changes if the app's Node version
+  changes). Create the log folder once (`mkdir -p /home/apparatu/logs`). Each run talks to MySQL directly (no HTTP,
+  so AfeesHost's ALTCHA cannot block it), claims at most `JOBS_BATCH_SIZE` jobs at a time and exits within
+  `JOBS_TIME_LIMIT_MS`; two overlapping runs never take the same job. With `--quiet` the log only gets errors.
+- **Secondary trigger** (optional): set `CRON_SECRET` (32+ random characters) in Setup Node.js App and call
+  `POST https://api.apparatus.name.ng/internal/cron/run` with header `X-Cron-Secret: <secret>`. Use it only from a
+  client AfeesHost's ALTCHA lets through; the CLI above is the supported dispatcher.
+- **What moved**: Saga scheduled checks are jobs now (each due time is a `saga.schedule` job, re-queued when it
+  runs). They still run on the user's phone, started by the API worker the phone is connected to, so nothing
+  changes for users: same times, same "ran late" note when the phone was offline. A chat or Research reply cut off
+  by a restart has its reserved credits refunded (or settled when text was saved) by the `chat.reconcile` job, and
+  done jobs are pruned daily (`jobs.prune`). Saga tasks are still not charged credits.
+- **Check**: run the cron command once by hand over SSH (without `--quiet`): it prints one `cron_run` line with
+  `claimed`/`done` counts and exits 0. Admin › Jobs (admin or Super Admin) shows "Last run … (cli …)" and no red
+  "never run" banner; after 20 minutes without cron runs it shows the "cron looks stopped" warning (3 × 5 minutes).
+  As a user with a Saga schedule, Settings › Saga still lists it with the same next time, and Admin › Jobs › Queued
+  shows its `saga.schedule` job. Pause it: the job turns `cancelled`; resume: a new one is queued. Retry and Cancel
+  on a job ask for a reason and appear in Security › Audit (`admin.job_retried`, `admin.job_cancelled`).
+  `version.json` moves to 0.16.0 (versionCode 1600, both APKs; the apps are unchanged): publish the v0.16.0 release
+  (Android workflow) before or with this deploy.
+
 ## Release notes: 0.15.0
 
 - **Migration** `0015_memory_projects.sql` runs at start-up: new tables `colon_projects`, `colon_memories`,

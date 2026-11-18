@@ -56,6 +56,11 @@ function sqlStore(db = require('../../db')) {
       [x.user_id, x.plan_code, x.status, x.period_start, x.period_end, x.provider, x.provider_ref]);
     },
     async ledgerRef(ref) { return q.one('SELECT ref, amount, balance_after FROM credit_ledger WHERE ref = ?', [ref]); },
+    // 0.16.0 (chat.reconcile job): reservations still open long after their reply should have ended.
+    async staleReservations(before, prefix, limit) {
+      return q.query(`SELECT request_id, user_id, feature, credits_reserved FROM usage_events WHERE status = 'reserved'
+        AND created_at < ? AND request_id LIKE ? ORDER BY id LIMIT ?`, [before, `${prefix}%`, limit]);
+    },
     async monthCount(userId, feature, period) {
       const r = await q.one(`SELECT COUNT(*) AS n FROM usage_events WHERE user_id = ? AND feature = ?
         AND status <> 'refunded' AND created_at >= ? AND created_at < ?`, [userId, feature, ...monthRange(period)]);
@@ -104,6 +109,10 @@ function memoryStore(seed = {}) {
     async updateUsage(requestId, f) { s.usage.set(requestId, { ...s.usage.get(requestId), ...f }); },
     async saveSubscription(x) { s.subs.set(String(x.user_id), { ...x }); },
     async ledgerRef(ref) { return s.ledger.find((e) => e.ref === ref) || null; },
+    async staleReservations(before, prefix, limit) {
+      return [...s.usage.values()].filter((u) => u.status === 'reserved' && u.created_at < before
+        && String(u.request_id).startsWith(prefix)).slice(0, limit).map((u) => ({ ...u }));
+    },
     async monthCount(userId, feature) {
       return [...s.usage.values()].filter((u) => String(u.user_id) === String(userId) && u.feature === feature
         && u.status !== 'refunded').length;

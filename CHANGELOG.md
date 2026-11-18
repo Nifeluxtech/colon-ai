@@ -1,5 +1,61 @@
 # Changelog
 
+## [0.16.0] — 2026-11-19 · Jobs and cron (Blueprint step C, items 11–13)
+Background work now lives in a MySQL job table instead of in-process timers, so it survives Passenger idling or
+recycling the API. A **cPanel cron job** runs `services/api/scripts/cron.js` every 5 minutes (configurable): it talks
+to the database directly (no HTTP, so AfeesHost's ALTCHA cannot block it), claims a small batch of due jobs with a
+lease, runs them, records the run and exits within a time limit. Failed jobs are retried with exponential backoff
+and dead-lettered after a few tries. Saga's scheduled checks are jobs now; nothing changes for members (same times,
+same "ran late" note, still run on the member's phone). Staff get **Admin › Jobs**. The cron command to add is in
+`docs/runbooks/deploy.md` (Release notes: 0.16.0).
+### Added
+- **Migration `0016_jobs_cron.sql`**: `colon_jobs` (type, nullable user, JSON payload, status `queued` | `running` |
+  `done` | `failed` | `dead` | `cancelled`, `run_at`, attempts / max attempts, `lease_token` / `lease_until`,
+  `last_error`, nullable UNIQUE `idempotency_key`, `ref`, timestamps) and `colon_cron_runs` (runner, start,
+  duration, claimed / done / failed / dead, error). Active Saga schedules get their next due time queued as a job.
+- **`modules/jobs`**: `enqueue` (idempotent on its key; a cancelled job can be revived), `claim` (one guarded
+  `UPDATE … SET lease_token` over due rows or rows whose lease expired, then a read-back by that token: two runners
+  never get the same job), `complete` / `fail` (only with the runner's own token, so a runner whose lease ran out
+  cannot overwrite the job), backoff `JOBS_BACKOFF_MS × 2^(n−1)` capped at 6 hours, dead-letter after
+  `max_attempts`, `cancel`, `retry`, `runBatch` (handler timeout inside the run budget; jobs it cannot start in
+  time are handed back untouched), a handler registry (`where: 'cron'` or `'phone'`, `every` for recurring system
+  jobs, enqueued once per period), the dispatcher tick and the "cron last ran" status (warning after 3 × the
+  interval). `memory-store.js` is the same store in memory for tests.
+- **`services/api/scripts/cron.js`**: the CLI dispatcher (`--env <file>` or node's `--env-file`, `--quiet`; exit 0
+  ok, 1 error, 2 hard time limit).
+- **`POST /internal/cron/run`** (secondary): header `X-Cron-Secret` must match `CRON_SECRET` (constant-time); 404
+  while `CRON_SECRET` is empty, 403 on a wrong secret, rate-limited, no session or CSRF header.
+- **Job types**: `saga.schedule` (one due time of a scheduled check; runs only on the API worker that holds the
+  member's phone and queues the next due time itself), `saga.schedules_ensure` (every active schedule has a waiting
+  job), `chat.reconcile` (a chat or Research reply cut off by a restart: the message is marked interrupted and its
+  reserved credits are refunded, or settled when text was saved; follows `BILLING_MODE`), `jobs.prune` (daily).
+- **Admin › Jobs** (admin and Super Admin, 2FA): counts by status and type, stale leases, dead letters, recent jobs
+  filtered by status and type, recent cron runs, a banner when the cron never ran or its last run is older than
+  3 × `JOBS_CRON_INTERVAL_MIN`, and Retry / Cancel with a reason. API: `GET /admin/jobs?status=&type=&limit=`,
+  `POST /admin/jobs/:id/retry {reason}`, `POST /admin/jobs/:id/cancel {reason}`, audited as `admin.job_retried` /
+  `admin.job_cancelled` with the acting admin and the reason.
+- Tests: `tests/unit/jobs.test.js` (8: idempotent enqueue, lease overlap, the SQL claim, backoff and dead-letter,
+  timeouts, restart survival, cron tick and last-run warning, admin view), `tests/unit/jobs-reconcile.test.js` (1),
+  `tests/security/jobs-admin.test.js` (3: permissions, audit with reason, trigger secret); `saga-plans.test.js` now
+  covers the schedule jobs (re-enqueue, pause / resume / delete, no double run, ensure).
+### Changed
+- **Saga schedules** (`saga/schedule-jobs.js`, `schedules.js`, `runner-extra.js`): create, pause / resume, run now
+  and delete keep the schedule's one waiting job in step; the runner's light tick (only while a phone is connected
+  to that worker) runs that phone's due `saga.schedule` jobs instead of scanning `saga_schedules`, and every ~5
+  minutes makes sure each of its schedules has a job. A due time is still claimed atomically on `next_run_at`, so
+  it runs once even across an old and a new release. `schedules.tick` is replaced by `claimDue` and `active`.
+  Routines are unchanged (they run on demand, never on a timer).
+- **Billing**: `staleReservations` (store and engine) for `chat.reconcile`.
+### Config
+- `JOBS_CRON_INTERVAL_MIN` (5), `JOBS_BATCH_SIZE` (10), `JOBS_TIME_LIMIT_MS` (50000), `JOBS_LEASE_MS` (300000),
+  `JOBS_MAX_ATTEMPTS` (5), `JOBS_BACKOFF_MS` (60000), `JOBS_KEEP_DAYS` (14), `JOBS_INPROCESS` (`off` | `on`, default
+  `off`), `CRON_SECRET` (secret, empty = trigger off).
+### Deploy
+- Take a database dump, deploy, then restart the API; `/health` → `database.migrations` should end with
+  `0016_jobs_cron`. Create the cron env file and add the cron job (exact command in `docs/runbooks/deploy.md`,
+  Release notes: 0.16.0), run it once by hand, then check Admin › Jobs. `version.json` moves to 0.16.0
+  (versionCode 1600, both APKs; the apps are unchanged), so publish the v0.16.0 release with this deploy.
+
 ## [0.15.0] — 2026-11-18 · Memory and projects (Blueprint step B, items 9 and 10)
 Signed-in members can now let Colon remember things and group their work into projects. **Memory is off until each
 member turns it on** (Settings › Memory, with a plain notice of what it does): the blueprint does not ask for it on

@@ -101,6 +101,8 @@ async function handle(req, res) {
 ws.attach(server);
 
 db.migrate().catch(e => log.error('migrate_failed', { err: e.message }));
+// 0.16.0: the optional in-process job runner (JOBS_INPROCESS=on; cPanel cron is the dispatcher, scripts/cron.js).
+require('../modules/jobs').startInProcess();
 server.listen(config.port, () => log.info('api_listening', { port: config.port }));
 
 module.exports = server;

@@ -21,6 +21,8 @@ Colon AI by Nifelux: three static web apps and one Node API in one repository, d
 Hosting: AfeesHost cPanel 138 on CloudLinux, 1 GB RAM, 20 entry processes, 5 GB disk, SSH, Git Version Control,
 cron and JetBackup; no browser terminal and no server-side Chromium. Passenger recycles workers at any time, so no state
 may live only in memory (in-memory caches and "resting" model lists are per worker and only an optimisation).
+Background work (0.16.0) is rows in `colon_jobs`, claimed with a lease by `services/api/scripts/cron.js` from cPanel
+cron (direct to MySQL), or, for Saga's scheduled checks, by the API worker that holds the user's phone.
 
 ## Repository
 
@@ -46,14 +48,14 @@ colon-ai/
 │       │   │                    admin,chat}/ and routes/{study,voice,browser}.js (wiring only)
 │       │   ├── ws/              WebSocket gateway (/ws; signed-in sockets get the browser session bridge)
 │       │   ├── modules/         account, admin, ai, auth, bench, browser, chat, developer, extract, health,
-│       │   │                    memory, projects (v0.15.0), payments, billing, saga, safety, search, study, voice; each has an index.js facade and its handlers/ where it serves
+│       │   │                    memory, projects (v0.15.0), jobs (v0.16.0), payments, billing, saga, safety, search, study, voice; each has an index.js facade and its handlers/ where it serves
 │       │   │                    routes (developer: project-files context; extract/zip.js: the one ZIP reader)
 │       │   ├── shared/          logger, request-context, crypto, audit, settings, mailer, validate,
 │       │   │                    ratelimit, security-headers, multipart
 │       │   └── db/              MariaDB pool and migration runner
 │       ├── tests/               unit/, integration/, security/ (npm test), e2e/ (needs MariaDB), helpers/, fixtures/
 │       ├── bench/               benchmark sets/ and results/
-│       └── scripts/             bench.js, research-check.js, dump-routes.js
+│       └── scripts/             bench.js, research-check.js, dump-routes.js, cron.js (the cPanel cron dispatcher, 0.16.0)
 ├── database/migrations/         SQL migrations, applied in order at API start (forward-only)
 ├── config/                      api.env.example, e2e.env.example, README.md (every variable)
 ├── scripts/

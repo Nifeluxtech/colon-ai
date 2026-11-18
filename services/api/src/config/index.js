@@ -76,6 +76,18 @@ module.exports = {
     tokenBudget: Math.max(0, Number(env('MEMORY_TOKEN_BUDGET'))),
     maxItems: Math.max(1, Number(env('MEMORY_MAX_ITEMS'))),
   },
+  // v0.16.0 jobs (modules/jobs): the job table, the cron dispatcher (scripts/cron.js) and its fallbacks.
+  jobs: {
+    cronIntervalMin: Math.max(1, Number(env('JOBS_CRON_INTERVAL_MIN'))),
+    batchSize: Math.min(100, Math.max(1, Number(env('JOBS_BATCH_SIZE')))),
+    timeLimitMs: Math.max(5000, Number(env('JOBS_TIME_LIMIT_MS'))),
+    leaseMs: Math.max(10000, Number(env('JOBS_LEASE_MS'))),
+    maxAttempts: Math.min(50, Math.max(1, Number(env('JOBS_MAX_ATTEMPTS')))),
+    backoffMs: Math.max(1000, Number(env('JOBS_BACKOFF_MS'))),
+    keepDays: Math.max(1, Number(env('JOBS_KEEP_DAYS'))),
+    inprocess: env('JOBS_INPROCESS') === 'on',
+    cronSecret: env('CRON_SECRET'),
+  },
   // v0.13.0 payments (modules/payments): Korapay Checkout Redirect. Off while KORAPAY_SECRET_KEY is empty.
   payments: {
     korapaySecret: env('KORAPAY_SECRET_KEY'),

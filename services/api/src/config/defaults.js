@@ -53,6 +53,18 @@ const SCHEMA = [
   num('MEMORY_TOKEN_BUDGET', 500, 'most tokens of saved memories added to one reply (keyword overlap + recency); '
     + '0 = none'),
   num('MEMORY_MAX_ITEMS', 200, 'most memories one user can keep'),
+  // Jobs and cron (v0.16.0, Blueprint C11-C13): modules/jobs, services/api/scripts/cron.js from cPanel cron
+  num('JOBS_CRON_INTERVAL_MIN', 5, 'minutes between cPanel cron runs of scripts/cron.js (Admin › Jobs warns when '
+    + 'the last run is older than 3 × this); also the period of the recurring system jobs'),
+  num('JOBS_BATCH_SIZE', 10, 'jobs one dispatcher claims at a time'),
+  num('JOBS_TIME_LIMIT_MS', 50000, 'one cron run stops claiming and exits within this long'),
+  num('JOBS_LEASE_MS', 300000, 'a claimed job is another runner\'s to take over after this long without finishing'),
+  num('JOBS_MAX_ATTEMPTS', 5, 'tries before a job is dead-lettered'),
+  num('JOBS_BACKOFF_MS', 60000, 'wait before the first retry; doubles each attempt (at most 6 hours)'),
+  num('JOBS_KEEP_DAYS', 14, 'done and cancelled jobs and cron runs are deleted after this many days'),
+  oneOf('JOBS_INPROCESS', ['off', 'on'], 'off', 'on: the API worker also runs the cron work every interval '
+    + '(fallback while cPanel cron is not set up; Passenger may idle it)'),
+  secret('CRON_SECRET', 'X-Cron-Secret for POST /internal/cron/run (secondary trigger); empty = the route is off'),
   // Payments (v0.13.0): Korapay Checkout Redirect for plan upgrades (modules/payments). Off until the key is set.
   secret('KORAPAY_SECRET_KEY', 'Korapay secret key (sk_test_… or sk_live_…); payments are off while empty'),
   url('KORAPAY_API_URL', 'https://api.korapay.com/merchant/api/v1', 'Korapay merchant API base URL'),

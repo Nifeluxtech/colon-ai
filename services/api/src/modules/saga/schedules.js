@@ -1,10 +1,12 @@
-// Scheduled browsing (0.11.0, ADR 0007, migration 0011): the schedules a user keeps per chat, the tick that starts
-// the ones that are due on the worker holding the user's phone, and the report posted in the chat when a run ends.
-// The phone must be online with Colon AI connected: a schedule that came due while it wasn't runs when it next
-// connects (the tick finds it still due), once, and its message says it ran late. The run itself is an ordinary
-// Saga task on that chat's browser (schedule_id set), with every approval and secret rule of any task.
+// Scheduled browsing (0.11.0, ADR 0007, migration 0011): the schedules a user keeps per chat, the claim of a due
+// time (claimDue) and the report posted in the chat when a run ends. 0.16.0: each due time is a 'saga.schedule' job
+// in colon_jobs (schedule-jobs.js), kept in step on create, pause / resume, run now and delete, so a schedule no longer
+// depends on an in-process timer. The phone must be online with Colon AI connected: a schedule that came due while it
+// wasn't runs when it next connects (its job is still due), once, and its message says it ran late. The run itself is
+// an ordinary Saga task on that chat's browser (schedule_id set), with every approval and secret rule of any task.
 const db = require('../../db');
 const S = require('./schedule');
+const jobsOf = require('./schedule-jobs');
 
 const LATE_MS = 10 * 60e3;                      // a run this long after its time is reported as late
 const MAX_PER_USER = () => { const n = Number(process.env.SAGA_SCHEDULES_MAX); return n > 0 ? Math.min(n, 50) : 10; };
@@ -35,6 +37,7 @@ async function create(userId, o) {
        tz_offset, status, next_run_at, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)`,
     [userId, o.conversationId || null, o.name, o.goal, o.language || 'en', o.cadence, o.at_minute,
       o.weekday == null ? null : o.weekday, o.tz_offset, 'active', S.nextRun(row, at), at, at]);
+  await jobsOf.sync(await get(r.insertId));
   return r.insertId;
 }
 
@@ -43,7 +46,11 @@ const get = (id) => db.one('SELECT * FROM saga_schedules WHERE id = ?', [id]);
 const list = (userId, conv = null) => db.query(
   `SELECT * FROM saga_schedules WHERE user_id = ?${conv ? ' AND conversation_id = ?' : ''} ORDER BY id DESC LIMIT 50`,
   conv ? [userId, String(conv)] : [userId]);
-const remove = (userId, id) => db.query('DELETE FROM saga_schedules WHERE id = ? AND user_id = ?', [id, userId]);
+async function remove(userId, id) {
+  const r = await db.query('DELETE FROM saga_schedules WHERE id = ? AND user_id = ?', [id, userId]);
+  await jobsOf.drop(id);
+  return r;
+}
 
 /** Pause or resume; a resumed schedule's next run is recomputed from now (no burst of missed runs). */
 async function setStatus(userId, id, status) {
@@ -51,41 +58,47 @@ async function setStatus(userId, id, status) {
   if (!r) return null;
   await db.query('UPDATE saga_schedules SET status = ?, next_run_at = ?, late_since = NULL, updated_at = ? '
     + 'WHERE id = ? AND user_id = ?', [status, S.nextRun(r, new Date()), new Date(), id, userId]);
-  return getFor(userId, id);
+  const after = await getFor(userId, id);
+  await jobsOf.sync(after);
+  return after;
 }
 
 /** Run now (the chat's "run it now"): due at once. */
-const runNow = (userId, id) => db.query('UPDATE saga_schedules SET next_run_at = ?, updated_at = ? WHERE id = ? AND '
-  + "user_id = ? AND status = 'active'", [new Date(Date.now() - 1000), new Date(), id, userId]);
+async function runNow(userId, id) {
+  const r = await db.query('UPDATE saga_schedules SET next_run_at = ?, updated_at = ? WHERE id = ? AND '
+    + "user_id = ? AND status = 'active'", [new Date(Date.now() - 1000), new Date(), id, userId]);
+  await jobsOf.sync(await getFor(userId, id));
+  return r;
+}
 
-/** A deleted chat takes its schedules with it ('*': every chat's). */
-function removeConversation(userId, conv) {
-  if (!conv) return Promise.resolve();
-  if (conv === '*') return db.query('DELETE FROM saga_schedules WHERE user_id = ? AND conversation_id IS NOT NULL',
-    [userId]);
-  return db.query('DELETE FROM saga_schedules WHERE user_id = ? AND conversation_id = ?', [userId, String(conv)]);
+/** A deleted chat takes its schedules with it ('*': every chat's), and their waiting jobs. */
+async function removeConversation(userId, conv) {
+  if (!conv) return;
+  const all = conv === '*';
+  const ids = (await list(userId, all ? null : conv)).filter((x) => all ? x.conversation_id
+    : x.conversation_id === String(conv)).map((x) => x.id);
+  if (all) await db.query('DELETE FROM saga_schedules WHERE user_id = ? AND conversation_id IS NOT NULL', [userId]);
+  else await db.query('DELETE FROM saga_schedules WHERE user_id = ? AND conversation_id = ?', [userId, String(conv)]);
+  for (const id of ids) await jobsOf.drop(id);
 }
 
 /**
- * tick({ users, start, now }): starts the due schedules of these users (their phones are connected to this worker).
- * The claim moves next_run_at on atomically, so one worker runs each due time once. start(schedule, { late }) starts
- * the Saga task (runner). Returns the ids started.
+ * claimDue(s, now) -> { late } | null: takes this due time of schedule `s` (moves next_run_at on, counts the run).
+ * Atomic on next_run_at, so a due time runs once even when two workers (or an old and a new release) try it.
  */
-async function tick({ users, start, now = new Date() }) {
-  if (!users || !users.length) return [];
-  const due = await db.query(
-    `SELECT * FROM saga_schedules WHERE status = 'active' AND next_run_at <= ? AND user_id IN (?) ORDER BY next_run_at
-      LIMIT 20`, [now, users]);
-  const started = [];
-  for (const s of due) {
-    const late = now.getTime() - new Date(s.next_run_at).getTime() > LATE_MS ? new Date(s.next_run_at) : null;
-    const r = await db.query(
-      `UPDATE saga_schedules SET next_run_at = ?, last_run_at = ?, late_since = ?, runs = runs + 1, updated_at = ?
-        WHERE id = ? AND next_run_at = ?`, [S.nextRun(s, now), now, late, now, s.id, s.next_run_at]);
-    if (Number(r.affectedRows) !== 1) continue;
-    try { await start(s, { late }); started.push(Number(s.id)); } catch { /* the next due time tries again */ }
-  }
-  return started;
+async function claimDue(s, now = new Date()) {
+  const late = now.getTime() - new Date(s.next_run_at).getTime() > LATE_MS ? new Date(s.next_run_at) : null;
+  const r = await db.query(
+    `UPDATE saga_schedules SET next_run_at = ?, last_run_at = ?, late_since = ?, runs = runs + 1, updated_at = ?
+      WHERE id = ? AND next_run_at = ?`, [S.nextRun(s, now), now, late, now, s.id, s.next_run_at]);
+  return Number(r.affectedRows) === 1 ? { late } : null;
+}
+
+/** The active schedules (of these users, or everyone's when users is null), for schedule-jobs.ensure. */
+function active(users = null, limit = 500) {
+  if (users && !users.length) return Promise.resolve([]);
+  return db.query(`SELECT * FROM saga_schedules WHERE status = 'active'${users ? ' AND user_id IN (?)' : ''}
+    ORDER BY id LIMIT ?`, users ? [users, limit] : [limit]);
 }
 
 /**
@@ -109,5 +122,5 @@ async function complete(task, r, deps) {
   return { content, fresh: d.fresh };
 }
 
-module.exports = { create, get, getFor, list, remove, setStatus, runNow, removeConversation, tick, complete, view,
-  STATUSES, LATE_MS, MAX_PER_USER };
+module.exports = { create, get, getFor, list, remove, setStatus, runNow, removeConversation, claimDue, active, complete,
+  view, STATUSES, LATE_MS, MAX_PER_USER };

@@ -4,6 +4,7 @@ module.exports = {
   files: require('./files'),
   context: require('./context'),
   reply: require('./reply'),
+  reconcile: require('./reconcile'),   // 0.16.0: the chat.reconcile job (replies cut off by a restart)
   handlers: {
     conversations: require('./handlers/conversations'),
     messages: require('./handlers/messages'),

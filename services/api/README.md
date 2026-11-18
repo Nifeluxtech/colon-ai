@@ -24,7 +24,8 @@ src/
   db/           MariaDB pool, health check and migration runner
 tests/          unit/, integration/, security/ (npm test); e2e/ (needs MariaDB; env: config/e2e.env.example);
                 helpers/ (mock provider, HTTP client); fixtures/
-scripts/        bench.js, research-check.js, dump-routes.js (route table, to diff two checkouts)
+scripts/        bench.js, research-check.js, dump-routes.js (route table, to diff two checkouts), cron.js (0.16.0:
+                the cPanel cron job dispatcher, docs/runbooks/deploy.md)
 ```
 
 Layer rules (enforced by `node scripts/check.js`): `docs/architecture.md`.

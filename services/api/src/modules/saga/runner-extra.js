@@ -1,11 +1,12 @@
 // What a Saga task carries beyond its goal (0.11.0), for runner.js: the phone's commands (hello capabilities, which
 // decide the tools Saga is offered), speed mode, a saved routine's recorded steps, the user's messages sent while it
-// works, and a schedule (its consent flag on the phone, the tick that starts it, the report when it ends).
+// works, and a schedule (its consent flag on the phone, the tick that runs its jobs, the report when it ends).
 const log = require('../../shared/logger');
 const store = require('./store');
 const routines = require('./routines');
 const guidanceStore = require('./guidance');
 const schedules = require('./schedules');
+const scheduleJobs = require('./schedule-jobs');
 
 /** options(task, bridge) -> { caps, speed, routine, scheduleId } (the task row is read again for its origin). */
 async function options(task, bridge) {
@@ -59,13 +60,17 @@ async function finished(task, r) {
   }
 }
 
-/** The scheduler's tick for the users whose phones are on this worker: each due schedule becomes a task. */
-function tick(users, start) {
-  return schedules.tick({ users, start: (s, { late }) => {
+/** The scheduler's tick for the users whose phones are on this worker (0.16.0: their due 'saga.schedule' jobs; every
+ *  `ensureEvery`th call also makes sure each of their active schedules has a waiting job). */
+let ticks = 0;
+async function tick(users, start, o = {}) {
+  if (++ticks % (o.ensureEvery || 10) === 1) await scheduleJobs.ensure({ users }).catch((e) =>
+    log.warn('saga_schedule_ensure_failed', { err: e.message }));
+  return scheduleJobs.runDue(users, (s, { late }) => {
     log.warn('saga_schedule_run', { schedule: s.id, user: s.user_id, late: Boolean(late) });
     return start({ user: { id: s.user_id }, ip: '' }, { goal: s.goal, language: s.language,
       conversationId: s.conversation_id, mode: 'ai', scheduleId: s.id });
-  } });
+  });
 }
 
 module.exports = { options, withRoutine, guidance, scheduledFor, finished, tick, post };
