@@ -286,7 +286,8 @@ function watch(ms = 2000) {
   timer = setInterval(() => {
     if (!browser.bridge.users().length) return;
     sweep().catch((e) => log.warn('saga_sweep_failed', { err: e.message }));
-    // 0.11.0: scheduled browsing, every ~30 s, for the users whose phones are connected here.
+    // 0.11.0: scheduled browsing, every ~30 s, for the users whose phones are connected here (0.16.0: from the
+    // job table, so a due time survives a restart; this light tick only exists while a phone is connected).
     if (++ticks % 15 === 0) extra.tick(browser.bridge.users(), start).catch((e) => log.warn('saga_schedule_failed',
       { err: e.message }));
   }, ms);

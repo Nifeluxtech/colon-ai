@@ -217,7 +217,8 @@ function create({ store = sqlStore(), cfg = config.billing, now = () => new Date
   const walletTx = (userId, fn) => tx(async (q) => fn(q, await openWallet(q, userId)));
 
   return { reserve, settle, refund, checkQuota, summary, planFor, catalogue, planChanged, walletTx, monthlyCredits,
-    store, _clearCache() { cache = null; } };
+    store, _clearCache() { cache = null; },
+    staleReservations: ({ before, prefix = '', limit = 100 }) => store.staleReservations(before, prefix, limit) };
 }
 
 const publicPlans = (all) => Object.values(all).filter((p) => p.active).sort((a, b) => a.sort - b.sort)
@@ -237,6 +238,7 @@ module.exports = {
   checkQuota: (u, f) => instance().checkQuota(u, f),
   summary: (u, o) => instance().summary(u, o),
   planChanged: (o) => instance().planChanged(o),
+  staleReservations: (o) => instance().staleReservations(o),
   admin, createAdmin: (o) => require('./admin').create(o), adminReason: (r) => require('./admin').reasonOf(r),
   capStatus: (s, c) => require('./admin').capStatus(s, c),
 };

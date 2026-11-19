@@ -1,17 +1,17 @@
 {
-  "versionName": "0.15.0",
-  "versionCode": 1500,
-  "apkUrl": "https://github.com/Nifeluxtech/colon-ai/releases/download/v0.15.0/colon-ai-0.15.0.apk",
-  "releaseUrl": "https://github.com/Nifeluxtech/colon-ai/releases/tag/v0.15.0",
-  "notes": "Memory and projects: turn on memory in Settings to let Colon remember what you ask it to (off until you choose), and group chats, files and instructions into projects.",
+  "versionName": "0.16.0",
+  "versionCode": 1600,
+  "apkUrl": "https://github.com/Nifeluxtech/colon-ai/releases/download/v0.16.0/colon-ai-0.16.0.apk",
+  "releaseUrl": "https://github.com/Nifeluxtech/colon-ai/releases/tag/v0.16.0",
+  "notes": "Scheduled checks are now kept by the server in a job queue, so they survive server restarts; a reply cut off by a restart gives its credits back.",
   "minSupportedVersionCode": 0,
-  "publishedAt": "2026-11-18",
+  "publishedAt": "2026-11-19",
   "browser": {
-    "versionName": "0.15.0",
-    "versionCode": 1500,
-    "apkUrl": "https://github.com/Nifeluxtech/colon-ai/releases/download/v0.15.0/colon-browser-0.15.0.apk",
-    "releaseUrl": "https://github.com/Nifeluxtech/colon-ai/releases/tag/v0.15.0",
-    "notes": "Released alongside Colon AI 0.15.0. No changes to the browser itself.",
+    "versionName": "0.16.0",
+    "versionCode": 1600,
+    "apkUrl": "https://github.com/Nifeluxtech/colon-ai/releases/download/v0.16.0/colon-browser-0.16.0.apk",
+    "releaseUrl": "https://github.com/Nifeluxtech/colon-ai/releases/tag/v0.16.0",
+    "notes": "Released alongside Colon AI 0.16.0. No changes to the browser itself.",
     "minSupportedVersionCode": 0
   }
 }

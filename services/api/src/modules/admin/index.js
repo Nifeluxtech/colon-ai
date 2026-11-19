@@ -14,5 +14,6 @@ module.exports = {
     webSearch: require('./handlers/web-search'),
     safety: require('./handlers/safety'),
     billing: require('./handlers/billing'),   // v0.14.0: plans, credits, payments, costs
+    jobs: require('./handlers/jobs'),         // v0.16.0: background jobs and the cron
   },
 };

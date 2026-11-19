@@ -183,3 +183,21 @@ submissions, messages, personal data) are always tapped on the phone; no setting
 | `SAGA_HANDOFF_TIMEOUT_MS` | number | no | `600000` | Phase 10: how long Saga waits for the user to type a password, code or card details and tap Return to AI |
 | `SAGA_USER_CONTROL_TIMEOUT_MS` | number | no | `900000` | 0.10.3: how long Saga waits for the user to give the browser back after Take control or Pause, then stops the task |
 | `SAGA_RECONNECT_GRACE_MS` | number | no | `90000` | 0.10.4: how long a Saga task whose phone socket dropped waits for the same phone (Colon AI) to reconnect, on this or another worker, before it ends as interrupted |
+
+### Jobs and cron (0.16.0)
+
+Background jobs live in MySQL (`colon_jobs`) and are run by `services/api/scripts/cron.js` from a cPanel cron job
+(command: `docs/runbooks/deploy.md`, Release notes 0.16.0). The cron's own environment does not have the Setup
+Node.js App variables, so the command loads them from a private env file (`node --env-file=…`).
+
+| Variable | Type | Required | Default | Purpose |
+|---|---|---|---|---|
+| `JOBS_CRON_INTERVAL_MIN` | number | no | `5` | minutes between cron runs; Admin › Jobs warns when the last run is older than 3 × this; also the period of the recurring system jobs |
+| `JOBS_BATCH_SIZE` | number | no | `10` | jobs claimed at a time |
+| `JOBS_TIME_LIMIT_MS` | number | no | `50000` | one cron run stops claiming and exits within this long |
+| `JOBS_LEASE_MS` | number | no | `300000` | a claimed job can be taken over by another runner after this long |
+| `JOBS_MAX_ATTEMPTS` | number | no | `5` | tries before a job is dead-lettered |
+| `JOBS_BACKOFF_MS` | number | no | `60000` | wait before the first retry; doubles each attempt, at most 6 hours |
+| `JOBS_KEEP_DAYS` | number | no | `14` | done / cancelled jobs and cron runs are deleted after this many days |
+| `JOBS_INPROCESS` | enum `off` \| `on` | no | `off` | `on`: the API worker also runs the cron work every interval (fallback only) |
+| `CRON_SECRET` | secret | no | (empty) | `X-Cron-Secret` for `POST /internal/cron/run`; empty = that route answers 404 |

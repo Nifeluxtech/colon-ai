@@ -17,6 +17,8 @@ module.exports = {
   schedules: require('./schedules'),
   routines: require('./routines'),
   guidance: require('./guidance'),
+  // 0.16.0: each due time of a schedule is a 'saga.schedule' job (modules/jobs).
+  scheduleJobs: require('./schedule-jobs'),
   // 0.11.5: the chat reads a page's sign-in state with the same check as Saga (browser state for the chat model).
   signedIn: require('./signed-in'),
   handlers: {
