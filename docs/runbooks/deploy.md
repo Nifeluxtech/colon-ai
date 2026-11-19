@@ -74,6 +74,20 @@ it). It must send `Cache-Control: no-cache` for `index.html`, so phones always f
 Merge it with anything cPanel already wrote there (HTTPS redirects, PHP handlers). Do not enable `mod_deflate` for
 `text/event-stream` on the API subdomain, or chat replies arrive all at once.
 
+## Release notes: 0.17.1
+
+- **Image editing in chat.** Code only: **no migration and no new environment keys**. Deploy, then restart the API
+  (Setup Node.js App › Restart). Editing uses the same `IMAGE_MODEL` and Google AI Studio key as image generation, so
+  it is on wherever images are on (`IMAGE_MODEL` must be an image model that accepts input images, e.g. the
+  `gemini-3.1-flash-image` id already set). An edit costs one image credit plus `BILLING_CREDITS_IMAGE`, refunded on
+  failure, exactly like a new image.
+- **Check**: in a chat, attach a PNG or JPEG and send `/image make the sky orange` → "Editing your image…", then an
+  `edited-…` image reply; tap **Edit** under that reply and send `/image add a red bus` → a second edit; ask in plain
+  words with a photo attached ("remove the background") → the chat model edits it. Attaching a PDF with `/image`
+  gives a toast and nothing is charged.
+- `version.json` moves to 0.17.1 (versionCode 1701, both APKs; the browser has no changes): publish the v0.17.1
+  release (Android workflow) before or with this deploy.
+
 ## Release notes: 0.17.0
 
 - **Migration** `0017_tools_research.sql` runs at start-up: one new table, `colon_research_runs` (one row per deep

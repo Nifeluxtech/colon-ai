@@ -85,7 +85,10 @@ async function addGenerated(userId, conv, { id, name, mime, kind = 'image', data
   } catch (e) { await remove([{ path: rel }]); throw e; }
   return db.one('SELECT * FROM chat_attachments WHERE id = ?', [id]);
 }
-const linkToMessage = (userId, id, messageId) => db.query(
-  'UPDATE chat_attachments SET message_id = ? WHERE id = ? AND user_id = ?', [messageId, id, userId]);
+// 0.17.1: with conversationId, a fresh upload (sent with /image to be edited) also joins that conversation.
+const linkToMessage = (userId, id, messageId, conversationId) => (conversationId ? db.query(
+  'UPDATE chat_attachments SET message_id = ?, conversation_id = ? WHERE id = ? AND user_id = ?', [messageId,
+    conversationId, id, userId]) : db.query('UPDATE chat_attachments SET message_id = ? WHERE id = ? AND user_id = ?',
+  [messageId, id, userId]));
 
 module.exports = { save, remove, deleteWhere, fullPath, forModel, dataUrl, addGenerated, linkToMessage };

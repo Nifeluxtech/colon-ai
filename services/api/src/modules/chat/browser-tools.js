@@ -41,7 +41,27 @@ const RULES = [
   '- read_page only when the user asks about what the page shows and the state below does not already answer it.',
 ];
 const IMAGE_RULE = '- generate_image when the user asks you to draw, design or create a picture; write a detailed '
-  + 'prompt.';
+  + 'prompt. When the user wants an image changed (one attached to their latest message, or the last image in this '
+  + 'chat: "make it brighter", "remove the background", "put me on a beach"), call generate_image with edit: true '
+  + 'and a prompt that says exactly what to change and what to keep.';
+
+// 0.17.1: the images an edit starts from (ids for POST /conversations/:id/images attachment_ids). The images on the
+// user's latest message always go along (an edit, or a reference to draw from); with edit and none there, the most
+// recent image earlier in the chat (an upload or one Colon made).
+const EDITABLE = ['image/png', 'image/jpeg', 'image/webp'];
+const imagesOf = (m) => ((m && m.attachments) || []).filter((a) => a && a.id && a.kind === 'image'
+  && (!a.type || EDITABLE.includes(String(a.type).toLowerCase()))).map((a) => a.id);
+function editSources(userMsg, messages, edit) {
+  const own = imagesOf(userMsg);
+  if (own.length || !edit) return own.slice(0, 3);
+  const list = messages || [];
+  const end = list.findIndex((m) => userMsg && m.id === userMsg.id);
+  for (let i = (end > -1 ? end : list.length) - 1; i >= 0; i--) {
+    const ids = imagesOf(list[i]);
+    if (ids.length) return ids.slice(-1);
+  }
+  return [];
+}
 
 const BROWSE_SAY = 'On it in this chat’s browser.';
 
@@ -131,8 +151,9 @@ async function callTool(call, r, s, ctx, args) {
       // The image itself is made by POST /conversations/:id/images (modules/media), through the registry there:
       // the app gets the prompt and asks for it, so credits are reserved once, by that call.
       const a = tools.validate(tools.registry.get('generate_image').schema, call.args);
-      return { action: { event: 'image', data: { prompt: a.prompt, message_id: ctx.userMsg.id } },
-        drop: !r.text.trim() };
+      const ids = editSources(ctx.userMsg, ctx.messages, a.edit === true);
+      return { action: { event: 'image', data: { prompt: a.prompt, message_id: ctx.userMsg.id,
+        ...(ids.length ? { attachment_ids: ids, edit: true } : {}) } }, drop: !r.text.trim() };
     }
     return null;
   } catch (e) {
@@ -142,4 +163,4 @@ async function callTool(call, r, s, ctx, args) {
   }
 }
 
-module.exports = { turn, goalOf, fallback, readResult, DECLS, RULES, BROWSE_SAY, declsNow };
+module.exports = { turn, goalOf, fallback, readResult, editSources, DECLS, RULES, BROWSE_SAY, declsNow };

@@ -1,5 +1,38 @@
 # Changelog
 
+## [0.17.1] — 2026-11-19 · Image editing in chat
+Members can now **change an image** instead of only making new ones: attach a photo and send `/image <what to
+change>`, ask in their own words ("make the sky orange") with the image attached or after an image in the chat, or
+tap **Edit** on an image Colon made. The source images go to the same `IMAGE_MODEL` as inline image parts before the
+instruction. An edit costs exactly what a new image does (one plan image credit plus `BILLING_CREDITS_IMAGE`,
+reserved, settled once saved, refunded on any failure). No migration, no new environment keys.
+### Added
+- **`POST /conversations/:id/images`** takes **`attachment_ids`** (optional, up to 3): the user's own images in that
+  conversation (an upload or an image Colon made there), or a fresh upload not yet sent in any chat (it then joins
+  this chat and the new user message). PNG, JPEG or WebP only, at most 7 MB each, and the file must still be on disk.
+  Checked before anything is written or reserved: another user's or another chat's image, a missing id, a PDF or GIF,
+  a file that is too large or more than 3 ids answer **422 `invalid`** (field `attachment_ids`) with a plain message.
+  Without `message_id` the new user message carries the images being edited. Edited files are named `edited-…` and
+  record `edited_from` in their metadata.
+- **Image adapter** (`modules/media/image.js`): `generate({ images })` sends them as `inlineData` parts before the
+  text part; refuses more than 3, or a wrong type or size, without calling Google.
+- **Chat model**: `generate_image` gains an optional `edit` (boolean). The stream's `image` event carries
+  `attachment_ids`: the editable images on the user's latest message always go along (an edit, or a reference),
+  and with `edit: true` and none there, the most recent image earlier in the chat. A generated image with no text
+  now stays in the model's history ("(Here is the image.)" plus its attachment line), so "make it brighter" after an
+  image works.
+- **Chat app**: `/image <prompt>` sent with images attached is an edit of them (other file types: a toast, nothing
+  sent); **Edit** on an image reply pre-fills `/image ` with that image as the source (a small "Editing …" strip above
+  the composer, with Cancel; it is dropped when you switch chats); the pending reply says **"Editing your image…"**.
+- Tests: `tests/unit/media-image-edit.test.js` (8: inlineData parts, adapter refusals, sources accepted and refused,
+  metering and refunds, the model's edit sources and `image` event), `tests/security/image-edit.test.js` (2: foreign,
+  missing and non-image ids refused before any write; another user's chat 404), `packages/ui/test/chat-tools.test.js`
+  (+2: the `/image` edit plan and editable-image helpers).
+### Deploy
+- Code only: deploy and restart the API (no migration, no new keys; image editing is on wherever `IMAGE_MODEL` is
+  set). `version.json` moves to 0.17.1 (versionCode 1701, both APKs), so publish the v0.17.1 release with this deploy
+  (`docs/runbooks/deploy.md`, Release notes: 0.17.1).
+
 ## [0.17.0] — 2026-11-19 · Tools and media (Blueprint step D, items 14–17)
 Every server-side tool now goes through one **tool registry** (schema, risk, plan access, credits, timeout, consent),
 and three member-facing tools arrive on top of it: **image generation** in chat (`/image …`, or the chat model's

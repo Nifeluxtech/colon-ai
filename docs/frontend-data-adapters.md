@@ -97,7 +97,11 @@ an attachment of the assistant `message` (`origin: 'image'`); when it could not 
 `status: 'error'` and `error { code: image_unavailable | image_blocked | tool_off | quota | plan, message }` and the
 image credit was given back. `message_id` is the user message whose reply streamed `image { prompt, message_id }`
 (the chat model asked for a picture); without it the prompt becomes a new user message. The composer's
-`/image <prompt>` calls the same endpoint. Deep research: `POST /conversations/:id/research { question, confirm }`
+`/image <prompt>` calls the same endpoint. **v0.17.1:** `attachment_ids` (up to 3) edits images instead: the user's own
+PNG/JPEG/WebP images (7 MB each) in this conversation, or fresh uploads (they join the new user message); anything
+else is 422 `invalid` (field `attachment_ids`) before any charge. The stream's `image` event then carries
+`attachment_ids` too, and the composer sends them for `/image` with images attached or after Edit on an image reply.
+Deep research: `POST /conversations/:id/research { question, confirm }`
 → 409 `consent_required` (with the credit cost) until `confirm: true`, then 201 `{ run, user_message, message, reserved,
 conversation }` (`message` is the progress line the report later replaces) · `GET /conversations/:id/research` →
 `{ runs[] }` · `GET /research/:id` → `{ run: { id, status, stage, steps, total, label, message_id, error, … } }`

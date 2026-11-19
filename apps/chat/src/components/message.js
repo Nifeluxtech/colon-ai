@@ -7,6 +7,8 @@ import { attachmentsHtml, loadAttachmentThumbs } from './uploads.js';
 import { Colon } from '../../../../packages/ui/js/colon.js';
 import { ColonMarkdown } from '../../../../packages/ui/js/markdown/index.js';
 import { researchHtml } from '../actions/deep-research.js';
+import { startImageEdit } from '../actions/image-gen.js';
+import { editableIds } from '../lib/chat-tools.js';
 import { editMessage, regenerate } from '../actions/send-message.js';
 import { ReadAloud } from '../lib/read-aloud.js';
 import { CW } from '../core/cw.js';
@@ -69,6 +71,9 @@ function msgHtml(m, isLast) {
     (streaming ? '' : '<div class="cw-actions">' +
       '<button class="icon-btn sm" data-msg="copy" aria-label="Copy response" data-tip="Copy">' + icon('copy')
         + '</button>' +
+      // v0.17.1: Edit on a generated image pre-fills `/image ` with it as the image to change.
+      (m.origin === 'image' && editableIds(m.attachments).length ? '<button class="icon-btn sm" data-msg="imgedit" '
+        + 'aria-label="Edit this image" data-tip="Edit image">' + icon('edit') + '</button>' : '') +
       (isLast ? '<button class="icon-btn sm" data-msg="regen" aria-label="Regenerate response" data-tip="Regenerate">'
         + icon('refresh') + '</button>' : '') +
       '<button class="icon-btn sm" data-msg="up" aria-label="Good response" aria-pressed="' + (fb === 'up')
@@ -122,6 +127,7 @@ function msgAction(b) {
     return x.id === mid; })[0], act = b.getAttribute('data-msg');
   if (!m) return;
   if (act === 'edit') { editMessage(m); return; }
+  if (act === 'imgedit') { startImageEdit(m); return; }
   if (act === 'copy') C.copyText(m.content).then(function () { C.toast('Copied.'); }, function () { C.toast(
     'Couldn’t copy.', 'bad'); });
   else if (act === 'regen') regenerate(m.id);

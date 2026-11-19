@@ -3,6 +3,7 @@
 import { login, newChat } from './chat.js';
 import { Colon } from '../../../../packages/ui/js/colon.js';
 import { cancelResearch, toggleDeep } from '../actions/deep-research.js';
+import { clearImageSource } from '../actions/image-gen.js';
 import { renameConv } from '../actions/rename.js';
 import { browseNative } from '../actions/saga-native.js';
 import { send, stopStreaming } from '../actions/send-message.js';
@@ -93,6 +94,8 @@ function bind() {
       'data-conv-menu'); })[0]; if (c) CW.convMenu(cm, c); return; }
     // v0.17.0: Developer mode's code editor; Research mode's Deep research chip and Stop on a running report.
     var editCode = t.closest('[data-edit-code]'); if (editCode) { openCodeEditor(editCode); return; }
+    // v0.17.1: cancel editing the image picked with Edit.
+    if (t.closest('[data-edit-src-clear]')) { clearImageSource(); return; }
     var deep = t.closest('[data-deep-toggle]'); if (deep) { toggleDeep(deep); return; }
     var rc = t.closest('[data-research-cancel]'); if (rc) { cancelResearch(rc.getAttribute('data-research-cancel'));
       return; }

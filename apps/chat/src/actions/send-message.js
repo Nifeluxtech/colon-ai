@@ -1,7 +1,7 @@
 /* Colon AI · sending a message and streaming the reply; regenerate, stop and edit-and-resend. */
 
 import { deepResearch, deepResearchOn } from './deep-research.js';
-import { imageCommand, imageFromStream } from './image-gen.js';
+import { clearImageSource, imageCommand, imageFromStream, imageSource } from './image-gen.js';
 import { browseFromServer, browserFromServer, handleBrowserText, pageState } from './browser-chat.js';
 import { loginCard, passwordGuard } from './saga-extras.js';
 import { sagaTyped } from './saga-wait.js';
@@ -14,7 +14,7 @@ import { updateHeader } from '../components/model-picker.js';
 import { refreshConvs } from '../components/sidebar.js';
 import { $, S, data, defaultModel, isMobile, mode, modelId, rafThrottle } from '../core/state.js';
 import { setView } from '../pages/chat.js';
-import { parseImageCommand } from '../lib/chat-tools.js';
+import { imageEditPlan } from '../lib/chat-tools.js';
 import { looksLikePassword, saveLoginIntent } from '../lib/secret-text.js';
 
 var C = Colon, esc = C.esc;
@@ -27,8 +27,17 @@ function send() {
   if (!text && !atts.length) return;
   if (S.media.voiceActive()) S.media.stopVoice();
   // v0.17.0: "/image <prompt>" makes an image (actions/image-gen.js); Deep research on in Research mode starts a run.
-  var img = !atts.length && parseImageCommand(text);
-  if (img) { if (imageCommand(img.prompt, ensureConv)) clearComposer(ta); return; }
+  // v0.17.1: with images attached (or one picked with Edit on a reply's image), /image edits them.
+  var src = !atts.length && imageSource(), sources = atts.length ? atts : src ? [src] : [];
+  var img = imageEditPlan(text, sources);
+  if (img) {
+    if (img.problem) { C.toast(img.problem, 'bad'); return; }
+    if (imageCommand(img.prompt, ensureConv, { attachmentIds: img.attachmentIds, atts: sources })) {
+      clearComposer(ta); if (atts.length) S.media.clear(true); clearImageSource();
+    }
+    return;
+  }
+  clearImageSource();
   if (!atts.length && deepResearchOn()) { if (deepResearch(text, ensureConv)) clearComposer(ta); return; }
   // Phase 10: "open the browser", "open google.com", "scroll down"… go to this chat's browser (actions/browser-chat).
   if (!atts.length && handleBrowserText(text)) { ta.value = ''; autoGrow(); syncComposer(); return; }
@@ -113,8 +122,9 @@ function run(call, tempUser, replaceId) {
       else if (ev.type === 'done' && msg) { Object.assign(msg, ev.message || {}); }
       else if (ev.type === 'browser') browserFromServer(ev);
       // v0.17.0: the chat model called generate_image; the image is made once the reply ends (finish()).
-      else if (ev.type === 'image') image = { prompt: ev.prompt, message_id: ev.message_id || (tempUser && tempUser.id)
-        };
+      // v0.17.1: attachment_ids = the images to edit (the user's attached image, or the last one in the chat).
+      else if (ev.type === 'image') image = { prompt: ev.prompt, message_id: ev.message_id || (tempUser && tempUser.id),
+        attachment_ids: ev.attachment_ids };
       else if (ev.type === 'memory') C.toast('Saved to memory. Manage it in Settings › Memory.', 'ok');   // v0.15.0
       // 0.11.3: the server sent a browser follow-up to Saga (this chat's last browser task goes on).
       else if (ev.type === 'browse') browseFromServer(ev.goal, (tempUser && tempUser.id) || ev.message_id);

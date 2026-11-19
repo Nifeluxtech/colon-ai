@@ -36,6 +36,10 @@
   `BILLING_CREDITS_DEEP_RESEARCH` reserved and refunded on failure or cancel, `research.sweep`); Developer mode gets a
   Monaco editor for code blocks (jsDelivr, textarea fallback). **No code execution**: running code only via an
   external sandbox (Judge0 or similar) stays for later. Next: E (security, privacy, ops).
+- v0.17.1 (19 Nov 2026): image editing on top of D15: `POST /conversations/:id/images` takes `attachment_ids` (up to 3
+  of the user's own PNG/JPEG/WebP images in that chat, 7 MB each) sent to `IMAGE_MODEL` as inline image parts; the
+  chat model's `generate_image` gets `edit`; `/image` with an image attached and Edit on image replies in the app.
+  Same metering as a new image. No migration.
 
 ## Gaps, in build order
 ### A. Business engine (blueprint phase 2) — biggest gap, needed for launch. Payments: Korapay.

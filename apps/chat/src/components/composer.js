@@ -17,6 +17,7 @@ function composerHtml() {
     '<div class="att-tray" hidden aria-label="Attachments"></div>' +
     '<div class="cw-dev-chips" role="group" aria-label="Mode quick actions" hidden></div>' +
     '<div class="cv-voice" hidden></div>' +
+    '<div class="cw-edit-src" role="status" hidden></div>' +
     '<form class="cw-input" id="cw-form" novalidate>' +
       '<button type="button" class="icon-btn" data-a="attach" aria-label="Attach files" data-tip="Attach files">'
         + icon('clip') + '</button>' +
@@ -102,6 +103,10 @@ function autoGrow() { var ta = $('#cw-input'); if (!ta.value) { ta.style.height 
 function syncComposer() {
   if (!S.el || !S.media) return;
   var ta = $('#cw-input'), st = S.media.state(), btn = $('[data-a=send]');
+  // v0.17.1: the image picked with Edit belongs to one chat; another chat drops it.
+  var es = $('.cw-edit-src');
+  if (S.imageSource && (!S.current || S.imageSource.conv !== S.current.id)) S.imageSource = null;
+  if (es && !S.imageSource && !es.hidden) { es.hidden = true; es.innerHTML = ''; }
   if (S.streaming) { btn.disabled = false; btn.classList.add('stop'); btn.innerHTML = icon('stop');
     btn.setAttribute('aria-label', 'Stop generating'); btn.type = 'button'; }
   else { btn.classList.remove('stop'); btn.innerHTML = icon('send'); btn.setAttribute('aria-label', st.uploading
