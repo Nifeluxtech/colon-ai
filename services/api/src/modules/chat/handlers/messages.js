@@ -56,13 +56,16 @@ function persistedStore(conv, { version = 1 } = {}) {
 async function historyFor(req, conv, uptoMessageId) {
   const all = await store.messages(conv.id);
   const end = all.findIndex(m => m.id === uptoMessageId);
+  // 0.17.1: an image Colon made (often with no text) stays in the history, so "make it brighter" can edit it.
+  const madeImage = (m) => m.origin === 'image' && (m.attachments || []).length > 0;
   const turns = all.slice(0, end + 1).filter(m => m.role === 'user' || (m.role === 'assistant'
-    && (m.status === 'complete' || m.status === 'stopped') && m.content));
+    && (m.status === 'complete' || m.status === 'stopped') && (m.content || madeImage(m))));
   const latest = turns.length - 1;
   const fileLists = await files.forModel(req.user.id, turns.map(m => m.attachments || []), latest);
   // 0.11.3: Saga's step lists stay out of the model's history (a chat model imitated them instead of browsing).
   return turns.map((m, i) => ({ role: m.role, content: m.origin === 'browse' ? String(m.content).replace(
-    /\n+\*\*How Saga browsed\*\*[\s\S]*$/, '') : m.content, files: fileLists[i] }));
+    /\n+\*\*How Saga browsed\*\*[\s\S]*$/, '') : m.content || (madeImage(m) ? '(Here is the image.)' : ''),
+  files: fileLists[i] }));
 }
 
 async function seqOf(id) {

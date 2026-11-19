@@ -70,9 +70,15 @@ const SCHEMA = [
     + '(fallback while cPanel cron is not set up; Passenger may idle it)'),
   secret('CRON_SECRET', 'X-Cron-Secret for POST /internal/cron/run (secondary trigger); empty = the route is off'),
   // Tools and media (v0.17.0, Blueprint D14-D17): modules/tools, modules/media, modules/research
-  str('IMAGE_MODEL', '', 'Google AI Studio image-capable model id for image generation (needs GEMINI_API_KEY); '
-    + 'empty = image generation off'),
+  str('IMAGE_MODEL', '', 'Google AI Studio image-capable model id (needs GEMINI_API_KEY): image edits, and new '
+    + 'images when Cloudflare is not set up or fails; empty = Gemini images and all edits off'),
   num('IMAGE_TIMEOUT_MS', 90000, 'give up on one image after this long (credits are refunded)'),
+  // v0.17.1: Cloudflare Workers AI (free daily allocation) for new images; edits always use IMAGE_MODEL (Gemini).
+  oneOf('IMAGE_PROVIDER', ['cloudflare', 'gemini'], '', 'first provider for new images; empty = cloudflare when '
+    + 'CF_ACCOUNT_ID and CF_AI_TOKEN are set, else gemini (the other one is the fallback)'),
+  str('CF_ACCOUNT_ID', '', 'Cloudflare account id for Workers AI image generation'),
+  secret('CF_AI_TOKEN', 'Cloudflare API token with Workers AI permission (image generation)'),
+  str('CF_IMAGE_MODEL', '@cf/black-forest-labs/flux-1-schnell', 'Workers AI text-to-image model'),
   num('RESEARCH_MAX_QUERIES', 4, 'web searches one deep research task runs (one per job step)'),
   num('RESEARCH_MAX_PAGES', 8, 'pages one deep research task reads (a few per job step)'),
   num('RESEARCH_STEP_MS', 35000, 'longest single deep research step (the report is written in one); keep it under '

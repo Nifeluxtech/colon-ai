@@ -1,17 +1,17 @@
 {
-  "versionName": "0.17.0",
-  "versionCode": 1700,
-  "apkUrl": "https://github.com/Nifeluxtech/colon-ai/releases/download/v0.17.0/colon-ai-0.17.0.apk",
-  "releaseUrl": "https://github.com/Nifeluxtech/colon-ai/releases/tag/v0.17.0",
-  "notes": "Tools and media: create images in chat with /image, start a deep research task that keeps working in the background and posts a cited report, and edit code in a full editor in Developer mode. The app now opens with a \"from Nifelux\" splash and no loading bar.",
+  "versionName": "0.17.1",
+  "versionCode": 1701,
+  "apkUrl": "https://github.com/Nifeluxtech/colon-ai/releases/download/v0.17.1/colon-ai-0.17.1.apk",
+  "releaseUrl": "https://github.com/Nifeluxtech/colon-ai/releases/tag/v0.17.1",
+  "notes": "Edit images in chat: attach a photo and type /image with what to change, ask Colon to change it in your own words, or tap Edit on an image Colon made. An edit uses one image credit, given back if it fails.",
   "minSupportedVersionCode": 0,
   "publishedAt": "2026-11-19",
   "browser": {
-    "versionName": "0.17.0",
-    "versionCode": 1700,
-    "apkUrl": "https://github.com/Nifeluxtech/colon-ai/releases/download/v0.17.0/colon-browser-0.17.0.apk",
-    "releaseUrl": "https://github.com/Nifeluxtech/colon-ai/releases/tag/v0.17.0",
-    "notes": "Released alongside Colon AI 0.17.0. The browser now opens with a \"from Nifelux\" splash, and its home page no longer shows the page loading line.",
+    "versionName": "0.17.1",
+    "versionCode": 1701,
+    "apkUrl": "https://github.com/Nifeluxtech/colon-ai/releases/download/v0.17.1/colon-browser-0.17.1.apk",
+    "releaseUrl": "https://github.com/Nifeluxtech/colon-ai/releases/tag/v0.17.1",
+    "notes": "Released alongside Colon AI 0.17.1. No changes to the browser itself.",
     "minSupportedVersionCode": 0
   }
 }

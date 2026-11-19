@@ -1,5 +1,60 @@
 # Changelog
 
+## [0.17.1] — 2026-11-19 · Image editing in chat
+Members can now **change an image** instead of only making new ones: attach a photo and send `/image <what to
+change>`, ask in their own words ("make the sky orange") with the image attached or after an image in the chat, or
+tap **Edit** on an image Colon made. The source images go to the same `IMAGE_MODEL` as inline image parts before the
+instruction. An edit costs exactly what a new image does (one plan image credit plus `BILLING_CREDITS_IMAGE`,
+reserved, settled once saved, refunded on any failure). New images now come **free from Cloudflare Workers AI**
+(`@cf/black-forest-labs/flux-1-schnell`) when its keys are set, with Gemini (`IMAGE_MODEL`) as the fallback. No
+migration; four new optional environment keys.
+### Added
+- **`POST /conversations/:id/images`** takes **`attachment_ids`** (optional, up to 3): the user's own images in that
+  conversation (an upload or an image Colon made there), or a fresh upload not yet sent in any chat (it then joins
+  this chat and the new user message). PNG, JPEG or WebP only, at most 7 MB each, and the file must still be on disk.
+  Checked before anything is written or reserved: another user's or another chat's image, a missing id, a PDF or GIF,
+  a file that is too large or more than 3 ids answer **422 `invalid`** (field `attachment_ids`) with a plain message.
+  Without `message_id` the new user message carries the images being edited. Edited files are named `edited-…` and
+  record `edited_from` in their metadata.
+- **Image adapter** (`modules/media/image.js`): `generate({ images })` sends them as `inlineData` parts before the
+  text part; refuses more than 3, or a wrong type or size, without calling Google.
+- **Chat model**: `generate_image` gains an optional `edit` (boolean). The stream's `image` event carries
+  `attachment_ids`: the editable images on the user's latest message always go along (an edit, or a reference),
+  and with `edit: true` and none there, the most recent image earlier in the chat. A generated image with no text
+  now stays in the model's history ("(Here is the image.)" plus its attachment line), so "make it brighter" after an
+  image works.
+- **Chat app**: `/image <prompt>` sent with images attached is an edit of them (other file types: a toast, nothing
+  sent); **Edit** on an image reply pre-fills `/image ` with that image as the source (a small "Editing …" strip above
+  the composer, with Cancel; it is dropped when you switch chats); the pending reply says **"Editing your image…"**.
+- **Cloudflare Workers AI image provider** (`modules/media/cloudflare.js`): `POST
+  https://api.cloudflare.com/client/v4/accounts/{CF_ACCOUNT_ID}/ai/run/{CF_IMAGE_MODEL}` with `{ prompt, steps }`
+  (4 steps, at most 8), Bearer `CF_AI_TOKEN`; reads the base64 `result.image` (or raw `image/png` / `image/jpeg`
+  bytes) and checks the bytes really are an image. HTTP 429 or error 3036 (the daily free 10,000-neuron allocation
+  is used up) is `image_daily_limit`.
+- **Provider routing** (`modules/media/route.js`): new images go to the first provider (`IMAGE_PROVIDER`; empty =
+  Cloudflare when `CF_ACCOUNT_ID` and `CF_AI_TOKEN` are set, else Gemini) and fall back to the other on any error
+  except a refused prompt; one credit either way. Edits always use Gemini (flux-1-schnell is text-to-image only);
+  without `IMAGE_MODEL` an edit fails with `image_edit_unavailable` ("Editing images needs a paid image model…") and
+  is refunded. When the daily limit is hit and Gemini cannot make it either, the member sees "Today’s free image
+  limit is reached. It resets at 00:00 UTC. Your image credit was given back." Generated images record their
+  `provider` in the attachment metadata. `generate_image` is on with either provider.
+- **Admin › Tools** / `GET /admin/tools`: new `image { provider, fallback, edits, cloudflare_model, gemini_model }`,
+  shown in the page banner ("Image provider: Cloudflare Workers AI, falling back to Gemini. Edits: Gemini.").
+- Tests: `tests/unit/media-cloudflare.test.js` (8: adapter request and decoding, binary answers, 429 and 3036,
+  refusals, provider order, Cloudflare first, 429 fallback to Gemini, refund with the reset message, edits Gemini
+  only and refunded without it), `packages/ui/test/admin-tools.test.js` (+1),
+  `tests/unit/media-image-edit.test.js` (8: inlineData parts, adapter refusals, sources accepted and refused,
+  metering and refunds, the model's edit sources and `image` event), `tests/security/image-edit.test.js` (2: foreign,
+  missing and non-image ids refused before any write; another user's chat 404), `packages/ui/test/chat-tools.test.js`
+  (+2: the `/image` edit plan and editable-image helpers).
+### Config
+- `IMAGE_PROVIDER` (`cloudflare` | `gemini`, empty = auto), `CF_ACCOUNT_ID`, `CF_AI_TOKEN` (secret), `CF_IMAGE_MODEL`
+  (`@cf/black-forest-labs/flux-1-schnell`). API only; the cron env file does not need them.
+### Deploy
+- No migration: set the Cloudflare keys in Setup Node.js App, deploy and restart the API (image editing is on
+  wherever `IMAGE_MODEL` is set). `version.json` moves to 0.17.1 (versionCode 1701, both APKs), so publish the v0.17.1 release with this deploy
+  (`docs/runbooks/deploy.md`, Release notes: 0.17.1).
+
 ## [0.17.0] — 2026-11-19 · Tools and media (Blueprint step D, items 14–17)
 Every server-side tool now goes through one **tool registry** (schema, risk, plan access, credits, timeout, consent),
 and three member-facing tools arrive on top of it: **image generation** in chat (`/image …`, or the chat model's

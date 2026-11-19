@@ -6,7 +6,7 @@
 import { Colon } from '../../../../packages/ui/js/colon.js';
 import { chips, fail, head, num, skel } from '../components/page.js';
 import { gate } from '../core/auth.js';
-import { summary, toolView } from '../lib/tools-view.js';
+import { imageProviderText, summary, toolView } from '../lib/tools-view.js';
 
 var C = Colon, icon = C.icon, esc = C.esc, $ = C.$, $$ = C.$$;
 
@@ -45,7 +45,7 @@ function toolsPage(view) {
         + '</span></div>'; };
       $('#tl', view).innerHTML = '<div class="banner info">' + icon('info') + '<span>Billing mode: <b>'
         + esc(data.billing_mode || 'unknown') + '</b>. Call counts are this API worker\'s since it started.'
-        + '</span></div>'
+        + (data.image ? ' ' + esc(imageProviderText(data.image)) : '') + '</span></div>'
         + '<div class="grid cols-4" style="margin-top:12px">' + stat(n.total, 'Tools') + stat(n.on, 'On')
         + stat(n.off, 'Off') + stat(n.high, 'High risk') + '</div>'
         + '<div class="section-title">Registry</div>' + chips(FILTERS, filter, 'data-tf')

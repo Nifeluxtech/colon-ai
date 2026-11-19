@@ -23,8 +23,9 @@ function create({ registry: reg = registryLib.create(), engine, mode = 'shadow',
 
 function list() {
   const stats = router.stats();
-  return { billing_mode: config.billing.mode, tools: registry.describe().map((t) => ({ ...t,
-    stats: stats[t.name] || null })) };
+  // 0.17.1: image: the active image provider, its fallback and what edits use (Admin › Tools).
+  return { billing_mode: config.billing.mode, image: require('../media').providers(),
+    tools: registry.describe().map((t) => ({ ...t, stats: stats[t.name] || null })) };
 }
 
 module.exports = {

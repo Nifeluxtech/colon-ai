@@ -4,33 +4,83 @@
 // The reservation is settled once the image is saved, and refunded in full when the provider fails, refuses the
 // prompt, times out or the file cannot be saved. Images are stored like uploads (UPLOAD_DIR, chat_attachments) and
 // attached to an assistant message (origin 'image'), so the app shows them like any attachment.
-//   produce({ user, prompt, id, save, provider?, generate?, router? }) -> { result: { attachment, ... }, reserved }
-//   handlers.postConversationsByIdImages   POST /conversations/:id/images { prompt, message_id? }
+//   produce({ user, prompt, id, save, images?, provider?, generate?, router? }) -> { result: { attachment, ... },
+//     reserved }
+//   sources(userId, conv, ids, { query?, read? }) -> [{ id, mime, data, row, fresh }]   (0.17.1: images to edit)
+//   handlers.postConversationsByIdImages   POST /conversations/:id/images { prompt, message_id?, attachment_ids? }
+// 0.17.1 (image editing): attachment_ids names up to 3 of the user's own images (PNG, JPEG or WebP, under 7 MB each)
+// from this conversation (an upload, or an image Colon made here), or fresh uploads not yet sent anywhere. They go to
+// the image model with the instruction; the edit costs exactly what a new image does (same reserve/settle/refund).
 const config = require('../../config');
 const log = require('../../shared/logger');
 const image = require('./image');
+const route = require('./route');
 
 const EXT = { 'image/png': 'png', 'image/jpeg': 'jpg', 'image/webp': 'webp' };
+const bad = (message) => Object.assign(new Error(message), { status: 422, code: 'invalid', field: 'attachment_ids' });
+
+/** attachment_ids from a request body -> a clean, de-duplicated list ([] when absent). */
+function sourceIds(raw) {
+  if (raw == null || raw === '') return [];
+  if (!Array.isArray(raw)) throw bad('attachment_ids must be a list of image ids.');
+  const ids = [...new Set(raw.map((x) => String(x == null ? '' : x).trim()).filter(Boolean))];
+  if (ids.some((x) => x.length > 64 || !/^[A-Za-z0-9_-]+$/.test(x))) throw bad('One of the images is not valid.');
+  if (ids.length > image.EDIT_MAX) throw bad(`Edit up to ${image.EDIT_MAX} images at a time.`);
+  return ids;
+}
+
+/** The images to edit, checked: the user's own, in this conversation (or a fresh upload not yet in any chat), an
+ *  image of an editable type and size, and still on disk. A row of someone else's reads as missing (no leak). */
+async function sources(userId, conv, ids, o = {}) {
+  const list = sourceIds(ids);
+  if (!list.length) return [];
+  const query = o.query || ((sql, p) => require('../../db').query(sql, p));
+  const read = o.read || ((row) => require('fs').promises.readFile(require('../chat').files.fullPath(row.path)));
+  const rows = await query(`SELECT * FROM chat_attachments WHERE user_id = ? AND id IN (${list.map(() => '?')
+    .join(',')})`, [userId, ...list]);
+  const byId = Object.fromEntries((rows || []).filter((r) => String(r.user_id) === String(userId)).map((r) => [r.id,
+    r]));
+  const out = [];
+  for (const id of list) {
+    const r = byId[id];
+    const fresh = Boolean(r) && !r.conversation_id && !r.message_id;
+    if (!r || (!fresh && r.conversation_id !== conv.id)) {
+      throw bad('That image is no longer available in this chat. Attach it again.');
+    }
+    const mime = String(r.mime || '').toLowerCase();
+    if (r.kind !== 'image' || !EXT[mime]) throw bad(`“${r.name}” can’t be edited. Use a PNG, JPEG or WebP image.`);
+    if (Number(r.size) > image.EDIT_BYTES) throw bad(`“${r.name}” is too large to edit. Use an image under 7 MB.`);
+    const data = await Promise.resolve().then(() => read(r)).catch(() => null);
+    if (!data || !data.length) throw bad('That image is no longer available in this chat. Attach it again.');
+    if (data.length > image.EDIT_BYTES) throw bad(`“${r.name}” is too large to edit. Use an image under 7 MB.`);
+    out.push({ id, mime, data, row: r, fresh });
+  }
+  return out;
+}
 
 /** One image through the registry. save(img) stores it and returns { attachment }; it runs inside the call, so a
  *  save failure refunds too. */
 async function produce(o) {
   const router = o.router || require('../tools');
   const gen = o.generate || image.generate;
-  return router.invoke('generate_image', { prompt: o.prompt }, {
+  const images = (o.images || []).map((im) => ({ mime: im.mime, data: im.data }));
+  return router.invoke('generate_image', { prompt: o.prompt, ...(images.length ? { edit: true } : {}) }, {
     user: o.user, requestId: `image:${o.id}`,
     run: async (a, ctx) => {
-      const provider = o.provider || image.providerFrom(await require('../ai').dynamic.load().catch(() => null));
-      const img = await gen({ prompt: a.prompt, model: config.media.imageModel, provider, signal: ctx.signal,
-        fetch: o.fetch });
+      // 0.17.1: Cloudflare first for new images, Gemini as the fallback; edits Gemini only (route.js).
+      const img = await route.run({ prompt: a.prompt, images, media: config.media, gemini: gen,
+        cloudflare: o.cloudflare, signal: ctx.signal, fetch: o.fetch, log,
+        provider: async () => o.provider || image.providerFrom(await require('../ai').dynamic.load()
+          .catch(() => null)) });
       if (ctx.signal && ctx.signal.aborted) throw Object.assign(new Error('aborted'), { name: 'AbortError' });
       const saved = await o.save(img);
-      return { ...saved, provider: 'gemini', model: img.model };
+      return { ...saved, provider: img.provider, model: img.model };
     },
   });
 }
 
-const fileName = (prompt, mime) => `${String(prompt).replace(/[^\p{L}\p{N}]+/gu, '-').replace(/^-+|-+$/g, '')
+const fileName = (prompt, mime, edited) => `${edited ? 'edited-' : ''}${String(prompt)
+  .replace(/[^\p{L}\p{N}]+/gu, '-').replace(/^-+|-+$/g, '')
   .slice(0, 40).toLowerCase() || 'image'}.${EXT[mime] || 'png'}`;
 
 // What the chat shows when an image could not be made (the reply's error card).
@@ -38,17 +88,22 @@ function failure(e) {
   if (e.code === 'quota' || e.code === 'plan' || e.code === 'tool_off' || e.code === 'image_blocked'
     || e.code === 'login_required') return { code: e.code === 'image_blocked' ? 'image_blocked' : e.code,
     message: e.code === 'tool_off' ? 'Image generation isn’t switched on.' : e.message };
+  // 0.17.1: the free Cloudflare allocation is used up (and no fallback), or an edit without a Gemini image model.
+  if (e.code === 'image_daily_limit') return { code: 'image_daily_limit', message: 'Today’s free image limit is '
+    + 'reached. It resets at 00:00 UTC. Your image credit was given back.' };
+  if (e.code === 'image_edit_unavailable') return { code: 'image_edit_unavailable', message: e.message };
   if (e.code === 'tool_timeout') return { code: 'image_unavailable', message: 'The image took too long. '
     + 'Your image credit was given back. Try again.' };
   return { code: 'image_unavailable', message: 'Image generation isn’t available right now. Your image credit was '
     + 'given back.' };
 }
 
-// POST /conversations/:id/images { prompt, message_id? }
+// POST /conversations/:id/images { prompt, message_id?, attachment_ids? }
 // message_id: the user's message that asked for it (the chat model called generate_image); else the prompt becomes a
-// new user message. -> 201 { user_message, message, conversation }; a failed image is an assistant message with an
+// new user message (carrying the images being edited). attachment_ids (0.17.1): the images to edit (sources()).
+// -> 201 { user_message, message, conversation }; a failed image is an assistant message with an
 // error (refunded), so the thread keeps what happened.
-async function postConversationsByIdImages(req) {
+async function postConversationsByIdImages(req, _res, o = {}) {
   const chat = require('../chat');
   const safety = require('../safety');
   const v = require('../../shared/validate');
@@ -56,14 +111,21 @@ async function postConversationsByIdImages(req) {
   const prompt = String((req.body && req.body.prompt) || '').replace(/\s+/g, ' ').trim();
   if (prompt.length < 3) v.fail('prompt', 'Describe the image first.');
   if (prompt.length > 2000) v.fail('prompt', 'Keep the description under 2,000 characters.');
+  // 0.17.1: checked before anything is saved or reserved, so a wrong image costs nothing.
+  const srcs = await sources(req.user.id, conv, req.body.attachment_ids, o);
   let userMsg;
   if (req.body.message_id) {
     userMsg = await chat.store.getMessage(conv.id, String(req.body.message_id));
     if (!userMsg || userMsg.role !== 'user') throw chat.store.notFound('This message no longer exists.');
   } else {
-    userMsg = await chat.store.insertMessage(conv, { role: 'user', content: prompt, origin: 'image' });
+    userMsg = await chat.store.insertMessage(conv, { role: 'user', content: prompt, origin: 'image',
+      ...(srcs.length ? { attachments: srcs.map((s) => chat.store.attachmentOut(s.row)) } : {}) });
     await chat.store.touch(conv, { preview: prompt, title: conv.title === 'New chat' ? chat.store.titleFrom(prompt)
       : null });
+  }
+  // A fresh upload (sent with /image) now belongs to this chat and the message that carries it.
+  for (const s of srcs.filter((x) => x.fresh)) {
+    await chat.files.linkToMessage(req.user.id, s.id, userMsg.id, conv.id).catch(() => {});
   }
   const reply = async (m) => {
     const message = await chat.store.insertMessage(conv, { role: 'assistant', origin: 'image', ...m });
@@ -77,16 +139,18 @@ async function postConversationsByIdImages(req) {
   const id = chat.store.newId();
   let made;
   try {
-    made = await produce({ user: req.user, prompt, id, save: async (img) => {
-      const row = await chat.files.addGenerated(req.user.id, conv, { id, name: fileName(prompt, img.mime),
-        mime: img.mime, data: img.data, meta: { generated: true, model: img.model, prompt: prompt.slice(0, 300),
-          ...require('../extract').imageSize(img.data, img.mime) } });
+    made = await (o.produce || produce)({ user: req.user, prompt, id, images: srcs, save: async (img) => {
+      const row = await chat.files.addGenerated(req.user.id, conv, { id, name: fileName(prompt, img.mime,
+        srcs.length > 0), mime: img.mime, data: img.data, meta: { generated: true, provider: img.provider,
+        model: img.model, prompt: prompt.slice(0, 300), ...(srcs.length ? { edited_from: srcs.map((s) => s.id) } : {}),
+        ...require('../extract').imageSize(img.data, img.mime) } });
       return { attachment: chat.store.attachmentOut(row), text: img.text || '' };
     } });
   } catch (e) {
     if (e.code === 'invalid') throw e;
-    if (!['quota', 'plan', 'image_blocked', 'tool_off'].includes(e.code)) {
-      log.warn('image_failed', { code: e.code, http: e.http, wrongModel: e.wrongModel,
+    if (!['quota', 'plan', 'image_blocked', 'tool_off', 'image_daily_limit', 'image_edit_unavailable']
+      .includes(e.code)) {
+      log.warn('image_failed', { code: e.code, http: e.http, wrongModel: e.wrongModel, edit: srcs.length || undefined,
         detail: e.detail ? String(e.detail).slice(0, 160) : undefined });
     }
     return reply({ content: '', status: 'error', error: failure(e) });
@@ -98,5 +162,6 @@ async function postConversationsByIdImages(req) {
   return out;
 }
 
-module.exports = { produce, failure, fileName, image, enabled: () => Boolean(config.media.imageModel),
+module.exports = { produce, failure, fileName, sources, sourceIds, image,
+  enabled: () => route.order(config.media).length > 0, providers: () => route.status(config.media), route,
   handlers: { postConversationsByIdImages } };

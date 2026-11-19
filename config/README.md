@@ -210,8 +210,12 @@ the cron env file (`docs/runbooks/deploy.md`, Release notes 0.17.0).
 
 | Variable | Type | Required | Default | Purpose |
 |---|---|---|---|---|
-| `IMAGE_MODEL` | string | no | (empty) | Google AI Studio image-capable model id; empty = image generation off |
+| `IMAGE_MODEL` | string | no | (empty) | Google AI Studio image-capable model id: edits, and new images when Cloudflare is not set up or fails; empty = Gemini images and edits off (0.17.1: new images still work through Cloudflare when its keys are set) |
 | `IMAGE_TIMEOUT_MS` | number | no | `90000` | give up on one image after this long (credits refunded) |
+| `IMAGE_PROVIDER` | enum | no | (empty = auto) | `cloudflare` or `gemini`: first provider for new images (0.17.1); empty = `cloudflare` when `CF_ACCOUNT_ID` and `CF_AI_TOKEN` are set, else `gemini`. The other is the fallback; edits always use `gemini` |
+| `CF_ACCOUNT_ID` | string | no | (empty) | Cloudflare account id for Workers AI images (0.17.1) |
+| `CF_AI_TOKEN` | string (secret) | no | (empty) | Cloudflare API token with Workers AI access (0.17.1) |
+| `CF_IMAGE_MODEL` | string | no | `@cf/black-forest-labs/flux-1-schnell` | Workers AI text-to-image model (0.17.1) |
 | `BILLING_CREDITS_IMAGE` | number | no | `0` | Colon credits per image, on top of one of the plan's monthly image credits |
 | `BILLING_CREDITS_DEEP_RESEARCH` | number | no | `10` | credits per deep research task: reserved at start, settled with the report, refunded on failure or cancel |
 | `RESEARCH_MAX_QUERIES` | number | no | `4` | web searches per deep research task (one per job step; at most 8) |

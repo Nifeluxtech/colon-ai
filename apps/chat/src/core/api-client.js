@@ -133,8 +133,10 @@ function RemoteChatData() {
     // v0.17.0 (D15): an image in this chat. message_id: the user message whose turn asked for it (the stream's
     // `image` event); without it the prompt becomes a new user message. -> { user_message, message, conversation }
     isTemp: function (cid) { return temp.has(cid); },   // a temporary chat (history off): no images or research
+    // v0.17.1: attachmentIds = the images to edit (the user's own, in this chat).
     generateImage: function (cid, o) { return full(conv(cid) + '/images', { method: 'POST', body: { prompt: o.prompt,
-      message_id: o.messageId || undefined } }); },
+      message_id: o.messageId || undefined, attachment_ids: o.attachmentIds && o.attachmentIds.length
+        ? o.attachmentIds : undefined } }); },
     // v0.17.0 (D16): deep research. Without confirm the answer is 409 consent_required { credits }.
     startResearch: function (cid, o) { return full(conv(cid) + '/research', { method: 'POST', body: {
       question: o.question, confirm: o.confirm === true } }); },

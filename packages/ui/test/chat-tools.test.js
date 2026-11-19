@@ -76,3 +76,35 @@ test('code editor: load timeout falls back, a fast load wins', async () => {
   await assert.rejects(t.withTimeout(Promise.reject(new Error('blocked')), 12000, setT, clearT), /blocked/);
   assert.equal(cleared, 2);
 });
+
+// 0.17.1: image editing. /image with images attached (or one picked with Edit) edits them.
+test('image edit plan: /image with editable images is an edit; other files or bad prompts are refused', () => {
+  const png = { id: 'a1', kind: 'image', type: 'image/png', size: 100 };
+  const jpg = { id: 'a2', kind: 'image', type: 'image/jpeg', size: 100 };
+  assert.equal(t.imageEditPlan('hello', [png]), null);
+  assert.deepEqual(t.imageEditPlan('/image make the sky  orange', [png, jpg]), { prompt: 'make the sky orange',
+    attachmentIds: ['a1', 'a2'], edit: true, problem: null });
+  assert.deepEqual(t.imageEditPlan('/image a cat', []), { prompt: 'a cat', attachmentIds: [], edit: false,
+    problem: null });
+  assert.match(t.imageEditPlan('/image', [png]).problem, /Say what to change/);
+  assert.match(t.imageEditPlan('/image', []).problem, /Describe the image/);
+  assert.match(t.imageEditPlan('/image brighter', [png, { id: 'p', kind: 'pdf', type: 'application/pdf' }]).problem,
+    /Only PNG, JPEG or WebP/);
+  assert.match(t.imageEditPlan('/image brighter', [{ id: 'g', kind: 'image', type: 'image/gif' }]).problem,
+    /Only PNG, JPEG or WebP/);
+  assert.match(t.imageEditPlan('/image brighter', [{ id: 'h', kind: 'image', type: 'image/png',
+    size: 8 * 1048576 }]).problem, /under 7 MB/);
+  const four = ['1', '2', '3', '4'].map((id) => ({ id, kind: 'image', type: 'image/webp' }));
+  assert.match(t.imageEditPlan('/image brighter', four).problem, /up to 3/);
+});
+
+test('editable images and the waiting line', () => {
+  assert.deepEqual(t.editableIds([{ id: 'x', kind: 'image', type: 'image/webp' }, { id: 'y', kind: 'audio' },
+    { id: 'z', kind: 'image' }, null]), ['x', 'z']);
+  assert.deepEqual(t.editableIds(undefined), []);
+  assert.equal(t.isEditableImage({ kind: 'image', type: 'image/png' }), false);   // no id
+  assert.equal(t.imageStageText(true), 'Editing your image…');
+  assert.equal(t.imageStageText(false), 'Making your image…');
+  assert.deepEqual(t.EDIT_MIMES, ['image/png', 'image/jpeg', 'image/webp']);
+  assert.equal(t.EDIT_MAX, 3);
+});

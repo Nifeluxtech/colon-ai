@@ -73,7 +73,8 @@ var STAGES = {
   reading: function (n) { return 'Reading ' + n + ' source' + (n === 1 ? '' : 's') + '…'; },
   writing: function (n) { return n ? 'Writing from ' + n + ' source' + (n === 1 ? '' : 's') + '…' : 'Writing…'; },
   unavailable: function () { return 'Web search unavailable. Answering anyway…'; },
-  image: function () { return 'Making your image…'; }   // v0.17.0: POST /conversations/:id/images
+  image: function () { return 'Making your image…'; },   // v0.17.0: POST /conversations/:id/images
+  imageEdit: function () { return 'Editing your image…'; }   // v0.17.1: the same call with attachment_ids
 };
 function rafThrottle(fn) { var q = false; return function () { if (q) return; q = true; requestAnimationFrame(function (
   ) { q = false; fn(); }); }; }

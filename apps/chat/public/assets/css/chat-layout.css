@@ -224,3 +224,7 @@ body.cw-noscroll{overflow:hidden}
   tab-size:2}
 .cw-editor-note{margin:8px 0 0}
 .cw-ai-atts .cw-atts{justify-content:flex-start}.cw-ai-atts .cw-att-img img{object-fit:contain}
+.cw-edit-src{display:flex;align-items:center;gap:10px;margin:0 0 8px;padding:6px 8px;border:1px solid var(--line-2);
+  border-radius:12px;background:var(--glass-2);font-size:13px;color:var(--text-2)}
+.cw-edit-src[hidden]{display:none}.cw-edit-src img{width:40px;height:40px;border-radius:8px;object-fit:cover;flex:none}
+.cw-edit-src span{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis}

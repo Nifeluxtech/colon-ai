@@ -1,4 +1,5 @@
-/* Colon AI · chat tools (v0.17.0, Blueprint D15/D16): pure helpers for /image, deep research and the code editor.
+/* Colon AI · chat tools (v0.17.0, Blueprint D15/D16): pure helpers for /image (v0.17.1: image editing), deep
+   research and the code editor.
    No DOM and no imports, so Node unit tests load it directly (packages/ui/test/chat-tools.test.js). */
 
 /* ---------- /image <prompt> ---------- */
@@ -10,12 +11,42 @@ function parseImageCommand(text) {
   return { prompt: String(m[1] || '').replace(/\s+/g, ' ').trim() };
 }
 // What the composer says before calling the images endpoint; null = OK to send (the server checks again).
-function imagePromptProblem(prompt) {
+function imagePromptProblem(prompt, edit) {
   var p = String(prompt || '').trim();
-  if (p.length < 3) return 'Describe the image after /image, e.g. /image a sunset over Lagos lagoon.';
+  if (p.length < 3) return edit ? 'Say what to change after /image, e.g. /image make the sky orange.'
+    : 'Describe the image after /image, e.g. /image a sunset over Lagos lagoon.';
   if (p.length > 2000) return 'Keep the description under 2,000 characters.';
   return null;
 }
+
+/* ---------- Image editing (v0.17.1) ---------- */
+// The image types the server can edit (POST /conversations/:id/images attachment_ids), and how many at once.
+var EDIT_MIMES = ['image/png', 'image/jpeg', 'image/webp'];
+var EDIT_MAX = 3;
+var EDIT_MAX_BYTES = 7 * 1048576;
+function isEditableImage(a) {
+  return !!a && !!a.id && a.kind === 'image' && (!a.type || EDIT_MIMES.indexOf(String(a.type).toLowerCase()) > -1)
+    && !(Number(a.size) > EDIT_MAX_BYTES);
+}
+// The editable image ids on a message (a reply's generated image, or a user's upload).
+function editableIds(atts) {
+  return (atts || []).filter(isEditableImage).map(function (a) { return a.id; });
+}
+// "/image <prompt>" sent with files attached (or with an image picked by Edit) -> what to do:
+// null = not an image command; else { prompt, attachmentIds, edit, problem } (problem: say it, send nothing).
+function imageEditPlan(text, atts) {
+  var cmd = parseImageCommand(text);
+  if (!cmd) return null;
+  atts = atts || [];
+  var ids = editableIds(atts), edit = atts.length > 0;
+  var problem = edit && ids.length !== atts.length
+    ? 'Only PNG, JPEG or WebP images under 7 MB can be edited with /image. Remove the other files.'
+    : ids.length > EDIT_MAX ? 'Edit up to ' + EDIT_MAX + ' images at a time.'
+    : imagePromptProblem(cmd.prompt, edit);
+  return { prompt: cmd.prompt, attachmentIds: ids, edit: edit, problem: problem };
+}
+// The waiting line on the pending reply.
+function imageStageText(edit) { return edit ? 'Editing your image…' : 'Making your image…'; }
 
 /* ---------- Deep research ---------- */
 var TERMINAL = ['done', 'failed', 'cancelled'];
@@ -76,5 +107,6 @@ function withTimeout(p, ms, setT, clearT) {
   });
 }
 
-export { MONACO_BASE, MONACO_TIMEOUT_MS, MONACO_VERSION, consentBody, consentNeeded, creditText, imagePromptProblem,
-  isTerminal, monacoLanguage, monacoWorkerUrl, parseImageCommand, pollDelay, researchProgress, withTimeout };
+export { EDIT_MAX, EDIT_MIMES, MONACO_BASE, MONACO_TIMEOUT_MS, MONACO_VERSION, consentBody, consentNeeded, creditText,
+  editableIds, imageEditPlan, imagePromptProblem, imageStageText, isEditableImage, isTerminal, monacoLanguage,
+  monacoWorkerUrl, parseImageCommand, pollDelay, researchProgress, withTimeout };
