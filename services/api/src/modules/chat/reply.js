@@ -16,6 +16,7 @@ const calls = require('../ai').calls;
 const limits = require('../ai').limits;
 const sseLib = require('../ai').sse;
 const webSearch = require('../search');
+const tools = require('../tools');
 const billing = require('../billing');
 const safety = require('../safety');
 const { SECURITY_HEADERS } = require('../../shared/security-headers');
@@ -213,11 +214,12 @@ async function searchFirst(o, sse, signal, routing) {
   const started = Date.now();
   let r;
   try {
-    r = await impl.research({
-      text: o.searchText, previous: o.searchPrevious, language: o.language, signal, routing, db: o.db, cfg: o.searchCfg,
-      fetch: o.searchFetch, modelFetch: o.fetch, now: o.now,
-      onStatus: (s) => sse.send('status', s),
-    });
+    // 0.17.0 (D14): through the tool registry (web_research: guests allowed, no extra credits, timeout).
+    r = (await tools.invoke('web_research', { text: String(o.searchText || '').slice(0, 16000),
+      previous: String(o.searchPrevious || '').slice(0, 16000), language: o.language || undefined }, {
+      user: o.req ? o.req.user || null : undefined, impl, signal,
+      options: { routing, db: o.db, cfg: o.searchCfg, fetch: o.searchFetch, modelFetch: o.fetch, now: o.now,
+        onStatus: (s) => sse.send('status', s) } })).result;
   } catch (e) {
     if (e.name === 'AbortError' || (signal && signal.aborted)) { const a = new Error('aborted'); a.name = 'AbortError';
       a.partialText = ''; throw a; }

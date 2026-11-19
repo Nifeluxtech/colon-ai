@@ -41,7 +41,9 @@ async function tick(svc, o = {}) {
       if (left < 1000) break;
       const r = await svc.runBatch({ where: 'cron', limit: o.batchSize, budgetMs: left, ctx: o.ctx });
       run.claimed += r.claimed; run.done += r.done; run.failed += r.failed; run.dead += r.dead;
-      if (r.claimed < (Number(o.batchSize) || 10)) break;      // the queue is empty for now
+      // 0.17.0: keep going while jobs were due (a step-wise job queues its next step for now), until the queue is
+      // empty for now or the time limit is near.
+      if (!r.claimed) break;
     }
   } catch (e) {
     run.error = String((e && e.message) || e).slice(0, 300);

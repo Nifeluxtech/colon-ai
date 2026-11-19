@@ -1,6 +1,7 @@
 // GET /browser/fetch: the server reader (contract: docs/phase8-backend-contract.md §1). The route file runs the
 // switch/guest gate and the rate limits first; this handler only reads the page.
 const reader = require('../reader');
+const tools = require('../../tools');
 
 // Answers 501 not_enabled when BROWSER_READER=off and 401 for guests when BROWSER_READER_GUESTS=off.
 async function gate(req) {
@@ -13,8 +14,10 @@ async function gate(req) {
 async function getFetch(req) {
   const url = req.query.get('url');
   if (!url) throw reader.readerError(400, 'bad_url', 'Give an absolute http or https URL.');
-  const page = await reader.read(url, { userId: req.user ? req.user.id : null,
-    cacheKey: req.user ? `u${req.user.id}` : `ip:${req.ip}` });
+  // 0.17.0 (D14): through the tool registry (read_url). A bad address keeps the reader's own 400 bad_url.
+  if (url.length > 2048) throw reader.readerError(400, 'bad_url', 'That address is too long.');
+  const page = (await tools.invoke('read_url', { url }, { user: req.user || null,
+    cacheKey: req.user ? `u${req.user.id}` : `ip:${req.ip}` })).result;
   return [200, page, { 'Cache-Control': 'private, no-store' }];
 }
 

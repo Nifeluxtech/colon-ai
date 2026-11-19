@@ -12,31 +12,18 @@
 //   turn(args, ctx) -> generate()-shaped result, plus .action { event, data } and .drop (no chat text to keep)
 //   ctx: { state, userMsg, messages, generate, toolStream?, routing, now? }
 const ai = require('../ai');
+const tools = require('../tools');
 const state = require('./browser-state');
 const follow = require('./browse-follow');
 const config = require('../../config');
 const log = require('../../shared/logger');
 
-const DECLS = [
-  { name: 'browse', description: 'Do something on the web in this chat\'s own browser (Saga drives it: opens pages, '
-    + 'clicks, types, searches, signs in with saved logins, reads results). Use it whenever the user wants anything '
-    + 'done or checked on a website or online account, including follow-ups to the last browser task ("go to the '
-    + 'repo", "open it", "the second one", "check my orders", "in the logged in account"). It continues the same '
-    + 'browser session, on the page it is on.',
-  parameters: { type: 'object', required: ['task'], properties: {
-    task: { type: 'string', description: 'The complete task for Saga in plain words, self-contained: resolve "it", '
-      + '"that one", "the repo" and fragments from the conversation and the browser state (name the site, the '
-      + 'account, the exact item text and its address when you know them).' },
-    item: { type: 'integer', description: 'The number of the clickable item on screen the task is about, when it is '
-      + 'one of them (from the browser state\'s numbered list).' },
-    url: { type: 'string', description: 'An exact https address to open, when you know it.' } } } },
-  { name: 'read_page', description: 'Read the page open in this chat\'s browser now (a short summary and its '
-    + 'clickable items), to answer a question about it in the chat. Does not click or change anything.',
-  parameters: { type: 'object', properties: {} } },
-  { name: 'stop_browsing', description: 'Stop Saga and close this chat\'s browser (its sign-ins stay for next time). '
-    + 'Only when the user asks to stop, close or put away the browser.',
-  parameters: { type: 'object', properties: {} } },
-];
+// 0.17.0 (D14): the declarations come from the tool registry (modules/tools/catalogue.js), and every call the model
+// makes runs through tools.invoke() (plan access, consent, credits, timeout); the executors stay here.
+const BROWSER = ['browse', 'read_page', 'stop_browsing'];
+const DECLS = tools.declarations(BROWSER);
+/** This turn's tools: the browser's, plus generate_image while image generation is switched on (IMAGE_MODEL). */
+const declsNow = () => tools.declarations(tools.enabled('generate_image') ? [...BROWSER, 'generate_image'] : BROWSER);
 
 const RULES = [
   'Browser tools: you can use this chat\'s own web browser through the functions browse, read_page and '
@@ -53,6 +40,8 @@ const RULES = [
     + 'questions about the conversation); answer in the chat.',
   '- read_page only when the user asks about what the page shows and the state below does not already answer it.',
 ];
+const IMAGE_RULE = '- generate_image when the user asks you to draw, design or create a picture; write a detailed '
+  + 'prompt.';
 
 const BROWSE_SAY = 'On it in this chat’s browser.';
 
@@ -83,10 +72,11 @@ function fallback(ctx, attempts = []) {
 async function turn(args, ctx) {
   const s = ctx.state || null;
   const sys = { role: 'system', content: [ai.prompts.systemPrompt({ mode: args.mode, language: args.language,
-    name: args.name, web: Boolean(args.web), context: args.context }), RULES.join('\n'), state.block(s, ctx.guard)]
-    .filter(Boolean).join('\n\n') };
+    name: args.name, web: Boolean(args.web), context: args.context }), RULES.join('\n'),
+  tools.enabled('generate_image') ? IMAGE_RULE : '', state.block(s, ctx.guard)].filter(Boolean).join('\n\n') };
   const stream = ctx.toolStream || ai.toolCall.stream;
-  const base = { routing: args.routing, tools: DECLS, signal: args.signal, fetch: args.fetch, onDelta: args.onDelta,
+  const base = { routing: args.routing, tools: declsNow(), signal: args.signal, fetch: args.fetch,
+    onDelta: args.onDelta,
     timeouts: { ...config.chat, ...(args.mode === 'developer' && config.chat.developerMaxTokens
       ? { maxTokens: config.chat.developerMaxTokens } : {}), ...(args.timeouts || {}) } };
   let r;
@@ -104,19 +94,12 @@ async function turn(args, ctx) {
   for (let round = 0; round < 2; round++) {
     const call = r.calls[0];
     if (!call) break;
-    if (call.name === 'browse') {
-      return { ...r, attempts, action: browseAction(goalOf(call.args, s), ctx.userMsg, 'tool'),
-        text: r.text, drop: !r.text.trim() };
-    }
-    if (call.name === 'stop_browsing') {
-      const said = r.text.trim() ? '' : 'Closed this chat’s browser.';
-      if (said && args.onDelta) args.onDelta(said);
-      return { ...r, attempts, action: { event: 'browser', data: { op: 'close', message_id: ctx.userMsg.id } },
-        text: r.text + said };
-    }
+    const done = await callTool(call, r, s, ctx, args);
+    if (done) return { ...r, attempts, ...done, text: done.text != null ? done.text : r.text };
     // read_page: the summary goes back as the function's answer; the model then replies (or browses).
+    const page = await use(ctx, 'read_page', {}, () => readResult(s));
     const back = [{ role: 'assistant', parts: [...(r.text ? [{ text: r.text }] : []), ...r.calls.map((c) => c.part)] },
-      { role: 'user', parts: [{ functionResponse: { name: 'read_page', response: readResult(s) } }] }];
+      { role: 'user', parts: [{ functionResponse: { name: 'read_page', response: page } }] }];
     const next = await stream({ ...base, messages: [sys, ...args.messages, ...back] });
     attempts = attempts.concat(next.attempts);
     r = { ...next, text: r.text + next.text };
@@ -124,4 +107,39 @@ async function turn(args, ctx) {
   return { ...r, attempts };
 }
 
-module.exports = { turn, goalOf, fallback, readResult, DECLS, RULES, BROWSE_SAY };
+// One function call through the tool registry. A refusal (plan, consent…) becomes a short line in the chat.
+const use = (ctx, name, a, run) => tools.invoke(name, a, { user: ctx.user, run }).then((x) => x.result);
+
+/** -> the turn's ending ({ action, text?, drop }) for browse / stop_browsing / generate_image, or null (read_page). */
+async function callTool(call, r, s, ctx, args) {
+  const say = (line) => { if (args.onDelta) args.onDelta(line); return { text: r.text + line, drop: false }; };
+  try {
+    if (call.name === 'browse') {
+      const c = call.args || {};
+      const a = { task: String(c.task || '').trim().slice(0, 4000) || 'Open it',
+        item: Number.isInteger(Number(c.item)) && c.item !== '' && c.item != null ? Number(c.item) : undefined,
+        url: typeof c.url === 'string' ? c.url.slice(0, 2048) : undefined };
+      const action = await use(ctx, 'browse', a, (clean) => browseAction(goalOf(clean, s), ctx.userMsg, 'tool'));
+      return { action, drop: !r.text.trim() };
+    }
+    if (call.name === 'stop_browsing') {
+      const action = await use(ctx, 'stop_browsing', {}, () => ({ event: 'browser', data: { op: 'close',
+        message_id: ctx.userMsg.id } }));
+      return { action, ...(r.text.trim() ? {} : say('Closed this chat’s browser.')) };
+    }
+    if (call.name === 'generate_image') {
+      // The image itself is made by POST /conversations/:id/images (modules/media), through the registry there:
+      // the app gets the prompt and asks for it, so credits are reserved once, by that call.
+      const a = tools.validate(tools.registry.get('generate_image').schema, call.args);
+      return { action: { event: 'image', data: { prompt: a.prompt, message_id: ctx.userMsg.id } },
+        drop: !r.text.trim() };
+    }
+    return null;
+  } catch (e) {
+    if (e.name === 'AbortError' || !e.status || e.status >= 500) throw e;
+    log.warn('chat_tool_refused', { tool: call.name, code: e.code });
+    return { ...say((r.text ? '\n\n' : '') + e.message), action: undefined };
+  }
+}
+
+module.exports = { turn, goalOf, fallback, readResult, DECLS, RULES, BROWSE_SAY, declsNow };

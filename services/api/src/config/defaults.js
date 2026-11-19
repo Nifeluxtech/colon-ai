@@ -44,6 +44,10 @@ const SCHEMA = [
   num('BILLING_CREDITS_CHAT', 1, 'credits per chat reply (General, Study, Developer)'),
   num('BILLING_CREDITS_RESEARCH', 3, 'credits per Research mode reply (web search + reading)'),
   num('BILLING_CREDITS_SAGA', 2, 'credits per Saga browser task (not charged yet)'),
+  num('BILLING_CREDITS_IMAGE', 0, 'Colon credits per generated image, on top of one of the plan\'s monthly image '
+    + 'credits (v0.17.0)'),
+  num('BILLING_CREDITS_DEEP_RESEARCH', 10, 'credits per deep research task (background job), reserved at start, '
+    + 'refunded if it fails (v0.17.0)'),
   // Costs (v0.14.0, Blueprint A6): AI spend in kobo, shown in Admin › Costs. Display only, never blocks.
   str('AI_MODEL_COSTS', '', 'JSON prices in kobo per 1M tokens, {"model" | "provider:model" | "provider:*": '
     + '[input, output]}; empty = every model costs 0 (free tiers); tokens are always recorded'),
@@ -65,6 +69,14 @@ const SCHEMA = [
   oneOf('JOBS_INPROCESS', ['off', 'on'], 'off', 'on: the API worker also runs the cron work every interval '
     + '(fallback while cPanel cron is not set up; Passenger may idle it)'),
   secret('CRON_SECRET', 'X-Cron-Secret for POST /internal/cron/run (secondary trigger); empty = the route is off'),
+  // Tools and media (v0.17.0, Blueprint D14-D17): modules/tools, modules/media, modules/research
+  str('IMAGE_MODEL', '', 'Google AI Studio image-capable model id for image generation (needs GEMINI_API_KEY); '
+    + 'empty = image generation off'),
+  num('IMAGE_TIMEOUT_MS', 90000, 'give up on one image after this long (credits are refunded)'),
+  num('RESEARCH_MAX_QUERIES', 4, 'web searches one deep research task runs (one per job step)'),
+  num('RESEARCH_MAX_PAGES', 8, 'pages one deep research task reads (a few per job step)'),
+  num('RESEARCH_STEP_MS', 35000, 'longest single deep research step (the report is written in one); keep it under '
+    + 'JOBS_TIME_LIMIT_MS'),
   // Payments (v0.13.0): Korapay Checkout Redirect for plan upgrades (modules/payments). Off until the key is set.
   secret('KORAPAY_SECRET_KEY', 'Korapay secret key (sk_test_… or sk_live_…); payments are off while empty'),
   url('KORAPAY_API_URL', 'https://api.korapay.com/merchant/api/v1', 'Korapay merchant API base URL'),

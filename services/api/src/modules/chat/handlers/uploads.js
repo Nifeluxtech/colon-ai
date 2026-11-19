@@ -9,6 +9,7 @@ const files = require('../files');
 const extract = require('../../extract');
 const developer = require('../../developer');
 const projects = require('../../projects');
+const tools = require('../../tools');
 const { SECURITY_HEADERS } = require('../../../shared/security-headers');
 const { readMultipartFile } = require('../../../shared/multipart');
 
@@ -16,8 +17,13 @@ const MAX_UPLOAD = 20 * 1048576;
 
 // Text and metadata kept for an upload. A .zip project (Developer mode) is unpacked safely once, here, into a stored
 // snapshot (modules/developer): traversal and zip bombs are refused, ignored folders, binaries and secrets skipped.
-function readUpload(data, s, name) {
+function readFile(data, s, name) {
   return s.format === 'zip' ? developer.fromZip(data, name) : extract.extract(data, s);
+}
+// 0.17.0 (D14): through the tool registry (extract_file), with the user (null for guests) and its timeout.
+async function readUpload(data, s, name, user) {
+  return (await tools.invoke('extract_file', { name: String(name || 'file').slice(0, 255) }, { user, data, sniff: s,
+    read: readFile })).result;
 }
 
 // POST /uploads
@@ -34,7 +40,7 @@ const postUploads = async (req) => {
   }
   // v0.15.0: a file saved to one of the user's projects (its text goes into every chat in that project).
   const projectId = fields.project_id ? (await projects.owned(req.user.id, String(fields.project_id))).id : null;
-  const { text, meta } = readUpload(file.data, s, file.name);
+  const { text, meta } = await readUpload(file.data, s, file.name, req.user);
   if (s.kind === 'audio' && fields.duration) meta.duration = Math.max(0, Math.min(3600, Math.round(Number(
     fields.duration) || 0))) || undefined;
   const id = store.newId();
@@ -88,7 +94,7 @@ const postChatGuestExtract = async (req) => {
   const s = extract.validate(file.data, file.name, { fromRecorder: false });
   if (s.kind === 'image') throw Object.assign(new Error('Log in to ask Colon about images.'), { status: 422,
     code: 'login_required' });
-  let { text, meta } = readUpload(file.data, s, file.name);
+  let { text, meta } = await readUpload(file.data, s, file.name, null);
   // Guests keep files in the tab: a project archive comes back as a plain rendering (tree + files, budgeted).
   if (s.format === 'zip') text = developer.render(developer.parseSnapshot(text), { budget: 20000 });
   return [200, { attachment: { id: `g-${store.newId()}`, name: file.name, type: s.mime, size: file.data.length,

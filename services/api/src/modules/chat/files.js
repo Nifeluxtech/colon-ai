@@ -73,4 +73,19 @@ async function forModel(userId, attachmentLists, latestIndex) {
   return out;
 }
 
-module.exports = { save, remove, deleteWhere, fullPath, forModel, dataUrl };
+// 0.17.0 (D15): a file Colon made (a generated image), stored like an upload and attached to an assistant message.
+// -> the chat_attachments row
+async function addGenerated(userId, conv, { id, name, mime, kind = 'image', data, meta = {} }) {
+  const rel = await save(userId, id, data);
+  try {
+    await db.query(('INSERT INTO chat_attachments (id, user_id, project_id, conversation_id, name, mime, size, kind, '
+      + 'path, text, meta, created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?, UTC_TIMESTAMP(3))'), [id, userId,
+      conv.project_id || null, conv.id, String(name).slice(0, 190), mime, data.length, kind, rel, null,
+      JSON.stringify(meta)]);
+  } catch (e) { await remove([{ path: rel }]); throw e; }
+  return db.one('SELECT * FROM chat_attachments WHERE id = ?', [id]);
+}
+const linkToMessage = (userId, id, messageId) => db.query(
+  'UPDATE chat_attachments SET message_id = ? WHERE id = ? AND user_id = ?', [messageId, id, userId]);
+
+module.exports = { save, remove, deleteWhere, fullPath, forModel, dataUrl, addGenerated, linkToMessage };

@@ -100,8 +100,11 @@ function create({ store, registry, cfg, now = () => new Date(), log = require('.
         out.released = (out.released || 0) + 1; continue;
       }
       try {
-        const ms = Math.max(1000, Math.min(left, def.timeoutMs || c().leaseMs || 300000));
-        await withTimeout(Promise.resolve().then(() => def.run(job, { ...(o.ctx || {}), now: at(), log })), ms);
+        const own = typeof def.timeoutMs === 'function' ? def.timeoutMs() : def.timeoutMs;
+        const ms = Math.max(1000, Math.min(left, own || c().leaseMs || 300000));
+        // 0.17.0: deadline = when this batch's budget ends, so a step-wise job can leave a long step to the next run.
+        await withTimeout(Promise.resolve().then(() => def.run(job, { ...(o.ctx || {}), now: at(), log,
+          deadline: start + budget })), ms);
         if (await complete(job)) out.done++; else out.cancelled++;
       } catch (e) {
         const r = await fail(job, e);

@@ -77,7 +77,8 @@ async function streamFor(req, res, conv, userMsg, { version = 1, onOpen, route =
   const all = await store.messages(conv.id);
   const state = await browserState.load({ userId: req.user.id, conversationId: conv.id,
     page: browserState.fromClient(req.body && req.body.browser) }).catch(() => null);
-  const generate = (args) => browserTools.turn(args, { state, userMsg, messages: all, guard, generate: ai.generate });
+  const generate = (args) => browserTools.turn(args, { state, userMsg, messages: all, guard, generate: ai.generate,
+    user: req.user });
   // v0.15.0: the chat's project (instructions, files) and the user's memories, when they turned memory on.
   const more = await extra.build({ user: req.user, conv, text: userMsg.content, guard });
   return historyFor(req, conv, userMsg.id).then(history => {

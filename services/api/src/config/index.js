@@ -66,6 +66,8 @@ module.exports = {
       chat: Number(env('BILLING_CREDITS_CHAT')),
       research: Number(env('BILLING_CREDITS_RESEARCH')),
       saga: Number(env('BILLING_CREDITS_SAGA')),
+      image: Math.max(0, Number(env('BILLING_CREDITS_IMAGE'))),               // v0.17.0
+      deepResearch: Math.max(0, Number(env('BILLING_CREDITS_DEEP_RESEARCH'))),
     },
     // v0.14.0 (A6): per-model prices (modules/ai/costs.js) and the daily spend alert. Display only.
     modelCosts: env('AI_MODEL_COSTS'),
@@ -87,6 +89,16 @@ module.exports = {
     keepDays: Math.max(1, Number(env('JOBS_KEEP_DAYS'))),
     inprocess: env('JOBS_INPROCESS') === 'on',
     cronSecret: env('CRON_SECRET'),
+  },
+  // v0.17.0 tools and media (modules/tools, modules/media, modules/research): image generation and deep research.
+  media: {
+    imageModel: String(env('IMAGE_MODEL') || '').trim(),   // empty = image generation off
+    imageTimeoutMs: Math.max(5000, Number(env('IMAGE_TIMEOUT_MS'))),
+  },
+  research: {
+    maxQueries: Math.min(8, Math.max(1, Number(env('RESEARCH_MAX_QUERIES')))),
+    maxPages: Math.min(20, Math.max(1, Number(env('RESEARCH_MAX_PAGES')))),
+    stepMs: Math.max(10000, Number(env('RESEARCH_STEP_MS'))),
   },
   // v0.13.0 payments (modules/payments): Korapay Checkout Redirect. Off while KORAPAY_SECRET_KEY is empty.
   payments: {
