@@ -150,7 +150,8 @@ Merge it with anything cPanel already wrote there (HTTPS redirects, PHP handlers
 - **Cron job** (cPanel › Cron Jobs › Add New Cron Job; Common Settings "Once Per Five Minutes", i.e. `*/5 * * * *`;
   use the same number of minutes as `JOBS_CRON_INTERVAL_MIN`). The cPanel Cron Jobs form rejects the long
   `--env-file=…` option, so the command below lives in a wrapper script, `/home/apparatu/colon-cron.sh` (over SSH,
-  `chmod 700`), and the cron job's command only runs that script (e.g. `/bin/sh /home/apparatu/colon-cron.sh`).
+  `chmod 700`), and the cron job's command is just `/home/apparatu/colon-cron.sh` (the form also rejects an
+  absolute interpreter such as `/bin/sh …`).
   What the script runs, on one line:
   ```sh
   cd /home/apparatu/repositories/colon-ai/services/api && /home/apparatu/nodevenv/repositories/colon-ai/services/api/24/bin/node --env-file=/home/apparatu/.colon-cron.env scripts/cron.js --quiet >> /home/apparatu/logs/colon-cron.log 2>&1
