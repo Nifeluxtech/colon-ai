@@ -143,8 +143,6 @@ object ShellWeb {
     }
 
     private class Chrome(private val a: MainActivity) : WebChromeClient() {
-        override fun onProgressChanged(view: WebView, newProgress: Int) = a.onProgress(newProgress)
-
         override fun onShowFileChooser(view: WebView, callback: ValueCallback<Array<Uri>>,
                                        params: FileChooserParams): Boolean = a.fileChooser.show(callback, params)
 

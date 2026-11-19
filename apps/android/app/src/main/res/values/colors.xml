@@ -5,6 +5,9 @@
     <color name="colon_dark">#080F24</color>
     <!-- Adaptive launcher icon background (Colon Browser overrides it in src/colonbrowser). -->
     <color name="launcher_bg">#080F24</color>
+    <!-- Splash footer (view_splash.xml): always on colon_dark, so one pair for both themes. -->
+    <color name="splash_from">#8190B8</color>
+    <color name="splash_brand">#F1F5FF</color>
     <color name="colon_cyan">#38BDF8</color>
     <color name="colon_cyan_dark">#0E7490</color>
 

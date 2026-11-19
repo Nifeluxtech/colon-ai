@@ -2,6 +2,9 @@
 <resources>
     <string name="app_name">Colon AI</string>
     <string name="logo_description">Colon AI</string>
+    <!-- First-load splash footer (view_splash.xml), like WhatsApp's "from Meta". -->
+    <string name="splash_from">from</string>
+    <string name="splash_brand" translatable="false">Nifelux</string>
 
     <!-- Shell -->
     <string name="offline_title">You\'re offline</string>

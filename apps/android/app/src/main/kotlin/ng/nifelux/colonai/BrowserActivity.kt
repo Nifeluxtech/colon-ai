@@ -70,11 +70,14 @@ class BrowserActivity : AppCompatActivity(), TabManager.Host, BrowserHost {
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
-        if (BuildConfig.IS_BROWSER_APP) installSplashScreen()
+        val splash = if (BuildConfig.IS_BROWSER_APP) installSplashScreen() else null
         super.onCreate(savedInstanceState)
         enableEdgeToEdge(SystemBarStyle.auto(Color.TRANSPARENT, Color.TRANSPARENT),
             SystemBarStyle.auto(Color.TRANSPARENT, Color.TRANSPARENT))
         setContentView(R.layout.activity_browser)
+        // Launcher start: the "from Nifelux" splash footer, briefly (the home page is local and paints at once).
+        splash?.let { SplashOverlay.start(this, it, savedInstanceState == null && intent?.action == Intent.ACTION_MAIN,
+            1000) }
         val root = findViewById<View>(R.id.browser_root)
         ViewCompat.setOnApplyWindowInsetsListener(root) { v, insets ->
             val bars = insets.getInsets(WindowInsetsCompat.Type.systemBars() or WindowInsetsCompat.Type.displayCutout())
@@ -332,7 +335,8 @@ class BrowserActivity : AppCompatActivity(), TabManager.Host, BrowserHost {
         back.alpha = if (back.isEnabled) 1f else .38f
         forward.alpha = if (forward.isEnabled) 1f else .38f
         val loading = tab != null && tab.progress in 0..99
-        progress.visibility = if (loading) View.VISIBLE else View.GONE
+        // The page load line is for web pages; the local home page (the app's first screen) never shows it.
+        progress.visibility = if (loading && tab?.url != UrlRules.HOME) View.VISIBLE else View.GONE
         progress.progress = tab?.progress ?: 100
         reload.setImageResource(if (loading) R.drawable.ic_close else R.drawable.ic_refresh)
         reload.contentDescription = getString(if (loading) R.string.stop_loading else R.string.reload)
