@@ -94,6 +94,10 @@ module.exports = {
   media: {
     imageModel: String(env('IMAGE_MODEL') || '').trim(),   // empty = image generation off
     imageTimeoutMs: Math.max(5000, Number(env('IMAGE_TIMEOUT_MS'))),
+    // v0.17.1: '' = automatic (cloudflare when its account and token are set); see modules/media/route.js
+    imageProvider: String(env('IMAGE_PROVIDER') || '').trim(),
+    cf: { accountId: String(env('CF_ACCOUNT_ID') || '').trim(), token: String(env('CF_AI_TOKEN') || '').trim(),
+      model: String(env('CF_IMAGE_MODEL') || '').trim() || '@cf/black-forest-labs/flux-1-schnell' },
   },
   research: {
     maxQueries: Math.min(8, Math.max(1, Number(env('RESEARCH_MAX_QUERIES')))),

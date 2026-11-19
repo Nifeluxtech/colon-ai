@@ -62,7 +62,8 @@ function registerAll(reg) {
   reg.register({ name: 'generate_image', risk: 'medium', model: true, entitlement: 'image_credits', unit: 'images',
     timeoutMs: Math.max(5000, Number(config.media.imageTimeoutMs) || 60000),
     credits: () => config.billing.credits.image,
-    enabled: () => Boolean(String(config.media.imageModel || '').trim()),
+    // 0.17.1: on with any image provider (Cloudflare CF_* keys, or Gemini IMAGE_MODEL); media/route.js decides.
+    enabled: () => require('../media').enabled(),
     description: 'Create a picture from a description (an illustration, a poster idea, a diagram-like drawing), or '
       + 'edit an image: one the user attached to their latest message, or the last image in this chat. Use it when '
       + 'the user asks you to draw, generate, design or make an image, or to change, edit, restyle or add to one.',
@@ -70,9 +71,10 @@ function registerAll(reg) {
       + 'detail (subject, style, colours, text on it). For an edit: exactly what to change and what to keep.', 2000,
     { minLength: 3 }), edit: { type: 'boolean', description: 'true when the user wants an existing image changed '
       + '(the one attached to their latest message, else the last image in this chat), not a new one.' } } },
-    note: 'One image credit per image (the plan\'s image_credits), plus BILLING_CREDITS_IMAGE Colon credits. Off '
-      + 'while IMAGE_MODEL is empty; needs the Google AI Studio key. Refunded when no image comes back. An edit '
-      + '(0.17.1) costs the same as a new image.' });
+    note: 'One image credit per image (the plan\'s image_credits), plus BILLING_CREDITS_IMAGE Colon credits. New '
+      + 'images: Cloudflare Workers AI (CF_ACCOUNT_ID, CF_AI_TOKEN; free daily allocation) first, Gemini '
+      + '(IMAGE_MODEL) as the fallback. Edits (0.17.1, same cost): Gemini only. Off with neither. Refunded when no '
+      + 'image comes back.' });
   // ---- Deep research (modules/research): a background job ----
   reg.register({ name: 'deep_research', risk: 'medium', consent: true, defer: true, entitlement: 'research_tasks',
     unit: 'deep research tasks', timeoutMs: 15000, credits: () => config.billing.credits.deepResearch,

@@ -5,7 +5,9 @@ Members can now **change an image** instead of only making new ones: attach a ph
 change>`, ask in their own words ("make the sky orange") with the image attached or after an image in the chat, or
 tap **Edit** on an image Colon made. The source images go to the same `IMAGE_MODEL` as inline image parts before the
 instruction. An edit costs exactly what a new image does (one plan image credit plus `BILLING_CREDITS_IMAGE`,
-reserved, settled once saved, refunded on any failure). No migration, no new environment keys.
+reserved, settled once saved, refunded on any failure). New images now come **free from Cloudflare Workers AI**
+(`@cf/black-forest-labs/flux-1-schnell`) when its keys are set, with Gemini (`IMAGE_MODEL`) as the fallback. No
+migration; four new optional environment keys.
 ### Added
 - **`POST /conversations/:id/images`** takes **`attachment_ids`** (optional, up to 3): the user's own images in that
   conversation (an upload or an image Colon made there), or a fresh upload not yet sent in any chat (it then joins
@@ -24,13 +26,33 @@ reserved, settled once saved, refunded on any failure). No migration, no new env
 - **Chat app**: `/image <prompt>` sent with images attached is an edit of them (other file types: a toast, nothing
   sent); **Edit** on an image reply pre-fills `/image ` with that image as the source (a small "Editing …" strip above
   the composer, with Cancel; it is dropped when you switch chats); the pending reply says **"Editing your image…"**.
-- Tests: `tests/unit/media-image-edit.test.js` (8: inlineData parts, adapter refusals, sources accepted and refused,
+- **Cloudflare Workers AI image provider** (`modules/media/cloudflare.js`): `POST
+  https://api.cloudflare.com/client/v4/accounts/{CF_ACCOUNT_ID}/ai/run/{CF_IMAGE_MODEL}` with `{ prompt, steps }`
+  (4 steps, at most 8), Bearer `CF_AI_TOKEN`; reads the base64 `result.image` (or raw `image/png` / `image/jpeg`
+  bytes) and checks the bytes really are an image. HTTP 429 or error 3036 (the daily free 10,000-neuron allocation
+  is used up) is `image_daily_limit`.
+- **Provider routing** (`modules/media/route.js`): new images go to the first provider (`IMAGE_PROVIDER`; empty =
+  Cloudflare when `CF_ACCOUNT_ID` and `CF_AI_TOKEN` are set, else Gemini) and fall back to the other on any error
+  except a refused prompt; one credit either way. Edits always use Gemini (flux-1-schnell is text-to-image only);
+  without `IMAGE_MODEL` an edit fails with `image_edit_unavailable` ("Editing images needs a paid image model…") and
+  is refunded. When the daily limit is hit and Gemini cannot make it either, the member sees "Today’s free image
+  limit is reached. It resets at 00:00 UTC. Your image credit was given back." Generated images record their
+  `provider` in the attachment metadata. `generate_image` is on with either provider.
+- **Admin › Tools** / `GET /admin/tools`: new `image { provider, fallback, edits, cloudflare_model, gemini_model }`,
+  shown in the page banner ("Image provider: Cloudflare Workers AI, falling back to Gemini. Edits: Gemini.").
+- Tests: `tests/unit/media-cloudflare.test.js` (8: adapter request and decoding, binary answers, 429 and 3036,
+  refusals, provider order, Cloudflare first, 429 fallback to Gemini, refund with the reset message, edits Gemini
+  only and refunded without it), `packages/ui/test/admin-tools.test.js` (+1),
+  `tests/unit/media-image-edit.test.js` (8: inlineData parts, adapter refusals, sources accepted and refused,
   metering and refunds, the model's edit sources and `image` event), `tests/security/image-edit.test.js` (2: foreign,
   missing and non-image ids refused before any write; another user's chat 404), `packages/ui/test/chat-tools.test.js`
   (+2: the `/image` edit plan and editable-image helpers).
+### Config
+- `IMAGE_PROVIDER` (`cloudflare` | `gemini`, empty = auto), `CF_ACCOUNT_ID`, `CF_AI_TOKEN` (secret), `CF_IMAGE_MODEL`
+  (`@cf/black-forest-labs/flux-1-schnell`). API only; the cron env file does not need them.
 ### Deploy
-- Code only: deploy and restart the API (no migration, no new keys; image editing is on wherever `IMAGE_MODEL` is
-  set). `version.json` moves to 0.17.1 (versionCode 1701, both APKs), so publish the v0.17.1 release with this deploy
+- No migration: set the Cloudflare keys in Setup Node.js App, deploy and restart the API (image editing is on
+  wherever `IMAGE_MODEL` is set). `version.json` moves to 0.17.1 (versionCode 1701, both APKs), so publish the v0.17.1 release with this deploy
   (`docs/runbooks/deploy.md`, Release notes: 0.17.1).
 
 ## [0.17.0] — 2026-11-19 · Tools and media (Blueprint step D, items 14–17)

@@ -76,12 +76,25 @@ Merge it with anything cPanel already wrote there (HTTPS redirects, PHP handlers
 
 ## Release notes: 0.17.1
 
-- **Image editing in chat.** Code only: **no migration and no new environment keys**. Deploy, then restart the API
-  (Setup Node.js App › Restart). Editing uses the same `IMAGE_MODEL` and Google AI Studio key as image generation, so
-  it is on wherever images are on (`IMAGE_MODEL` must be an image model that accepts input images, e.g. the
-  `gemini-3.1-flash-image` id already set). An edit costs one image credit plus `BILLING_CREDITS_IMAGE`, refunded on
-  failure, exactly like a new image.
-- **Check**: in a chat, attach a PNG or JPEG and send `/image make the sky orange` → "Editing your image…", then an
+- **Image editing in chat, and Cloudflare Workers AI for new images.** **No migration.** Editing uses the same
+  `IMAGE_MODEL` and Google AI Studio key as before (it must accept input images, e.g. the `gemini-3.1-flash-image`
+  id already set). An edit costs one image credit plus `BILLING_CREDITS_IMAGE`, refunded on failure, like a new image.
+- **Environment** (Setup Node.js App, API only; the cron env file does **not** need these, no job makes images):
+  - `CF_ACCOUNT_ID`: the Cloudflare account id (dashboard › Workers AI, or the URL after `dash.cloudflare.com/`).
+  - `CF_AI_TOKEN`: a Cloudflare API token with **Workers AI: Read** (dashboard › My Profile › API Tokens › Create ›
+    "Workers AI" template). Secret.
+  - `CF_IMAGE_MODEL` (optional, default `@cf/black-forest-labs/flux-1-schnell`).
+  - `IMAGE_PROVIDER` (optional): empty = Cloudflare first when the two `CF_` keys are set, else Gemini; `gemini`
+    puts Gemini first. The other provider is always the fallback.
+  - Keep `IMAGE_MODEL` (Gemini) set: it is the fallback for new images and the only provider for edits. Without it,
+    new images still work through Cloudflare, but edits say "Editing images needs a paid image model" (refunded).
+  - Cloudflare's free allocation is 10,000 neurons a day (resets 00:00 UTC); when it is used up (HTTP 429, error
+    3036) new images go to Gemini, or, without it, members see "Today’s free image limit is reached. It resets at
+    00:00 UTC." and the credit is given back.
+- Restart the API after setting them (Setup Node.js App › Restart).
+- **Check**: Admin › Tools banner reads "Image provider: Cloudflare Workers AI, falling back to Gemini. Edits:
+  Gemini."; `/image a red bus in Lagos` returns an image (its attachment metadata has `provider: cloudflare`). Then
+  in a chat, attach a PNG or JPEG and send `/image make the sky orange` → "Editing your image…", then an
   `edited-…` image reply; tap **Edit** under that reply and send `/image add a red bus` → a second edit; ask in plain
   words with a photo attached ("remove the background") → the chat model edits it. Attaching a PDF with `/image`
   gives a toast and nothing is charged.

@@ -14,6 +14,7 @@
 const config = require('../../config');
 const log = require('../../shared/logger');
 const image = require('./image');
+const route = require('./route');
 
 const EXT = { 'image/png': 'png', 'image/jpeg': 'jpg', 'image/webp': 'webp' };
 const bad = (message) => Object.assign(new Error(message), { status: 422, code: 'invalid', field: 'attachment_ids' });
@@ -66,12 +67,14 @@ async function produce(o) {
   return router.invoke('generate_image', { prompt: o.prompt, ...(images.length ? { edit: true } : {}) }, {
     user: o.user, requestId: `image:${o.id}`,
     run: async (a, ctx) => {
-      const provider = o.provider || image.providerFrom(await require('../ai').dynamic.load().catch(() => null));
-      const img = await gen({ prompt: a.prompt, model: config.media.imageModel, provider, images, signal: ctx.signal,
-        fetch: o.fetch });
+      // 0.17.1: Cloudflare first for new images, Gemini as the fallback; edits Gemini only (route.js).
+      const img = await route.run({ prompt: a.prompt, images, media: config.media, gemini: gen,
+        cloudflare: o.cloudflare, signal: ctx.signal, fetch: o.fetch, log,
+        provider: async () => o.provider || image.providerFrom(await require('../ai').dynamic.load()
+          .catch(() => null)) });
       if (ctx.signal && ctx.signal.aborted) throw Object.assign(new Error('aborted'), { name: 'AbortError' });
       const saved = await o.save(img);
-      return { ...saved, provider: 'gemini', model: img.model };
+      return { ...saved, provider: img.provider, model: img.model };
     },
   });
 }
@@ -85,6 +88,10 @@ function failure(e) {
   if (e.code === 'quota' || e.code === 'plan' || e.code === 'tool_off' || e.code === 'image_blocked'
     || e.code === 'login_required') return { code: e.code === 'image_blocked' ? 'image_blocked' : e.code,
     message: e.code === 'tool_off' ? 'Image generation isn’t switched on.' : e.message };
+  // 0.17.1: the free Cloudflare allocation is used up (and no fallback), or an edit without a Gemini image model.
+  if (e.code === 'image_daily_limit') return { code: 'image_daily_limit', message: 'Today’s free image limit is '
+    + 'reached. It resets at 00:00 UTC. Your image credit was given back.' };
+  if (e.code === 'image_edit_unavailable') return { code: 'image_edit_unavailable', message: e.message };
   if (e.code === 'tool_timeout') return { code: 'image_unavailable', message: 'The image took too long. '
     + 'Your image credit was given back. Try again.' };
   return { code: 'image_unavailable', message: 'Image generation isn’t available right now. Your image credit was '
@@ -134,14 +141,15 @@ async function postConversationsByIdImages(req, _res, o = {}) {
   try {
     made = await (o.produce || produce)({ user: req.user, prompt, id, images: srcs, save: async (img) => {
       const row = await chat.files.addGenerated(req.user.id, conv, { id, name: fileName(prompt, img.mime,
-        srcs.length > 0), mime: img.mime, data: img.data, meta: { generated: true, model: img.model,
-        prompt: prompt.slice(0, 300), ...(srcs.length ? { edited_from: srcs.map((s) => s.id) } : {}),
+        srcs.length > 0), mime: img.mime, data: img.data, meta: { generated: true, provider: img.provider,
+        model: img.model, prompt: prompt.slice(0, 300), ...(srcs.length ? { edited_from: srcs.map((s) => s.id) } : {}),
         ...require('../extract').imageSize(img.data, img.mime) } });
       return { attachment: chat.store.attachmentOut(row), text: img.text || '' };
     } });
   } catch (e) {
     if (e.code === 'invalid') throw e;
-    if (!['quota', 'plan', 'image_blocked', 'tool_off'].includes(e.code)) {
+    if (!['quota', 'plan', 'image_blocked', 'tool_off', 'image_daily_limit', 'image_edit_unavailable']
+      .includes(e.code)) {
       log.warn('image_failed', { code: e.code, http: e.http, wrongModel: e.wrongModel, edit: srcs.length || undefined,
         detail: e.detail ? String(e.detail).slice(0, 160) : undefined });
     }
@@ -155,5 +163,5 @@ async function postConversationsByIdImages(req, _res, o = {}) {
 }
 
 module.exports = { produce, failure, fileName, sources, sourceIds, image,
-  enabled: () => Boolean(config.media.imageModel),
+  enabled: () => route.order(config.media).length > 0, providers: () => route.status(config.media), route,
   handlers: { postConversationsByIdImages } };

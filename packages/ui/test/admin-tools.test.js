@@ -3,7 +3,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
-const { creditCost, offReason, planAccess, summary, timeout, toolView } =
+const { creditCost, imageProviderText, offReason, planAccess, summary, timeout, toolView } =
   require('../../../apps/admin/src/lib/tools-view.js');
 
 const ROOT = path.resolve(__dirname, '../../..');
@@ -34,10 +34,10 @@ test('credits and timeouts', () => {
   assert.equal(timeout(800), '800 ms');
 });
 
-test('feature-off state: image generation off while IMAGE_MODEL is empty', () => {
+test('feature-off state: image generation off with no image provider', () => {
   const v = toolView(IMAGE);
   assert.equal(v.state, 'off');
-  assert.equal(v.off, 'Off: IMAGE_MODEL is empty.');
+  assert.equal(v.off, 'Off: no image provider (set CF_ACCOUNT_ID and CF_AI_TOKEN, or IMAGE_MODEL).');
   assert.equal(offReason({ ...IMAGE, enabled: true }), '');
   assert.equal(offReason({ name: 'other', enabled: false }), 'Off: its feature switch is off.');
   assert.deepEqual(v.flags, ['chat model', 'runs in its caller']);
@@ -70,7 +70,7 @@ test('the real catalogue renders (the tools[] of GET /admin/tools, from registry
     assert.ok(['on', 'off'].includes(v.state));
   }
   const img = d.tools.find((t) => t.name === 'generate_image');
-  if (img && !img.enabled) assert.equal(toolView(img).off, 'Off: IMAGE_MODEL is empty.');
+  if (img && !img.enabled) assert.match(toolView(img).off, /no image provider/);
 });
 
 test('route and menu entry are gated like Jobs (admin)', () => {
@@ -79,4 +79,15 @@ test('route and menu entry are gated like Jobs (admin)', () => {
   assert.match(src, /\['\/tools', '[a-z]+', 'Tools', '[^']+', 'admin'\]/);
   assert.match(src, /r\('\/tools', toolsPage, 'Tools', 'admin'\)/);
   assert.match(src, /import \{ toolsPage \} from '\.\.\/pages\/tools\.js';/);
+});
+
+test('0.17.1: the active image provider line on the Tools banner', () => {
+  assert.equal(imageProviderText({ provider: 'cloudflare', fallback: 'gemini', edits: 'gemini' }),
+    'Image provider: Cloudflare Workers AI, falling back to Gemini. Edits: Gemini.');
+  assert.equal(imageProviderText({ provider: 'cloudflare', fallback: null, edits: 'off' }),
+    'Image provider: Cloudflare Workers AI. Edits: off (needs IMAGE_MODEL).');
+  assert.equal(imageProviderText({ provider: 'gemini', fallback: null, edits: 'gemini' }),
+    'Image provider: Gemini. Edits: Gemini.');
+  assert.match(imageProviderText({ provider: 'off', edits: 'off' }), /^Image provider: off/);
+  assert.equal(imageProviderText(null), '');
 });

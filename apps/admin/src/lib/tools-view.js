@@ -27,7 +27,8 @@ function timeout(ms) {
 /** Why a switched-off tool is off: known feature switches get a hint, others a generic line. */
 function offReason(t) {
   if (t.enabled) return '';
-  if (t.name === 'generate_image') return 'Off: IMAGE_MODEL is empty.';
+  if (t.name === 'generate_image') return 'Off: no image provider (set CF_ACCOUNT_ID and CF_AI_TOKEN, or '
+    + 'IMAGE_MODEL).';
   if (t.name === 'read_url') return 'Off: the server reader is switched off.';
   return 'Off: its feature switch is off.';
 }
@@ -55,6 +56,16 @@ function toolView(t) {
   };
 }
 
+/** 0.17.1: GET /admin/tools image { provider, fallback, edits } -> one line for the banner. */
+function imageProviderText(im) {
+  if (!im) return '';
+  var NAME = { cloudflare: 'Cloudflare Workers AI', gemini: 'Gemini' };
+  var name = function (p) { return NAME[p] || p; };
+  if (!im.provider || im.provider === 'off') return 'Image provider: off (no Cloudflare keys or IMAGE_MODEL).';
+  return 'Image provider: ' + name(im.provider) + (im.fallback ? ', falling back to ' + name(im.fallback) : '')
+    + '. Edits: ' + (im.edits && im.edits !== 'off' ? name(im.edits) : 'off (needs IMAGE_MODEL)') + '.';
+}
+
 /** Counts for the header tiles. */
 function summary(tools) {
   var on = tools.filter(function (t) { return t.enabled; }).length;
@@ -62,4 +73,4 @@ function summary(tools) {
     high: tools.filter(function (t) { return t.risk === 'high'; }).length };
 }
 
-export { creditCost, offReason, planAccess, summary, timeout, toolView };
+export { creditCost, imageProviderText, offReason, planAccess, summary, timeout, toolView };

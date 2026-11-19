@@ -39,7 +39,9 @@
 - v0.17.1 (19 Nov 2026): image editing on top of D15: `POST /conversations/:id/images` takes `attachment_ids` (up to 3
   of the user's own PNG/JPEG/WebP images in that chat, 7 MB each) sent to `IMAGE_MODEL` as inline image parts; the
   chat model's `generate_image` gets `edit`; `/image` with an image attached and Edit on image replies in the app.
-  Same metering as a new image. No migration.
+  Same metering as a new image. New images come from Cloudflare Workers AI (flux-1-schnell, free daily allocation)
+  first with Gemini as the fallback (`IMAGE_PROVIDER`, `CF_ACCOUNT_ID`, `CF_AI_TOKEN`, `CF_IMAGE_MODEL`); edits are
+  Gemini only. No migration.
 
 ## Gaps, in build order
 ### A. Business engine (blueprint phase 2) — biggest gap, needed for launch. Payments: Korapay.
