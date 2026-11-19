@@ -72,7 +72,8 @@ var STAGES = {
   searching: function () { return 'Searching the web…'; },
   reading: function (n) { return 'Reading ' + n + ' source' + (n === 1 ? '' : 's') + '…'; },
   writing: function (n) { return n ? 'Writing from ' + n + ' source' + (n === 1 ? '' : 's') + '…' : 'Writing…'; },
-  unavailable: function () { return 'Web search unavailable. Answering anyway…'; }
+  unavailable: function () { return 'Web search unavailable. Answering anyway…'; },
+  image: function () { return 'Making your image…'; }   // v0.17.0: POST /conversations/:id/images
 };
 function rafThrottle(fn) { var q = false; return function () { if (q) return; q = true; requestAnimationFrame(function (
   ) { q = false; fn(); }); }; }

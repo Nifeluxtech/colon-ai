@@ -1,5 +1,7 @@
 /* Colon AI · sending a message and streaming the reply; regenerate, stop and edit-and-resend. */
 
+import { deepResearch, deepResearchOn } from './deep-research.js';
+import { imageCommand, imageFromStream } from './image-gen.js';
 import { browseFromServer, browserFromServer, handleBrowserText, pageState } from './browser-chat.js';
 import { loginCard, passwordGuard } from './saga-extras.js';
 import { sagaTyped } from './saga-wait.js';
@@ -12,6 +14,7 @@ import { updateHeader } from '../components/model-picker.js';
 import { refreshConvs } from '../components/sidebar.js';
 import { $, S, data, defaultModel, isMobile, mode, modelId, rafThrottle } from '../core/state.js';
 import { setView } from '../pages/chat.js';
+import { parseImageCommand } from '../lib/chat-tools.js';
 import { looksLikePassword, saveLoginIntent } from '../lib/secret-text.js';
 
 var C = Colon, esc = C.esc;
@@ -23,19 +26,21 @@ function send() {
   if (st.uploading) { C.toast('Wait for your files to finish uploading.'); return; }
   if (!text && !atts.length) return;
   if (S.media.voiceActive()) S.media.stopVoice();
+  // v0.17.0: "/image <prompt>" makes an image (actions/image-gen.js); Deep research on in Research mode starts a run.
+  var img = !atts.length && parseImageCommand(text);
+  if (img) { if (imageCommand(img.prompt, ensureConv)) clearComposer(ta); return; }
+  if (!atts.length && deepResearchOn()) { if (deepResearch(text, ensureConv)) clearComposer(ta); return; }
   // Phase 10: "open the browser", "open google.com", "scroll down"… go to this chat's browser (actions/browser-chat).
   if (!atts.length && handleBrowserText(text)) { ta.value = ''; autoGrow(); syncComposer(); return; }
   if (!atts.length && sagaText(ta, text)) return;
   ta.value = ''; autoGrow(); S.media.clear(true); syncComposer();
   sendChat(text, atts);
 }
-/** The message as a chat turn (the chat model replies). 0.11.6: also a message Saga can't take while it waits. */
-function sendChat(text, atts) {
-  var ta = $('#cw-input');
-  atts = atts || [];
+/** This chat, or a new one (shown in place of the welcome screen). -> Promise<conversation> */
+function ensureConv() {
   var conv = S.current && !S.loadingConv ? Promise.resolve(S.current) : data.createConversation({ mode: S.draftMode,
     model: S.draftModel || defaultModel() });
-  conv.then(function (c) {
+  return conv.then(function (c) {
     var fresh = !S.current || S.current.id !== c.id;
     if (fresh) {
       S.current = c; S.messages = []; S.browser.createdId = c.id;   // the new chat keeps its browser (adopt)
@@ -44,6 +49,14 @@ function sendChat(text, atts) {
       S.el.querySelectorAll('[data-nav]').forEach(function (a) { a.classList.toggle('active', a.getAttribute(
         'data-nav') === '/'); });
     }
+    return c;
+  });
+}
+/** The message as a chat turn (the chat model replies). 0.11.6: also a message Saga can't take while it waits. */
+function sendChat(text, atts) {
+  var ta = $('#cw-input');
+  atts = atts || [];
+  ensureConv().then(function (c) {
     var temp = { id: C.uid('tmp'), role: 'user', content: text, attachments: atts, created_at: new Date().toISOString(
       ) };
     S.messages.push(temp); renderThread(); updateHeader(); scrollBottom(true);
@@ -77,7 +90,7 @@ function sagaText(ta, text) {
   return sagaTyped(text, function () { clearComposer(ta); }, function (t) { sendChat(t, []); });
 }
 function run(call, tempUser, replaceId) {
-  var ctl = new AbortController(), msg = null;
+  var ctl = new AbortController(), msg = null, image = null;
   S.streaming = { ctl: ctl }; syncComposer();
   var paint = rafThrottle(function () { if (msg) paintMessage(msg); });
   call({
@@ -99,6 +112,9 @@ function run(call, tempUser, replaceId) {
         S.messages = S.messages.filter(function (m) { return m !== msg; }); msg = null; renderThread(); }
       else if (ev.type === 'done' && msg) { Object.assign(msg, ev.message || {}); }
       else if (ev.type === 'browser') browserFromServer(ev);
+      // v0.17.0: the chat model called generate_image; the image is made once the reply ends (finish()).
+      else if (ev.type === 'image') image = { prompt: ev.prompt, message_id: ev.message_id || (tempUser && tempUser.id)
+        };
       else if (ev.type === 'memory') C.toast('Saved to memory. Manage it in Settings › Memory.', 'ok');   // v0.15.0
       // 0.11.3: the server sent a browser follow-up to Saga (this chat's last browser task goes on).
       else if (ev.type === 'browse') browseFromServer(ev.goal, (tempUser && tempUser.id) || ev.message_id);
@@ -113,6 +129,7 @@ function run(call, tempUser, replaceId) {
   function finish() {
     S.streaming = null; renderThread(); syncComposer(); scrollBottom(); refreshConvs(); updateHeader();
     if (msg && msg.status === 'complete') announce('Colon replied.');
+    if (image) imageFromStream(image);
     if (S.hf) S.hf.replyDone(msg, msg && msg.content ? ColonMarkdown.toText(msg.content) : '');
   }
 }

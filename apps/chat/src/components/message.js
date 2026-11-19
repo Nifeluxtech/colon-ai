@@ -1,10 +1,12 @@
 /* Colon AI · conversation thread: messages, reply states, error cards, message actions and feedback. */
 
 import { scrollBottom } from './composer.js';
+import { decorateCode } from './code-edit.js';
 import { sourcesHtml } from './sources.js';
 import { attachmentsHtml, loadAttachmentThumbs } from './uploads.js';
 import { Colon } from '../../../../packages/ui/js/colon.js';
 import { ColonMarkdown } from '../../../../packages/ui/js/markdown/index.js';
+import { researchHtml } from '../actions/deep-research.js';
 import { editMessage, regenerate } from '../actions/send-message.js';
 import { ReadAloud } from '../lib/read-aloud.js';
 import { CW } from '../core/cw.js';
@@ -23,6 +25,7 @@ function renderThread() {
     m, m === lastA); }).join('') + '</div>';
   S.messages.forEach(function (m) { S.seen[m.id] = 1; });
   loadAttachmentThumbs(page);
+  decorateCode(page);   // v0.17.0: Developer mode's Edit button on code blocks (components/code-edit.js)
   // 0.10.3: Saga's task cards sit under the messages that asked for them (components/browser-card.js).
   if (CW.placeCards) CW.placeCards();
 }
@@ -58,6 +61,9 @@ function msgHtml(m, isLast) {
       +
     (m.status === 'stopped' ? '<span class="badge warn">Stopped</span>' : '') + '</div>' +
     '<div class="cw-ai-body">' + body + '</div>' +
+    // v0.17.0: generated images on the reply, and a deep research run's progress card.
+    (m.attachments && m.attachments.length ? '<div class="cw-ai-atts">' + attachmentsHtml(m.attachments) + '</div>'
+      : '') + researchHtml(m) +
     (m.status === 'error' ? errorCard(m) : '') +
     sourcesHtml(m.sources) +
     (streaming ? '' : '<div class="cw-actions">' +
@@ -90,14 +96,16 @@ function aiBody(m) {
 function errorCard(m) {
   var e = m.error || {}, noProv = e.code === 'no_provider', needLogin = !signedIn() && (e.code === 'quota'
     || e.code === 'login_required');
-  var title = noProv ? 'Colon isn’t connected to an AI provider yet' : e.code === 'quota'
+  var img = m.origin === 'image';   // v0.17.0: a failed image (its credit was given back); no Retry
+  var title = noProv ? 'Colon isn’t connected to an AI provider yet' : img ? 'Couldn’t make the image'
+    : e.code === 'quota'
     ? 'You’ve reached today’s limit' : e.code === 'no_vision' ? 'Images can’t be read yet' : e.code === 'offline'
     ? 'You’re offline' : 'This reply didn’t finish';
   var body = noProv ? 'An admin needs to add a provider in the Admin Dashboard.' + (ephemeral()
     ? '' : ' Your message is saved.') : e.message || 'Something went wrong.';
   return '<div class="cw-err" role="alert">' + icon('alert') + '<div><b>' + title + '</b><span>' + esc(body)
     + '</span></div>' +
-    (needLogin ? '<button class="btn sm primary" data-a="login">Log in</button>' : noProv || e.code === 'quota'
+    (needLogin ? '<button class="btn sm primary" data-a="login">Log in</button>' : noProv || img || e.code === 'quota'
       ? '' : '<button class="btn sm" data-msg="regen">' + icon('refresh') + 'Retry</button>') + '</div>';
 }
 function paintMessage(msg) {

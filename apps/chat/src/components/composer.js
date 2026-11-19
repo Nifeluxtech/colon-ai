@@ -1,6 +1,7 @@
 /* Colon AI · composer: message box, send/stop button, mode chips and menu, thread scrolling. */
 
 import { renderThread } from './message.js';
+import { researchChipHtml } from '../actions/deep-research.js';
 import { updateHeader } from './model-picker.js';
 import { refreshConvs } from './sidebar.js';
 import { Colon } from '../../../../packages/ui/js/colon.js';
@@ -14,7 +15,7 @@ function composerHtml() {
   return ('<div class="cw-composer"><button type="button" class="cw-jump btn sm" data-a="jump" hidden '
     + 'aria-label="Jump to latest message">') + icon('chevDown') + 'Latest</button><div class="cw-composer-in">' +
     '<div class="att-tray" hidden aria-label="Attachments"></div>' +
-    '<div class="cw-dev-chips" role="group" aria-label="Developer quick actions" hidden></div>' +
+    '<div class="cw-dev-chips" role="group" aria-label="Mode quick actions" hidden></div>' +
     '<div class="cv-voice" hidden></div>' +
     '<form class="cw-input" id="cw-form" novalidate>' +
       '<button type="button" class="icon-btn" data-a="attach" aria-label="Attach files" data-tip="Attach files">'
@@ -48,9 +49,12 @@ function renderModeChips() {
 function renderDevChips() {
   var box = $('.cw-dev-chips');
   if (!box) return;
-  var on = mode() === 'developer';
-  box.hidden = !on;
-  if (!on || box.childElementCount) return;
+  var m = mode(), research = m === 'research' ? researchChipHtml() : '';
+  box.hidden = m !== 'developer' && !research;
+  // v0.17.0: in Research mode the row holds the Deep research chip (actions/deep-research.js).
+  if (m === 'research') { box.setAttribute('data-for', 'research'); box.innerHTML = research; return; }
+  if (box.hidden || box.getAttribute('data-for') === 'developer') return;
+  box.setAttribute('data-for', 'developer');
   box.innerHTML = DEV_ACTIONS.map(function (a) {
     return '<button type="button" class="chip sm" data-dev-chip="' + a.key + '">' + icon(a.icon) + a.label
       + '</button>';

@@ -241,6 +241,7 @@ function openConversation(id) {
     S.current = r.conversation; S.messages = r.messages; S.loadingConv = false;
     S.messages.forEach(function (m) { S.seen[m.id] = 1; });  // history appears without replaying entry animations
     renderThread(); updateHeader(); syncComposer(); renderConvs(); scrollBottom(true);
+    if (CW.resumeResearch) CW.resumeResearch(r.conversation);   // v0.17.0: a running deep research shows progress
   }).catch(function (e) {
     S.loadingConv = false;
     $('#cw-page').innerHTML = '<div class="empty cw-error-page">' + icon(e.code === 'not_found' ? 'search' : 'alert')
