@@ -8,13 +8,11 @@ import android.content.pm.PackageManager
 import android.graphics.Color
 import android.graphics.drawable.ColorDrawable
 import android.os.Bundle
-import android.os.SystemClock
 import android.view.View
 import android.view.ViewGroup
 import android.webkit.WebView
 import android.widget.Button
 import android.widget.FrameLayout
-import android.widget.ProgressBar
 import android.widget.TextView
 import android.widget.Toast
 import androidx.activity.OnBackPressedCallback
@@ -52,10 +50,9 @@ class MainActivity : AppCompatActivity() {
     private var lastTouchInPanel = false
 
     private lateinit var container: FrameLayout
-    private lateinit var progress: ProgressBar
+    private var splashOverlay: SplashOverlay? = null
     private lateinit var offline: View
     private var firstPaint = false
-    private var started = 0L
     private var pendingShare: JSONObject? = null
     private var webTheme = "dark"
     private val permissionCallbacks = ArrayDeque<(Boolean) -> Unit>()
@@ -90,13 +87,12 @@ class MainActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         val splash = installSplashScreen()
         super.onCreate(savedInstanceState)
-        started = SystemClock.elapsedRealtime()
-        // Keep the splash until the page paints (at most 2.5 s, so a slow network never traps the user on it).
-        splash.setKeepOnScreenCondition { !firstPaint && SystemClock.elapsedRealtime() - started < 2500 }
         enableEdgeToEdge(SystemBarStyle.dark(Color.TRANSPARENT), SystemBarStyle.dark(Color.TRANSPARENT))
         setContentView(R.layout.activity_main)
+        // Splash with the "from Nifelux" footer until the page paints (at most 2.5 s, so a slow network never traps
+        // the user on it); no load bar.
+        splashOverlay = SplashOverlay.start(this, splash, savedInstanceState == null, 2500) { firstPaint }
         container = findViewById(R.id.web_container)
-        progress = findViewById(R.id.shell_progress)
         offline = findViewById(R.id.offline)
         findViewById<Button>(R.id.offline_retry).setOnClickListener { retry() }
         applyInsets(findViewById(R.id.root))
@@ -194,6 +190,7 @@ class MainActivity : AppCompatActivity() {
 
     fun onPageVisible() {
         firstPaint = true
+        splashOverlay?.hide()
         if (offline.visibility == View.VISIBLE && ColonApplication.of(this).online) offline.visibility = View.GONE
     }
 
@@ -202,13 +199,9 @@ class MainActivity : AppCompatActivity() {
         if (::browserPanel.isInitialized) browserPanel.onShellPageStarted()
     }
 
-    fun onProgress(p: Int) {
-        progress.progress = p
-        progress.visibility = if (p in 1..99) View.VISIBLE else View.GONE
-    }
-
     fun showOffline(detail: String?) {
         firstPaint = true
+        splashOverlay?.hide()
         findViewById<TextView>(R.id.offline_detail).text = detail ?: getString(R.string.offline_text)
         offline.visibility = View.VISIBLE
     }

@@ -24,6 +24,17 @@ function RemoteChatData() {
     }).catch(offline);
   }
   function conv(id) { return '/conversations/' + encodeURIComponent(id); }
+  // v0.17.0: like api(), but an error keeps every field of its JSON body (a 409 consent_required carries `credits`).
+  function full(path, o) {
+    return api(path, { method: o.method || 'GET', body: o.body, raw: true }).then(function (res) {
+      return res.json().catch(function () { return {}; }).then(function (d) {
+        if (res.ok) return d;
+        throw Object.assign(new Error(d.message || 'Something went wrong.'), d, { status: res.status, code: d.error });
+      });
+    }, function () { throw Object.assign(new Error('Can’t reach Colon right now. Check your connection.'),
+      { code: 'offline' }); });
+  }
+  function run(id) { return '/research/' + encodeURIComponent(id); }
   var self = {
     kind: 'remote', LIMITS: LIMITS, classify: classify, describe: 'Chats are synced to your Colon account.',
     listModels: function () { return modelsCache ? Promise.resolve(modelsCache) : api('/models').then(function (d) {
@@ -118,7 +129,19 @@ function RemoteChatData() {
     createProject: function (p) { return api('/projects', { method: 'POST', body: p }); },
     updateProject: function (id, p) { return api('/projects/' + encodeURIComponent(id), { method: 'PATCH', body: p })
       .then(function (d) { return d.project; }); },
-    deleteProject: function (id) { return api('/projects/' + encodeURIComponent(id), { method: 'DELETE' }); }
+    deleteProject: function (id) { return api('/projects/' + encodeURIComponent(id), { method: 'DELETE' }); },
+    // v0.17.0 (D15): an image in this chat. message_id: the user message whose turn asked for it (the stream's
+    // `image` event); without it the prompt becomes a new user message. -> { user_message, message, conversation }
+    isTemp: function (cid) { return temp.has(cid); },   // a temporary chat (history off): no images or research
+    generateImage: function (cid, o) { return full(conv(cid) + '/images', { method: 'POST', body: { prompt: o.prompt,
+      message_id: o.messageId || undefined } }); },
+    // v0.17.0 (D16): deep research. Without confirm the answer is 409 consent_required { credits }.
+    startResearch: function (cid, o) { return full(conv(cid) + '/research', { method: 'POST', body: {
+      question: o.question, confirm: o.confirm === true } }); },
+    listResearch: function (cid) { return full(conv(cid) + '/research', {}).then(function (d) { return d.runs; }); },
+    getResearch: function (id) { return full(run(id), {}).then(function (d) { return d.run; }); },
+    cancelResearch: function (id) { return full(run(id) + '/cancel', { method: 'POST' }).then(function (d) {
+      return d.run; }); }
   };
   return self;
 }

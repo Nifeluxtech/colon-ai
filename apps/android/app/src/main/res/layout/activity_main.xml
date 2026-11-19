@@ -1,7 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- Colon AI shell. split_box stacks the in-chat browser panel (ChatBrowserPanel, hidden until a page opens), a
      draggable divider and the chat WebView (added in code to web_container). Layout changes only resize these
-     views, so switching embedded / split / full never reloads a page. Progress line and offline screen on top. -->
+     views, so switching embedded / split / full never reloads a page. Offline screen on top. No load bar:
+     the first load sits under the splash overlay (SplashOverlay, view_splash.xml). -->
 <FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
@@ -46,17 +47,6 @@
             android:layout_height="0dp"
             android:layout_weight="1" />
     </LinearLayout>
-
-    <ProgressBar
-        android:id="@+id/shell_progress"
-        style="?android:attr/progressBarStyleHorizontal"
-        android:layout_width="match_parent"
-        android:layout_height="3dp"
-        android:indeterminate="false"
-        android:max="100"
-        android:progressTint="@color/colon_primary"
-        android:progressBackgroundTint="@android:color/transparent"
-        android:visibility="gone" />
 
     <LinearLayout
         android:id="@+id/offline"

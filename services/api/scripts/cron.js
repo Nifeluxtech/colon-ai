@@ -10,6 +10,10 @@
 //
 // cron does not see the Setup Node.js App variables, so they come from a private env file (chmod 600, outside every
 // web root) with at least NODE_ENV, DB_HOST, DB_USER, DB_PASSWORD, DB_NAME and the BILLING_ / JOBS_ keys you set.
+// On the server cron runs this through /home/apparatu/colon-cron.sh (the cPanel form rejects --env-file=…).
+// 0.17.0: deep research steps (research.step, research.sweep) run here too, so the file also needs APP_SECRET, the
+// AI provider keys and model settings (GEMINI_API_KEY, …), the web search keys and the RESEARCH_ keys
+// (docs/runbooks/deploy.md, Release notes: 0.17.0). Job types: src/modules/jobs/types.js.
 // Options: --env <file> (load an env file, same as node's --env-file), --quiet (print only on errors).
 // Exit code: 0 ok, 1 configuration or run error, 2 the hard time limit was hit.
 const args = process.argv.slice(2);

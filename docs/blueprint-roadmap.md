@@ -27,6 +27,15 @@
   stale leases, dead letters, retry / cancel with reason, cron last-run warning at 3 × the interval). Research mode
   still streams inside its request (no timer to move); a resumable background research job is D16.
   Next: D (tools and media).
+- D14–D17 done in v0.17.0 (19 Nov 2026): a server-side tool registry (`modules/tools`: schema, risk, plan access and
+  entitlement, credits, timeout, consent, guests; one router `invoke()` that reserves, settles or refunds credits)
+  wrapping web search, Research mode, the page reader, file extraction and the chat's browser tools, with a
+  read-only Admin › Tools; image generation through Google AI Studio (`IMAGE_MODEL`, off while empty) metered with
+  the plans' `image_credits` plus `BILLING_CREDITS_IMAGE`; deep research as a resumable, metered background job
+  (`colon_research_runs`, `research.step` jobs on the cron, one bounded step per job, consent first,
+  `BILLING_CREDITS_DEEP_RESEARCH` reserved and refunded on failure or cancel, `research.sweep`); Developer mode gets a
+  Monaco editor for code blocks (jsDelivr, textarea fallback). **No code execution**: running code only via an
+  external sandbox (Judge0 or similar) stays for later. Next: E (security, privacy, ops).
 
 ## Gaps, in build order
 ### A. Business engine (blueprint phase 2) — biggest gap, needed for launch. Payments: Korapay.

@@ -2,6 +2,7 @@
 
 import { login, newChat } from './chat.js';
 import { Colon } from '../../../../packages/ui/js/colon.js';
+import { cancelResearch, toggleDeep } from '../actions/deep-research.js';
 import { renameConv } from '../actions/rename.js';
 import { browseNative } from '../actions/saga-native.js';
 import { send, stopStreaming } from '../actions/send-message.js';
@@ -10,6 +11,7 @@ import { applySplitWidth, nativeInlineAction, openBrowser, renderEmbed, setLayou
   from '../components/browser-panel.js';
 import { autoGrow, devTemplate, modeMenu, onThreadScroll, scrollBottom, setMode, syncComposer,
   trackComposerHeight } from '../components/composer.js';
+import { openCodeEditor } from '../components/code-edit.js';
 import { msgAction } from '../components/message.js';
 import { modelMenu, updateHeader } from '../components/model-picker.js';
 import { applySidebar, closeDrawer, moreMenu, openDrawer, profileMenu, refreshConvs, toggleSidebar,
@@ -89,6 +91,11 @@ function bind() {
     var cm = t.closest('[data-conv-menu]');
     if (cm) { e.preventDefault(); var c = S.convs.filter(function (x) { return x.id === cm.getAttribute(
       'data-conv-menu'); })[0]; if (c) CW.convMenu(cm, c); return; }
+    // v0.17.0: Developer mode's code editor; Research mode's Deep research chip and Stop on a running report.
+    var editCode = t.closest('[data-edit-code]'); if (editCode) { openCodeEditor(editCode); return; }
+    var deep = t.closest('[data-deep-toggle]'); if (deep) { toggleDeep(deep); return; }
+    var rc = t.closest('[data-research-cancel]'); if (rc) { cancelResearch(rc.getAttribute('data-research-cancel'));
+      return; }
     var copyCode = t.closest('[data-copy-code]');
     if (copyCode) { var code = copyCode.closest('.md-code').querySelector('code').textContent; C.copyText(code).then(
       function () { copyCode.textContent = 'Copied'; copyCode.classList.add('done'); setTimeout(function () {

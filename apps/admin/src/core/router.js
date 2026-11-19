@@ -1,5 +1,6 @@
 /* Colon Admin (Phase 4): overview, users, moderation, models and providers, routing, usage limits,
-   plans, credits and payments, costs (v0.14.0), jobs (v0.16.0), evaluation, African AI registry, voice, browser,
+   plans, credits and payments, costs (v0.14.0), jobs (v0.16.0), tools (v0.17.0),
+   evaluation, African AI registry, voice, browser,
    system settings, safety (Phase 5) and security.
    The API enforces every permission; the menu only hides what a role can't open.
      moderator    moderation + read-only users
@@ -26,6 +27,7 @@ import { routing } from '../pages/routing.js';
 import { safety } from '../pages/safety.js';
 import { security } from '../pages/security.js';
 import { system } from '../pages/settings.js';
+import { toolsPage } from '../pages/tools.js';
 import { userPage, users } from '../pages/users.js';
 import { voice } from '../pages/voice.js';
 
@@ -43,6 +45,7 @@ var SECTIONS = [
   ['/credits', 'sparkle', 'Credits', 'Member credits, manual grants, plans and payments', 'admin'],
   ['/costs', 'flame', 'Costs', 'AI spend and tokens per day, model and plan', 'admin'],
   ['/jobs', 'clock', 'Jobs', 'Background jobs, retries, dead letters and the cron', 'admin'],
+  ['/tools', 'code', 'Tools', 'Server-side tools: risk, plans, credits, timeouts, consent', 'admin'],
   ['/evaluation', 'list', 'Evaluation', 'Benchmark runs and model feedback', 'admin'],
   ['/registry', 'globe', 'African AI registry', 'Language models and datasets', 'admin'],
   ['/voice', 'mic', 'Voice', 'STT and TTS engines', 'admin'],
@@ -80,6 +83,7 @@ A.start = function () {
         routing, 'Routing', 'admin'),
       r('/limits', limitsPage, 'Limits', 'admin'), r('/plans', plans, 'Plans', 'admin'), r('/credits', credits,
         'Credits', 'admin'), r('/costs', costs, 'Costs', 'admin'), r('/jobs', jobsPage, 'Jobs', 'admin'),
+      r('/tools', toolsPage, 'Tools', 'admin'),
       r('/evaluation', evaluation, 'Evaluation', 'admin'), r('/registry', registry, 'African AI', 'admin'),
       r('/voice', voice, 'Voice', 'admin'), r('/browser', browser, 'Browser', 'admin'), r('/system', system, 'System',
         'super_admin'),

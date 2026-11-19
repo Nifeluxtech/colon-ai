@@ -98,9 +98,9 @@ function start(opts) {
   routes = all.map(function (r) { return Object.assign({}, r, { re: new RegExp('^' + r.path.replace(/:[a-z]+/g,
     '([^/]+)') + '$') }); });
   var root = $('#app');
+  // Boot screen: the logo only (no loading bar under it, so the Android app's first load shows no load bar).
   root.innerHTML = '<div class="auth"><div class="inner" style="text-align:center"><div class="brand">' + logo(
-    state.brand, 'by Nifelux',
-    'lg') + '</div><div class="skel" style="height:8px;width:120px;margin:0 auto"></div></div></div>';
+    state.brand, 'by Nifelux', 'lg') + '</div></div></div>';
   Promise.all([refreshUser().catch(function () { return null; }), api('/auth/config').then(function (c) {
     state.config = c; state.online = true; }).catch(function () { state.online = false; })]).then(function () {
     // Phase 4: the brand name is a system setting in the Admin Dashboard.

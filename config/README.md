@@ -201,3 +201,19 @@ Node.js App variables, so the command loads them from a private env file (`node 
 | `JOBS_KEEP_DAYS` | number | no | `14` | done / cancelled jobs and cron runs are deleted after this many days |
 | `JOBS_INPROCESS` | enum `off` \| `on` | no | `off` | `on`: the API worker also runs the cron work every interval (fallback only) |
 | `CRON_SECRET` | secret | no | (empty) | `X-Cron-Secret` for `POST /internal/cron/run`; empty = that route answers 404 |
+
+### Tools and media (0.17.0)
+
+Image generation (Google AI Studio, the same key as the other Gemini calls) and deep research (a background job on
+the cron). Deep research runs in the cron, so its AI, search and `RESEARCH_` keys (and `APP_SECRET`) must also be in
+the cron env file (`docs/runbooks/deploy.md`, Release notes 0.17.0).
+
+| Variable | Type | Required | Default | Purpose |
+|---|---|---|---|---|
+| `IMAGE_MODEL` | string | no | (empty) | Google AI Studio image-capable model id; empty = image generation off |
+| `IMAGE_TIMEOUT_MS` | number | no | `90000` | give up on one image after this long (credits refunded) |
+| `BILLING_CREDITS_IMAGE` | number | no | `0` | Colon credits per image, on top of one of the plan's monthly image credits |
+| `BILLING_CREDITS_DEEP_RESEARCH` | number | no | `10` | credits per deep research task: reserved at start, settled with the report, refunded on failure or cancel |
+| `RESEARCH_MAX_QUERIES` | number | no | `4` | web searches per deep research task (one per job step; at most 8) |
+| `RESEARCH_MAX_PAGES` | number | no | `8` | pages read per task (up to 3 per job step; at most 20) |
+| `RESEARCH_STEP_MS` | number | no | `35000` | longest single step (writing the report); keep it under `JOBS_TIME_LIMIT_MS` |

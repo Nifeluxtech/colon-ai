@@ -15,4 +15,5 @@ module.exports = new Router()
   .use(require('./safety'))
   .use(require('./saga'))
   .use(require('./billing'))
-  .use(require('./jobs'));
+  .use(require('./jobs'))
+  .use(require('./tools'));

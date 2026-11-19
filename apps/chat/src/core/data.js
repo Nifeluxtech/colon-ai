@@ -41,6 +41,12 @@
      POST   /chat/guest/extract (multipart: file) -> { attachment:{ id,name,kind,text,... } } (read once, not stored)
      POST   /study/cbt { subject, topic, exam, language, avoid? } -> { questions:[{ q,options[4],answer,explanation }],
             durationSec, count, exam, examLabel, subject, topic } (CBT practice test, v0.5.7; Preview: 'offline')
+     v0.17.0 (signed in only; actions/image-gen.js, actions/deep-research.js):
+     POST   /conversations/:id/images { prompt, message_id? } -> { user_message, message (attachments), conversation }
+            SSE event image { prompt, message_id }: the chat model asked for an image; the app calls the above.
+     POST   /conversations/:id/research { question, confirm } -> { run, user_message, message, conversation }
+            (409 consent_required { credits } until confirm: true)   GET /conversations/:id/research -> { runs }
+     GET    /research/:id -> { run }   POST /research/:id/cancel -> { run }
    Account profile (name, reply language) uses the EXISTING PATCH /account/profile. */
 
 import { RemoteChatData } from './api-client.js';
