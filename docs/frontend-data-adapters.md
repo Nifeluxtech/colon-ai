@@ -91,6 +91,19 @@ conversation_id? }` (409 `memory_off` while memory is off, 409 `memory_full`) ·
 `GET /conversations?project_id=` filters. A send that starts with "remember that …" saves a memory when memory is on
 and the stream then carries `memory { memory }` after `user`.
 
+**Tools and media** (v0.17.0, signed in only; another user's id answers 404):
+`POST /conversations/:id/images { prompt, message_id? }` → 201 `{ user_message, message, conversation }`: the image is
+an attachment of the assistant `message` (`origin: 'image'`); when it could not be made the message has
+`status: 'error'` and `error { code: image_unavailable | image_blocked | tool_off | quota | plan, message }` and the
+image credit was given back. `message_id` is the user message whose reply streamed `image { prompt, message_id }`
+(the chat model asked for a picture); without it the prompt becomes a new user message. The composer's
+`/image <prompt>` calls the same endpoint. Deep research: `POST /conversations/:id/research { question, confirm }`
+→ 409 `consent_required` (with the credit cost) until `confirm: true`, then 201 `{ run, user_message, message, reserved,
+conversation }` (`message` is the progress line the report later replaces) · `GET /conversations/:id/research` →
+`{ runs[] }` · `GET /research/:id` → `{ run: { id, status, stage, steps, total, label, message_id, error, … } }`
+(polled until `status` is `done`, `failed` or `cancelled`) · `POST /research/:id/cancel` → `{ run }` (credits
+refunded). Staff: `GET /admin/tools` (read-only tool registry).
+
 ## Colon Browser endpoints expected
 
 | Method | Path | Notes |

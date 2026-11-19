@@ -74,6 +74,64 @@ it). It must send `Cache-Control: no-cache` for `index.html`, so phones always f
 Merge it with anything cPanel already wrote there (HTTPS redirects, PHP handlers). Do not enable `mod_deflate` for
 `text/event-stream` on the API subdomain, or chat replies arrive all at once.
 
+## Release notes: 0.17.0
+
+- **Migration** `0017_tools_research.sql` runs at start-up: one new table, `colon_research_runs` (one row per deep
+  research task, its resumable state). Nothing else changes in the database (generated images are ordinary
+  `chat_attachments`, image credits are `usage_events` under the plans' existing `image_credits`). Take a database
+  dump first. `/health` → `database.migrations` should end with `0017_tools_research`.
+- **Environment** (Setup Node.js App; defaults from `services/api/src/config/defaults.js`):
+  - `IMAGE_MODEL` (empty): a Google AI Studio image-capable model id your `GEMINI_API_KEY` can use (check it in AI
+    Studio first). **Empty = image generation off** (Admin › Tools shows `generate_image` off and `/image` says it
+    isn't switched on). A model id Google refuses fails gracefully and the credit is given back.
+  - `IMAGE_TIMEOUT_MS` (90000): give up on one image after this long (refunded).
+  - `BILLING_CREDITS_IMAGE` (0): Colon credits per image on top of one of the plan's monthly image credits.
+  - `BILLING_CREDITS_DEEP_RESEARCH` (10): credits per deep research task, reserved at start, settled when the report
+    is posted, refunded when it fails or is cancelled. The plan's `research_tasks` allowance also applies.
+  - `RESEARCH_MAX_QUERIES` (4, at most 8), `RESEARCH_MAX_PAGES` (8, at most 20), `RESEARCH_STEP_MS` (35000, keep it
+    under `JOBS_TIME_LIMIT_MS`, 50000 by default).
+- **Cron env file: deep research runs on the cron, so the cron needs the AI and search settings too.** The cPanel
+  cron job runs `/home/apparatu/colon-cron.sh` every 5 minutes (a wrapper script, because the cPanel Cron Jobs form
+  rejects the long `--env-file=…` option); the script runs `scripts/cron.js` with
+  `/home/apparatu/.colon-cron.env`, and cron sees **only** what is in that file, not the Setup Node.js App
+  variables. Without these keys the research steps fail and every run ends refunded. Over SSH, add to
+  `/home/apparatu/.colon-cron.env` (same values as Setup Node.js App, one `KEY=value` per line, keep `chmod 600`):
+  - `APP_SECRET`: decrypts the provider keys saved in Admin › Models and the search keys saved in Admin › System ›
+    Web search. Without it the cron falls back to environment keys only.
+  - `GEMINI_API_KEY` (and `GEMINI_BASE_URL` if you changed it), plus every other AI provider key and model setting
+    the API has set: `GROQ_API_KEY`, `OPENROUTER_API_KEY`, `NVIDIA_API_KEY`, `NATLAS_API_KEY`, their `*_MODEL` /
+    `*_BASE_URL` keys, `GEMINI_MODEL`, `GEMINI_FALLBACK_MODEL`, `GEMINI_SUPPORT_MODELS`, `AI_SUPPORT_MODELS`,
+    `AI_MODEL_SET`, `AI_SPECIALIST_ROUTING`, `AI_RETRY_WAIT_MS`, the `AI_*_TIMEOUT_MS` / `AI_MAX_*` keys,
+    `BENCH_GATE` and `AI_MODEL_COSTS` (whichever of these you set; the rest keep their defaults). The report is
+    written by the Research mode chain, and the search queries by the model too.
+  - Web search: `WEB_SEARCH`, `BRAVE_SEARCH_API_KEY`, `TAVILY_API_KEY`, `SEARXNG_URL`, `SEARXNG_API_KEY` (only the
+    ones you use; with none, DuckDuckGo → Wikipedia).
+  - `BILLING_CREDITS_DEEP_RESEARCH` and `RESEARCH_MAX_QUERIES`, `RESEARCH_MAX_PAGES`, `RESEARCH_STEP_MS` if you
+    changed them (the cron settles and refunds the credits and bounds the steps), next to the `DB_*`, `NODE_ENV`,
+    `BILLING_MODE` and `JOBS_*` keys from 0.16.0.
+  When you change any of these in Setup Node.js App, change them here too.
+- **How long deep research takes**: one bounded step per job (plan, one search per step, up to 3 pages per step,
+  then the report), so a task spreads over several cron runs: **about 10–15 minutes** at the 5-minute interval. The
+  chat shows a progress line in the thread and the report replaces it; members can cancel (credits come back). A
+  run whose job got lost is resumed or ended and refunded by `research.sweep` on the next cron run.
+- **Monaco** (Developer mode › Edit on a code block) loads `monaco-editor` **0.52.2 from jsDelivr**
+  (`https://cdn.jsdelivr.net/npm/monaco-editor@0.52.2/min`) on first use. The repository sets no CSP for the apps;
+  if a document root's server-only `.htaccess` sends a `Content-Security-Policy`, it must allow `cdn.jsdelivr.net` in
+  `script-src`, `style-src`, `font-src` and `worker-src` (plus `blob:` for workers), or the editor falls back to a
+  plain textarea (still works, no highlighting). No code is executed anywhere.
+- **Check** after the deploy and restart:
+  - Admin › Tools (admin or Super Admin, 2FA) lists the nine tools with risk, plans, credits, timeout and consent;
+    `generate_image` is off while `IMAGE_MODEL` is empty and on once it is set (restart after setting it).
+  - In chat, `/image a red bus in Lagos` returns an image reply (or, with `IMAGE_MODEL` empty, the "isn't switched
+    on" card). A failed image shows an error card and its credit is given back.
+  - In Research mode turn on **Deep research**, ask a question, confirm the credit prompt: a progress line appears;
+    Admin › Jobs shows `research.step` jobs and recent `cli` cron runs; within ~15 minutes the cited report replaces
+    the progress line and the credits are settled. Start a second one and cancel it: it ends and the credits come
+    back. If a run fails at once, read `/home/apparatu/logs/colon-cron.log` and check the cron env file keys above.
+  - Developer mode: Edit on a code block opens the editor (or the textarea fallback).
+  - `version.json` moves to 0.17.0 (versionCode 1700, both APKs; both get the new "from Nifelux" launch splash):
+    publish the v0.17.0 release (Android workflow) before or with this deploy.
+
 ## Release notes: 0.16.0
 
 - **Migration** `0016_jobs_cron.sql` runs at start-up: new tables `colon_jobs` (the job queue) and `colon_cron_runs`
@@ -90,7 +148,10 @@ Merge it with anything cPanel already wrote there (HTTPS redirects, PHP handlers
   one `KEY=value` per line, then `chmod 600 /home/apparatu/.colon-cron.env`. It is outside every web root and the
   repository. When you change a DB or billing variable in Setup Node.js App, change it here too.
 - **Cron job** (cPanel › Cron Jobs › Add New Cron Job; Common Settings "Once Per Five Minutes", i.e. `*/5 * * * *`;
-  use the same number of minutes as `JOBS_CRON_INTERVAL_MIN`). Command, on one line:
+  use the same number of minutes as `JOBS_CRON_INTERVAL_MIN`). The cPanel Cron Jobs form rejects the long
+  `--env-file=…` option, so the command below lives in a wrapper script, `/home/apparatu/colon-cron.sh` (over SSH,
+  `chmod 700`), and the cron job's command only runs that script (e.g. `/bin/sh /home/apparatu/colon-cron.sh`).
+  What the script runs, on one line:
   ```sh
   cd /home/apparatu/repositories/colon-ai/services/api && /home/apparatu/nodevenv/repositories/colon-ai/services/api/24/bin/node --env-file=/home/apparatu/.colon-cron.env scripts/cron.js --quiet >> /home/apparatu/logs/colon-cron.log 2>&1
   ```

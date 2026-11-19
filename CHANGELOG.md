@@ -1,5 +1,75 @@
 # Changelog
 
+## [0.17.0] — 2026-11-19 · Tools and media (Blueprint step D, items 14–17)
+Every server-side tool now goes through one **tool registry** (schema, risk, plan access, credits, timeout, consent),
+and three member-facing tools arrive on top of it: **image generation** in chat (`/image …`, or the chat model's
+`generate_image` tool), metered with the plan's image credits; **deep research**, a resumable background job on the
+0.16.0 cron that searches, reads and posts a cited report to the chat (asks first, credits reserved at start and
+refunded on failure or cancel); and a **Monaco code editor** for code blocks in Developer mode (editing only, no code
+execution). Staff get **Admin › Tools** (read-only). Image generation is **off until `IMAGE_MODEL` is set**. Deep
+research runs on the cron, so the cron env file now needs the AI and search keys too (`docs/runbooks/deploy.md`,
+Release notes: 0.17.0).
+### Added
+- **Migration `0017_tools_research.sql`**: `colon_research_runs` (one row per deep research task: user, chat,
+  progress message, question, language, status `queued` | `running` | `done` | `failed` | `cancelled`, stage `plan` |
+  `search` | `read` | `write`, steps, hop, JSON state, the credit reservation's `request_id`, error, timestamps;
+  `ON DELETE CASCADE` with the user). The registry and image generation need no tables (images are
+  `chat_attachments`, image credits are `usage_events` under `image_credits`).
+- **`modules/tools`** (D14): `registry.js` (one entry per tool: JSON-schema subset for arguments, risk `low` |
+  `medium` | `high`, plans, plan entitlement, credits, timeout, consent, guests, model-callable, deferred, live
+  on/off), `invoke.js` (the router: known and on → arguments → guests → plan → monthly count → consent → credits
+  reserved → run with a timeout → settled, or refunded in full on any failure; follows `BILLING_MODE`; staff never
+  gated or charged), `catalogue.js` (`web_search`, `web_research`, `read_url`, `extract_file`, `browse`, `read_page`,
+  `stop_browsing`, `generate_image`, `deep_research`). Gemini function declarations for the chat model now come from
+  the registry.
+- **`modules/media`** (D15): image generation through Google AI Studio (`generateContent` with image output, the same
+  key and base URL as the other Gemini calls, or the key saved in Admin › Models), model `IMAGE_MODEL` (no built-in
+  id). One plan image credit plus `BILLING_CREDITS_IMAGE` Colon credits per image, refunded when no image comes back
+  (provider down, unknown model, refused prompt, timeout, save failure). Images are stored like uploads and attached
+  to an assistant message. **`POST /conversations/:id/images { prompt, message_id? }`** → 201 `{ user_message,
+  message, conversation }` (a failed image is an assistant message with an error card; input goes through the safety
+  check first). Rate limit 10 per 10 minutes per user.
+- **`modules/research`** (D16): deep research as `research.step` jobs, one bounded step per job (plan the searches,
+  one search per step, up to 3 pages read per step, write the report), the row saved after each step and the next
+  step queued; a step that does not fit in what is left of the cron run's time limit is handed to the next run; a
+  failing step is retried with backoff, then the run fails and is refunded; `research.sweep` (every cron interval)
+  resumes or ends and refunds a live run whose job is gone. Needs consent (409 `consent_required` with the credit
+  cost until the app sends `confirm: true`), the plan's `research_tasks` allowance and `BILLING_CREDITS_DEEP_RESEARCH`
+  credits (reserved at start, settled when the report is posted). Endpoints: **`POST /conversations/:id/research
+  { question, confirm }`** (6 per hour per user), **`GET /conversations/:id/research`**, **`GET /research/:id`**,
+  **`POST /research/:id/cancel`** (owner only; another user's id is a 404).
+- **Admin › Tools** (admin and Super Admin, 2FA; `GET /admin/tools`): each tool's risk, plans, entitlement, credits,
+  timeout, consent and on/off (image generation shows off while `IMAGE_MODEL` is empty), with this worker's call
+  counts. Read-only: the policy lives in `catalogue.js`, allowances in Admin › Plans.
+- **Chat app**: `/image <prompt>` in the composer and the model's `generate_image` (stream event `image { prompt,
+  message_id }`), image replies; a **Deep research** chip in Research mode (asks with the credit cost, shows progress
+  in the thread, Cancel, the report replaces the progress message); in Developer mode an **Edit** button on code
+  blocks opens Monaco (`monaco-editor` 0.52.2 from jsDelivr, loaded on first use; a plain textarea when the CDN is
+  blocked, fails or is slow). No code runs anywhere (D17's sandboxed execution is later).
+- Tests: `tests/unit/tools-registry.test.js` (7), `media-image.test.js` (6), `research-job.test.js` (6: consent,
+  step by step to the report, restart and sweep, deferral near the time limit, retry then refund, cancel),
+  `chat-tools-registry.test.js` (3), `tests/security/tools-media-research.test.js` (3: Admin › Tools access, signed-in
+  only, cross-user 404), `packages/ui/test/chat-tools.test.js` (7), `admin-tools.test.js` (7).
+### Changed
+- The chat's browser tools (`browse`, `read_page`, `stop_browsing`), the page reader (`GET /browser/fetch`, now
+  `read_url`) and file extraction (`extract_file`) run through `tools.invoke()`; behaviour for members is unchanged.
+- **Android apps** (both): a launch splash with a "from Nifelux" footer (`SplashOverlay.kt`, `view_splash.xml`)
+  instead of the load bar; Colon Browser's local home page no longer shows the page loading line, and the web boot
+  screen (`packages/ui/js/colon/router.js`) shows the logo only, without the loading bar under it.
+- **Cron dispatcher**: a run keeps claiming while jobs were due (a step-wise job queues its next step for now) until
+  the queue is empty or the time limit is near; a handler gets the batch's `deadline`, and a job type's timeout may
+  be a function (`research.step`: `RESEARCH_STEP_MS` + 10 s).
+### Config
+- `IMAGE_MODEL` (empty = image generation off), `IMAGE_TIMEOUT_MS` (90000), `BILLING_CREDITS_IMAGE` (0),
+  `BILLING_CREDITS_DEEP_RESEARCH` (10), `RESEARCH_MAX_QUERIES` (4, at most 8), `RESEARCH_MAX_PAGES` (8, at most 20),
+  `RESEARCH_STEP_MS` (35000; keep it under `JOBS_TIME_LIMIT_MS`).
+### Deploy
+- Take a database dump, deploy, then restart the API; `/health` → `database.migrations` should end with
+  `0017_tools_research`. Add the AI, search and research keys to `/home/apparatu/.colon-cron.env` (deep research runs
+  on the cron), set `IMAGE_MODEL` to turn images on, then check Admin › Tools, `/image` and one deep research run
+  (`docs/runbooks/deploy.md`, Release notes: 0.17.0). `version.json` moves to 0.17.0 (versionCode 1700, both APKs,
+  which carry the new splash), so publish the v0.17.0 release with this deploy.
+
 ## [0.16.0] — 2026-11-19 · Jobs and cron (Blueprint step C, items 11–13)
 Background work now lives in a MySQL job table instead of in-process timers, so it survives Passenger idling or
 recycling the API. A **cPanel cron job** runs `services/api/scripts/cron.js` every 5 minutes (configurable): it talks
