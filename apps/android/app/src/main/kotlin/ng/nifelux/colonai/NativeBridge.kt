@@ -159,6 +159,7 @@ class NativeBridge(private val host: MainActivity, private val webView: WebView)
             "bridgeStatus" -> done(true, JSONObject().put("status", ColonApplication.of(host).bridge.status.name
                 .lowercase()), null)
             "takeShare" -> done(true, host.takeShare() ?: JSONObject.NULL, null)
+            "takeAssist" -> done(true, host.takeAssist(), null)
             "vault" -> vault(a, done)
             else -> done(false, null, "unknown_command")
         }
@@ -304,7 +305,9 @@ class NativeBridge(private val host: MainActivity, private val webView: WebView)
             // 0.11.5
             "pageSummary",
             // 0.11.6: browser('control', {op: login_form}) reopens the login form Saga waits on.
-            "loginWait")
+            "loginWait",
+            // Colon OS Assistant, Step 1: opened as the phone's assistant (event "assist", takeAssist()).
+            "assist")
 
         /** Defines window.ColonNative (promise API) on top of the channel. Runs once per page, before page scripts. */
         private val SHIM = """
@@ -352,6 +355,7 @@ class NativeBridge(private val host: MainActivity, private val webView: WebView)
     setTheme: function (t) { return call('setTheme', { theme: t }); },
     setSession: function (o) { return call('setSession', o || {}); },
     takeShare: function () { return call('takeShare'); },
+    takeAssist: function () { return call('takeAssist'); },
     vault: function (action, o) { var a = o || {}; a.action = action; return call('vault', a); },
     browser: function (action, o) { var a = o || {}; a.action = action; return call('browser', a); }
   });

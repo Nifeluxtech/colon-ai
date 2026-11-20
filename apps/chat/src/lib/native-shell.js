@@ -28,6 +28,14 @@ function startNativeShell() {
     if (!b || stopped) return;
     var take = function () { b.takeShare().then(applyShare, function () {}); };
     take(); off = b.on('share', take);
+    // Colon OS Assistant (Step 1): the app was opened as the phone's assistant (long-press Home, a headset voice
+    // button). Start the hands-free conversation once; older apps without the feature never ask.
+    if (N.can('assist')) {
+      var assist = function () { b.call('takeAssist').then(function (yes) {
+        if (yes && !stopped && S.hf && !S.hf.active()) { N.haptic('tap'); S.hf.start(); } }, function () {}); };
+      assist(); var offShare = off, offAssist = b.on('assist', assist);
+      off = function () { offShare(); offAssist(); };
+    }
   });
   return function () { stopped = true; off(); };
 }

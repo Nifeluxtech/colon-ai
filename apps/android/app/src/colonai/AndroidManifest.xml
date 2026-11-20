@@ -45,5 +45,24 @@
                 <data android:scheme="https" android:host="chat.apparatus.name.ng" />
             </intent-filter>
         </activity>
+        <!-- Colon OS Assistant (Step 1): Colon AI as the default digital assistant app. Long-press Home (ASSIST) or a
+             headset voice button (VOICE_COMMAND) opens the chat in hands-free voice mode; forwards to MainActivity. -->
+        <activity
+            android:name=".AssistActivity"
+            android:excludeFromRecents="true"
+            android:exported="true"
+            android:label="@string/assist_label"
+            android:noHistory="true"
+            android:taskAffinity=""
+            android:theme="@style/Theme.Colon.Invisible">
+            <intent-filter>
+                <action android:name="android.intent.action.ASSIST" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+            <intent-filter>
+                <action android:name="android.intent.action.VOICE_COMMAND" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+        </activity>
     </application>
 </manifest>

@@ -2,6 +2,7 @@
 <!-- Colon AI only: the share target's label and its invisible theme (ShareReceiverActivity). -->
 <resources>
     <string name="share_label">Ask Colon AI</string>
+    <string name="assist_label">Talk to Colon</string>
 
     <style name="Theme.Colon.Invisible" parent="Theme.Colon">
         <item name="android:windowIsTranslucent">true</item>
