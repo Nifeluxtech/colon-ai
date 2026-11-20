@@ -5,6 +5,7 @@
 import { Colon } from '../../../../packages/ui/js/colon.js';
 
 var C = Colon;
+var TIMEOUT = 40000; // 0.20.1: a stuck upload no longer leaves "Transcribing…" up for good
 
 // Speech languages for the picker: BCP-47 code, label, and the short code the API takes.
 var SPEECH_LANGS = [['en-NG', 'English'], ['pcm-NG', 'Naijá (Pidgin)'], ['yo-NG', 'Yorùbá'], ['ha-NG', 'Hausa'],
@@ -18,7 +19,8 @@ function transcribe(blob, o) {
   fd.append('lang', o.lang || 'en-NG');
   if (o.duration) fd.append('duration', String(o.duration));
   fd.append('file', blob, o.name || 'voice.webm');
-  return fetch(C.API + '/voice/transcribe', { method: 'POST', body: fd, credentials: 'include', signal: o.signal,
+  return fetch(C.API + '/voice/transcribe', { method: 'POST', body: fd, credentials: 'include',
+    signal: o.signal || (AbortSignal.timeout ? AbortSignal.timeout(TIMEOUT) : undefined),
     headers: { 'X-Colon-Client': 'chat' } }).then(function (r) {
     return r.json().catch(function () { return {}; }).then(function (d) {
       if (r.ok && d.transcript) return d.transcript;
@@ -27,6 +29,8 @@ function transcribe(blob, o) {
     });
   }, function (e) {
     if (e && e.name === 'AbortError') throw e;
+    if (e && e.name === 'TimeoutError') throw Object.assign(new Error('Colon speech took too long. Try again.'),
+      { code: 'timeout' });
     throw Object.assign(new Error('You’re offline. Check your data and try again.'), { code: 'offline' });
   });
 }
