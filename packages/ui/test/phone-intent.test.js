@@ -8,6 +8,9 @@ const app = (name, extra) => Object.assign({ action: 'open_app', name, soft: tru
 
 test('open an app by name; "app" is remembered; settings pages win over app names', () => {
   assert.deepEqual(parsePhone('open WhatsApp'), app('whatsapp'));
+  assert.deepEqual(parsePhone('take me to WhatsApp'), app('whatsapp')); // 0.20.2
+  assert.deepEqual(parsePhone('go to Instagram'), app('instagram'));
+  assert.equal(parsePhone('go to google.com'), null);
   assert.deepEqual(parsePhone('Hey Colon, launch the Opay app'), app('opay', { app: true }));
   assert.deepEqual(parsePhone('please open my calculator'), app('calculator'));
   assert.deepEqual(parsePhone('open settings'), { action: 'settings', page: 'main' });

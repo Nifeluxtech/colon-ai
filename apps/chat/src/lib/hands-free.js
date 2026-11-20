@@ -70,6 +70,8 @@ function createHandsFree(o) {
     if (state === 'idle') return false;
     if (state === 'muted') return true; // the turn muting cancelled: nothing to send
     if (final === 'cancel') { stop(); return true; }
+    // 0.20.2: a late result from the recognizer while Colon thinks or speaks must not restart the turn.
+    if (state === 'thinking' || state === 'speaking') return true;
     if (final !== true) { if (turn && text && text !== turn.text) { turn.text = text; turn.last = Date.now();
       if (ui) ui.heard(text); }
       return false; }

@@ -180,6 +180,7 @@ class NativeBridge(private val host: MainActivity, private val webView: WebView)
             "voice_ui" -> VoiceMode.handle(host, a, done)
             // 0.20.1: the phone's own speech recognizer for voice input (NativeListen, native-listen.js).
             "listen" -> NativeListen.handle(host, a, done)
+            "speak" -> NativeSpeak.handle(host, a, done)
             else -> done(false, null, "unknown_command")
         }
     }
@@ -305,8 +306,9 @@ class NativeBridge(private val host: MainActivity, private val webView: WebView)
         .put("signedRelease", BuildConfig.RELEASE_SIGNED)
         .put("features", org.json.JSONArray(features()))
 
-    /** FEATURES, plus "listen" when the phone has a speech recognition service. */
-    private fun features(): List<String> = if (NativeListen.available(host)) FEATURES + "listen" else FEATURES
+    /** FEATURES, plus "speak" (0.20.2), and "listen" when the phone has a speech recognition service. */
+    private fun features(): List<String> =
+        (FEATURES + "speak").let { if (NativeListen.available(host)) it + "listen" else it }
 
     private fun shim(): String = SHIM.replace("%INFO%", JSONObject()
         .put("version", BuildConfig.VERSION_NAME).put("versionCode", BuildConfig.VERSION_CODE)
