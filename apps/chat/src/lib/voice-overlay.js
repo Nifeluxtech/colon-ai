@@ -1,7 +1,7 @@
 /* Colon AI · voice mode overlay (0.20.0). A full-screen, ChatGPT-style voice screen over the chat while hands-free
    runs: a blurred dark backdrop, a large orb in the centre that breathes and follows the mic while listening,
    swirls while Colon thinks and pulses while it speaks, a short live caption, and Mute / End in the footer.
-   "Show chat" hides it (the hands-free pill above the composer brings it back). Styles: chat-voice.css.
+   "Show chat" hides it (the composer's voice button brings it back, 0.20.1). Styles: chat-voice.css.
    Inside the Android app it also tells the app what to show in its floating pill over other apps
    (ColonNative 'voice_ui', feature "voice_ui") and takes the pill's End / Mute back (event 'voice_action').
    createVoiceOverlay({ onMute(on), onEnd(), muted() }) → { phase, heard, say, level, show, hide, model } */
