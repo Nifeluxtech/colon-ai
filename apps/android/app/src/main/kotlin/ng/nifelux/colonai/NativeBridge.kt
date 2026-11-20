@@ -169,6 +169,12 @@ class NativeBridge(private val host: MainActivity, private val webView: WebView)
                     else done(true, JSONObject().put("say", r.say), null)
                 }
             }
+            // OS Assistant Step 3: Colon Music, only what MusicRules allows (docs/os-assistant/step-3.md).
+            "music" -> {
+                val bad = MusicRules.check(a)
+                if (bad != null || BuildConfig.IS_BROWSER_APP) done(false, null, bad ?: "unknown_command")
+                else MusicActions.run(host, a, done)
+            }
             "vault" -> vault(a, done)
             else -> done(false, null, "unknown_command")
         }
@@ -318,7 +324,9 @@ class NativeBridge(private val host: MainActivity, private val webView: WebView)
             // Colon OS Assistant, Step 1: opened as the phone's assistant (event "assist", takeAssist()).
             "assist",
             // OS Assistant Step 2: phone control (ColonNative.call('phone', { action, ... })).
-            "phone")
+            "phone",
+            // OS Assistant Step 3: Colon Music ("play ...", "what song is this?"), Colon AI only.
+            "music")
 
         /** Defines window.ColonNative (promise API) on top of the channel. Runs once per page, before page scripts. */
         private val SHIM = """
@@ -344,7 +352,7 @@ class NativeBridge(private val host: MainActivity, private val webView: WebView)
   else window.__colonNativeReceive = receive;
   function call(cmd, args) {
     return new Promise(function (res, rej) {
-      var id = 'n' + (++seq), wait = cmd === 'vault' ? 900000 : cmd === 'requestPermission' || cmd === 'checkUpdate' ? 120000 : 30000;
+      var id = 'n' + (++seq), wait = cmd === 'vault' ? 900000 : cmd === 'requestPermission' || cmd === 'checkUpdate' || cmd === 'music' ? 120000 : 30000;
       pending[id] = [res, rej, setTimeout(function () {
         if (pending[id]) { delete pending[id]; var e = new Error('timeout'); e.code = 'timeout'; rej(e); }
       }, wait)];
