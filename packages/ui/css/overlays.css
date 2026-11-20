@@ -1,0 +1,109 @@
+/* Colon UI · v0.20.0 overlays: sheets, dialogs, menus, toasts and tooltips with one premium look.
+   Phones: bottom sheets with a grab handle that slide up. Desktop (≥640px): a centred card that scales in.
+   Loaded after polish.css; overlays.js adds .closing for the exit and html.overlay-lock while a sheet is open. */
+
+/* ---------- Scroll lock while a sheet is open ---------- */
+html.overlay-lock,html.overlay-lock body{overflow:hidden}
+.sheet-back,.menu-back{touch-action:none}
+
+/* ---------- Backdrop ---------- */
+.sheet-back{background:var(--overlay);backdrop-filter:var(--blur-back);-webkit-backdrop-filter:var(--blur-back);
+  animation:ov-fade var(--dur-3) var(--ease-out) both}
+.sheet-back.closing{animation:ov-fade-out .2s var(--ease-in) both;pointer-events:none}
+@keyframes ov-fade{from{opacity:0}}
+@keyframes ov-fade-out{to{opacity:0}}
+
+/* ---------- Sheet (phones) ---------- */
+.sheet{background:var(--elev-2);border:1px solid var(--line);border-bottom:0;
+  border-radius:var(--r-2xl) var(--r-2xl) 0 0;
+  box-shadow:var(--sh-xl),var(--inset-hi);padding:8px calc(20px + var(--safe-r)) calc(20px + var(--safe-b))
+    calc(20px + var(--safe-l));
+  animation:ov-up var(--dur-4) var(--ease-out) both;overscroll-behavior:contain;scrollbar-width:thin}
+.sheet::before{width:36px;height:5px;border-radius:3px;background:var(--line-2);margin:0 auto 18px;opacity:.9}
+.sheet.closing{animation:ov-down .2s var(--ease-in) both;pointer-events:none}
+@keyframes ov-up{from{transform:translateY(100%)}to{transform:none}}
+@keyframes ov-down{to{transform:translateY(100%)}}
+
+/* ---------- Dialog content: icon, title, body, actions ---------- */
+.dlg-head{display:flex;align-items:center;gap:var(--sp-3);margin:0 0 var(--sp-2)}
+.dlg-title{margin:0;font-size:var(--fs-xl);line-height:var(--lh-snug);font-weight:700;letter-spacing:-.015em;
+  min-width:0;overflow-wrap:anywhere}
+.dlg-ico{width:40px;height:40px;flex:none;border-radius:12px;display:grid;place-items:center;
+  background:var(--primary-soft);color:var(--primary)}
+[data-theme="dark"] .dlg-ico{color:#9DB6FF}
+.dlg-ico svg{width:20px;height:20px}
+.dlg-ico.danger{background:var(--bad-bg);color:var(--bad)}
+.dlg-body{margin:0;font-size:var(--fs-base);line-height:var(--lh-base);color:var(--text-2)}
+.dlg-form{margin-top:var(--sp-4)}
+.sheet .sheet-actions{display:flex;flex-direction:column-reverse;gap:var(--sp-2);margin-top:var(--sp-6)}
+.sheet .sheet-actions .btn{min-height:48px;border-radius:var(--r)}
+.sheet .sheet-actions .btn.ghost{background:var(--glass-2);border-color:var(--line)}
+.sheet .sheet-actions .btn.ghost:hover{background:var(--surface-2);color:var(--text)}
+.sheet .h2{font-size:var(--fs-xl);line-height:var(--lh-snug)}
+
+@media (min-width:640px){
+  .sheet{border:1px solid var(--line-2);border-radius:var(--r-xl);padding:var(--sp-6);
+    animation:ov-pop var(--dur-3) var(--ease-spring) both}
+  .sheet.dlg{width:420px}
+  .sheet.closing{animation:ov-pop-out .16s var(--ease-in) both}
+  .sheet .sheet-actions{flex-direction:row;justify-content:flex-end;margin-top:var(--sp-6)}
+  .sheet .sheet-actions .btn{min-height:40px;padding:0 18px;font-size:var(--fs-md)}
+  @keyframes ov-pop{from{opacity:0;transform:translate(-50%,-48%) scale(.96)}to{opacity:1;
+    transform:translate(-50%,-50%)}}
+  @keyframes ov-pop-out{to{opacity:0;transform:translate(-50%,-49%) scale(.98)}}
+}
+
+/* ---------- Popover menu ---------- */
+.menu{padding:6px;border-radius:16px;background:var(--elev-2);border:1px solid var(--line-2);
+  box-shadow:var(--sh-md),var(--inset-hi);animation:ov-menu var(--dur-2) var(--ease-out) both;
+  transform-origin:top right}
+@keyframes ov-menu{from{opacity:0;transform:translateY(-4px) scale(.97)}}
+.menu .mi{min-height:44px;padding:8px 12px;border-radius:10px;gap:12px;font-size:var(--fs-md);
+  transition:background var(--dur-1)}
+.menu .mi svg{width:18px;height:18px;flex:none}
+.menu .mi:hover,.menu .mi:focus-visible{background:var(--glass-2)}
+[data-theme="dark"] .menu .mi:hover,[data-theme="dark"] .menu .mi:focus-visible{background:rgba(140,165,255,.10)}
+.menu .mi:active{background:var(--primary-soft)}
+.menu .mi[aria-checked="true"]{background:var(--primary-soft);box-shadow:inset 0 0 0 1px var(--primary-line)}
+.menu .mi.danger:hover{background:var(--bad-bg)}
+.menu .mi .mi-sub{margin-top:1px;line-height:1.35}
+.menu .mi .badge{font-size:11px;padding:1px 8px}
+.menu hr{border-top-color:var(--hairline);margin:6px 8px}
+.menu .menu-head{padding:10px 12px 6px;font-size:11.5px;letter-spacing:.07em}
+.menu-back{position:fixed;inset:0;z-index:179;background:var(--overlay);
+  animation:ov-fade var(--dur-2) var(--ease-out) both}
+@media (max-width:639px){
+  .menu.as-sheet{border-radius:22px;padding:6px 6px calc(8px + var(--safe-b));box-shadow:var(--sh-xl);
+    animation:ov-up var(--dur-3) var(--ease-out) both}
+  .menu.as-sheet::before{content:"";display:block;width:36px;height:5px;border-radius:3px;background:var(--line-2);
+    margin:4px auto 6px}
+  .menu.as-sheet .mi{min-height:52px}
+}
+
+/* ---------- Toasts ---------- */
+.toast{gap:var(--sp-3);padding:10px 10px 10px 12px;border-radius:16px;background:var(--elev-3);
+  border:1px solid var(--line-2);box-shadow:var(--sh-md),var(--inset-hi);font-size:var(--fs-md);
+  line-height:var(--lh-snug);font-weight:500;animation:toast-in var(--dur-3) var(--ease-spring) both}
+[data-theme="light"] .toast{background:#0F172A;color:#F1F5FF;border-color:transparent}
+.toast::before{display:none}
+.toast-ico{width:28px;height:28px;flex:none;border-radius:9px;display:grid;place-items:center;
+  background:var(--primary-soft);color:#9DB6FF}
+.toast-ico svg{width:16px;height:16px}
+.toast.ok .toast-ico{background:var(--ok-bg);color:var(--ok)}
+.toast.bad .toast-ico{background:var(--bad-bg);color:var(--bad)}
+[data-theme="light"] .toast.ok .toast-ico{color:#4ADE80}
+[data-theme="light"] .toast.bad .toast-ico{color:#FCA5A5}
+.toast.ok,.toast.bad{border-color:var(--line-2)}
+[data-theme="light"] .toast.ok,[data-theme="light"] .toast.bad{border-color:transparent}
+.toast-msg{flex:1;min-width:0}
+.toast .toast-act{flex:none;min-height:32px;padding:0 12px;border-radius:9px;background:var(--glass-2);font-size:13px}
+[data-theme="light"] .toast .toast-act{color:#A9C0FF;background:rgba(255,255,255,.08)}
+
+/* ---------- Tooltip ---------- */
+.tip{padding:6px 10px;border-radius:9px;font-size:12px;font-weight:600;box-shadow:var(--sh-md);
+  animation:ov-tip var(--dur-2) var(--ease-out) both}
+@keyframes ov-tip{from{opacity:0;transform:translateY(2px)}}
+
+/* ---------- Drawer ---------- */
+.drawer-back,.cw-drawer-back{backdrop-filter:blur(2px);-webkit-backdrop-filter:blur(2px)}
+.drawer,.cw-side{transition-timing-function:var(--ease-out)}

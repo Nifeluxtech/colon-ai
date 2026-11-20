@@ -33,6 +33,19 @@
   --ease:cubic-bezier(.2,.8,.2,1); --dur:.24s;
   --kb:0px; /* on-screen keyboard height, set by Colon.keyboard() from visualViewport */
 }
+/* Design scale (v0.20.0): type, spacing (4/8 grid), radii, motion and focus. Pages use these instead of
+   hand-picked numbers; the older names above stay for compatibility. */
+:root{
+  --fs-xs:12px; --fs-sm:13px; --fs-md:14px; --fs-base:15px; --fs-lg:17px; --fs-xl:20px; --fs-2xl:24px;
+  --fs-3xl:clamp(26px,5.6vw,32px);
+  --lh-tight:1.2; --lh-snug:1.35; --lh-base:1.55; --lh-loose:1.7;
+  --sp-1:4px; --sp-2:8px; --sp-3:12px; --sp-4:16px; --sp-5:20px; --sp-6:24px; --sp-8:32px; --sp-10:40px;
+  --r-2xl:28px;
+  --ease-out:cubic-bezier(.16,1,.3,1); --ease-in:cubic-bezier(.4,0,1,1); --ease-spring:cubic-bezier(.32,1.25,.5,1);
+  --dur-1:.12s; --dur-2:.18s; --dur-3:.26s; --dur-4:.38s;
+  --ring:0 0 0 3px rgba(65,105,225,.38); --ring-bad:0 0 0 3px rgba(220,38,38,.3);
+  --blur-back:blur(4px);
+}
 /* Dark theme (default) */
 :root,[data-theme="dark"]{
   color-scheme:dark;
@@ -45,12 +58,17 @@
   --info-bg:rgba(56,189,248,.12); --primary-soft:rgba(65,105,225,.18); --primary-line:rgba(91,130,240,.55);
   --code-bg:#0A1230; --overlay:rgba(3,7,20,.62);
   --sh:0 10px 30px rgba(2,6,23,.45); --sh-lg:0 24px 70px rgba(2,6,23,.6); --sh-glow:0 8px 28px rgba(65,105,225,.38);
+  --sh-xs:0 1px 2px rgba(2,6,23,.4); --sh-sm:0 1px 2px rgba(2,6,23,.35),0 4px 12px rgba(2,6,23,.28);
+  --sh-md:0 2px 4px rgba(2,6,23,.3),0 12px 28px rgba(2,6,23,.4);
+  --sh-xl:0 4px 10px rgba(2,6,23,.35),0 28px 80px rgba(2,6,23,.62);
+  --focus:#8FAEFF; --elev-1:#0E1838; --elev-2:#13204A; --elev-3:#182858; --hairline:rgba(140,165,255,.10);
+  --inset-hi:inset 0 1px 0 rgba(255,255,255,.05);
   --page-bg:radial-gradient(1100px 620px at 12% -12%,rgba(65,105,225,.30),transparent 62%),
     radial-gradient(900px 520px at 105% 108%,rgba(56,189,248,.12),transparent 60%),#080F24;
 }
 [data-theme="light"]{
   color-scheme:light;
-  --bg:#FFFFFF; --bg-2:#F5F8FF; --surface:#FFFFFF; --surface-2:#EAF0FF; --surface-3:#DCE6FF;
+  --bg:#FFFFFF; --bg-2:#F4F6FB; --surface:#FFFFFF; --surface-2:#EAF0FF; --surface-3:#DCE6FF;
   --surface-solid:#FFFFFF; --glass:rgba(255,255,255,.78); --glass-2:rgba(234,240,255,.8);
   --line:#E2E8F0; --line-2:#CBD5E1;
   --text:#0F172A; --text-2:#334155; --muted:#64748B; --placeholder:#94A3B8;
@@ -59,6 +77,11 @@
   --info-bg:rgba(56,189,248,.12); --primary-soft:#EAF0FF; --primary-line:rgba(65,105,225,.45);
   --code-bg:#0F172A; --overlay:rgba(15,23,42,.45);
   --sh:0 8px 24px rgba(15,23,42,.08); --sh-lg:0 24px 60px rgba(15,23,42,.16); --sh-glow:0 8px 24px rgba(65,105,225,.28);
+  --sh-xs:0 1px 2px rgba(15,23,42,.06); --sh-sm:0 1px 2px rgba(15,23,42,.05),0 4px 12px rgba(15,23,42,.06);
+  --sh-md:0 2px 4px rgba(15,23,42,.04),0 12px 28px rgba(15,23,42,.10);
+  --sh-xl:0 4px 10px rgba(15,23,42,.06),0 28px 80px rgba(15,23,42,.20);
+  --focus:#4169E1; --elev-1:#FFFFFF; --elev-2:#FFFFFF; --elev-3:#FFFFFF; --hairline:rgba(15,23,42,.06);
+  --inset-hi:inset 0 1px 0 rgba(255,255,255,.7);
   --page-bg:radial-gradient(1000px 560px at 10% -14%,rgba(65,105,225,.10),transparent 60%),#FFFFFF;
 }
 
@@ -73,7 +96,7 @@ button,input,select,textarea{font:inherit;color:inherit}
 button{cursor:pointer}
 img,svg{display:block}
 svg{flex:none}
-:focus-visible{outline:2px solid var(--cyan);outline-offset:2px;border-radius:8px}
+:focus-visible{outline:2px solid var(--focus);outline-offset:2px;border-radius:8px}
 ::selection{background:rgba(65,105,225,.35)}
 .sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
 .hidden,[hidden]{display:none!important}
