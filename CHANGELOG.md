@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.20.1 — 2026-11-20
+
+Voice mode fixes after the first test on an Infinix SMART 20.
+
+- **English voice input uses the phone's own speech recognizer** (Android `SpeechRecognizer`, free). New bridge feature `listen` (`NativeListen.kt`, only advertised when the phone has a recognition service) and `apps/chat/src/lib/native-listen.js`, which stands in for the Web Speech API inside the app. Words show live, the orb follows the voice, and a turn no longer waits on a server upload. Other languages still go through Colon speech.
+- **No more stuck "Transcribing…"**: the page gives up on a transcription after 40 s; the server tries Naija Speech for 15 s and Gemini for 22 s.
+- **Hands-free bar removed**: the full-screen voice screen is the whole UI. While voice mode runs, the composer's voice button brings the voice screen back.
+- **Floating pill taps**: a tap may wobble up to 24 dp and still expand the pill; holding to end now takes 0.9 s, and a swipe to end 72 dp. The pill no longer drags on a small wobble.
+
 ## [0.20.0] — 2026-11-20 · Voice mode redesign
 Voice mode (hands-free) gets a new look in the app and over other apps. See `docs/os-assistant/voice-ui.md`.
 ### Added
