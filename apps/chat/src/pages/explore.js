@@ -20,8 +20,9 @@ var EXPLORE = {
     'Explain inflation in simple Nigerian terms'], ['Quick maths', 'What is 15% of 85000?']]
 };
 // v0.5.7: the timed CBT practice test has its own screen (pages/cbt.js).
-function cbtCard() { return '<a class="explore-card cbt-explore" href="#/cbt"><b>' + icon('target')
-  + 'CBT practice test</b><span>10 WAEC, NECO or JAMB-style questions in 5 minutes, marked instantly</span></a>'; }
+function cbtCard() { return '<a class="explore-card cbt-explore" href="#/cbt"><span class="explore-ico">'
+  + icon('target') + '</span><b>CBT practice test<em class="badge primary">Timed</em></b><span>10 WAEC, NECO or '
+  + 'JAMB-style questions in 5 minutes, marked instantly</span></a>'; }
 CW.pages.explore = function (page) {
   page.innerHTML = (
     '<div class="cw-screen"><header class="cw-screen-head"><div><h1 class="h1">Explore</h1><p class="lead">Ideas '
@@ -30,7 +31,8 @@ CW.pages.explore = function (page) {
       var m = CW.MODES[k];
       return '<div class="section-title">' + icon(m.icon) + ' ' + esc(m.label) + '</div><div class="explore-grid">'
         + (k === 'study' ? cbtCard() : '') + EXPLORE[k].map(function (x) {
-        return '<button type="button" class="explore-card" data-ex-mode="' + k + '" data-ex="' + esc(x[1]) + '"><b>'
+        return '<button type="button" class="explore-card" data-ex-mode="' + k + '" data-ex="' + esc(x[1])
+          + '"><span class="explore-ico">' + icon(m.icon) + '</span><b>'
           + esc(x[0]) + '</b><span>' + esc(x[1]) + '</span></button>';
       }).join('') + '</div>';
     }).join('') + '</div>';

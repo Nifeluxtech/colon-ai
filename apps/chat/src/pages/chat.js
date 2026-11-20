@@ -23,6 +23,7 @@ import { ChatMedia } from '../lib/media.js';
 import { startNativeShell } from '../lib/native-shell.js';
 import { pinFrame } from '../lib/thread-scroll.js';
 import { ReadAloud } from '../lib/read-aloud.js';
+import { createVoiceOverlay } from '../lib/voice-overlay.js';
 var C = Colon, icon = C.icon, esc = C.esc;
 function login(mode) { if (typeof C.authModal === 'function') C.authModal({ mode: mode || 'login',
   lead: mode === 'signup' ? 'Save your chats, upload images and pick up on any device.' :
@@ -127,7 +128,10 @@ function mount(view, ctx) {
     },
     onLevel: function (v) { S.hf.level(v); }
   });
-  S.hf = createHandsFree({ media: S.media, send: send, speak: ReadAloud, bar: $('.cv-voice'), toast: C.toast,
+  // 0.20.0: the full-screen voice-mode overlay (and the Android app's pill) follows hands-free.
+  var vm = createVoiceOverlay({ onMute: function (on) { S.hf.mute(on); }, onEnd: function () { S.hf.stop(); },
+    muted: function () { return S.hf.muted(); } });
+  S.hf = createHandsFree({ media: S.media, send: send, speak: ReadAloud, bar: $('.cv-voice'), toast: C.toast, ui: vm,
     getSettings: function () { return S.settings || {}; }, onState: function () { syncComposer(); } });
   S.collapsed = localStorage.getItem('colon.sidebar') === 'closed';
   applySidebar();
