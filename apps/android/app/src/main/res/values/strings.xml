@@ -255,4 +255,21 @@
     <string name="assist_label">Talk to Colon</string>
     <string name="music_listening">Listening for the song…</string>
     <string name="assist_long_label">Talk to Colon hands-free</string>
+    <!-- 0.20.0 voice mode: the floating pill and Siri-style overlay over other apps (VoiceOverlay, VoiceService). -->
+    <string name="channel_voice">Voice mode</string>
+    <string name="voice_title">Colon voice mode</string>
+    <string name="voice_listening">Listening…</string>
+    <string name="voice_thinking">Thinking…</string>
+    <string name="voice_speaking">Speaking</string>
+    <string name="voice_muted">Mic muted</string>
+    <string name="voice_end">End</string>
+    <string name="voice_open">Open Colon</string>
+    <string name="voice_mute">Mute</string>
+    <string name="voice_unmute">Unmute</string>
+    <string name="voice_collapse">Close</string>
+    <string name="voice_pill_desc">Colon voice mode: %1$s. Tap to expand, hold or swipe to end.</string>
+    <string name="voice_overlay_title">Show Colon over other apps?</string>
+    <string name="voice_overlay_text">Let Colon show a small voice pill at the top of the screen while you talk to it from other apps. Turn on “Display over other apps” for Colon AI on the next screen. Without it, Colon uses a notification instead.</string>
+    <string name="voice_overlay_allow">Open settings</string>
+    <string name="voice_overlay_later">Not now</string>
 </resources>
