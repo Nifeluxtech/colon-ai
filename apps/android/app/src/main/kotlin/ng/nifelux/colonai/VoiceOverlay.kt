@@ -170,9 +170,11 @@ class VoiceOverlay(private val ctx: Context, private val actions: Actions) {
                 }
                 MotionEvent.ACTION_MOVE -> {
                     val dx = e.rawX - x0; val dy = e.rawY - y0; val dist = kotlin.math.hypot(dx, dy)
-                    if (dist > VoiceUiRules.TAP_SLOP_DP * density) main.removeCallbacks(hold)
-                    movePill(dx, minOf(0f, dy))
-                    v.alpha = 1f - (dist / (VoiceUiRules.SWIPE_DP * density * 3)).coerceIn(0f, .6f)
+                    if (dist > VoiceUiRules.TAP_SLOP_DP * density) { // 0.20.1: a wobble no longer drags the pill
+                        main.removeCallbacks(hold)
+                        movePill(dx, minOf(0f, dy))
+                        v.alpha = 1f - (dist / (VoiceUiRules.SWIPE_DP * density * 3)).coerceIn(0f, .6f)
+                    }
                 }
                 MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
                     main.removeCallbacks(hold)

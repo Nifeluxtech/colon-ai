@@ -84,10 +84,11 @@ class VoiceUiRulesTest {
     @Test fun pillGestures() {
         val d = 2.75f // a 440 dpi phone such as the Infinix SMART 20
         assertEquals(Gesture.TAP, VoiceUiRules.gesture(3f, 2f, 120, d))
-        assertEquals(Gesture.LONG_PRESS, VoiceUiRules.gesture(0f, 0f, 700, d))
+        assertEquals(Gesture.LONG_PRESS, VoiceUiRules.gesture(0f, 0f, 1000, d))
         assertEquals(Gesture.SWIPE_END, VoiceUiRules.gesture(200f, 0f, 150, d))
-        assertEquals(Gesture.SWIPE_END, VoiceUiRules.gesture(0f, -160f, 900, d))
-        assertEquals(Gesture.NONE, VoiceUiRules.gesture(60f, 0f, 150, d)) // moved, but not far enough
+        assertEquals(Gesture.SWIPE_END, VoiceUiRules.gesture(0f, -220f, 900, d))
+        assertEquals(Gesture.NONE, VoiceUiRules.gesture(120f, 0f, 150, d)) // moved, but not far enough
         assertNotEquals(Gesture.TAP, VoiceUiRules.gesture(0f, 0f, VoiceUiRules.LONG_PRESS_MS, d))
+        assertEquals(Gesture.TAP, VoiceUiRules.gesture(40f, 30f, 600, d)) // a slow, wobbly tap still expands
     }
 }

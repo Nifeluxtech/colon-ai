@@ -32,7 +32,7 @@ const naija = {
     form.append('language', a.lang);
     const r = await call(o.fetch || fetch, `${base}/audio/transcriptions`, { method: 'POST', body: form,
       headers: { Authorization: `Bearer ${env('NAIJA_SPEECH_API_KEY', '')}`, Accept: 'application/json' } },
-    o.timeoutMs || 45000);
+    o.timeoutMs || 15000); // 0.20.1: leave Gemini time inside the page's 40 s
     status(r, 'Naija Speech');
     let j; try { j = await r.json(); } catch { throw err('parse'); }
     return { text: String(j.text || '').trim(), duration: Number(j.duration) || undefined,
@@ -60,7 +60,7 @@ const gemini = {
     generationConfig: { temperature: 0, maxOutputTokens: 2048 } };
     const r = await call(o.fetch || fetch, `${base}/models/${encodeURIComponent(model)}:generateContent`, {
       method: 'POST', body: JSON.stringify(body), headers: { 'Content-Type': 'application/json',
-        'x-goog-api-key': env('GEMINI_API_KEY', '') } }, o.timeoutMs || 45000);
+        'x-goog-api-key': env('GEMINI_API_KEY', '') } }, o.timeoutMs || 22000);
     status(r, 'Gemini');
     let j; try { j = await r.json(); } catch { throw err('parse'); }
     const parts = (((j.candidates || [])[0] || {}).content || {}).parts || [];

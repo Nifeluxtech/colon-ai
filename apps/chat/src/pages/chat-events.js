@@ -123,7 +123,7 @@ function bind() {
       attach: function () { S.media.pick(); }, mic: function () { voiceMenu(a); },
       // 0.18.1: the send button in voice mode (empty composer) starts or ends hands-free.
       send: function () { if (!a.classList.contains('voice') || S.streaming) return;
-        if (S.hf.active()) S.hf.stop(); else S.hf.start(); syncComposer(); },
+        if (S.hf.active()) S.hf.reopen(); else S.hf.start(); syncComposer(); },
       'mode-menu': function () { modeMenu(a); },
       // AI Browse: in the Android app Saga drives the native panel (it opens at once); elsewhere the web reader.
       'browse-web': function () {

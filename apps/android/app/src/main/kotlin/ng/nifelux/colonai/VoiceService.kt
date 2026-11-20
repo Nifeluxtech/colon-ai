@@ -38,6 +38,7 @@ class VoiceService : Service(), VoiceOverlay.Actions {
         when (intent?.action) {
             ACTION_END -> { end(); return START_NOT_STICKY }
             ACTION_MUTE -> { mute(!VoiceMode.muted); return START_NOT_STICKY }
+            ACTION_EXPAND -> { expandFromNotification(); return START_NOT_STICKY }
         }
         instance = this
         if (!foreground) {
@@ -74,6 +75,18 @@ class VoiceService : Service(), VoiceOverlay.Actions {
         } else {
             overlay?.hideAll()
         }
+    }
+
+    /**
+     * 0.20.1: a tap on the notification (which XOS also shows as its "Dynamic Bar" island) opens the glowing
+     * full-screen overlay, like a tap on Colon's own pill. Only used when "Display over other apps" is allowed;
+     * otherwise the notification opens Colon.
+     */
+    private fun expandFromNotification() {
+        if (instance !== this || VoiceMode.phase == VoiceUiRules.Phase.IDLE || !Settings.canDrawOverlays(this)) return
+        val o = overlay ?: VoiceOverlay(this, this).also { overlay = it }
+        o.update(VoiceMode.phase, VoiceMode.caption, VoiceMode.muted)
+        o.expand()
     }
 
     private fun finish() {
@@ -115,7 +128,10 @@ class VoiceService : Service(), VoiceOverlay.Actions {
         .setOnlyAlertOnce(true)
         .setSilent(true)
         .setCategory(NotificationCompat.CATEGORY_SERVICE)
-        .setContentIntent(PendingIntent.getActivity(this, 11, appIntent(this),
+        .setContentIntent(if (Settings.canDrawOverlays(this)) PendingIntent.getService(this, 14,
+            Intent(this, VoiceService::class.java).setAction(ACTION_EXPAND),
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
+            else PendingIntent.getActivity(this, 11, appIntent(this),
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE))
         .addAction(0, getString(if (VoiceMode.muted) R.string.voice_unmute else R.string.voice_mute),
             PendingIntent.getService(this, 12, Intent(this, VoiceService::class.java).setAction(ACTION_MUTE),
@@ -129,6 +145,7 @@ class VoiceService : Service(), VoiceOverlay.Actions {
         const val ID = 7301
         private const val ACTION_END = "ng.nifelux.colonai.voice.END"
         private const val ACTION_MUTE = "ng.nifelux.colonai.voice.MUTE"
+        private const val ACTION_EXPAND = "ng.nifelux.colonai.voice.EXPAND"
 
         /** The running service (main thread only), or null. */
         var instance: VoiceService? = null

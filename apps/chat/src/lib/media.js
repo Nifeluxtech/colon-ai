@@ -8,6 +8,7 @@
    ChatMedia.create({ data, tray, voiceBar, getSettings, onChange, onTranscript, onVoiceDone }) */
 import { Colon } from '../../../../packages/ui/js/colon.js';
 import { langLabel, transcribe } from '../core/voice-client.js';
+import { NativeSR, usable as nativeListenUsable } from './native-listen.js';
 
 var C = Colon, icon = C.icon, esc = C.esc;
 var KIND_ICON = { image: 'image', pdf: 'fileText', doc: 'fileText', text: 'file', audio: 'mic' };
@@ -79,9 +80,10 @@ function create(o) {
   }
 
   /* ---------- Voice ---------- */
-  // Android System WebView has no working speech service, so inside the Colon app every language goes through
-  // Colon speech (recorded with getUserMedia, transcribed by the server). v0.7.1
-  var SR = C.native && C.native.isShell() ? null : window.SpeechRecognition || window.webkitSpeechRecognition;
+  // The app's WebView has no Web Speech API: there the phone's own recognizer (native-listen.js, 0.20.1) stands
+  // in when it has one; otherwise every language goes through Colon speech (recorded, transcribed by the server).
+  var SR = C.native && C.native.isShell() ? (nativeListenUsable() ? NativeSR : null) : window.SpeechRecognition
+    || window.webkitSpeechRecognition;
   var voice = null; // { kind:'dictation'|'recorder', colon?, ... }
   function voiceLang() { var s = o.getSettings ? o.getSettings() : {}; return (s.voice && s.voice.lang) || 'en-NG'; }
   // auto: English with dictation when the browser has it; everything else through Colon speech (server).
@@ -170,7 +172,7 @@ function create(o) {
     var method = voiceMethod(), s = o.getSettings ? o.getSettings() : {};
     if (method === 'dictation' && SR) {
       var rec = new SR(); rec.lang = (s.voice && s.voice.lang) || 'en-NG'; rec.interimResults = true;
-        rec.continuous = true;
+        rec.continuous = true; rec.onlevel = function (v) { if (o.onLevel) o.onLevel(v); };
       voice = { kind: 'dictation', rec: rec, finalText: '', cancelled: false, stopping: false, restarts: 0 };
       // Android Chrome repeats earlier words inside each new result ("hi", "hi how", "hi how are you"), so the
       // session text is rebuilt from all results each time, and a result that already contains the text so far

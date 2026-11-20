@@ -178,6 +178,8 @@ class NativeBridge(private val host: MainActivity, private val webView: WebView)
             "vault" -> vault(a, done)
             // 0.20.0: voice mode's state for the pill over other apps (VoiceMode, VoiceUiRules).
             "voice_ui" -> VoiceMode.handle(host, a, done)
+            // 0.20.1: the phone's own speech recognizer for voice input (NativeListen, native-listen.js).
+            "listen" -> NativeListen.handle(host, a, done)
             else -> done(false, null, "unknown_command")
         }
     }
@@ -301,11 +303,14 @@ class NativeBridge(private val host: MainActivity, private val webView: WebView)
         .put("bridge", ColonApplication.of(host).bridge.status.name.lowercase())
         .put("online", ColonApplication.of(host).online)
         .put("signedRelease", BuildConfig.RELEASE_SIGNED)
-        .put("features", org.json.JSONArray(FEATURES))
+        .put("features", org.json.JSONArray(features()))
+
+    /** FEATURES, plus "listen" when the phone has a speech recognition service. */
+    private fun features(): List<String> = if (NativeListen.available(host)) FEATURES + "listen" else FEATURES
 
     private fun shim(): String = SHIM.replace("%INFO%", JSONObject()
         .put("version", BuildConfig.VERSION_NAME).put("versionCode", BuildConfig.VERSION_CODE)
-        .put("features", org.json.JSONArray(FEATURES)).toString())
+        .put("features", org.json.JSONArray(features())).toString())
 
     companion object {
         const val CHANNEL = "ColonNativeChannel"

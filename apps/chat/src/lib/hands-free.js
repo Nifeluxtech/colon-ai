@@ -19,6 +19,7 @@ function createHandsFree(o) {
     if ((was === 'idle') !== (s === 'idle') && o.onState) o.onState(s); // 0.18.1: the voice-mode button
     if (ui && was !== s) ui.phase(s);
     if (s === 'idle') { if (pill) pill.remove(); pill = null; return; }
+    if (ui) return; // 0.20.1: the voice-mode overlay is the whole UI; no Hands-free bar over the composer
     if (!pill) {
       pill = document.createElement('div'); pill.className = 'cv-voice cv-hf'; pill.setAttribute('role', 'status');
       pill.innerHTML = '<span class="cv-rec-dot" aria-hidden="true"></span><span class="cv-voice-body"><b>'
@@ -115,8 +116,11 @@ function createHandsFree(o) {
     } else if (!muted && state === 'muted') { misses = 0; listen(); }
   }
 
-  return { start: start, stop: stop, active: function () { return state !== 'idle'; }, transcript: transcript,
-    level: level, replyDone: replyDone, mute: mute, muted: function () { return muted; } };
+  // 0.20.1: the composer's voice button while voice mode runs brings the overlay back (End lives there).
+  function reopen() { if (state === 'idle') return start(); if (ui && ui.show) ui.show(); else stop(); }
+
+  return { start: start, stop: stop, reopen: reopen, active: function () { return state !== 'idle'; },
+    transcript: transcript, level: level, replyDone: replyDone, mute: mute, muted: function () { return muted; } };
 }
 
 export { createHandsFree };

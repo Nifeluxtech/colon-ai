@@ -18,10 +18,10 @@ object VoiceUiRules {
 
     const val CAPTION_MAX = 140
     const val CORNER_FALLBACK_DP = 24
-    const val LONG_PRESS_MS = 550L
+    const val LONG_PRESS_MS = 900L // 0.20.1: 550 ms ended voice mode on a slow tap
     /** How far (in dp) a finger must travel for a swipe to end voice mode; less is a tap. */
-    const val SWIPE_DP = 48
-    const val TAP_SLOP_DP = 10
+    const val SWIPE_DP = 72
+    const val TAP_SLOP_DP = 24 // 0.20.1: a finger's wobble still counts as a tap
 
     /** A voice_ui message from the page, checked: null when it is not one Colon sends. */
     data class Update(val phase: Phase, val caption: String, val muted: Boolean)
