@@ -45,7 +45,21 @@ function fetchChunk(t, o) {
   });
 }
 
+// 0.20.2: in the Android app the phone's own text-to-speech (feature "speak"); WebView's speechSynthesis is silent.
+var nativeOff = null;
+function nativeSpeak(list, o, my) {
+  var b = window.ColonNative, id = 's' + my + '-' + Date.now(), ended = false;
+  function end() { if (ended) return; ended = true; if (nativeOff) { nativeOff(); nativeOff = null; }
+    if (my === run && o.onEnd) o.onEnd(); }
+  if (nativeOff) nativeOff();
+  nativeOff = b.on('speak', function (d) { if (d && d.id === id && (d.type === 'done' || d.type === 'error')) end(); });
+  b.call('speak', { action: 'speak', id: id, text: list.join(' ').slice(0, 6000), lang: o.lang || 'en-NG',
+    rate: o.rate || 1 }).catch(end);
+}
+function canNative() { var N = C.native; return !!(N && N.hasBridge && N.hasBridge() && N.can('speak')); }
+
 function device(list, o, my) {
+  if (list.length && canNative()) return nativeSpeak(list, o, my);
   if (!('speechSynthesis' in window) || !list.length) { if (my === run && o.onEnd) o.onEnd(); return; }
   speechSynthesis.cancel();
   var u = new SpeechSynthesisUtterance(list.join(' ').slice(0, 6000));
@@ -59,6 +73,8 @@ function stop() {
   if (audio) { audio.pause(); audio.src = ''; audio = null; }
   urls.forEach(function (u) { URL.revokeObjectURL(u); }); urls = [];
   if ('speechSynthesis' in window) speechSynthesis.cancel();
+  if (nativeOff) { nativeOff(); nativeOff = null; }
+  if (canNative()) window.ColonNative.call('speak', { action: 'stop' }).catch(function () {});
 }
 
 function play(text, o) {
@@ -88,5 +104,5 @@ function play(text, o) {
   })(0, next);
 }
 
-var canPlay = typeof Audio !== 'undefined' || 'speechSynthesis' in window;
+var canPlay = typeof Audio !== 'undefined' || 'speechSynthesis' in window || canNative();
 export var ReadAloud = { play: play, stop: stop, chunks: chunks, nigerianLang: nigerianLang, canPlay: canPlay };

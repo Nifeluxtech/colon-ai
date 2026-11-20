@@ -87,7 +87,8 @@ var NAV = new RegExp('^(?:navigate|navigation|directions|get (?:me\\s+)?directio
 var CAMERA = any([
   '^(?:open|launch|start|show)\\s+(?:the\\s+|my\\s+)?camera(?:\\s+app)?$',
   '^take\\s+(?:a\\s+|an?\\s+)?(?:photo|picture|pic|selfie|snapshot)$']);
-var OPEN_APP = /^(?:open|launch|start|run)\s+(?:the\s+|my\s+)?(.+?)(\s+app(?:lication)?)?$/;
+var OPEN_APP = new RegExp('^(?:open(?: up)?|launch|start|run|take me to|go to|switch to|bring up)\\s+'
+  + '(?:the\\s+|my\\s+)?(.+?)(\\s+app(?:lication)?)?$');
 var NOT_APP = new RegExp('\\b(?:browser|page|site|website|web ?site|tab|link|file|chat|conversation|document|'
   + 'thread|new|this|that|it|them|here|result|results|email|mail from|url|folder|image|picture|photo)\\b');
 var DOMAIN = /\.[a-z]{2,}(?:\/|$)|^https?:/;
