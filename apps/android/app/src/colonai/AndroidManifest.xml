@@ -10,6 +10,11 @@
         android:name="android.permission.READ_EXTERNAL_STORAGE"
         android:maxSdkVersion="32" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
+    <!-- 0.20.0 voice mode: the floating "dynamic island" pill and Siri-style overlay over other apps (the user turns
+         on "Display over other apps"; without it Colon uses the notification), and the microphone foreground
+         service that keeps voice mode listening while Colon is in the background (VoiceService). -->
+    <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MICROPHONE" />
 
     <application>
         <activity
@@ -94,5 +99,10 @@
                 <action android:name="androidx.media3.session.MediaSessionService" />
             </intent-filter>
         </service>
+        <!-- 0.20.0 voice mode in the background (VoiceService.kt): mic, notification, pill. -->
+        <service
+            android:name=".VoiceService"
+            android:exported="false"
+            android:foregroundServiceType="microphone" />
     </application>
 </manifest>
