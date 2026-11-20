@@ -53,7 +53,7 @@ class MusicRulesTest {
         assertFalse(MusicRules.wantsAll("burna boy"))
         assertFalse(MusicRules.tagged("track01", "<unknown>", "track01.mp3"))
         assertFalse(MusicRules.tagged("AUD-2024", "Someone", "AUD-2024.mp3"))
-        assertTrue(MusicRules.tagged("Essence", "Wizkid", "essence.mp3"))
+        assertTrue(MusicRules.tagged("Essence", "Wizkid", "01-essence-wizkid.mp3"))
         assertEquals("Essence by Wizkid", MusicRules.describe("Essence", "Wizkid"))
         assertEquals("https://www.youtube.com/results?search_query=calm+down",
             MusicRules.serviceUrl("youtube", "calm down") { it.replace(' ', '+') })
