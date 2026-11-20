@@ -9,6 +9,8 @@
     <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />
     <uses-permission android:name="android.permission.CAMERA" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <!-- OS Assistant Step 2: "set an alarm / a timer" through the clock app (a normal permission, no prompt). -->
+    <uses-permission android:name="com.android.alarm.permission.SET_ALARM" />
     <!-- 0.11.0: Saga keeps working in the background while a task runs (SagaService, ongoing notification). -->
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
@@ -27,6 +29,11 @@
         <intent>
             <action android:name="android.intent.action.VIEW" />
             <data android:scheme="https" />
+        </intent>
+        <!-- OS Assistant Step 2: "open WhatsApp" finds launchable apps by name (PhoneActions.openApp). -->
+        <intent>
+            <action android:name="android.intent.action.MAIN" />
+            <category android:name="android.intent.category.LAUNCHER" />
         </intent>
         <!-- Chrome Custom Tabs (Google and bank sign-in). -->
         <intent>
