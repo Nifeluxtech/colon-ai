@@ -1,0 +1,67 @@
+/* Colon AI · voice mode overlay (0.20.0, apps/chat/src/lib/voice-overlay.js). Full screen over the chat while
+   hands-free runs: blurred dark backdrop, a big orb that follows the state (data-state on .cv-vm), a live caption
+   and the footer controls. The orb's size comes from --vm-scale (mic level while listening). Always dark, like the
+   phone's own voice screens, so it reads the same in both themes. Reduced motion: no animation, no scaling. */
+.cv-vm{position:fixed;inset:0;z-index:450;display:flex;flex-direction:column;align-items:center;
+  padding:calc(var(--safe-t,0px) + 12px) 20px calc(var(--safe-b,0px) + 24px);color:#F1F5FF;
+  background:radial-gradient(120% 80% at 50% 40%,rgba(65,105,225,.28),rgba(8,15,36,.92) 60%),rgba(8,15,36,.86);
+  -webkit-backdrop-filter:blur(22px) saturate(1.2);backdrop-filter:blur(22px) saturate(1.2);
+  animation:cv-vm-in .28s var(--ease,ease) both}
+.cv-vm[hidden]{display:none}
+html.cv-vm-open,html.cv-vm-open body{overflow:hidden}
+@keyframes cv-vm-in{from{opacity:0;transform:scale(1.03)}to{opacity:1;transform:none}}
+.cv-vm-top{width:100%;max-width:640px;display:flex;align-items:center;gap:12px;min-height:48px}
+.cv-vm-top [data-vm-hide] svg{transform:rotate(90deg)}
+.cv-vm-label{flex:1;text-align:center;font-size:15px;font-weight:600;letter-spacing:.01em;opacity:.85}
+.cv-vm-spacer{width:48px;flex:none}
+.cv-vm-stage{flex:1;width:100%;display:grid;place-items:center;min-height:200px}
+
+/* The orb: three soft layers; the outer one scales with --vm-scale, the inner ones carry the state's motion. */
+.cv-vm-orb{--vm-c1:#38BDF8;--vm-c2:#4169E1;--vm-c3:#A78BFA;position:relative;width:min(56vw,240px);
+  aspect-ratio:1;border-radius:50%;transform:scale(var(--vm-scale,1));transition:transform .12s linear}
+.cv-vm-orb i{position:absolute;inset:0;border-radius:50%}
+.cv-vm-orb i:nth-child(1){background:radial-gradient(circle at 35% 30%,#fff 0,var(--vm-c1) 22%,var(--vm-c2) 58%,
+  #0B1A45 100%);box-shadow:0 0 80px rgba(56,189,248,.45),inset 0 0 40px rgba(255,255,255,.18)}
+.cv-vm-orb i:nth-child(2){background:conic-gradient(from 0deg,transparent,var(--vm-c3),transparent 40%,
+  var(--vm-c1),transparent 75%);mix-blend-mode:screen;opacity:.55;filter:blur(10px)}
+.cv-vm-orb i:nth-child(3){inset:-14%;border:2px solid rgba(147,197,253,.35);opacity:0}
+
+.cv-vm[data-state=listening] .cv-vm-orb i:nth-child(1){animation:cv-vm-breathe 3.2s ease-in-out infinite}
+.cv-vm[data-state=listening] .cv-vm-orb i:nth-child(2){animation:cv-vm-spin 9s linear infinite}
+.cv-vm[data-state=listening] .cv-vm-orb i:nth-child(3){animation:cv-vm-ring 2.4s ease-out infinite}
+.cv-vm[data-state=thinking] .cv-vm-orb{--vm-c1:#A78BFA;--vm-c3:#38BDF8}
+.cv-vm[data-state=thinking] .cv-vm-orb i:nth-child(2){animation:cv-vm-spin 2.6s linear infinite;opacity:.8}
+.cv-vm[data-state=thinking] .cv-vm-orb i:nth-child(1){animation:cv-vm-breathe 5s ease-in-out infinite}
+.cv-vm[data-state=speaking] .cv-vm-orb{--vm-c1:#60A5FA;--vm-c3:#F472B6}
+.cv-vm[data-state=speaking] .cv-vm-orb i:nth-child(1){animation:cv-vm-talk .9s ease-in-out infinite}
+.cv-vm[data-state=speaking] .cv-vm-orb i:nth-child(2){animation:cv-vm-spin 5s linear infinite}
+.cv-vm[data-state=speaking] .cv-vm-orb i:nth-child(3){animation:cv-vm-ring 1.2s ease-out infinite}
+.cv-vm[data-state=muted] .cv-vm-orb{--vm-c1:#94A3B8;--vm-c2:#475569;--vm-c3:#64748B;filter:saturate(.4)}
+@keyframes cv-vm-breathe{0%,100%{transform:scale(.96)}50%{transform:scale(1.03)}}
+@keyframes cv-vm-talk{0%,100%{transform:scale(.97)}30%{transform:scale(1.06)}60%{transform:scale(1)}
+  80%{transform:scale(1.04)}}
+@keyframes cv-vm-spin{to{transform:rotate(360deg)}}
+@keyframes cv-vm-ring{0%{transform:scale(.86);opacity:.7}100%{transform:scale(1.18);opacity:0}}
+
+.cv-vm-caption{width:100%;max-width:560px;min-height:3.2em;margin:0 0 20px;text-align:center;font-size:17px;
+  line-height:1.6;color:rgba(241,245,255,.9);overflow:hidden;display:-webkit-box;-webkit-line-clamp:3;
+  -webkit-box-orient:vertical}
+.cv-vm-foot{display:flex;gap:28px;justify-content:center}
+.cv-vm-btn{display:grid;place-items:center;width:64px;height:64px;border-radius:50%;border:0;cursor:pointer;
+  color:#F1F5FF;background:rgba(255,255,255,.12);transition:background var(--dur,.2s)}
+.cv-vm-btn svg{width:26px;height:26px}
+.cv-vm-btn:hover{background:rgba(255,255,255,.2)}
+.cv-vm-btn:focus-visible{outline:3px solid #93C5FD;outline-offset:3px}
+.cv-vm-btn.on{background:#F1F5FF;color:#080F24}
+.cv-vm-btn.end{background:#DC2626}.cv-vm-btn.end:hover{background:#B91C1C}
+.cv-vm-btn.ghost{width:48px;height:48px;background:transparent}
+.cv-vm-btn.ghost:hover{background:rgba(255,255,255,.1)}
+.cv-hf .cv-voice-body{cursor:pointer}
+
+@media (prefers-reduced-motion:reduce){
+  .cv-vm{animation:none}
+  .cv-vm-orb{transform:none;transition:none}
+  .cv-vm .cv-vm-orb i{animation:none!important}
+  .cv-vm[data-state=listening] .cv-vm-orb i:nth-child(3),.cv-vm[data-state=speaking] .cv-vm-orb i:nth-child(3){
+    opacity:.5}
+}
