@@ -1,5 +1,6 @@
 package ng.nifelux.colonai
 
+import android.annotation.SuppressLint
 import android.app.PendingIntent
 import android.app.Service
 import android.content.Context
@@ -25,6 +26,9 @@ class SagaService : Service() {
 
     override fun onBind(intent: Intent?): IBinder? = null
 
+    // The manifest declares foregroundServiceType="dataSync" (main AndroidManifest.xml); lint misreads it once the
+    // colonai manifest gains another <service> (AssistTileService, 0.18.2).
+    @SuppressLint("ForegroundServiceType")
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         when (intent?.action) {
             ACTION_STOP_TASK -> { stopListener?.invoke(); return START_NOT_STICKY }

@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.18.2] — 2026-11-20 · Talk to Colon shortcuts
+### Added
+- **Talk to Colon** entry points (colonai flavor, `AssistTile.kt`) for phones whose assistant gestures stay with
+  another app (Infinix XOS keeps the power key for Folax, and gesture navigation has no Home button): a Quick
+  Settings tile (`AssistTileService`) and a launcher shortcut on the Colon AI icon (`AssistShortcut`, dynamic, so
+  it can be dragged to the home screen). Both open the chat hands-free via `MainActivity.EXTRA_ASSIST`.
+
 ## [0.18.1] — 2026-11-20 · Voice mode button
 ### Changed
 - Chat composer: with nothing typed or attached, the send button turns into a **voice mode** button (sound-wave

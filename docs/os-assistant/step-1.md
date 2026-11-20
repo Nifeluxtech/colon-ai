@@ -21,6 +21,12 @@ Speech, languages (Nigerian English, Pidgin, Yorùbá, Hausa, Igbo), Saga and vo
 Settings › Apps › Default apps › Digital assistant app › **Colon AI** (Infinix XOS: Settings › Apps › Default apps ›
 Assist & voice input). Then long-press Home.
 
+### When the phone keeps its gestures (0.18.2)
+Gesture navigation has no Home button, and some phones keep the corner swipe and power-key hold for their own
+assistant (Infinix XOS: Folax). Two Colon-owned ways in, both hands-free (`AssistTile.kt`):
+- **Quick Settings tile** "Talk to Colon": pull down the shade › edit (pencil) › drag the tile in › tap it.
+- **Launcher shortcut** "Talk to Colon": long-press the Colon AI icon; drag it to the home screen for a one-tap icon.
+
 ## Test checklist (Infinix SMART 20 first)
 - [ ] Colon AI appears in the digital assistant list; choosing it works
 - [ ] Long-press Home with the app closed: chat opens and hands-free starts listening
@@ -28,6 +34,8 @@ Assist & voice input). Then long-press Home.
 - [ ] First time: microphone permission prompt, then listening
 - [ ] Rotate while listening: hands-free does not start twice
 - [ ] Signed out / guest: no crash, sign-in page shows
+- [ ] Quick Settings tile opens hands-free (unlocked and from the lock screen)
+- [ ] Long-press icon › Talk to Colon opens hands-free; pinned home-screen copy too
 - [ ] Colon Browser flavor unchanged (no assist entry)
 - [ ] CI: unit tests + lint pass for both flavors
 
