@@ -251,4 +251,7 @@
     <string name="saga_approve_title">Saga needs your approval</string>
     <string name="saga_approve_text">%1$s Open Colon AI to approve or decline.</string>
     <string name="schedule_consent">Saga is running your scheduled check “%1$s”.</string>
+    <!-- Colon OS Assistant entry points (colonai only: AssistActivity, AssistTileService, AssistShortcut). -->
+    <string name="assist_label">Talk to Colon</string>
+    <string name="assist_long_label">Talk to Colon hands-free</string>
 </resources>
