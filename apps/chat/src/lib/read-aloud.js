@@ -47,13 +47,15 @@ function fetchChunk(t, o) {
 
 // 0.20.2: in the Android app the phone's own text-to-speech (feature "speak"); WebView's speechSynthesis is silent.
 var nativeOff = null;
+// 0.20.3: replies are read in plain English (US voice) whatever English the mic listens in (en-NG, en-GB…).
+function voiceLang(l) { return !l || /^en\b/i.test(l) ? 'en-US' : l; }
 function nativeSpeak(list, o, my) {
   var b = window.ColonNative, id = 's' + my + '-' + Date.now(), ended = false;
   function end() { if (ended) return; ended = true; if (nativeOff) { nativeOff(); nativeOff = null; }
     if (my === run && o.onEnd) o.onEnd(); }
   if (nativeOff) nativeOff();
   nativeOff = b.on('speak', function (d) { if (d && d.id === id && (d.type === 'done' || d.type === 'error')) end(); });
-  b.call('speak', { action: 'speak', id: id, text: list.join(' ').slice(0, 6000), lang: o.lang || 'en-NG',
+  b.call('speak', { action: 'speak', id: id, text: list.join(' ').slice(0, 6000), lang: voiceLang(o.lang),
     rate: o.rate || 1 }).catch(end);
 }
 function canNative() { var N = C.native; return !!(N && N.hasBridge && N.hasBridge() && N.can('speak')); }
@@ -63,7 +65,7 @@ function device(list, o, my) {
   if (!('speechSynthesis' in window) || !list.length) { if (my === run && o.onEnd) o.onEnd(); return; }
   speechSynthesis.cancel();
   var u = new SpeechSynthesisUtterance(list.join(' ').slice(0, 6000));
-  u.lang = o.lang || 'en-NG'; u.rate = o.rate || 1;
+  u.lang = voiceLang(o.lang); u.rate = o.rate || 1;
   u.onend = u.onerror = function () { if (my === run && o.onEnd) o.onEnd(); };
   speechSynthesis.speak(u);
 }

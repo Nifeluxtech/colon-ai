@@ -39,6 +39,14 @@
         <intent>
             <action android:name="android.support.customtabs.action.CustomTabsService" />
         </intent>
+        <!-- 0.20.3: Android 11+ hides the text-to-speech engine and the speech recognizer from apps that don't
+             declare them, so TextToSpeech failed to start and voice mode stopped just before reading a reply. -->
+        <intent>
+            <action android:name="android.intent.action.TTS_SERVICE" />
+        </intent>
+        <intent>
+            <action android:name="android.speech.RecognitionService" />
+        </intent>
         <!-- The other Colon app, for "Open in Colon Browser" / "Ask Colon AI" handoffs. -->
         <package android:name="ng.nifelux.colonai" />
         <package android:name="ng.nifelux.colonbrowser" />

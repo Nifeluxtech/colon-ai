@@ -35,7 +35,7 @@ object NativeSpeak {
                 withEngine(a.applicationContext) { ok ->
                     if (id != sid) return@withEngine
                     if (!ok) { emit(sid, "error"); id = null; return@withEngine }
-                    speak(sid, text, args.optString("lang").ifBlank { "en-NG" }, args.optDouble("rate", 1.0))
+                    speak(sid, text, args.optString("lang").ifBlank { "en-US" }, args.optDouble("rate", 1.0))
                 }
                 done(true, null, null)
             }
@@ -63,7 +63,7 @@ object NativeSpeak {
         val want = Locale.forLanguageTag(lang)
         val res = try { t.setLanguage(want) } catch (_: Exception) { TextToSpeech.LANG_NOT_SUPPORTED }
         if (res == TextToSpeech.LANG_MISSING_DATA || res == TextToSpeech.LANG_NOT_SUPPORTED) {
-            try { t.setLanguage(Locale.UK) } catch (_: Exception) { }
+            try { t.setLanguage(Locale.US) } catch (_: Exception) { }
         }
         t.setSpeechRate(rate.toFloat().coerceIn(0.5f, 2f))
         val max = (try { TextToSpeech.getMaxSpeechInputLength() } catch (_: Exception) { 4000 }).coerceAtMost(3000)

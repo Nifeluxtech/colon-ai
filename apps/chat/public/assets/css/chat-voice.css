@@ -12,36 +12,71 @@ html.cv-vm-open,html.cv-vm-open body{overflow:hidden}
 @keyframes cv-vm-in{from{opacity:0;transform:scale(1.03)}to{opacity:1;transform:none}}
 .cv-vm-top{width:100%;max-width:640px;display:flex;align-items:center;gap:12px;min-height:48px}
 .cv-vm-top [data-vm-hide] svg{transform:rotate(90deg)}
-.cv-vm-label{flex:1;text-align:center;font-size:15px;font-weight:600;letter-spacing:.01em;opacity:.85}
 .cv-vm-spacer{width:48px;flex:none}
-.cv-vm-stage{flex:1;width:100%;display:grid;place-items:center;min-height:200px}
+.cv-vm-stage{flex:1;width:100%;display:grid;place-items:center;min-height:300px}
+.cv-vm-top .cv-vm-spacer{flex:1}
 
-/* The orb: three soft layers; the outer one scales with --vm-scale, the inner ones carry the state's motion. */
-.cv-vm-orb{--vm-c1:#38BDF8;--vm-c2:#4169E1;--vm-c3:#A78BFA;position:relative;width:min(56vw,240px);
-  aspect-ratio:1;border-radius:50%;transform:scale(var(--vm-scale,1));transition:transform .12s linear}
-.cv-vm-orb i{position:absolute;inset:0;border-radius:50%}
-.cv-vm-orb i:nth-child(1){background:radial-gradient(circle at 35% 30%,#fff 0,var(--vm-c1) 22%,var(--vm-c2) 58%,
-  #0B1A45 100%);box-shadow:0 0 80px rgba(56,189,248,.45),inset 0 0 40px rgba(255,255,255,.18)}
-.cv-vm-orb i:nth-child(2){background:conic-gradient(from 0deg,transparent,var(--vm-c3),transparent 40%,
-  var(--vm-c1),transparent 75%);mix-blend-mode:screen;opacity:.55;filter:blur(10px)}
-.cv-vm-orb i:nth-child(3){inset:-14%;border:2px solid rgba(147,197,253,.35);opacity:0}
+/* 0.20.3 orb: a glass sphere with a bright rim, two orbiting ribbons (cyan and violet), a mic in a glowing ring with
+   wave bars either side (they follow the mic while listening and pulse while speaking), the state label and the
+   Colon mark inside, and a glowing ring on the floor. The sphere scales with --vm-scale; bars use --vm-lvl. */
+.cv-vm-stage{position:relative}
+.cv-vm-orb{--vm-c1:#22D3EE;--vm-c2:#2563EB;--vm-c3:#A855F7;position:relative;width:min(78vw,320px);aspect-ratio:1;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;
+  transform:scale(var(--vm-scale,1));transition:transform .12s linear;z-index:1}
+.cv-vm-orb .glass{position:absolute;inset:0;border-radius:50%;border:2px solid rgba(125,211,252,.85);
+  background:radial-gradient(circle at 30% 22%,rgba(255,255,255,.35),transparent 18%),
+    radial-gradient(circle at 50% 55%,rgba(10,20,80,.55),rgba(37,99,235,.35) 72%,rgba(34,211,238,.55) 100%);
+  box-shadow:0 0 40px rgba(34,211,238,.55),0 0 110px rgba(37,99,235,.55),inset 0 0 60px rgba(56,189,248,.45),
+    inset 0 -20px 50px rgba(168,85,247,.3)}
+.cv-vm-orb .ribbon{position:absolute;inset:14% -14%;border-radius:50%;border:5px solid transparent;
+  border-top-color:var(--vm-c1);border-left-color:rgba(34,211,238,.4);filter:drop-shadow(0 0 8px var(--vm-c1));
+  transform:rotate(-18deg);pointer-events:none}
+.cv-vm-orb .ribbon.a{z-index:0}
+.cv-vm-orb .ribbon.b{inset:22% -10%;border-top-color:transparent;border-bottom-color:var(--vm-c3);
+  border-right-color:rgba(168,85,247,.45);filter:drop-shadow(0 0 10px var(--vm-c3));transform:rotate(14deg);z-index:2}
+.cv-vm-orb .ring{position:absolute;inset:-6%;border-radius:50%;border:2px solid rgba(125,211,252,.4);opacity:0}
+.cv-vm-core{position:relative;z-index:3;display:flex;align-items:center;gap:10px}
+.cv-vm-mic{display:grid;place-items:center;width:84px;height:84px;border-radius:50%;border:4px solid #38BDF8;
+  color:#E0F2FE;box-shadow:0 0 22px rgba(56,189,248,.8),inset 0 0 18px rgba(56,189,248,.5)}
+.cv-vm-mic svg{width:34px;height:34px}
+.cv-vm-waves{display:flex;align-items:center;gap:4px;height:56px}
+.cv-vm-waves b{display:block;width:3px;border-radius:3px;background:#60A5FA;box-shadow:0 0 6px #38BDF8;
+  height:calc(8px + var(--vm-lvl,0) * var(--h,30px));transition:height .1s linear}
+.cv-vm-waves b:nth-child(1),.cv-vm-waves b:nth-child(7){--h:10px;opacity:.6}
+.cv-vm-waves b:nth-child(2),.cv-vm-waves b:nth-child(6){--h:26px}
+.cv-vm-waves b:nth-child(3),.cv-vm-waves b:nth-child(5){--h:44px}
+.cv-vm-waves b:nth-child(4){--h:30px}
+.cv-vm-label{position:relative;z-index:3;font-size:22px;font-weight:600;color:#E0E7FF;
+  text-shadow:0 0 12px rgba(96,165,250,.8)}
+.cv-vm-brand{position:relative;z-index:3;display:flex;align-items:center;gap:6px;font-size:20px;font-weight:600}
+.cv-vm-brand img{width:24px;height:24px}
+.cv-vm-floor{position:absolute;left:50%;bottom:-17%;width:125%;height:22%;transform:translateX(-50%);z-index:-1;
+  border-radius:50%;border:2px solid rgba(96,165,250,.7);background:radial-gradient(closest-side,
+  rgba(56,189,248,.45),rgba(99,102,241,.15) 70%,transparent);box-shadow:0 0 30px rgba(59,130,246,.55),
+  inset 0 0 18px rgba(56,189,248,.5)}
 
-.cv-vm[data-state=listening] .cv-vm-orb i:nth-child(1){animation:cv-vm-breathe 3.2s ease-in-out infinite}
-.cv-vm[data-state=listening] .cv-vm-orb i:nth-child(2){animation:cv-vm-spin 9s linear infinite}
-.cv-vm[data-state=listening] .cv-vm-orb i:nth-child(3){animation:cv-vm-ring 2.4s ease-out infinite}
-.cv-vm[data-state=thinking] .cv-vm-orb{--vm-c1:#A78BFA;--vm-c3:#38BDF8}
-.cv-vm[data-state=thinking] .cv-vm-orb i:nth-child(2){animation:cv-vm-spin 2.6s linear infinite;opacity:.8}
-.cv-vm[data-state=thinking] .cv-vm-orb i:nth-child(1){animation:cv-vm-breathe 5s ease-in-out infinite}
-.cv-vm[data-state=speaking] .cv-vm-orb{--vm-c1:#60A5FA;--vm-c3:#F472B6}
-.cv-vm[data-state=speaking] .cv-vm-orb i:nth-child(1){animation:cv-vm-talk .9s ease-in-out infinite}
-.cv-vm[data-state=speaking] .cv-vm-orb i:nth-child(2){animation:cv-vm-spin 5s linear infinite}
-.cv-vm[data-state=speaking] .cv-vm-orb i:nth-child(3){animation:cv-vm-ring 1.2s ease-out infinite}
-.cv-vm[data-state=muted] .cv-vm-orb{--vm-c1:#94A3B8;--vm-c2:#475569;--vm-c3:#64748B;filter:saturate(.4)}
-@keyframes cv-vm-breathe{0%,100%{transform:scale(.96)}50%{transform:scale(1.03)}}
-@keyframes cv-vm-talk{0%,100%{transform:scale(.97)}30%{transform:scale(1.06)}60%{transform:scale(1)}
-  80%{transform:scale(1.04)}}
-@keyframes cv-vm-spin{to{transform:rotate(360deg)}}
-@keyframes cv-vm-ring{0%{transform:scale(.86);opacity:.7}100%{transform:scale(1.18);opacity:0}}
+.cv-vm[data-state=listening] .cv-vm-orb .glass{animation:cv-vm-breathe 3.2s ease-in-out infinite}
+.cv-vm[data-state=listening] .cv-vm-orb .ring{animation:cv-vm-ring 2.4s ease-out infinite}
+.cv-vm .cv-vm-orb .ribbon.a{animation:cv-vm-orbit 8s linear infinite}
+.cv-vm .cv-vm-orb .ribbon.b{animation:cv-vm-orbit 11s linear infinite reverse}
+.cv-vm[data-state=thinking] .cv-vm-orb{--vm-c1:#A78BFA;--vm-c3:#22D3EE}
+.cv-vm[data-state=thinking] .cv-vm-orb .ribbon.a{animation-duration:2.4s}
+.cv-vm[data-state=thinking] .cv-vm-orb .ribbon.b{animation-duration:3.2s}
+.cv-vm[data-state=thinking] .cv-vm-mic{animation:cv-vm-breathe 1.6s ease-in-out infinite}
+.cv-vm[data-state=speaking] .cv-vm-orb .glass{animation:cv-vm-talk .9s ease-in-out infinite}
+.cv-vm[data-state=speaking] .cv-vm-orb .ring{animation:cv-vm-ring 1.2s ease-out infinite}
+.cv-vm[data-state=speaking] .cv-vm-waves b{height:calc(8px + var(--h,30px));animation:cv-vm-bar .8s ease-in-out
+  infinite}
+.cv-vm[data-state=speaking] .cv-vm-waves b:nth-child(even){animation-delay:-.4s}
+.cv-vm[data-state=speaking] .cv-vm-waves b:nth-child(3n){animation-delay:-.2s}
+.cv-vm[data-state=muted] .cv-vm-orb{--vm-c1:#94A3B8;--vm-c3:#64748B;filter:saturate(.3)}
+.cv-vm[data-state=muted] .cv-vm-orb .ribbon{animation-play-state:paused}
+@keyframes cv-vm-breathe{0%,100%{transform:scale(.97)}50%{transform:scale(1.03)}}
+@keyframes cv-vm-talk{0%,100%{transform:scale(.97)}30%{transform:scale(1.05)}60%{transform:scale(1)}
+  80%{transform:scale(1.03)}}
+@keyframes cv-vm-orbit{from{transform:rotate(-18deg)}to{transform:rotate(342deg)}}
+@keyframes cv-vm-bar{0%,100%{transform:scaleY(.35)}50%{transform:scaleY(1)}}
+@keyframes cv-vm-ring{0%{transform:scale(.9);opacity:.7}100%{transform:scale(1.18);opacity:0}}
 
 .cv-vm-caption{width:100%;max-width:560px;min-height:3.2em;margin:0 0 20px;text-align:center;font-size:17px;
   line-height:1.6;color:rgba(241,245,255,.9);overflow:hidden;display:-webkit-box;-webkit-line-clamp:3;
@@ -61,7 +96,6 @@ html.cv-vm-open,html.cv-vm-open body{overflow:hidden}
 @media (prefers-reduced-motion:reduce){
   .cv-vm{animation:none}
   .cv-vm-orb{transform:none;transition:none}
-  .cv-vm .cv-vm-orb i{animation:none!important}
-  .cv-vm[data-state=listening] .cv-vm-orb i:nth-child(3),.cv-vm[data-state=speaking] .cv-vm-orb i:nth-child(3){
-    opacity:.5}
+  .cv-vm .cv-vm-orb *,.cv-vm .cv-vm-orb{animation:none!important}
+  .cv-vm[data-state=speaking] .cv-vm-orb .ring{opacity:.5}
 }
