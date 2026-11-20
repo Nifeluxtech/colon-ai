@@ -6,6 +6,7 @@ import { browseFromServer, browserFromServer, handleBrowserText, pageState } fro
 import { loginCard, passwordGuard } from './saga-extras.js';
 import { sagaTyped } from './saga-wait.js';
 import { handlePlanText } from './saga-plans.js';
+import { handlePhoneText } from './phone-chat.js';
 import { Colon } from '../../../../packages/ui/js/colon.js';
 import { ColonMarkdown } from '../../../../packages/ui/js/markdown/index.js';
 import { autoGrow, scrollBottom, syncComposer } from '../components/composer.js';
@@ -39,6 +40,13 @@ function send() {
   }
   clearImageSource();
   if (!atts.length && deepResearchOn()) { if (deepResearch(text, ensureConv)) clearComposer(ta); return; }
+  // OS Assistant Step 2: "open WhatsApp", "torch on", "volume up", "set an alarm for 6:30"… run on the phone
+  // (actions/phone-chat.js). An "open <name>" with no such app comes back here through the fallback.
+  if (!atts.length && handlePhoneText(text, function () { routeText(ta, text, atts); })) { clearComposer(ta); return; }
+  routeText(ta, text, atts);
+}
+/** The usual path for a message: this chat's browser, Saga, or a chat turn. */
+function routeText(ta, text, atts) {
   // Phase 10: "open the browser", "open google.com", "scroll down"… go to this chat's browser (actions/browser-chat).
   if (!atts.length && handleBrowserText(text)) { ta.value = ''; autoGrow(); syncComposer(); return; }
   if (!atts.length && sagaText(ta, text)) return;
