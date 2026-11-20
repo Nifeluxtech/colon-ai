@@ -50,9 +50,9 @@ function mount(view, ctx) {
       '<nav class="nav-list cw-nav" aria-label="Main">' +
         navLink('/', 'home', 'Home') + navLink('/explore', 'explore', 'Explore') +
         navLink('/cbt', 'target', 'CBT practice') + (signedIn() ? navLink('/projects', 'folder', 'Projects') : '') +
-        (ephemeral() ? '' : navLink('/saved', 'saved', 'Saved') + navLink('/history', 'history', 'History')) +
-        (signedIn() ? navLink('/settings', 'settings', 'Settings') : '') + navLink('/help', 'help', 'Help & Support')
-          + '</nav>' +
+        // 0.17.2 (owner): Saved, History, Settings and Help & Support left the sidebar list. Recent chats sit right
+        // under it; Settings and Help & Support are in the profile menu (signed out: the More menu).
+          '</nav>' +
       '<div class="cw-convs scroll-y" id="cw-convs" aria-label="Recent conversations"></div>' +
       (signedIn()
         ? ('<button class="cw-account" data-a="profile" aria-haspopup="menu"><span class="avatar sm" '
