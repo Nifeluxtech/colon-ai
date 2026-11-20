@@ -434,3 +434,18 @@ places the card once per vsync (`InlineSteady`).
 | `command` `extract` | `args: {what: table\|list, index}` | Ack `{columns, rows, total, caption}` (capped); the chat shows a table with a CSV download. |
 | `command` `new_tab` / `switch_tab` / `close_tab` | `tab_id` | Multi-tab, at most 6 tabs per task. |
 | `control` | `scheduled: {id, name}` | A scheduled run the user set up; the phone switches to that chat's browser when nothing else runs. |
+
+## 0.20.0 additions: voice mode
+
+### JavaScript bridge (`window.ColonNative`)
+New feature `voice_ui` (Colon AI only; Colon Browser answers `unknown_command`).
+
+| Call / event | Args / data | Result |
+|---|---|---|
+| `call('voice_ui', o)` | `{ state: idle\|listening\|thinking\|speaking\|muted, caption?: string (≤140 kept), muted?: boolean }` | `{ pill }`: whether "Display over other apps" is on. `bad_args` for anything else (`VoiceUiRules.parse`) |
+| event `voice_action` | `{ action: end\|mute\|unmute }` | sent when the user ends or mutes voice mode from the pill, the expanded overlay or the notification |
+
+The chat page sends `voice_ui` on every hands-free state change and at most every 400 ms for captions (never the
+mic level). A non-idle state starts `VoiceService` (microphone foreground service, ongoing notification, the pill
+over other apps while Colon is in the background); `idle` stops it. Design and device checklist:
+`docs/os-assistant/voice-ui.md`.
