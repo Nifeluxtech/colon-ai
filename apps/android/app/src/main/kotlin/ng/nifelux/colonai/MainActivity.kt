@@ -99,6 +99,7 @@ class MainActivity : AppCompatActivity() {
         findViewById<Button>(R.id.offline_retry).setOnClickListener { retry() }
         applyInsets(findViewById(R.id.root))
         fileChooser = FileChooser(this)
+        AssistShortcut.publish(this) // "Talk to Colon" launcher shortcut (colonai only)
 
         val wv = ShellWeb.create(this)
         if (wv == null) { showOffline(getString(R.string.webview_missing)); firstPaint = true; return }
