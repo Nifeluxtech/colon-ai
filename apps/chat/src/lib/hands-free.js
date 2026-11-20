@@ -14,7 +14,8 @@ function createHandsFree(o) {
   var state = 'idle', misses = 0, timer = null, pill = null, turn = null;
 
   function setState(s, label) {
-    state = s;
+    var was = state; state = s;
+    if ((was === 'idle') !== (s === 'idle') && o.onState) o.onState(s); // 0.18.1: the voice-mode button
     if (s === 'idle') { if (pill) pill.remove(); pill = null; return; }
     if (!pill) {
       pill = document.createElement('div'); pill.className = 'cv-voice cv-hf'; pill.setAttribute('role', 'status');

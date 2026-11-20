@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.18.1] — 2026-11-20 · Voice mode button
+### Changed
+- Chat composer: with nothing typed or attached, the send button turns into a **voice mode** button (sound-wave
+  icon) that starts hands-free conversation; tap it again (navy while on) or End on the pill to stop. The mic button
+  and its language menu are unchanged. Web change; the 0.18.1 APK only carries the new version number.
+
 ## [0.18.0] — 2026-11-20 · Colon OS Assistant (steps 1 and 2)
 Colon AI on Android can now be the phone's **assistant** and **control the phone** by voice or text. Free, on-device
 Android APIs only; no new library, permission prompt or server change. Plan: `docs/os-assistant/plan.md`.

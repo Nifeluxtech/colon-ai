@@ -128,7 +128,7 @@ function mount(view, ctx) {
     onLevel: function (v) { S.hf.level(v); }
   });
   S.hf = createHandsFree({ media: S.media, send: send, speak: ReadAloud, bar: $('.cv-voice'), toast: C.toast,
-    getSettings: function () { return S.settings || {}; } });
+    getSettings: function () { return S.settings || {}; }, onState: function () { syncComposer(); } });
   S.collapsed = localStorage.getItem('colon.sidebar') === 'closed';
   applySidebar();
   Promise.all([

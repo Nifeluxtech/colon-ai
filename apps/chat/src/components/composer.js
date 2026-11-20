@@ -107,11 +107,18 @@ function syncComposer() {
   var es = $('.cw-edit-src');
   if (S.imageSource && (!S.current || S.imageSource.conv !== S.current.id)) S.imageSource = null;
   if (es && !S.imageSource && !es.hidden) { es.hidden = true; es.innerHTML = ''; }
-  if (S.streaming) { btn.disabled = false; btn.classList.add('stop'); btn.innerHTML = icon('stop');
+  if (S.streaming) { btn.disabled = false; btn.classList.remove('voice', 'on');
+    btn.classList.add('stop'); btn.innerHTML = icon('stop');
     btn.setAttribute('aria-label', 'Stop generating'); btn.type = 'button'; }
-  else { btn.classList.remove('stop'); btn.innerHTML = icon('send'); btn.setAttribute('aria-label', st.uploading
-    ? 'Waiting for uploads' : 'Send message'); btn.type = 'submit'; btn.disabled = st.uploading || (!ta.value.trim()
-    && !st.ready); }
+  // 0.18.1: with nothing to send, the button starts voice mode (hands-free) instead of sitting disabled.
+  else if (!st.uploading && !ta.value.trim() && !st.ready && S.hf) {
+    var on = S.hf.active();
+    btn.classList.remove('stop'); btn.classList.add('voice'); btn.classList.toggle('on', on);
+    btn.innerHTML = icon('waves'); btn.setAttribute('aria-label', on ? 'End voice mode' : 'Voice mode');
+    btn.setAttribute('data-tip', on ? 'End voice mode' : 'Voice mode'); btn.type = 'button'; btn.disabled = false; }
+  else { btn.classList.remove('stop', 'voice', 'on'); btn.innerHTML = icon('send'); btn.removeAttribute('data-tip');
+    btn.setAttribute('aria-label', st.uploading ? 'Waiting for uploads' : 'Send message'); btn.type = 'submit';
+    btn.disabled = st.uploading || (!ta.value.trim() && !st.ready); }
   S.el.classList.toggle('has-text', !!ta.value.trim());
 }
 // Follow the stream only while the reader is at the bottom; once they scroll up, stay put and offer "Latest".
