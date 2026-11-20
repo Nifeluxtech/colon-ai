@@ -1,5 +1,6 @@
 package ng.nifelux.colonai
 
+import android.annotation.SuppressLint
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
@@ -62,6 +63,8 @@ class AssistTileService : TileService() {
         if (isLocked) unlockAndRun { open() } else open()
     }
 
+    // Below Android 14 the PendingIntent overload does not exist, so the Intent one is the only choice there.
+    @SuppressLint("StartActivityAndCollapseDeprecated")
     private fun open() {
         val intent = AssistShortcut.assistIntent(this)
         try {
