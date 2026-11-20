@@ -1,5 +1,20 @@
 # Changelog
 
+## [0.18.0] — 2026-11-20 · Colon OS Assistant (steps 1 and 2)
+Colon AI on Android can now be the phone's **assistant** and **control the phone** by voice or text. Free, on-device
+Android APIs only; no new library, permission prompt or server change. Plan: `docs/os-assistant/plan.md`.
+### Added
+- **Default assistant** (`AssistActivity`, colonai flavor): answers `ASSIST` and `VOICE_COMMAND`, so Colon can be
+  picked under Default apps › Assist & voice input; long-press Home or the assistant gesture opens the chat
+  hands-free. Bridge feature/event `assist`, command `takeAssist`. See `docs/os-assistant/step-1.md`.
+- **Phone control**: short commands ("open WhatsApp", "wifi settings", "torch on", "volume to 40%", "next song",
+  "call 0803…", "text 0803… saying …", "alarm for 6:30 am", "timer for 5 minutes", "navigate to …", "open the
+  camera") run through bridge command `phone`, checked by the native `PhoneRules` allowlist first. Calls and texts
+  only open the dialler or Messages; the user taps Call or Send. See `docs/os-assistant/step-2.md`.
+### Changed
+- Chat sidebar: Saved, History, Settings and Help & Support left the sidebar nav (Settings and Help stay in the
+  profile menu).
+
 ## [0.17.1] — 2026-11-19 · Image editing in chat
 Members can now **change an image** instead of only making new ones: attach a photo and send `/image <what to
 change>`, ask in their own words ("make the sky orange") with the image attached or after an image in the chat, or
