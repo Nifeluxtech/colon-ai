@@ -1,17 +1,17 @@
 {
-  "versionName": "0.18.1",
-  "versionCode": 1801,
-  "apkUrl": "https://github.com/Nifeluxtech/colon-ai/releases/download/v0.18.1/colon-ai-0.18.1.apk",
-  "releaseUrl": "https://github.com/Nifeluxtech/colon-ai/releases/tag/v0.18.1",
-  "notes": "Voice mode button: with nothing typed, the send button starts a hands-free conversation (tap again to end). Also in 0.18.0: Colon as your phone's assistant, and phone commands like \"open WhatsApp\", \"torch on\", \"volume up\", \"set an alarm for 6:30\", \"call 0803...\" (you tap Call).",
+  "versionName": "0.18.2",
+  "versionCode": 1802,
+  "apkUrl": "https://github.com/Nifeluxtech/colon-ai/releases/download/v0.18.2/colon-ai-0.18.2.apk",
+  "releaseUrl": "https://github.com/Nifeluxtech/colon-ai/releases/tag/v0.18.2",
+  "notes": "New \"Talk to Colon\" shortcuts for phones that keep the assistant button for their own app: a Quick Settings tile (pull down, tap Talk to Colon) and a long-press shortcut on the Colon AI icon (drag it to your home screen for one tap). Both start a hands-free conversation.",
   "minSupportedVersionCode": 0,
   "publishedAt": "2026-11-20",
   "browser": {
-    "versionName": "0.18.1",
-    "versionCode": 1801,
-    "apkUrl": "https://github.com/Nifeluxtech/colon-ai/releases/download/v0.18.1/colon-browser-0.18.1.apk",
-    "releaseUrl": "https://github.com/Nifeluxtech/colon-ai/releases/tag/v0.18.1",
-    "notes": "Released alongside Colon AI 0.18.1. No changes to the browser itself.",
+    "versionName": "0.18.2",
+    "versionCode": 1802,
+    "apkUrl": "https://github.com/Nifeluxtech/colon-ai/releases/download/v0.18.2/colon-browser-0.18.2.apk",
+    "releaseUrl": "https://github.com/Nifeluxtech/colon-ai/releases/tag/v0.18.2",
+    "notes": "Released alongside Colon AI 0.18.2. No changes to the browser itself.",
     "minSupportedVersionCode": 0
   }
 }
