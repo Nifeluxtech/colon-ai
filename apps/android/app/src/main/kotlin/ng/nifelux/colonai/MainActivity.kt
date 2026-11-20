@@ -54,6 +54,8 @@ class MainActivity : AppCompatActivity() {
     private lateinit var offline: View
     private var firstPaint = false
     private var pendingShare: JSONObject? = null
+    /** Colon OS Assistant (Step 1): opened as the phone's assistant; the chat starts hands-free once it asks. */
+    private var pendingAssist = false
     private var webTheme = "dark"
     private val permissionCallbacks = ArrayDeque<(Boolean) -> Unit>()
     private val onNetwork: (Boolean) -> Unit = { online -> if (online && offline.visibility == View.VISIBLE) retry() }
@@ -272,6 +274,9 @@ class MainActivity : AppCompatActivity() {
 
     fun takeShare(): JSONObject? = pendingShare.also { pendingShare = null }
 
+    /** True once after AssistActivity opened the app (long-press Home, voice button); the chat then starts hands-free. */
+    fun takeAssist(): Boolean = pendingAssist.also { pendingAssist = false }
+
     fun isLowRam(): Boolean = (getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager).isLowRamDevice
 
     fun toast(text: String) = Toast.makeText(this, text, Toast.LENGTH_LONG).show()
@@ -285,6 +290,11 @@ class MainActivity : AppCompatActivity() {
         intent.getStringExtra(EXTRA_OPEN_URL)?.let { url ->
             intent.removeExtra(EXTRA_OPEN_URL)
             if (UrlRules.isShellUrl(url) && ::webView.isInitialized) { webView.loadUrl(url); opened = true }
+        }
+        if (intent.getBooleanExtra(EXTRA_ASSIST, false)) {
+            intent.removeExtra(EXTRA_ASSIST) // handled once, even after rotation
+            pendingAssist = true
+            if (::nativeBridge.isInitialized) nativeBridge.emit("assist", JSONObject().put("pending", true))
         }
         if (intent.action == Intent.ACTION_SEND || intent.action == Intent.ACTION_SEND_MULTIPLE) {
             val sharedIntent = Intent(intent)
@@ -309,5 +319,6 @@ class MainActivity : AppCompatActivity() {
 
     companion object {
         const val EXTRA_OPEN_URL = "ng.nifelux.colonai.OPEN_URL"
+        const val EXTRA_ASSIST = "ng.nifelux.colonai.ASSIST"
     }
 }
