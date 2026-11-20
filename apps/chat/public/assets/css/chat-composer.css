@@ -45,6 +45,8 @@
 .cw-send:hover{background:linear-gradient(180deg,#4672EB,#3457C7)}
 .cw-send:active{transform:scale(.94)}
 .cw-send:disabled{opacity:.45;box-shadow:none;cursor:not-allowed}
+.cw-send.voice svg{width:22px;height:22px}
+.cw-send.voice.on{background:var(--c-navy);box-shadow:none}
 .cw-send.stop{background:var(--c-navy);box-shadow:none}
 .cw-send.stop svg{width:18px;height:18px;fill:currentColor}
 /* Quick actions: desktop welcome only (on phones Attach and Voice are in the pill, Browse is in the mode menu) */
