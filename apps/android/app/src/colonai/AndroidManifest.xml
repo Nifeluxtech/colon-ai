@@ -3,6 +3,14 @@
      (a native WebView inside MainActivity); there is no standalone browser screen in this app (Phase 8). -->
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
+    <!-- Colon Music (OS Assistant Step 3): play the phone's songs (asked the first time the user says "play ..."),
+         and keep playing in the background with the media notification. -->
+    <uses-permission android:name="android.permission.READ_MEDIA_AUDIO" />
+    <uses-permission
+        android:name="android.permission.READ_EXTERNAL_STORAGE"
+        android:maxSdkVersion="32" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
+
     <application>
         <activity
             android:name=".MainActivity"
@@ -74,6 +82,16 @@
             android:permission="android.permission.BIND_QUICK_SETTINGS_TILE">
             <intent-filter>
                 <action android:name="android.service.quicksettings.action.QS_TILE" />
+            </intent-filter>
+        </service>
+        <!-- Colon Music (MusicService.kt): Media3 session around Colon's player; notification, lock screen and
+             headset controls. -->
+        <service
+            android:name=".MusicService"
+            android:exported="true"
+            android:foregroundServiceType="mediaPlayback">
+            <intent-filter>
+                <action android:name="androidx.media3.session.MediaSessionService" />
             </intent-filter>
         </service>
     </application>

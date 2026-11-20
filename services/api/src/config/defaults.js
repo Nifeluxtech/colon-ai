@@ -79,6 +79,9 @@ const SCHEMA = [
   str('CF_ACCOUNT_ID', '', 'Cloudflare account id for Workers AI image generation'),
   secret('CF_AI_TOKEN', 'Cloudflare API token with Workers AI permission (image generation)'),
   str('CF_IMAGE_MODEL', '@cf/black-forest-labs/flux-1-schnell', 'Workers AI text-to-image model'),
+  // Colon Music (v0.19.0, OS Assistant Step 3): modules/music, GET /music/search
+  str('JAMENDO_CLIENT_ID', '', 'Jamendo API client id (free, devportal.jamendo.com) for "play X" when the phone has '
+    + 'no match; empty = the app goes straight to YouTube'),
   num('RESEARCH_MAX_QUERIES', 4, 'web searches one deep research task runs (one per job step)'),
   num('RESEARCH_MAX_PAGES', 8, 'pages one deep research task reads (a few per job step)'),
   num('RESEARCH_STEP_MS', 35000, 'longest single deep research step (the report is written in one); keep it under '

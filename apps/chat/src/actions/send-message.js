@@ -7,6 +7,7 @@ import { loginCard, passwordGuard } from './saga-extras.js';
 import { sagaTyped } from './saga-wait.js';
 import { handlePlanText } from './saga-plans.js';
 import { handlePhoneText } from './phone-chat.js';
+import { handleMusicText } from './music-chat.js';
 import { Colon } from '../../../../packages/ui/js/colon.js';
 import { ColonMarkdown } from '../../../../packages/ui/js/markdown/index.js';
 import { autoGrow, scrollBottom, syncComposer } from '../components/composer.js';
@@ -40,6 +41,9 @@ function send() {
   }
   clearImageSource();
   if (!atts.length && deepResearchOn()) { if (deepResearch(text, ensureConv)) clearComposer(ta); return; }
+  // OS Assistant Step 3: "play Last Last", "what song is this?" (actions/music-chat.js). Before Step 2, which keeps
+  // "play music", "pause" and "next song" as media keys.
+  if (!atts.length && handleMusicText(text)) { clearComposer(ta); return; }
   // OS Assistant Step 2: "open WhatsApp", "torch on", "volume up", "set an alarm for 6:30"… run on the phone
   // (actions/phone-chat.js). An "open <name>" with no such app comes back here through the fallback.
   if (!atts.length && handlePhoneText(text, function () { routeText(ta, text, atts); })) { clearComposer(ta); return; }

@@ -141,6 +141,8 @@ dependencies {
     implementation(libs.androidx.browser) // Chrome Custom Tabs for Google and bank sign-in
     implementation(libs.material)
     implementation(libs.okhttp)
+    implementation(libs.media3.exoplayer) // Colon Music (OS Assistant Step 3)
+    implementation(libs.media3.session)
 
     testImplementation(libs.junit)
     testImplementation(libs.json) // org.json is a stub in local unit tests; this is the real implementation

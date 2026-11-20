@@ -22,6 +22,9 @@ Source blueprint: docs/os-assistant/blueprint-original.md (ChatGPT "COLON OS ASS
 - "Play X": search phone library, then Jamendo; mainstream tracks not found → open in YouTube/Audiomack via intent
 - Metadata in music_* tables, existing MySQL on cPanel
 
+Shipped in 0.19.0 (see `step-3.md`): songprint (MIT, Shazam-compatible signatures, free public endpoint) replaced
+Chromaprint+AcoustID for untagged files and AudD for the mic; no MySQL tables yet.
+
 ## Step 4: Recognize music around you (week 6)
 - MusicRecognitionProvider adapter
 - Free: hand off to Shazam app via intent; testing: AudD (300 free requests total, key server-side)

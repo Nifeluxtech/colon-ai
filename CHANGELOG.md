@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.19.0] — 2026-11-20 · Colon Music (OS Assistant step 3)
+Colon AI on Android plays music and names songs, free tools only. See `docs/os-assistant/step-3.md`.
+### Added
+- **"play X"**: the phone's own songs (MediaStore, permission asked once), then the best **Jamendo** match (free CC
+  music, new `GET /music/search`, needs the free `JAMENDO_CLIENT_ID`), then opens **YouTube**; "on YouTube" /
+  "on Audiomack" open there; "play my music" shuffles the library. Media3 ExoPlayer in a `MediaSessionService`
+  (`ColonMusic`, `MusicService`): notification, lock screen and headset controls, keeps playing in the background.
+- **"what song is this?"**: Colon's player first (tags, or a fingerprint of an untagged file), the mic only when the
+  player is idle. Fingerprints by vendored **songprint** (MIT, pure Kotlin, Shazam-compatible); only the signature
+  goes to Shazam's public, unofficial discovery endpoint (no key). Replaces the planned Chromaprint+AcoustID and AudD.
+- Bridge command and feature `music`, checked by `MusicRules` (allowlist; streams only from jamendo.com).
+### Config
+- `JAMENDO_CLIENT_ID` (optional; empty skips Jamendo).
+
 ## [0.18.2] — 2026-11-20 · Talk to Colon shortcuts
 ### Added
 - **Talk to Colon** entry points (colonai flavor, `AssistTile.kt`) for phones whose assistant gestures stay with
