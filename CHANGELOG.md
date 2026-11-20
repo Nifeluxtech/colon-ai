@@ -1,5 +1,36 @@
 # Changelog
 
+## [0.20.0] — 2026-11-20 · Voice mode redesign
+Voice mode (hands-free) gets a new look in the app and over other apps. See `docs/os-assistant/voice-ui.md`.
+### Added
+- **Full-screen voice screen** (chat, all platforms; `voice-orb.js`, `voice-overlay.js`, `chat-voice.css`): blurred
+  dark backdrop, a large orb that breathes and follows the mic while listening, swirls while thinking and pulses
+  while speaking; a short live caption (what was heard, then the reply); **Mute** and **End** in the footer, Esc to
+  end, **Show chat** to hide it (the hands-free pill brings it back). Respects `prefers-reduced-motion`.
+- Hands-free **Mute**: pauses listening without ending the session (`mute(on)`, phase `muted`).
+- **Android "dynamic island" pill** (Colon AI app): with voice mode on and Colon in the background, a pill at the top
+  centre over other apps shows a wave and "Listening…" / "Thinking…" / "Speaking". **Tap** → Siri-style full
+  screen: the screen's rounded edges glow (display corner radius on Android 12+, 24 dp before), a voice wave along
+  the footer, live caption, Mute / Open Colon / Close; tap outside or Close to collapse. **Hold or swipe** the pill
+  to end. From the Quick Settings tile or the "Talk to Colon" shortcut, Colon steps back behind the pill.
+  `VoiceOverlay`, `VoiceOverlayViews`, `VoiceMode`, `VoiceUiRules` (+ `VoiceUiRulesTest`).
+- `VoiceService`: microphone foreground service so voice mode keeps listening in the background, with an ongoing
+  "Colon voice mode" notification (Mute, End). The chat WebView is no longer paused while voice mode runs.
+- Bridge command and feature `voice_ui` (`{state, caption, muted}`), event `voice_action` (`end|mute|unmute`).
+- Permissions (colonai manifest): `SYSTEM_ALERT_WINDOW` ("Display over other apps", asked once with a prompt that
+  opens its settings page; without it the notification is used) and `FOREGROUND_SERVICE_MICROPHONE`.
+### Changed
+- Android in-app updates: the update check runs at most every **15 minutes** instead of every 12 hours
+  (`UpdateChecker.CHECK_EVERY_MS`), so the update prompt appears on the next app open soon after a release.
+
+### Design (premium pass)
+- New design tokens (type scale, 4/8 spacing, radii, layered shadows, surfaces, motion, focus ring) and one button scale.
+- Pop-ups: bottom sheets with a grab handle on phones, a centred card on desktop, enter and exit animations,
+  scroll lock; confirm dialogs with icon tiles; toasts with status icon and action.
+- Projects redesigned: header with count and New project, colour cards with stats, empty state, skeletons, and a
+  project page with Instructions, Chats, Files and Memories panels.
+- History, Memory, Explore, Help, sidebar and messages polished; shared page header.
+- Fixes: sheets close on page change; menus no longer double-bind on revisits; Memory badge without a limit.
 ## [0.19.0] — 2026-11-20 · Colon Music (OS Assistant step 3)
 Colon AI on Android plays music and names songs, free tools only. See `docs/os-assistant/step-3.md`.
 ### Added

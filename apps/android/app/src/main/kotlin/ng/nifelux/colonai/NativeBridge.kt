@@ -176,6 +176,8 @@ class NativeBridge(private val host: MainActivity, private val webView: WebView)
                 else MusicActions.run(host, a, done)
             }
             "vault" -> vault(a, done)
+            // 0.20.0: voice mode's state for the pill over other apps (VoiceMode, VoiceUiRules).
+            "voice_ui" -> VoiceMode.handle(host, a, done)
             else -> done(false, null, "unknown_command")
         }
     }
@@ -326,7 +328,10 @@ class NativeBridge(private val host: MainActivity, private val webView: WebView)
             // OS Assistant Step 2: phone control (ColonNative.call('phone', { action, ... })).
             "phone",
             // OS Assistant Step 3: Colon Music ("play ...", "what song is this?"), Colon AI only.
-            "music")
+            "music",
+            // 0.20.0: voice mode's state for the floating pill (call('voice_ui', {state, caption, muted}); the pill's
+            // End / Mute come back as the event "voice_action" {action: end|mute|unmute}).
+            "voice_ui")
 
         /** Defines window.ColonNative (promise API) on top of the channel. Runs once per page, before page scripts. */
         private val SHIM = """

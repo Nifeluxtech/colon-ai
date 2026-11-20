@@ -66,7 +66,7 @@ shrunk with R8).
   Payments, purchases, form submissions, messages and personal details wait for **Approve** on the phone
   (`SagaApproval`: the server's request or the phone's own check of the real element); in Shared mode every step
   that changes the page asks first. In Colon AI the browser panel opens by itself when Saga asks to browse.
-- **Updates** (`UpdateChecker`, `VersionManifest.forApp`): every 12 hours each app reads its own entry of
+- **Updates** (`UpdateChecker`, `VersionManifest.forApp`): at most every 15 minutes each app reads its own entry of
   `https://chat.apparatus.name.ng/android/version.json` and only accepts an APK named for itself, from the same
   package, newer, and signed with the same key.
 - **Splash** (SplashScreen API, backported) and adaptive/themed launcher icons: the Colon flame for Colon AI, a cyan

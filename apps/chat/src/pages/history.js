@@ -69,7 +69,8 @@ function listPage(page, o) {
   page.querySelectorAll('[data-f]').forEach(function (b) { b.addEventListener('click', function () { state.f =
     b.getAttribute('data-f'); page.querySelectorAll('[data-f]').forEach(function (x) { x.setAttribute('aria-pressed',
     x === b); }); load(); }); });
-  page.addEventListener('click', function (e) {
+  // on the screen's own node: #cw-page is reused by every view, so a listener there would pile up per visit
+  page.querySelector('.cw-screen').addEventListener('click', function (e) {
     var m = e.target.closest('[data-hist-menu]'); if (!m) return;
     var c = state.list.filter(function (x) { return x.id === m.getAttribute('data-hist-menu'); })[0];
     if (c) CW.convMenu(m, c, load);

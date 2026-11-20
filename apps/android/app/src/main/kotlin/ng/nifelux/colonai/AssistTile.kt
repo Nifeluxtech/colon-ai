@@ -25,10 +25,12 @@ import androidx.core.graphics.drawable.IconCompat
 object AssistShortcut {
     private const val ID = "talk_to_colon"
 
+    // 0.20.0: compact, so Colon steps back behind its voice pill when "Display over other apps" is on (VoiceMode).
     fun assistIntent(context: Context): Intent = Intent(context, MainActivity::class.java)
         .setAction(Intent.ACTION_VIEW)
         .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_REORDER_TO_FRONT)
         .putExtra(MainActivity.EXTRA_ASSIST, true)
+        .putExtra(MainActivity.EXTRA_VOICE_COMPACT, true)
 
     /** Adds (or refreshes) the "Talk to Colon" launcher shortcut. Safe to call on every start. */
     fun publish(context: Context) {

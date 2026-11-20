@@ -60,7 +60,8 @@ CW.pages.help = function (page) {
     '<div class="section-title">Frequently asked</div><div class="faq">' + FAQ.map(function (f) {
       return '<details class="faq-item"><summary>' + esc(f[0]) + icon('chevDown') + '</summary><p>' + esc(f[1])
       + '</p></details>'; }).join('') + '</div>' +
-    '<div class="section-title">Keyboard shortcuts</div><div class="list">' + [['Ctrl', 'K', 'Search conversations'],
+    '<div class="section-title cw-hide-touch">Keyboard shortcuts</div><div class="list cw-hide-touch">'
+    + [['Ctrl', 'K', 'Search conversations'],
       ['Ctrl', 'Shift O', 'New chat'], ['', 'Enter', 'Send message'], ['Shift', 'Enter', 'New line'], ['', 'Esc',
       'Stop generating'], ['', '/', 'Focus the message box']].map(function (s) {
       return '<div class="set-row"><span class="body"><span class="title">' + esc(s[2]) + '</span></span><span>'

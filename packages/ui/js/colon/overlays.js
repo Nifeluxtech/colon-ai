@@ -12,7 +12,9 @@ function toast(msg, kind, action) {
   host.setAttribute('aria-live', 'polite');
   var t = document.createElement('div'); t.className = 'toast ' + (kind || ''); t.setAttribute('role', kind === 'bad'
     ? 'alert' : 'status');
-  var span = document.createElement('span'); span.textContent = msg; t.appendChild(span);
+  t.insertAdjacentHTML('beforeend', '<span class="toast-ico">' + icon(kind === 'ok' ? 'check' : kind === 'bad'
+    ? 'alert' : 'info') + '</span>');
+  var span = document.createElement('span'); span.className = 'toast-msg'; span.textContent = msg; t.appendChild(span);
   if (action) {
     var b = document.createElement('button'); b.className = 'toast-act'; b.type = 'button';
       b.textContent = action.label;
@@ -31,7 +33,26 @@ function trapFocus(el, e) {
   if (e.shiftKey && document.activeElement === f[0]) { e.preventDefault(); f[f.length - 1].focus(); }
   else if (!e.shiftKey && document.activeElement === f[f.length - 1]) { e.preventDefault(); f[0].focus(); }
 }
-// sheet(html, onMount?, opts?: { cls, label, onClose }) -> close()
+// v0.20.0: the page behind an open sheet never scrolls, and closing plays a short exit before the nodes go.
+var locks = 0;
+function lockScroll(on) {
+  locks = Math.max(0, locks + (on ? 1 : -1));
+  document.documentElement.classList.toggle('overlay-lock', locks > 0);
+}
+function leave(nodes) {
+  var still = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
+  nodes.forEach(function (n) { n.classList.add('closing'); });
+  setTimeout(function () { nodes.forEach(function (n) { n.remove(); }); }, still ? 0 : 200);
+}
+// Dialog header: optional icon tile, title, then a short body line (confirm and prompt share it).
+function dlgHead(o, kind) {
+  var ico = o.icon || (kind === 'danger' ? 'trash' : '');
+  return '<div class="dlg-head">' + (ico ? '<span class="dlg-ico ' + (kind || '') + '">' + icon(ico) + '</span>' : '')
+    + '<div class="dlg-title h2">' + esc(o.title || '') + '</div></div>'
+    + (o.body ? '<p class="dlg-body">' + esc(o.body) + '</p>' : '');
+}
+// sheet(html, onMount?, opts?: { cls, label, onClose, keepOnRoute }) -> close(). A route change closes it
+// (the Android back gesture changes the route), unless keepOnRoute.
 function sheet(html, onMount, opts) {
   opts = opts || {};
   var prev = document.activeElement;
@@ -43,12 +64,14 @@ function sheet(html, onMount, opts) {
   var closed = false;
   function close() {
     if (closed) return; closed = true;
-    back.remove(); el.remove(); document.removeEventListener('keydown', onKey, true);
+    leave([back, el]); lockScroll(false); document.removeEventListener('keydown', onKey, true);
+    removeEventListener('hashchange', close);
     if (prev && prev.focus) try { prev.focus(); } catch (e) {}
     if (opts.onClose) opts.onClose();
   }
   function onKey(e) { if (e.key === 'Escape') { e.stopPropagation(); close(); } else trapFocus(el, e); }
-  back.addEventListener('click', close); document.addEventListener('keydown', onKey, true);
+  back.addEventListener('click', close); document.addEventListener('keydown', onKey, true); lockScroll(true);
+  if (!opts.keepOnRoute) addEventListener('hashchange', close);
   document.body.appendChild(back); document.body.appendChild(el);
   $$('[data-close]', el).forEach(function (b) { b.addEventListener('click', close); });
   if (onMount) onMount(el, close);
@@ -61,15 +84,14 @@ function confirmDialog(o) {
   o = o || {};
   return new Promise(function (resolve) {
     var done = false;
-    sheet('<div class="h2">' + esc(o.title || 'Are you sure?') + '</div>' + (o.body
-      ? '<p class="small muted" style="margin:6px 0 0">' + esc(o.body) + '</p>' : '') +
+    sheet(dlgHead({ title: o.title || 'Are you sure?', body: o.body, icon: o.icon }, o.danger ? 'danger' : '') +
       '<div class="sheet-actions"><button type="button" class="btn ghost" data-close>' + esc(o.cancel || 'Cancel')
         + '</button>' +
       '<button type="button" class="btn ' + (o.danger ? 'danger solid' : 'primary') + '" data-ok autofocus>'
         + esc(o.confirm || 'Confirm') + '</button></div>',
       function (el, close) { $('[data-ok]', el).addEventListener('click', function () { done = true; close();
         resolve(true); }); },
-      { label: o.title, onClose: function () { if (!done) resolve(false); } });
+      { label: o.title || 'Are you sure?', cls: 'dlg', onClose: function () { if (!done) resolve(false); } });
   });
 }
 // prompt({ title, label, value, placeholder, confirm, max }) -> Promise<string|null>
@@ -77,11 +99,11 @@ function promptDialog(o) {
   o = o || {};
   return new Promise(function (resolve) {
     var done = false;
-    sheet('<div class="h2">' + esc(o.title || '') + '</div><form class="form" style="margin-top:14px" novalidate>' +
+    sheet(dlgHead({ title: o.title, body: o.body, icon: o.icon }) + '<form class="form dlg-form" novalidate>' +
       '<div class="field"><label for="pd-in">' + esc(o.label || '')
         + '</label><input class="input" id="pd-in" maxlength="' + (o.max || 120) + '" value="' + esc(o.value || '')
         + '" placeholder="' + esc(o.placeholder || '') + '" autofocus><div class="msg"></div></div>' +
-      ('<div class="sheet-actions" style="margin-top:4px"><button type="button" class="btn ghost" '
+      ('<div class="sheet-actions"><button type="button" class="btn ghost" '
         + 'data-close>Cancel</button><button class="btn primary" type="submit">') + esc(o.confirm || 'Save')
         + '</button></div></form>',
       function (el, close) {
@@ -92,7 +114,7 @@ function promptDialog(o) {
             el).textContent = 'This can’t be empty.'; return; }
           done = true; close(); resolve(v);
         });
-      }, { label: o.title, onClose: function () { if (!done) resolve(null); } });
+      }, { label: o.title, cls: 'dlg', onClose: function () { if (!done) resolve(null); } });
   });
 }
 
@@ -117,6 +139,10 @@ function menu(anchor, items, opts) {
         + esc(it.sub) + '</span>' : '') + '</span>' +
       (it.badge ? it.badge : '') + (it.checked ? '<span class="tick">' + icon('check') + '</span>' : '') + '</button>';
   }).join('');
+  var back = null;
+  if (opts.sheetOnMobile && innerWidth < 640) {
+    back = document.createElement('div'); back.className = 'menu-back'; document.body.appendChild(back);
+  }
   document.body.appendChild(el);
   var r = anchor.getBoundingClientRect(), w = el.offsetWidth, h = el.offsetHeight;
   var left = opts.align === 'right' ? r.right - w : r.left; left = Math.max(8, Math.min(left, innerWidth - w - 8));
@@ -124,7 +150,7 @@ function menu(anchor, items, opts) {
   el.style.left = left + 'px'; el.style.top = Math.max(8, top) + 'px';
   anchor.setAttribute('aria-expanded', 'true');
   function close() {
-    el.remove(); anchor.setAttribute('aria-expanded', 'false'); openMenu = null;
+    el.remove(); if (back) back.remove(); anchor.setAttribute('aria-expanded', 'false'); openMenu = null;
     document.removeEventListener('pointerdown', outside, true); document.removeEventListener('keydown', key, true);
       removeEventListener('resize', close);
   }

@@ -56,7 +56,7 @@ CW.pages.memory = function (page) {
           + 'until you turn it on.') + '</span></div>') +
       '</div></section>' +
       '<section class="set-sec"><h2 class="set-h">' + icon('bookmark') + 'Saved memories <span class="badge">'
-        + state.list.length + ' / ' + m.max + '</span></h2>' +
+        + state.list.length + (m.max ? ' / ' + m.max : '') + '</span></h2>' +
         '<form class="set-row stack" data-mem-add novalidate><span class="body"><label class="title" for="mem-new">'
           + 'Add a memory</label><span class="sub">For example “I’m a nurse in Ibadan” or “Keep answers short”. '
           + 'In a chat you can also say “remember that …”.</span></span><span class="set-inline">'
@@ -66,7 +66,7 @@ CW.pages.memory = function (page) {
         '<div class="list" data-mem-list>' + (state.list.length ? state.list.map(function (x) {
           return itemHtml(x, state.names); }).join('') : '<div class="card empty">' + icon('bookmark')
           + '<div class="h3">No memories yet</div></div>') + '</div>' +
-        (state.list.length ? '<button class="btn block danger" type="button" data-mem-clear style="margin-top:12px">'
+        (state.list.length ? '<button class="btn sm danger mem-clear" type="button" data-mem-clear>'
           + icon('trash') + 'Delete all memories</button>' : '') +
       '</section></div>';
     bind();

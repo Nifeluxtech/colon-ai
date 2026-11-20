@@ -35,10 +35,10 @@ import java.security.MessageDigest
  */
 object UpdateChecker {
     private const val PREFS = "colon.update"
-    private const val CHECK_EVERY_MS = 12 * 60 * 60 * 1000L
+    private const val CHECK_EVERY_MS = 15 * 60 * 1000L // 0.20.0: 15 minutes (was 12 hours)
     private val main = Handler(Looper.getMainLooper())
 
-    /** Fetches the manifest (at most every 12 h unless forced). onResult runs on the main thread. */
+    /** Fetches the manifest (at most every 15 minutes unless forced). onResult runs on the main thread. */
     fun check(context: Context, force: Boolean, onResult: (VersionManifest?, String?) -> Unit) {
         val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
         val now = System.currentTimeMillis()

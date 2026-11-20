@@ -2,6 +2,7 @@
    (instructions, its chats, a new chat in it, its files and its memories). How many projects a user may have
    comes from their plan; the server says so (402 quota) when BILLING_MODE is enforce. Signed-in only. */
 import { Colon } from '../../../../packages/ui/js/colon.js';
+import * as UI from '../components/project-ui.js';
 import { CW } from '../core/cw.js';
 
 var C = Colon, icon = C.icon, esc = C.esc;
@@ -40,24 +41,19 @@ CW.pages.projects = function (page) {
   var data = CW.data;
   page.innerHTML = screen('Projects', 'Group chats, files and memories, with instructions for every chat in them.',
     '<button class="btn primary sm" type="button" data-new>' + icon('plus') + 'New project</button>')
-    + '<div class="hist-list"><div class="skel" style="height:64px"></div></div></div>';
-  page.querySelector('[data-new]').addEventListener('click', newProject);
-  if (!data.listProjects) { page.querySelector('.hist-list').innerHTML = '<div class="card empty">' + icon('lock')
+    + '<div class="pj-list">' + UI.skeletonHtml(3) + '</div></div>';
+  var scr = page.querySelector('.cw-screen'); scr.classList.add('pj-screen');
+  // bound to this screen's own node: #cw-page is reused by every view, so listeners on it would pile up
+  scr.addEventListener('click', function (e) { if (e.target.closest('[data-new]')) newProject(); });
+  var box = page.querySelector('.pj-list');
+  if (!data.listProjects) { box.innerHTML = '<div class="card empty">' + icon('lock')
     + '<div class="h3">Log in to use projects</div></div>'; return; }
   function load() {
     data.listProjects().then(function (d) {
-      var box = page.querySelector('.hist-list'), lim = d.limit || {};
-      var note = lim.limit == null ? '' : '<p class="small muted">' + lim.used + ' of ' + lim.limit + ' projects on '
-        + 'the ' + esc(lim.plan || 'current') + ' plan. <a href="#/account/plan">Plans</a></p>';
-      box.innerHTML = note + (d.projects.length ? '<div class="list">' + d.projects.map(function (p) {
-        return '<div class="hist-row"><a class="hist-main" href="#/p/' + encodeURIComponent(p.id)
-          + '"><span class="hist-ico">' + icon('folder') + '</span><span class="hist-body"><b>' + esc(p.name)
-          + '</b><small>' + p.chats + ' chat' + (p.chats === 1 ? '' : 's') + ' · ' + p.files + ' file'
-          + (p.files === 1 ? '' : 's') + '</small></span><span class="hist-meta"><time>' + esc(C.ago(p.updated_at))
-          + '</time></span></a><button class="icon-btn sm" data-pmenu="' + esc(p.id) + '" aria-label="Options for '
-          + esc(p.name) + '" aria-haspopup="menu">' + icon('more') + '</button></div>';
-      }).join('') + '</div>' : '<div class="card empty">' + icon('folder') + '<div class="h3">No projects yet</div>'
-        + '<p class="small">Start one for a course, a trip or a piece of work.</p></div>');
+      var h1 = page.querySelector('.cw-screen-head .h1');
+      h1.innerHTML = 'Projects' + (d.projects.length ? '<span class="pj-count">' + d.projects.length + '</span>' : '');
+      box.innerHTML = d.projects.length ? UI.usageHtml(d.limit) + '<div class="pj-grid">'
+        + d.projects.map(UI.cardHtml).join('') + '</div>' : UI.emptyHtml();
       box.querySelectorAll('[data-pmenu]').forEach(function (b) {
         var p = d.projects.filter(function (x) { return x.id === b.getAttribute('data-pmenu'); })[0];
         b.addEventListener('click', function () {
@@ -66,7 +62,7 @@ CW.pages.projects = function (page) {
           { align: 'right', label: 'Project options' });
         });
       });
-    }).catch(function (e) { page.querySelector('.hist-list').innerHTML = '<div class="card empty">' + icon('alert')
+    }).catch(function (e) { box.innerHTML = '<div class="card empty">' + icon('alert')
       + '<div class="h3">Projects didn’t load</div><p class="small">' + esc(e.message) + '</p></div>'; });
   }
   load();
@@ -74,47 +70,46 @@ CW.pages.projects = function (page) {
 
 CW.pages.project = function (page, ctx) {
   var data = CW.data, id = ctx && ctx.projectId, st = {};
-  page.innerHTML = screen('Project', '') + '<div class="skel" style="height:200px"></div></div>';
+  var back = '<a class="pj-back" href="#/projects">' + icon('left') + 'All projects</a>';
+  page.innerHTML = '<div class="cw-screen pj-screen">' + back + '<div class="skel" style="height:96px"></div>'
+    + '<div class="skel" style="height:220px;margin-top:16px"></div></div>';
   function load() {
     Promise.all([data.getProject(id), data.getMemory({ projectId: id }).catch(function () { return null; })])
       .then(function (r) { st = r[0]; st.mem = r[1]; render(); })
-      .catch(function (e) { page.innerHTML = screen('Project', '') + '<div class="card empty">' + icon('alert')
-        + '<div class="h3">' + esc(e.message) + '</div><a class="btn" href="#/projects">All projects</a></div></div>';
-      });
+      .catch(function (e) { page.innerHTML = '<div class="cw-screen pj-screen">' + back + '<div class="card empty">'
+        + icon('alert') + '<div class="h3">' + esc(e.message) + '</div><a class="btn" href="#/projects">All projects'
+        + '</a></div></div>'; });
   }
   function render() {
     var p = st.project, memOn = st.mem && st.mem.memory.enabled;
     var mems = st.mem ? st.mem.memories.filter(function (m) { return m.scope === 'project'; }) : [];
-    page.innerHTML = screen(p.name, p.chats + ' chats · ' + p.files + ' files',
-      '<span class="set-inline"><button class="btn primary sm" type="button" data-pchat>' + icon('plus') + 'New chat'
-      + '</button><button class="icon-btn sm" type="button" data-pmore aria-label="Project options">' + icon('more')
-      + '</button></span>') +
-      '<section class="set-sec"><h2 class="set-h">' + icon('edit') + 'Instructions</h2><form class="set-row stack" '
-        + 'data-pinst novalidate><span class="sub">Colon follows these in every chat in this project.</span>'
-        + '<textarea class="input" rows="4" maxlength="4000" data-pinst-t placeholder="e.g. I study nursing at UI. '
-        + 'Explain simply and cite sources.">' + esc(p.instructions) + '</textarea><button class="btn sm" '
-        + 'type="submit">Save instructions</button></form></section>' +
-      '<section class="set-sec"><h2 class="set-h">' + icon('chat') + 'Chats</h2><div class="list">'
-        + (st.chats.length ? st.chats.map(function (c) { return '<a class="row" href="#/c/' + encodeURIComponent(c.id)
-          + '"><span class="ico">' + icon('chat') + '</span><span class="body"><span class="title">' + esc(c.title)
-          + '</span><span class="sub">' + esc(c.preview || 'No messages yet') + ' · ' + esc(C.ago(c.updated_at))
-          + '</span></span></a>'; }).join('') : '<p class="small muted">No chats yet. Start one, or move a chat '
-          + 'here from its menu.</p>') + '</div></section>' +
-      '<section class="set-sec"><h2 class="set-h">' + icon('file') + 'Files</h2><p class="small muted">Their text '
-        + 'is shared with every chat in this project.</p><div class="list">' + st.files.map(function (f) {
-          return '<div class="set-row"><span class="body"><span class="title">' + esc(f.name) + '</span><span '
-            + 'class="sub">' + esc(C.fmtBytes(f.size)) + '</span></span><button class="icon-btn sm" type="button" '
-            + 'data-fdel="' + esc(f.id) + '" aria-label="Delete file">' + icon('trash') + '</button></div>';
-        }).join('') + '</div><label class="btn sm" style="margin-top:8px">' + icon('plus') + 'Add a file<input '
-        + 'type="file" data-fup hidden></label></section>' +
-      '<section class="set-sec"><h2 class="set-h">' + icon('bookmark') + 'Project memories</h2>' + (memOn
-        ? '<form class="set-row" data-pmem novalidate><input class="input" maxlength="1000" placeholder="Something '
-          + 'Colon should remember in this project"><button class="btn sm" type="submit">Add</button></form>'
-        : '<p class="small muted">Memory is off. <a href="#/memory">Turn it on</a> to keep project memories.</p>')
-        + '<div class="list">' + mems.map(function (m) { return '<div class="set-row"><span class="body"><span '
-          + 'class="title">' + esc(m.content) + '</span></span><button class="icon-btn sm" type="button" data-mdel="'
-          + esc(m.id) + '" aria-label="Delete memory">' + icon('trash') + '</button></div>'; }).join('')
-        + '</div></section></div>';
+    var newChat = '<button class="btn primary sm" type="button" data-pchat>' + icon('plus') + 'New chat</button>';
+    page.innerHTML = '<div class="cw-screen pj-screen pj-detail" style="--pj:' + UI.hue(p.id) + '">' + back
+      + '<header class="pj-hero"><span class="pj-ico lg">' + icon('folder') + '</span><div class="pj-hero-t"><h1 '
+      + 'class="h1">' + esc(p.name) + '</h1><div class="pj-stats"><span>' + icon('chat') + UI.plural(p.chats, 'chat')
+      + '</span><span>' + icon('file') + UI.plural(p.files, 'file') + '</span><span>' + icon('clock')
+      + 'Updated ' + esc(C.ago(p.updated_at)) + '</span></div></div><span class="pj-hero-acts">' + newChat
+      + '<button class="icon-btn sm boxed" type="button" data-pmore aria-label="Project options">' + icon('more')
+      + '</button></span></header><div class="pj-cols"><div class="pj-col">' +
+      UI.panel('edit', 'Instructions', { sub: 'Colon follows these in every chat in this project.' },
+        '<form class="pj-inst" data-pinst novalidate><textarea class="textarea" rows="4" maxlength="4000" '
+        + 'data-pinst-t aria-label="Project instructions" placeholder="e.g. I study nursing at UI. Explain simply '
+        + 'and cite sources.">' + esc(p.instructions) + '</textarea><div class="pj-inst-f"><span class="tiny muted">'
+        + 'Up to 4,000 characters</span><button class="btn sm" type="submit">Save instructions</button></div></form>')
+      + UI.panel('chat', 'Chats', { count: st.chats.length }, st.chats.length ? '<div class="pj-rows">'
+        + st.chats.map(UI.chatRow).join('') + '</div>' : UI.note('No chats yet. Start one, or move a chat here '
+        + 'from its menu.')) + '</div><div class="pj-col">'
+      + UI.panel('file', 'Files', { count: st.files.length, sub: 'Their text is shared with every chat here.',
+        action: '<label class="btn sm pj-add">' + icon('upload') + 'Add<input type="file" data-fup hidden></label>' },
+        st.files.length ? '<div class="pj-rows">' + st.files.map(UI.fileRow).join('') + '</div>'
+          : UI.note('No files yet. Add notes, PDFs or code for every chat in this project to use.'))
+      + UI.panel('bookmark', 'Project memories', { count: mems.length }, (memOn
+        ? '<form class="pj-memadd" data-pmem novalidate><input class="input" maxlength="1000" aria-label="New '
+          + 'project memory" placeholder="Something Colon should remember here"><button class="btn sm" '
+          + 'type="submit">Add</button></form>'
+        : UI.note('Memory is off. ', '<a class="link" href="#/memory">Turn it on</a> to keep project memories.'))
+        + (mems.length ? '<div class="pj-rows">' + mems.map(UI.memRow).join('') + '</div>' : ''))
+      + '</div></div></div>';
     bind(p);
   }
   function bind(p) {

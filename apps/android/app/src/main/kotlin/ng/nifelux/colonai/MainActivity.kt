@@ -108,6 +108,7 @@ class MainActivity : AppCompatActivity() {
             ViewGroup.LayoutParams.MATCH_PARENT))
         nativeBridge = NativeBridge(this, webView)
         nativeBridge.install()
+        VoiceMode.attach(this) // 0.20.0: voice mode's pill and notification (VoiceService)
         browserPanel = ChatBrowserPanel(this)
 
         onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
@@ -128,12 +129,14 @@ class MainActivity : AppCompatActivity() {
     override fun onStart() {
         super.onStart()
         foreground = true
+        VoiceMode.setAppVisible(true)
         ColonApplication.of(this).bridge.acquire()
         ColonApplication.of(this).addNetworkListener(onNetwork)
     }
 
     override fun onStop() {
         foreground = false
+        VoiceMode.setAppVisible(false)
         ColonApplication.of(this).bridge.release()
         ColonApplication.of(this).removeNetworkListener(onNetwork)
         super.onStop()
@@ -146,7 +149,8 @@ class MainActivity : AppCompatActivity() {
     }
 
     override fun onPause() {
-        if (::webView.isInitialized) webView.onPause()
+        // 0.20.0: voice mode keeps listening and speaking in the background, so the chat page is not paused.
+        if (::webView.isInitialized && !VoiceMode.active) webView.onPause()
         if (::browserPanel.isInitialized) browserPanel.onPause()
         super.onPause()
     }
@@ -178,6 +182,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     override fun onDestroy() {
+        VoiceMode.detach(this)
         if (::browserPanel.isInitialized) browserPanel.destroy()
         if (::webView.isInitialized) ShellWeb.destroy(webView)
         super.onDestroy()
@@ -273,6 +278,12 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    /** Sends an event to the chat page; false when there is no page to receive it. */
+    fun emitToPage(event: String, data: Any?): Boolean {
+        if (!::nativeBridge.isInitialized || !nativeBridge.pageReady) return false
+        nativeBridge.emit(event, data); return true
+    }
+
     fun takeShare(): JSONObject? = pendingShare.also { pendingShare = null }
 
     /** True once after AssistActivity opened the app (long-press Home, voice button); the chat then starts hands-free. */
@@ -295,6 +306,9 @@ class MainActivity : AppCompatActivity() {
         if (intent.getBooleanExtra(EXTRA_ASSIST, false)) {
             intent.removeExtra(EXTRA_ASSIST) // handled once, even after rotation
             pendingAssist = true
+            // 0.20.0: from the tile or the shortcut Colon steps back behind its pill once voice mode runs.
+            if (intent.getBooleanExtra(EXTRA_VOICE_COMPACT, false)) VoiceMode.startCompact()
+            intent.removeExtra(EXTRA_VOICE_COMPACT)
             if (::nativeBridge.isInitialized) nativeBridge.emit("assist", JSONObject().put("pending", true))
         }
         if (intent.action == Intent.ACTION_SEND || intent.action == Intent.ACTION_SEND_MULTIPLE) {
@@ -321,5 +335,6 @@ class MainActivity : AppCompatActivity() {
     companion object {
         const val EXTRA_OPEN_URL = "ng.nifelux.colonai.OPEN_URL"
         const val EXTRA_ASSIST = "ng.nifelux.colonai.ASSIST"
+        const val EXTRA_VOICE_COMPACT = "ng.nifelux.colonai.VOICE_COMPACT"
     }
 }
