@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.20.2 — 2026-11-21
+
+- **Voice mode speaks its replies in the Android app.** Android System WebView has no working `speechSynthesis`, so a reply was never read out: the page heard "done" at once, went back to listening, and after two quiet turns voice mode ended. New bridge feature `speak` (`NativeSpeak.kt`, Android `TextToSpeech`, free) used by `read-aloud.js` for the phone's voice in the app.
+- **Hands-free ignores late recognizer results** while Colon thinks or speaks, so a stray result can't restart the turn and drop the reply.
+- **Phone commands**: "take me to WhatsApp", "go to …", "switch to …", "bring up …" and "open up …" open the app (names with no app still go on as a normal message).
+
 ## 0.20.1 — 2026-11-20
 
 Voice mode fixes after the first test on an Infinix SMART 20.
