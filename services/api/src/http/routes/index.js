@@ -16,4 +16,5 @@ module.exports = new Router()
   .use(require('./projects'))
   .use(require('./study'))
   .use(require('./voice'))
+  .use(require('./music'))
   .use(require('./browser'));
