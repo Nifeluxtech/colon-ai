@@ -160,6 +160,15 @@ class NativeBridge(private val host: MainActivity, private val webView: WebView)
                 .lowercase()), null)
             "takeShare" -> done(true, host.takeShare() ?: JSONObject.NULL, null)
             "takeAssist" -> done(true, host.takeAssist(), null)
+            // OS Assistant Step 2: phone control, only what PhoneRules allows (docs/os-assistant/step-2.md).
+            "phone" -> {
+                val bad = PhoneRules.check(a)
+                if (bad != null) done(false, null, bad)
+                else PhoneActions.run(host, a).let { r ->
+                    if (r.error != null) done(false, null, r.error)
+                    else done(true, JSONObject().put("say", r.say), null)
+                }
+            }
             "vault" -> vault(a, done)
             else -> done(false, null, "unknown_command")
         }
@@ -307,7 +316,9 @@ class NativeBridge(private val host: MainActivity, private val webView: WebView)
             // 0.11.6: browser('control', {op: login_form}) reopens the login form Saga waits on.
             "loginWait",
             // Colon OS Assistant, Step 1: opened as the phone's assistant (event "assist", takeAssist()).
-            "assist")
+            "assist",
+            // OS Assistant Step 2: phone control (ColonNative.call('phone', { action, ... })).
+            "phone")
 
         /** Defines window.ColonNative (promise API) on top of the channel. Runs once per page, before page scripts. */
         private val SHIM = """
