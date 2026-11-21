@@ -26,7 +26,8 @@ import kotlin.math.roundToInt
  * calls and texts through the dialler and Messages with the user tapping Call or Send.
  */
 object PhoneActions {
-    class Result(val say: String?, val error: String?)
+    /** label (0.22.1): the app's own name for open_app, for the chat's reply ("I'll take you to WhatsApp now."). */
+    class Result(val say: String?, val error: String?, val label: String? = null)
 
     private fun ok(say: String) = Result(say, null)
     private fun fail(code: String) = Result(null, code)
@@ -88,7 +89,7 @@ object PhoneActions {
         val pkg = PhoneRules.matchApp(name, apps) ?: return fail("not_found")
         val label = apps.first { it.second == pkg }.first
         val intent = pm.getLaunchIntentForPackage(pkg) ?: return fail("not_found")
-        return start(act, intent, "Opening $label.")
+        return start(act, intent, "Opening $label.").let { if (it.error == null) Result(it.say, null, label) else it }
     }
 
     private fun settings(act: Activity, page: String, toggle: String): Result {

@@ -5,7 +5,11 @@
    Forward 10 s, a progress bar with the time, Open in YouTube and Close. YouTube's rules: the player stays visible
    (at least 200x200, YouTube's branding uncovered) and stops when Colon is in the background. A video whose owner
    blocks embedding is skipped silently for the next search result (there is no Next button).
-   play(tracks, { kind }) -> Promise<boolean> (false when none of them would play). */
+   0.22.1, like Saga's browser card: every watch or play request gets a NEW card under its own reply (the message
+   with origin 'video'), and only one plays at a time. Starting one stops the one before; that reply then shows the
+   collapsed row (components/video-row.js: thumbnail, title, Play again, Open in YouTube), as every past video does
+   after a reload.
+   play(tracks, { anchor }) -> Promise<boolean> (false when none of them would play); anchor: the reply's id. */
 
 import { Colon } from '../../../../packages/ui/js/colon.js';
 import { attachMusicCard, detachMusicCard, revealMusicCard } from './music-place.js';
@@ -19,7 +23,7 @@ var ERR_HOST = { 150: 1, 152: 1, 153: 1 };
 var HOSTS = ['https://www.youtube-nocookie.com', 'https://www.youtube.com'];
 var VARS = { autoplay: 1, controls: 0, disablekb: 1, fs: 0, iv_load_policy: 3, rel: 0, playsinline: 1 };
 var api = null, el = null, player = null, list = [], at = 0, done = null, hostAt = 0, lastErr = '', tick = 0;
-var chatKey = null, playing = false;
+var playing = false, anchorId = '';
 
 function loadApi() {
   if (api) return api;
@@ -40,9 +44,9 @@ function btn(cls, label, inner) {
     + '">' + inner + '</button>';
 }
 
-function mount() {
-  if (el && el.isConnected) return el;
+function mount(anchor) {
   var msgs = S.messages || [], last = msgs[msgs.length - 1];
+  anchorId = anchor || (last && !/^tmp/.test(last.id) ? last.id : '');
   el = document.createElement('div');
   el.className = 'cm-dock'; el.setAttribute('role', 'region'); el.setAttribute('aria-label', 'Video player');
   el.innerHTML = '<div class="cm-video"><div class="cm-fbox"><div class="cm-frame"></div></div>'
@@ -54,9 +58,8 @@ function mount() {
     + '<span class="cm-gap"></span><a class="icon-btn cm-yt" target="_blank" rel="noopener" aria-label="Open in '
     + 'YouTube" data-tip="YouTube">' + C.icon('external') + '</a>'
     + btn('cm-close', 'Close player', C.icon('x')) + '</div>';
-  chatKey = S.current ? S.current.id : null;
-  if (!attachMusicCard(el, last && !/^tmp/.test(last.id) ? last.id : '')) { el = null; return null; }
-  el.querySelector('.cm-close').addEventListener('click', close);
+  if (!attachMusicCard(el, anchorId)) { el = null; anchorId = ''; return null; }
+  el.querySelector('.cm-close').addEventListener('click', function () { close(); });
   el.querySelector('.cm-toggle').addEventListener('click', toggle);
   el.querySelector('.cm-fwd').addEventListener('click', function () { seek(10); });
   el.querySelector('.cm-back').addEventListener('click', function () { seek(-5); });
@@ -145,33 +148,39 @@ function onError(e) {
   fail('YouTube error ' + e.data);
 }
 
-function play(tracks) {
-  list = (tracks || []).filter(function (t) { return t && /^[\w-]{11}$/.test(t.id); });
-  at = 0;
-  lastErr = !list.length ? 'no playable videos' : 'no room for the player';
-  if (!list.length) return Promise.resolve(false);
-  if (el && chatKey !== (S.current ? S.current.id : null)) close();   // a card from another chat goes
-  if (!mount()) return Promise.resolve(false);
+function play(tracks, o) {
+  var want = (tracks || []).filter(function (t) { return t && /^[\w-]{11}$/.test(t.id); });
+  lastErr = !want.length ? 'no playable videos' : 'no room for the player';
+  if (!want.length) return Promise.resolve(false);
+  if (el) close(true);   // 0.22.1: the card that played stops and collapses; this request gets its own card
+  list = want; at = 0;
+  if (!mount(o && o.anchor)) { redraw(); return Promise.resolve(false); }
+  redraw();
   settle(false);
   var p = new Promise(function (ok) { done = ok; });
   paint(list[0]); el.hidden = false;
   lastErr = '';
   setTimeout(revealMusicCard, 60);
-  loadApi().then(function (YT) {
-    if (player && player.loadVideoById) { player.loadVideoById(list[0].id); return; }
-    hostAt = 0; build(YT);
-  }, function () { fail('the YouTube player didn’t load'); });
+  var mine = el;
+  loadApi().then(function (YT) { if (el === mine) { hostAt = 0; build(YT); } },
+    function () { if (el === mine) fail('the YouTube player didn’t load'); });
   // Autoplay can be held back (no tap yet on the web): the player is on screen, so it still counts as shown.
   setTimeout(function () { settle(true); }, 8000);
   return p;
 }
 
-function close() {
+function redraw() { if (CW.redrawThread) CW.redrawThread(); }
+
+/** quiet: a new card follows at once (play() redraws the thread after mounting it). */
+function close(quiet) {
   settle(false);
   clearInterval(tick); tick = 0; playing = false;
   if (player && player.destroy) { try { player.destroy(); } catch (e) { /* already gone */ } }
   player = null;
+  var had = !!el;
   if (el) { detachMusicCard(); el = null; }
+  anchorId = '';
+  if (had && quiet !== true) redraw();   // its reply shows the collapsed row now
 }
 
 CW.closeMusic = close;   // pages/chat.js: a new chat, another chat or a page closes the card
@@ -190,6 +199,9 @@ function control(word) {
 
 function isOpen() { return !!(el && el.isConnected); }
 
+/** The reply whose card is live now ('' when none): message.js draws every other video reply collapsed. */
+function activeVideo() { return el ? anchorId : ''; }
+
 /** What the card shows ({ title, channel, playing }), or null when it is closed or failed. */
 function nowPlaying() {
   if (!isOpen() || lastErr || !list[at]) return null;
@@ -199,5 +211,5 @@ function nowPlaying() {
 /** Why the last play failed ('' when it didn't). */
 function lastError() { return lastErr; }
 
-export { close as closeMusicDock, control as controlMusicDock, isOpen as musicDockOpen, play as playOnYouTube,
-  lastError as musicDockError, nowPlaying as musicDockNow };
+export { activeVideo, close as closeMusicDock, control as controlMusicDock, isOpen as musicDockOpen,
+  play as playOnYouTube, lastError as musicDockError, nowPlaying as musicDockNow };

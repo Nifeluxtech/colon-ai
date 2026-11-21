@@ -29,8 +29,8 @@
             Error codes: 'no_provider' (no AI provider configured), 'quota' (daily limit), 'provider_down',
             'no_vision'.
      POST/DELETE /conversations/:id/share -> { share:{ token,url } }        GET /shared/:token (read-only, public)
-     POST   /conversations/:id/notes { content, sources, origin, title } (adds an assistant note, e.g. an AI
-            Browse summary)
+     POST   /conversations/:id/notes { content, sources, origin, title, role } (adds a note: an AI Browse summary;
+            0.22.1: origin 'command' (a command, role user, and Colon's reply) or 'video' (a reply with its video))
      POST   /messages/:id/feedback { rating:'up'|'down', reason?, comment? }
      POST   /uploads (multipart: file) -> { attachment:{ id,name,type,size,kind } }
      DELETE /uploads/:id    GET /uploads/:id/file

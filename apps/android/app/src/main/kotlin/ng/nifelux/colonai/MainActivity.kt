@@ -109,6 +109,7 @@ class MainActivity : AppCompatActivity() {
         nativeBridge = NativeBridge(this, webView)
         nativeBridge.install()
         VoiceMode.attach(this) // 0.20.0: voice mode's pill and notification (VoiceService)
+        NativeListen.prewarm(this) // 0.22.1: the first "Listening…" doesn't wait for the speech service to bind
         browserPanel = ChatBrowserPanel(this)
 
         onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {

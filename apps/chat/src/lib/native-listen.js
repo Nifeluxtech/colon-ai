@@ -13,7 +13,7 @@ function usable() { var N = Colon.native; return !!(N && N.hasBridge() && N.can(
 
 function NativeSR() {
   this.lang = 'en-NG'; this.interimResults = true; this.continuous = true;
-  this.onresult = null; this.onerror = null; this.onend = null; this.onlevel = null;
+  this.onresult = null; this.onerror = null; this.onend = null; this.onlevel = null; this.onready = null;
   this._id = null; this._off = null;
 }
 
@@ -22,6 +22,7 @@ NativeSR.prototype._fire = function (name, arg) { var f = this[name]; if (f) { t
 
 NativeSR.prototype._event = function (d) {
   if (!d || d.id !== this._id) return; // an older session's late event
+  if (d.type === 'ready') return this._fire('onready');   // 0.22.1: the recognizer hears now (timings)
   if (d.type === 'level') return this._fire('onlevel', Math.max(0, Math.min(1, Number(d.v) || 0)));
   if (d.type === 'partial' || d.type === 'final') {
     var text = String(d.text || '');

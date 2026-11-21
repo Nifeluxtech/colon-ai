@@ -121,3 +121,72 @@ Permission and background
       it; if so, note it and set Colon AI to "No restrictions" in battery settings).
 - [ ] TalkBack: the pill reads "Colon voice mode: Listening…"; double-tap expands; the long-press action ends.
 - [ ] Revoke "Display over other apps" while the pill shows: no crash; notification remains.
+
+## 0.22.1: voice mode over other apps heard nothing
+
+Owner's repro (Infinix SMART 20): in WhatsApp, long-press Colon › **Talk to Colon**. The overlay showed
+"Listening…", a moving wave and Mute / Open Colon / Close, but nothing was recognised or answered.
+
+What the code showed:
+
+1. **The wave was fake.** `VoiceWaveView` drew sine waves from the phase alone; it never saw the microphone. A
+   moving wave proved nothing about hearing.
+2. **Recognizer errors were swallowed.** `NativeListen.errorName` mapped `ERROR_CLIENT`, `ERROR_RECOGNIZER_BUSY`,
+   `ERROR_TOO_MANY_REQUESTS`, `ERROR_SERVER_DISCONNECTED` and the API 31+ language errors to `"other"`. `media.js`
+   then ended the dictation with an error bar in the (hidden) composer **without telling hands-free**, whose loop
+   only acts while the mic is on: voice mode sat on "Listening…" for ever. Nothing was logged.
+3. **Restarts raced.** The page restarts the recognizer after every pause; `NativeListen.start` released the old
+   one and created the next in the same instant, which some phones answer with `ERROR_RECOGNIZER_BUSY` (→ 2).
+4. **Turn ends depended on page timers.** The end of a turn (1.6 s without new words) and the no-speech timeout came
+   from `setInterval` in the chat page. Once Colon steps back behind the pill its WebView is hidden, and Chromium
+   throttles hidden pages' timers (after a few minutes to about once a minute), so a turn could never end.
+5. Captions reached the overlay only through the page (also timer-driven).
+
+The fix (one path for the app, the overlay and, from 0.23.0, the wake word):
+
+- `NativeListen`: every error is logged (`adb logcat -s ColonVoice`) and named (`VoiceUiRules.recognizerError`:
+  `busy`, `client`, `language`, …); a new recognizer starts 250 ms after the old one is released; a language the
+  speech service can't do is retried once in en-US. Levels, partial and final words, and fatal errors go straight
+  to `VoiceService` → `VoiceOverlay`, not through the page.
+- **Real wave**: `VoiceWaveView.setLevel` (from `onRmsChanged`, smoothed, falling back to flat within ~250 ms when
+  nothing arrives). Flat line = nothing heard. Speaking/thinking keep their fixed animation.
+- **Live words**: the overlay caption shows the recognizer's partial text at once.
+- **Errors**: the overlay shows e.g. "Microphone permission needed. Tap Open Colon to allow it."; the page says the
+  same (`lib/voice-errors.js`, `hands-free.fail`) with the phone's TTS and ends voice mode; in the app a missing
+  permission is asked again.
+- **Endpointing**: in voice mode `media.js` ends the turn on the phone's own end of speech (the recognizer's final
+  result) and treats no speech as an empty turn, so nothing waits on a sleeping page timer.
+- **No speech**: "I didn't catch that." is shown and spoken; a second silent turn says so and ends voice mode.
+- **Commands**: the turn goes through `send()`, so phone actions, music, watch and chat questions run exactly as
+  typed ones; replies are shown in the overlay, spoken, and saved in the thread (`actions/command-thread.js`). A
+  command that leaves Colon (or starts music) says its reply, then ends voice mode.
+
+Only a phone can confirm (checklist in `step-3.md`): that the speech service hears from the background on
+Infinix/XOS with the microphone foreground service, the real wave, live captions, and TTS over WhatsApp.
+
+## 0.22.1: latency
+
+Targets, measured per turn by `apps/chat/src/lib/voice-timing.js` (console `[Colon] voice timing: …`, and in the
+Android app logcat tag `ColonVoice` via `voice_ui {timing}`; filter with `adb logcat -s ColonVoice`):
+
+| Measure | From → to | Target |
+|---|---|---|
+| Mic ready | page asks for the mic → recognizer `onReadyForSpeech` (`listen` event `ready`) | < 300 ms |
+| Local command | end of speech → reply text of a command answered on the phone | < 500 ms |
+| Chat first audio | end of speech → TTS starts the first sentence | < 2 s |
+
+What does it:
+
+- **Server** (voice turns send `voice: true`): a brief spoken prompt (1–3 sentences, under 60 words, no markdown),
+  `CHAT_VOICE_MAX_TOKENS=300`, `CHAT_VOICE_FIRST_TOKEN_MS=8000` (a model that hasn't started by then hands over),
+  no browser-tool pre-call, and Gemma 4 31B left out of the chain unless nothing else is left.
+- **Page**: each finished sentence is spoken while the rest streams (`hands-free.js` `partial`); "watch/play X"
+  says "Okay, finding X." at once instead of after the YouTube search.
+- **Android**: a recognizer is pre-warmed when the app or the voice overlay opens and again after each session is
+  released (binding the speech service is the slow part); `onReadyForSpeech` beeps (`VoiceCues`) and sends `ready`;
+  extras `EXTRA_PARTIAL_RESULTS`, `EXTRA_SPEECH_INPUT_COMPLETE_SILENCE_LENGTH_MILLIS=700`,
+  `EXTRA_SPEECH_INPUT_POSSIBLY_COMPLETE_SILENCE_LENGTH_MILLIS=500`, and `EXTRA_PREFER_OFFLINE` on Android 12+ when
+  `isOnDeviceRecognitionAvailable` (dropped on the en-US language retry); text-to-speech starts at app start.
+  Many recognition services ignore the silence extras; the page's own quiet timers still end a turn.
+
+Not yet measured on a device: record five turns of each kind on the Infinix and note the numbers here.

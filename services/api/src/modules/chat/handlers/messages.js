@@ -6,6 +6,7 @@ const limits = require('../../ai').limits;
 const settings = require('../../../shared/settings');
 const { replyLanguage } = require('../../ai').prompts;
 const store = require('../store');
+const { notePlan } = require('../notes');
 const files = require('../files');
 const { forMode } = require('../context');
 const extra = require('../extra-context');
@@ -73,7 +74,7 @@ async function seqOf(id) {
   return row ? row.seq : null;
 }
 
-async function streamFor(req, res, conv, userMsg, { version = 1, onOpen, route = 'chat.send' } = {}) {
+async function streamFor(req, res, conv, userMsg, { version = 1, onOpen, route = 'chat.send', voice = false } = {}) {
   const counters = await limits.resolveCounters(req, conv.mode);
   const guard = safety.collector();   // injection flags found in attached files (logged as safety events)
   // 0.11.5: the chat model decides whether to browse (browser tools), with this chat's browser state in context.
@@ -91,7 +92,9 @@ async function streamFor(req, res, conv, userMsg, { version = 1, onOpen, route =
       req, res, mode: conv.mode, model: conv.model, language: replyLanguage(req.user.language, userMsg.content),
         name: req.user.name, route, guard, userText: userMsg.content, project: built.project,
       attachments: fileNames((history[history.length - 1] || {}).files),
-      history: built.messages, counters, store: persistedStore(conv, { version }), onOpen, generate,
+      // 0.22.1 voice mode: the plain chain with a brief spoken answer (no browser-tool round trip first).
+      history: built.messages, counters, store: persistedStore(conv, { version }), onOpen, voice,
+      generate: voice ? undefined : generate,
       webSearch: wantsWeb(conv.mode), searchText: userMsg.content, searchPrevious: previousUserText(history),
     });
   });
@@ -123,7 +126,7 @@ const postConversationsByIdMessages = async (req, res) => {
   const saved = await memory.fromChat({ user: req.user, text: content, projectId: fresh.project_id || null,
     conversationId: fresh.id });
   // 0.11.5: browsing is the chat model's own choice (browser-tools.js); keyword routing only when it fails.
-  await streamFor(req, res, fresh, userMsg, { onOpen: (sse) => {
+  await streamFor(req, res, fresh, userMsg, { voice: req.body.voice === true, onOpen: (sse) => {
     sse.send('user', { message: userMsg, conversation: store.convOut(fresh) });
     if (saved) sse.send('memory', { memory: saved });
   } });
@@ -171,22 +174,14 @@ const postConversationsByIdMessagesByMidStop = async (req) => {
   return [200, { ok: true }];
 };
 
-// AI Browse summaries and other assistant notes written by the app (and, Phase 10, the user's browser instructions).
+// AI Browse summaries and other assistant notes written by the app (and, Phase 10, the user's browser instructions;
+// 0.22.1, phone/music/voice commands and video cards: see ../notes.js).
 // POST /conversations/:id/notes
 const postConversationsByIdNotes = async (req) => {
   const conv = await store.getConv(req.user.id, req.params.id);
-  const content = String(req.body.content || '').slice(0, 60000).trim();
+  const { role, origin, content, sources } = notePlan(req.body);
   if (!content) v.fail('content', 'The note is empty.');
-  const sources = (Array.isArray(req.body.sources) ? req.body.sources : []).slice(0, 20).map((s, i) => ({
-    n: Number(s.n) || i + 1, title: String(s.title || '').slice(0, 200), url: /^https?:\/\//i.test(String(s.url || ''))
-      ? String(s.url).slice(0, 2000) : '', snippet: String(s.snippet || '').slice(0, 500),
-  })).filter(s => s.url);
-  const origin = req.body.origin === 'browse' ? 'browse' : 'note';
-  // Phase 10: an instruction the user typed for the chat's browser ("open google.com", "scroll down") is kept in the
-  // thread as the user's own message (origin browse) before Saga's reply note.
-  const role = req.body.role === 'user' && origin === 'browse' ? 'user' : 'assistant';
-  const msg = await store.insertMessage(conv, { role, content, sources: role === 'user' ? [] : sources,
-    status: 'complete', origin });
+  const msg = await store.insertMessage(conv, { role, content, sources, status: 'complete', origin });
   await store.touch(conv, { preview: content, title: conv.title === 'New chat' && req.body.title ? store.titleFrom(
     req.body.title) : null });
   return [201, { message: msg }];

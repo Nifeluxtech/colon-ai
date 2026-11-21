@@ -19,6 +19,7 @@ import { CW } from '../core/cw.js';
 import { ColonChatData } from '../core/data.js';
 import { $, PROMPTS, S, brandName, data, ephemeral, isMobile, setData, signedIn } from '../core/state.js';
 import { createHandsFree } from '../lib/hands-free.js';
+import { spokenError } from '../lib/voice-errors.js';
 import { ChatMedia } from '../lib/media.js';
 import { startNativeShell } from '../lib/native-shell.js';
 import { pinFrame } from '../lib/thread-scroll.js';
@@ -126,13 +127,19 @@ function mount(view, ctx) {
       if (S.hf.transcript(text, final)) { delete ta.dataset.before; return; }
       if (final === true) { delete ta.dataset.before; if (S.settings.voice.autoSend && text) send(); else ta.focus(); }
     },
-    onLevel: function (v) { S.hf.level(v); }
+    onLevel: function (v) { S.hf.level(v); }, onVoiceReady: function () { S.hf.ready(); },
+    // 0.22.1: in voice mode the phone's end of speech ends the turn; a dead mic is said out loud, never left on
+    // "Listening…" (lib/voice-errors.js), and in the app a missing permission is asked for again.
+    endOnFinal: function () { return !!(S.hf && S.hf.active()); },
+    onVoiceFail: function (kind) { var app = C.native.isShell(); if (S.hf.active()) S.hf.fail(spokenError(kind, app));
+      if (kind === 'denied' && app) C.native.call('requestPermission', { name: 'microphone' }).catch(function () {}); }
   });
   // 0.20.0: the full-screen voice-mode overlay (and the Android app's pill) follows hands-free.
   var vm = createVoiceOverlay({ onMute: function (on) { S.hf.mute(on); }, onEnd: function () { S.hf.stop(); },
     muted: function () { return S.hf.muted(); } });
   S.hf = createHandsFree({ media: S.media, send: send, speak: ReadAloud, bar: $('.cv-voice'), toast: C.toast, ui: vm,
-    getSettings: function () { return S.settings || {}; }, onState: function () { syncComposer(); } });
+    getSettings: function () { return S.settings || {}; }, onState: function () { syncComposer(); },
+    onTiming: function (t) { console.info('[Colon] ' + t.line); vm.timing(t.line); } });   // 0.22.1
   S.collapsed = localStorage.getItem('colon.sidebar') === 'closed';
   applySidebar();
   Promise.all([
@@ -211,7 +218,7 @@ function setView(v) {
 }
 function showPage(name, ctx) {
   if (S.streaming) { /* keep streaming in background */ }
-  if (CW.closeMusic) CW.closeMusic();   // 0.22.0: the video card belongs to its chat
+  if (CW.closeMusic) CW.closeMusic(true);   // 0.22.0: the video card belongs to its chat
   S.current = null; S.messages = []; setView(name);
   var page = $('#cw-page'); page.className = 'cw-page cw-page-' + name;
   updateHeader();
@@ -223,7 +230,7 @@ function showPage(name, ctx) {
 
 function newChat(fromRoute) {
   if (S.streaming) stopStreaming();
-  if (CW.closeMusic) CW.closeMusic();
+  if (CW.closeMusic) CW.closeMusic(true);
   S.current = null; S.messages = []; S.draftModel = null;
   S.draftMode = (S.settings && S.settings.defaultMode) || 'general';
   setView('welcome');
@@ -237,7 +244,7 @@ function openConversation(id) {
   if (S.current && S.current.id === id && S.messages) { renderThread(); updateHeader(); syncComposer(); renderConvs();
     return; }
   if (S.streaming) stopStreaming();
-  if (CW.closeMusic) CW.closeMusic();
+  if (CW.closeMusic) CW.closeMusic(true);
   S.loadingConv = true; S.current = { id: id, title: 'Loading…', mode: S.draftMode };
   updateHeader();
   $('#cw-page').className = 'cw-page'; $('#cw-page').innerHTML = '<div class="cw-thread">' + [1, 2, 3].map(function (

@@ -91,4 +91,39 @@ class VoiceUiRulesTest {
         assertNotEquals(Gesture.TAP, VoiceUiRules.gesture(0f, 0f, VoiceUiRules.LONG_PRESS_MS, d))
         assertEquals(Gesture.TAP, VoiceUiRules.gesture(40f, 30f, 600, d)) // a slow, wobbly tap still expands
     }
+
+    /* 0.22.1: voice mode over other apps heard nothing; the wave now shows the real mic, errors have names. */
+
+    @Test fun listeningWaveFollowsTheRealMicLevel() {
+        assertEquals(0f, VoiceUiRules.waveEnergy(Phase.LISTENING, 0f), 0f)
+        assertEquals(0.5f, VoiceUiRules.waveEnergy(Phase.LISTENING, 0.5f), 0.0001f)
+        assertEquals(1f, VoiceUiRules.waveEnergy(Phase.LISTENING, 3f), 0f)
+        assertEquals(VoiceUiRules.waveEnergy(Phase.SPEAKING), VoiceUiRules.waveEnergy(Phase.SPEAKING, 0f), 0f)
+        assertEquals(0f, VoiceUiRules.rmsLevel(-10f), 0f)
+        assertEquals(1f, VoiceUiRules.rmsLevel(20f), 0f)
+        val up = VoiceUiRules.smoothLevel(0f, 1f)
+        assertTrue(up > 0.5f)
+        assertTrue(VoiceUiRules.smoothLevel(up, 0f) in 0.01f..up)
+        assertEquals(0.5f, VoiceUiRules.decayLevel(0.5f, 100), 0f)
+        assertTrue(VoiceUiRules.decayLevel(0.5f, 1000) < 0.5f)
+    }
+
+    @Test fun recognizerErrorsHaveNamesThePageHandles() {
+        assertEquals("no-speech", VoiceUiRules.recognizerError(6))
+        assertEquals("no-speech", VoiceUiRules.recognizerError(7))
+        assertEquals("network", VoiceUiRules.recognizerError(2))
+        assertEquals("network", VoiceUiRules.recognizerError(11))
+        assertEquals("not-allowed", VoiceUiRules.recognizerError(9))
+        assertEquals("audio-capture", VoiceUiRules.recognizerError(3))
+        assertEquals("busy", VoiceUiRules.recognizerError(8))
+        assertEquals("client", VoiceUiRules.recognizerError(5))
+        assertEquals("language", VoiceUiRules.recognizerError(12))
+        assertEquals("other", VoiceUiRules.recognizerError(99))
+        assertEquals("en-US", VoiceUiRules.retryLanguage("language", "en-NG"))
+        assertNull(VoiceUiRules.retryLanguage("language", "en-US"))
+        assertNull(VoiceUiRules.retryLanguage("network", "en-NG"))
+        assertEquals(R.string.voice_err_permission, VoiceUiRules.problemRes("not-allowed"))
+        assertNull(VoiceUiRules.problemRes("no-speech"))
+        assertNull(VoiceUiRules.problemRes("busy"))
+    }
 }

@@ -29,3 +29,11 @@
 .cm-gap{flex:1}
 @keyframes cm-in{from{opacity:0}to{opacity:1}}
 @media (prefers-reduced-motion:reduce){.cm-dock{animation:none}.cm-bar i{transition:none}}
+/* 0.22.1: a past video card, collapsed (components/video-row.js): thumbnail, title, Play again, Open in YouTube. */
+.cm-past{display:flex;align-items:center;gap:10px;max-width:420px;margin:8px 0 2px;padding:6px;border-radius:14px;
+  background:var(--surface,#fff);border:1px solid var(--line,rgba(0,0,0,.08))}
+.cm-past-thumb{flex:none;width:96px;aspect-ratio:16/9;border-radius:8px;object-fit:cover;background:#000}
+.cm-past .cm-meta{flex:1;min-width:0}
+.cm-past-acts{flex:none;display:flex;align-items:center;gap:2px}
+.cm-past-acts .btn{white-space:nowrap}
+@media (max-width:420px){.cm-past-thumb{width:72px}.cm-past-acts .btn{padding-inline:8px}}

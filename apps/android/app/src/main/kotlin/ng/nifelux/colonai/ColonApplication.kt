@@ -35,6 +35,7 @@ class ColonApplication : Application() {
         bridge = BridgeClient(this, http)
         Notifications.createChannels(this)
         watchNetwork()
+        NativeSpeak.warm(this) // 0.22.1: text-to-speech ready before the first spoken reply
     }
 
     fun addNetworkListener(l: (Boolean) -> Unit) { networkListeners += l }

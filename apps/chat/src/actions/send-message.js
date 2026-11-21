@@ -8,6 +8,7 @@ import { sagaTyped } from './saga-wait.js';
 import { handlePlanText } from './saga-plans.js';
 import { handlePhoneText } from './phone-chat.js';
 import { handleMusicText } from './music-chat.js';
+import { ensureConv } from './command-thread.js';
 import { Colon } from '../../../../packages/ui/js/colon.js';
 import { ColonMarkdown } from '../../../../packages/ui/js/markdown/index.js';
 import { autoGrow, scrollBottom, syncComposer } from '../components/composer.js';
@@ -15,7 +16,6 @@ import { announce, paintMessage, renderThread } from '../components/message.js';
 import { updateHeader } from '../components/model-picker.js';
 import { refreshConvs } from '../components/sidebar.js';
 import { $, S, data, defaultModel, isMobile, mode, modelId, rafThrottle } from '../core/state.js';
-import { setView } from '../pages/chat.js';
 import { imageEditPlan } from '../lib/chat-tools.js';
 import { looksLikePassword, saveLoginIntent } from '../lib/secret-text.js';
 
@@ -57,22 +57,6 @@ function routeText(ta, text, atts) {
   ta.value = ''; autoGrow(); S.media.clear(true); syncComposer();
   sendChat(text, atts);
 }
-/** This chat, or a new one (shown in place of the welcome screen). -> Promise<conversation> */
-function ensureConv() {
-  var conv = S.current && !S.loadingConv ? Promise.resolve(S.current) : data.createConversation({ mode: S.draftMode,
-    model: S.draftModel || defaultModel() });
-  return conv.then(function (c) {
-    var fresh = !S.current || S.current.id !== c.id;
-    if (fresh) {
-      S.current = c; S.messages = []; S.browser.createdId = c.id;   // the new chat keeps its browser (adopt)
-      var w = $('.cw-welcome'); if (w) w.classList.add('leaving');
-      history.replaceState(null, '', '#/c/' + encodeURIComponent(c.id)); setView('chat');
-      S.el.querySelectorAll('[data-nav]').forEach(function (a) { a.classList.toggle('active', a.getAttribute(
-        'data-nav') === '/'); });
-    }
-    return c;
-  });
-}
 /** The message as a chat turn (the chat model replies). 0.11.6: also a message Saga can't take while it waits. */
 function sendChat(text, atts) {
   var ta = $('#cw-input');
@@ -83,7 +67,8 @@ function sendChat(text, atts) {
     S.messages.push(temp); renderThread(); updateHeader(); scrollBottom(true);
     // 0.11.5: the chat model sees this chat's browser (page, summary, numbered items) and decides to browse.
     run(function (o) { return pageState().then(function (b) { return data.send(Object.assign({ conversationId: c.id,
-      content: text, attachments: atts, mode: c.mode, model: c.model || defaultModel(), browser: b }, o)); }); },
+      content: text, attachments: atts, mode: c.mode, model: c.model || defaultModel(), browser: b,
+      voice: !!(S.hf && S.hf.active()) }, o)); }); },   // 0.22.1: a short spoken answer, fastest route
       temp);
   }).catch(function (e) { ta.value = text; autoGrow(); syncComposer(); C.toast(e.message, 'bad'); });
 }
@@ -127,7 +112,9 @@ function run(call, tempUser, replaceId) {
       }
       else if (ev.type === 'sources' && msg) { msg.sources = ev.sources; renderThread(); scrollBottom(); }
       else if (ev.type === 'status' && msg) { msg.stage = ev.stage; msg.stageCount = ev.count || 0; paint(); }
-      else if (ev.type === 'delta' && msg) { if (data.kind === 'remote') msg.content += ev.text; paint(); }
+      else if (ev.type === 'delta' && msg) { if (data.kind === 'remote') msg.content += ev.text; paint();
+        // 0.22.1: voice mode speaks each finished sentence while the rest streams (lib/hands-free.js partial).
+        if (S.hf && S.hf.active() && S.hf.partial) S.hf.partial(ColonMarkdown.toText(msg.content)); }
       else if (ev.type === 'done' && msg && ev.dropped) {
         // 0.11.5: the turn only started browsing: no reply bubble (Saga's own note and card follow).
         S.messages = S.messages.filter(function (m) { return m !== msg; }); msg = null; renderThread(); }

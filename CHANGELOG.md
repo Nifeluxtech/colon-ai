@@ -1,5 +1,39 @@
 # Changelog
 
+## 0.22.1 (2026-11-21) · Video cards like the browser card, natural watch phrases, commands shown in chat
+
+- **One video card per request**, like Saga's browser card: each "watch" or "play" adds a new card under its own
+  reply and never replaces the old one. Only one plays at a time; the one before stops and collapses to a row with
+  its thumbnail, title, **Play again** and Open in YouTube (`components/video-row.js`). Cards survive redraws and are
+  saved in the chat (reply origin `video` with the video as its source), so a reload shows past cards collapsed.
+  The 0.22.0 controls, the untappable video, no Next button and the silent embed fallback are unchanged.
+- **Natural watch and play phrasing**, typed or spoken, case-insensitive, filler and punctuation removed: "let's
+  watch X", "I wanna watch X", "can I watch X", "can you show me X", "show me X video", "put on X", "play X video",
+  "open/find X on YouTube", "I'd like to watch X", "search YouTube for X"; music: "let's play X", "I want to listen
+  to X", "put on X song", "can you play X". "watch out", "what should I watch", "watch your words", "I watched X
+  yesterday" stay chat. One shared matcher (`lib/command-phrases.js`) for the web chat and the Android app (which
+  runs the same page); 70+ table-driven cases.
+- **Every command shows in the chat**: phone actions, music, watch, the card's player words and song recognition
+  add the user's message and a short reply ("take me to WhatsApp" → "I'll take you to WhatsApp now."), 2–3 wordings
+  per action, failures included ("I couldn't find WhatsApp on this phone."). Saved in history
+  (`POST /conversations/:id/notes`, origin `command`; the note limit is now 120 per 10 minutes). Voice mode speaks
+  the same words with the phone's TTS. The Android app now tells the page the opened app's own name (`label`).
+- **Voice mode over other apps hears and answers again** (the "Talk to Colon" overlay over WhatsApp sat on
+  "Listening…"): recognizer errors are logged (`ColonVoice`) and named instead of swallowed, restarts wait 250 ms
+  (no more "recognizer busy"), a language the speech service lacks is retried in en-US, the turn ends on the phone's
+  own end of speech instead of a page timer that sleeps in the background, and a dead mic is shown and spoken
+  ("Microphone permission needed…") before voice mode ends. The overlay's wave follows the real mic level (flat in
+  silence) and shows your words live. No speech: "I didn't catch that." See `docs/os-assistant/voice-ui.md`.
+- **Voice mode answers faster** (targets: mic ready < 300 ms, a phone command answered < 500 ms after you stop
+  speaking, first spoken word of a chat reply < 2 s). The server gives voice turns a brief spoken prompt (1–3
+  sentences, no markdown), a 300-token cap (`CHAT_VOICE_MAX_TOKENS`), an 8 s first-token handover
+  (`CHAT_VOICE_FIRST_TOKEN_MS`), skips the browser-tool pre-call and leaves out Gemma 4 31B. The page speaks each
+  sentence as soon as it has streamed, and "watch/play X" says "Okay, finding X." before the search returns. The
+  Android app pre-warms the speech recognizer when the app or the voice overlay opens, beeps and tells the page
+  when the mic is ready, ends a turn after 0.7 s of silence, prefers on-device recognition where the phone has it,
+  and starts text-to-speech at app start. Each turn's timings are logged (console, and logcat tag `ColonVoice`;
+  `lib/voice-timing.js`).
+
 ## 0.22.0 (2026-11-21) · Music card in chat, watch videos, Step 4 song recognition
 
 - **The video card is in the chat now**, under the message that was last when it started, instead of above the

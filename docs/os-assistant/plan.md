@@ -22,6 +22,9 @@ Source blueprint: docs/os-assistant/blueprint-original.md (ChatGPT "COLON OS ASS
 - "Play X": search phone library, then Jamendo; mainstream tracks not found → open in YouTube/Audiomack via intent
 - Metadata in music_* tables, existing MySQL on cPanel
 
+0.22.1: one video card per request (older ones collapse, Play again), natural watch/play phrasing in one shared
+matcher, every command and its reply saved in the thread, and voice mode over other apps fixed (`voice-ui.md`).
+
 Shipped in 0.19.0 (see `step-3.md`): songprint (MIT, Shazam-compatible signatures, free public endpoint) replaced
 Chromaprint+AcoustID for untagged files and AudD for the mic; no MySQL tables yet.
 
