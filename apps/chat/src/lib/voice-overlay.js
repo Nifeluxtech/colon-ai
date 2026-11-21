@@ -23,10 +23,18 @@ function createVoiceOverlay(o) {
     el = document.createElement('div');
     el.className = 'cv-vm'; el.setAttribute('role', 'dialog'); el.setAttribute('aria-modal', 'true');
     el.setAttribute('aria-label', 'Voice mode');
+    // 0.20.3: glass sphere (orbiting ribbons, mic ring, side waves, label and Colon mark inside, floor glow).
+    var bars = '<b></b><b></b><b></b><b></b><b></b><b></b><b></b>';
     el.innerHTML = '<div class="cv-vm-top"><button type="button" class="cv-vm-btn ghost" data-vm-hide '
-      + 'aria-label="Show chat" data-tip="Show chat">' + icon('chev') + '</button><span class="cv-vm-label" '
-      + 'aria-live="polite"></span><span class="cv-vm-spacer"></span></div>'
-      + '<div class="cv-vm-stage" aria-hidden="true"><div class="cv-vm-orb"><i></i><i></i><i></i></div></div>'
+      + 'aria-label="Show chat" data-tip="Show chat">' + icon('chev') + '</button><span class="cv-vm-spacer">'
+      + '</span></div>'
+      + '<div class="cv-vm-stage"><div class="cv-vm-orb"><i class="ribbon a" aria-hidden="true"></i>'
+      + '<i class="glass" aria-hidden="true"></i><i class="ribbon b" aria-hidden="true"></i>'
+      + '<i class="ring" aria-hidden="true"></i><div class="cv-vm-core"><span class="cv-vm-waves l" aria-hidden="true">'
+      + bars + '</span><span class="cv-vm-mic" aria-hidden="true">' + icon('mic') + '</span><span class="cv-vm-waves r"'
+      + ' aria-hidden="true">' + bars + '</span></div><span class="cv-vm-label" aria-live="polite"></span>'
+      + '<span class="cv-vm-brand" aria-hidden="true"><img src="/v' + C.version + '/packages/brand/assets/'
+      + 'colon-mark.svg" alt="">Colon</span><i class="cv-vm-floor" aria-hidden="true"></i></div></div>'
       + '<p class="cv-vm-caption" aria-live="polite"></p>'
       + '<div class="cv-vm-foot"><button type="button" class="cv-vm-btn" data-vm-mute aria-pressed="false" '
       + 'aria-label="Mute microphone">' + icon('mic') + '</button><button type="button" class="cv-vm-btn end" '
@@ -53,7 +61,9 @@ function createVoiceOverlay(o) {
   }
 
   function paintLevel() {
-    if (el) el.style.setProperty('--vm-scale', String(VoiceOrb.orbScale(m, reducedMotion())));
+    if (!el) return;
+    el.style.setProperty('--vm-scale', String(VoiceOrb.orbScale(m, reducedMotion())));
+    el.style.setProperty('--vm-lvl', String(m.state === 'listening' ? Math.min(1, m.level) : 0));
   }
 
   function open() {

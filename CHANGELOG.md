@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.20.3 — 2026-11-21
+
+- **Voice mode reads replies again on Android 11+.** The app didn't declare the text-to-speech engine or the speech
+  recognizer in its manifest `<queries>`, so Android hid them: `TextToSpeech` failed to start, the page got an
+  error and voice mode went straight back to listening just before the reply. Added `TTS_SERVICE` and
+  `RecognitionService` intents.
+- **Replies are read in plain English** (US voice) whatever English the mic listens in; Yorùbá, Hausa and Igbo
+  still use Colon's voices.
+- **New voice orb**: a glass sphere with a bright rim, cyan and violet ribbons orbiting it, the mic in a glowing ring
+  with wave bars either side (they follow your voice while listening and pulse while Colon speaks), the state label
+  and the Colon mark inside, and a glowing ring beneath (`voice-overlay.js`, `chat-voice.css`).
+
 ## 0.20.2 — 2026-11-21
 
 - **Voice mode speaks its replies in the Android app.** Android System WebView has no working `speechSynthesis`, so a reply was never read out: the page heard "done" at once, went back to listening, and after two quiet turns voice mode ended. New bridge feature `speak` (`NativeSpeak.kt`, Android `TextToSpeech`, free) used by `read-aloud.js` for the phone's voice in the app.
