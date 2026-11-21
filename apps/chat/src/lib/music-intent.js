@@ -7,7 +7,7 @@
 
    parseMusic(text) -> null or one of
      { action: 'identify' }                          what song is this? (Colon's player first, then the mic)
-     { action: 'play', query, source }               source: any (phone, then Jamendo, then YouTube) · phone ·
+     { action: 'play', query, source }               source: any (phone, then Colon's YouTube player) · phone ·
                                                      youtube · audiomack (open there directly); query '*' = all */
 
 import { clean } from './browser-intent.js';
@@ -53,6 +53,20 @@ function parseMusic(text) {
   return { action: 'play', query: query, source: source };
 }
 
+var DOCK = [
+  ['pause', /^(?:pause|hold on|pause (?:it|the (?:music|song|video))|pause music)$/],
+  ['resume', /^(?:resume|continue|unpause|play|play it|resume (?:it|the (?:music|song)))$/],
+  ['next', /^(?:next|skip|next (?:one|song|track|result)|skip (?:it|this(?: one| song)?))$/],
+  ['stop', /^(?:stop|stop (?:it|music|the (?:music|song|video|player))|close (?:the )?(?:player|music))$/]
+];
+
+/** While Colon's YouTube player is open: 'pause' · 'resume' · 'next' · 'stop' for a short command, else null. */
+function dockWord(text) {
+  var t = strip(String(text || '').slice(0, 60));
+  for (var i = 0; i < DOCK.length; i++) if (DOCK[i][1].test(t)) return DOCK[i][0];
+  return null;
+}
+
 /** What the user hears or reads when the phone answers with an error code. */
 function musicError(code) {
   switch (code) {
@@ -67,4 +81,4 @@ function musicError(code) {
   }
 }
 
-export { musicError, parseMusic };
+export { dockWord, musicError, parseMusic };

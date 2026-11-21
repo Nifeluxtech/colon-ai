@@ -2,7 +2,7 @@
 // commands. "play music" / "next song" stay Step 2 media keys; chat stays chat.
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { parseMusic, musicError } = require('../../../apps/chat/src/lib/music-intent.js');
+const { dockWord, parseMusic, musicError } = require('../../../apps/chat/src/lib/music-intent.js');
 
 const play = (query, source) => ({ action: 'play', query, source: source || 'any' });
 
@@ -14,7 +14,7 @@ test('"what song is this?" in its usual forms', () => {
   }
 });
 
-test('play a song: phone, then Jamendo, then YouTube; or a service by name', () => {
+test('play a song: phone, then the YouTube player; or a service by name', () => {
   assert.deepEqual(parseMusic('play Last Last by Burna Boy'), play('last last by burna boy'));
   assert.deepEqual(parseMusic('Hey Colon, play Essence'), play('essence'));
   assert.deepEqual(parseMusic('play calm down on YouTube'), play('calm down', 'youtube'));
@@ -35,4 +35,15 @@ test('media keys, questions and chat are not music commands', () => {
 test('error codes have words', () => {
   assert.match(musicError('no_match'), /recognise/);
   assert.match(musicError('whatever'), /didn’t work/);
+});
+
+test('player words while Colon\'s YouTube player is open', () => {
+  assert.equal(dockWord('Pause'), 'pause');
+  assert.equal(dockWord('pause the music.'), 'pause');
+  assert.equal(dockWord('Hey Colon, resume'), 'resume');
+  assert.equal(dockWord('next song'), 'next');
+  assert.equal(dockWord('skip this one'), 'next');
+  assert.equal(dockWord('stop the music'), 'stop');
+  assert.equal(dockWord('close the player'), 'stop');
+  for (const t of ['play Essence', 'stop talking about it', 'what is next?', '']) assert.equal(dockWord(t), null, t);
 });

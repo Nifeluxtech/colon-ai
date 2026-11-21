@@ -1,53 +1,65 @@
-// Colon Music (OS Assistant Step 3, docs/os-assistant/step-3.md): Jamendo search for "play X" when the phone has no
-// match. Jamendo is free Creative Commons music; its API needs a free client id (JAMENDO_CLIENT_ID, from
-// devportal.jamendo.com). Only tracks whose title, artist or album hold every word the user said come back, so a
-// mainstream song falls through to YouTube in the app instead of a random Jamendo track.
-//   search(q, { fetch }) -> [{ id, title, artist, album, audio, image, link }]  (at most 5)
-const API = 'https://api.jamendo.com/v3.0/tracks/';
-const STOP = new Set(['by', 'the', 'song', 'songs', 'track', 'music', 'a', 'an', 'of', 'from', 'my']);
-const JAMENDO = /^https:\/\/(?:[a-z0-9-]+\.)*jamendo\.com(?:[/?]|$)/i;
+// Colon Music (OS Assistant Step 3; YouTube since 0.21.0, docs/os-assistant/step-3.md): "play X" with no match on the
+// phone finds the song on YouTube and the chat plays it in Colon's own YouTube player (the official embed). The
+// search uses the YouTube Data API v3 (YOUTUBE_API_KEY, free from Google Cloud Console); one search costs 100 of the
+// 10,000 daily quota units, so answers are cached for a while.
+//   search(q, { fetch }) -> [{ id, title, channel, image, link }]  (at most 5, embeddable music videos only)
+const API = 'https://www.googleapis.com/youtube/v3/search';
+const ID = /^[A-Za-z0-9_-]{11}$/;
+const CACHE_MS = 6 * 3600 * 1000;
+const CACHE_MAX = 500;
+const cache = new Map();
 
 const err = (status, code, message) => Object.assign(new Error(message), { status, code });
-const clientId = () => String(process.env.JAMENDO_CLIENT_ID || '').trim();
+const apiKey = () => String(process.env.YOUTUBE_API_KEY || '').trim();
 
-function words(s) {
-  return String(s || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')
-    .replace(/[^\p{L}\p{N} ]/gu, ' ').split(/\s+/).filter((w) => w && !STOP.has(w));
+const ENT = { amp: '&', lt: '<', gt: '>', quot: '"', apos: "'", '#39': "'", '#34': '"' };
+function unescapeHtml(s) {
+  return String(s || '').replace(/&(#?\w+);/g, (m, e) => (ENT[e] !== undefined ? ENT[e]
+    : /^#\d+$/.test(e) ? String.fromCodePoint(Number(e.slice(1))) : m));
 }
 
-/** True when every word the user said is in the track's title, artist or album. */
-function matches(query, t) {
-  const said = words(query);
-  if (!said.length) return false;
-  const hay = ` ${words(`${t.name} ${t.artist_name} ${t.album_name || ''}`).join(' ')} `;
-  return said.every((w) => hay.includes(` ${w} `));
+function remember(key, value) {
+  if (cache.size >= CACHE_MAX) cache.delete(cache.keys().next().value);
+  cache.set(key, { at: Date.now(), value });
+}
+
+function toTrack(item) {
+  const id = item && item.id && item.id.videoId;
+  if (!ID.test(String(id || ''))) return null;
+  const sn = item.snippet || {};
+  const th = sn.thumbnails || {};
+  const img = (th.high || th.medium || th.default || {}).url || '';
+  return { id, title: unescapeHtml(sn.title), channel: unescapeHtml(sn.channelTitle).replace(/\s+-\s+Topic$/, ''),
+    image: /^https:\/\/i\.ytimg\.com\//.test(img) ? img : '', link: `https://www.youtube.com/watch?v=${id}` };
 }
 
 async function search(q, o = {}) {
-  const query = String(q || '').trim().slice(0, 120);
+  const query = String(q || '').trim().replace(/\s+/g, ' ').slice(0, 120);
   if (!query) throw err(400, 'bad_query', 'Say a song or an artist.');
-  const id = clientId();
-  if (!id) throw err(503, 'music_off', 'Jamendo isn’t set up yet (JAMENDO_CLIENT_ID).');
-  const url = `${API}?${new URLSearchParams({ client_id: id, format: 'json', limit: '10', search: query,
-    audioformat: 'mp32' })}`;
+  const key = apiKey();
+  if (!key) throw err(503, 'music_off', 'YouTube music isn’t set up yet (YOUTUBE_API_KEY).');
+  const ck = query.toLowerCase();
+  const hit = cache.get(ck);
+  if (hit && Date.now() - hit.at < CACHE_MS) return hit.value;
+  const url = `${API}?${new URLSearchParams({ part: 'snippet', type: 'video', videoEmbeddable: 'true',
+    videoSyndicated: 'true', videoCategoryId: '10', regionCode: 'NG', relevanceLanguage: 'en', safeSearch: 'moderate',
+    maxResults: '5', q: query, key })}`;
   let res;
   try {
     res = await (o.fetch || fetch)(url, { signal: AbortSignal.timeout(8000) });
   } catch (e) {
-    throw err(502, 'music_failed', 'Jamendo didn’t answer.');
+    throw err(502, 'music_failed', 'YouTube didn’t answer.');
   }
-  if (!res.ok) throw err(502, 'music_failed', 'Jamendo didn’t answer.');
+  if (res.status === 403) throw err(503, 'music_busy', 'Music search is busy today. Try again later.');
+  if (!res.ok) throw err(502, 'music_failed', 'YouTube didn’t answer.');
   const d = await res.json().catch(() => ({}));
-  return (Array.isArray(d.results) ? d.results : [])
-    .filter((t) => t && JAMENDO.test(String(t.audio || '')) && matches(query, t))
-    .slice(0, 5)
-    .map((t) => ({ id: String(t.id), title: String(t.name || ''), artist: String(t.artist_name || ''),
-      album: String(t.album_name || ''), audio: t.audio, image: String(t.image || ''),
-      link: String(t.shareurl || '') }));
+  const out = (Array.isArray(d.items) ? d.items : []).map(toTrack).filter(Boolean).slice(0, 5);
+  remember(ck, out);
+  return out;
 }
 
 const handlers = {
   getSearch: async (req) => [200, { tracks: await search(req.query.get('q')) }],
 };
 
-module.exports = { search, matches, words, handlers };
+module.exports = { search, unescapeHtml, handlers, _cache: cache };
