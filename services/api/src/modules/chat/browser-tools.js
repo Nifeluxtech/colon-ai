@@ -10,7 +10,10 @@
 // models fail (no key, quota, errors before any text), the old keyword routing decides (browse-follow.js), and an
 // ordinary reply comes from the usual chain (generate.js, AI_MODEL_SET): nothing is worse than 0.11.4.
 //   turn(args, ctx) -> generate()-shaped result, plus .action { event, data } and .drop (no chat text to keep)
-//   ctx: { state, userMsg, messages, generate, toolStream?, routing, now? }
+//   ctx: { state, userMsg, messages, generate, toolStream?, routing, now?, repo? }
+// v0.24.0: in Developer mode with a connected repository (ctx.repo: { projectId }) the model also gets
+// read_repo_file and search_repo (modules/repos, through the registry), answered as function responses so it can
+// follow imports over a few rounds before it replies.
 const ai = require('../ai');
 const tools = require('../tools');
 const state = require('./browser-state');
@@ -22,8 +25,11 @@ const log = require('../../shared/logger');
 // makes runs through tools.invoke() (plan access, consent, credits, timeout); the executors stay here.
 const BROWSER = ['browse', 'read_page', 'stop_browsing'];
 const DECLS = tools.declarations(BROWSER);
-/** This turn's tools: the browser's, plus generate_image while image generation is switched on (IMAGE_MODEL). */
-const declsNow = () => tools.declarations(tools.enabled('generate_image') ? [...BROWSER, 'generate_image'] : BROWSER);
+const REPO = ['read_repo_file', 'search_repo'];
+/** This turn's tools: the browser's, plus generate_image while image generation is switched on (IMAGE_MODEL), plus
+ * the repository tools when the chat's project has a repository (repo). */
+const declsNow = (repo) => tools.declarations([...BROWSER, ...(tools.enabled('generate_image') ? ['generate_image']
+  : []), ...(repo ? REPO : [])]);
 
 const RULES = [
   'Browser tools: you can use this chat\'s own web browser through the functions browse, read_page and '
@@ -63,6 +69,10 @@ function editSources(userMsg, messages, edit) {
   return [];
 }
 
+const REPO_RULE = '- read_repo_file(path) and search_repo(query) read this project\'s connected repository: use them '
+  + 'to open files that are not in the project context, follow imports and find definitions before you answer. '
+  + 'Never ask the user to paste a file you can open this way.';
+
 const BROWSE_SAY = 'On it in this chat’s browser.';
 
 /** The goal Saga gets: the model's task, made exact with the clickable item or address it named. */
@@ -93,9 +103,10 @@ async function turn(args, ctx) {
   const s = ctx.state || null;
   const sys = { role: 'system', content: [ai.prompts.systemPrompt({ mode: args.mode, language: args.language,
     name: args.name, web: Boolean(args.web), context: args.context }), RULES.join('\n'),
-  tools.enabled('generate_image') ? IMAGE_RULE : '', state.block(s, ctx.guard)].filter(Boolean).join('\n\n') };
+  tools.enabled('generate_image') ? IMAGE_RULE : '', ctx.repo ? REPO_RULE : '', state.block(s, ctx.guard)]
+    .filter(Boolean).join('\n\n') };
   const stream = ctx.toolStream || ai.toolCall.stream;
-  const base = { routing: args.routing, tools: declsNow(), signal: args.signal, fetch: args.fetch,
+  const base = { routing: args.routing, tools: declsNow(ctx.repo), signal: args.signal, fetch: args.fetch,
     onDelta: args.onDelta,
     timeouts: { ...config.chat, ...(args.mode === 'developer' && config.chat.developerMaxTokens
       ? { maxTokens: config.chat.developerMaxTokens } : {}), ...(args.timeouts || {}) } };
@@ -111,20 +122,38 @@ async function turn(args, ctx) {
     return { ...g, attempts: (e.attempts || []).concat(g.attempts || []) };
   }
   let attempts = r.attempts;
-  for (let round = 0; round < 2; round++) {
+  const back = [];
+  for (let round = 0; round < (ctx.repo ? 6 : 2); round++) {
     const call = r.calls[0];
     if (!call) break;
     const done = await callTool(call, r, s, ctx, args);
     if (done) return { ...r, attempts, ...done, text: done.text != null ? done.text : r.text };
-    // read_page: the summary goes back as the function's answer; the model then replies (or browses).
-    const page = await use(ctx, 'read_page', {}, () => readResult(s));
-    const back = [{ role: 'assistant', parts: [...(r.text ? [{ text: r.text }] : []), ...r.calls.map((c) => c.part)] },
-      { role: 'user', parts: [{ functionResponse: { name: 'read_page', response: page } }] }];
+    // read_page / read_repo_file / search_repo: the answers go back as function responses; the model then replies.
+    const answers = [];
+    for (const c of r.calls) answers.push({ functionResponse: { name: c.name, response: await answerOf(c, ctx, s) } });
+    back.push({ role: 'assistant', parts: [...(r.text ? [{ text: r.text }] : []), ...r.calls.map((c) => c.part)] },
+      { role: 'user', parts: answers });
     const next = await stream({ ...base, messages: [sys, ...args.messages, ...back] });
     attempts = attempts.concat(next.attempts);
     r = { ...next, text: r.text + next.text };
   }
   return { ...r, attempts };
+}
+
+/** A function call the model reads the answer of (read_page, the repository tools). Refusals become { error }. */
+async function answerOf(c, ctx, s) {
+  if (c.name === 'read_page') return use(ctx, 'read_page', {}, () => readResult(s));
+  if (!REPO.includes(c.name) || !ctx.repo) return { error: `There is no function ${String(c.name).slice(0, 40)}.` };
+  try {
+    const out = (await tools.invoke(c.name, c.args, { user: ctx.user, projectId: ctx.repo.projectId })).result;
+    // File text is untrusted: injection patterns are neutralised like any attached file.
+    const clean = (v) => (ctx.guard && typeof v === 'string' ? ctx.guard.clean(v, 'file') : v);
+    return { ...out, text: clean(out.text), matches: out.matches && out.matches.map((m) => ({ ...m,
+      text: clean(m.text) })) };
+  } catch (e) {
+    if (e.name === 'AbortError' || !e.status || e.status >= 500) throw e;
+    return { error: e.message };
+  }
 }
 
 // One function call through the tool registry. A refusal (plan, consent…) becomes a short line in the chat.
@@ -163,4 +192,5 @@ async function callTool(call, r, s, ctx, args) {
   }
 }
 
-module.exports = { turn, goalOf, fallback, readResult, editSources, DECLS, RULES, BROWSE_SAY, declsNow };
+module.exports = { turn, goalOf, fallback, readResult, editSources, answerOf, DECLS, RULES, REPO_RULE, BROWSE_SAY,
+  declsNow };

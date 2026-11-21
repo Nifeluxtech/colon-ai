@@ -19,12 +19,15 @@ const postProjects = async (req) => {
 // GET /projects/:id -> { project, chats[], files[] }
 const getProjectsById = async (req) => [200, await engine().get(req.user, req.params.id)];
 
-// PATCH /projects/:id { name?, instructions? } -> { project }
+// PATCH /projects/:id { name?, instructions?, archived? } -> { project }
 const patchProjectsById = async (req) => [200, { project: await engine().edit(req.user, req.params.id,
   req.body || {}) }];
 
 // DELETE /projects/:id (its chats and files stay and leave the project; its memories are deleted)
+// v0.24.0: a connected repository's token and stored copy are deleted first (modules/repos).
 const deleteProjectsById = async (req) => {
+  await engine().owned(req.user.id, String(req.params.id));
+  await require('../repos').instance().disconnect(req.user, req.params.id);
   await engine().remove(req.user, req.params.id);
   await audit(req, 'project.deleted', { actorId: req.user.id, targetType: 'project', targetId: String(req.params.id) });
   return [200, { ok: true }];

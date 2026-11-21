@@ -5,8 +5,12 @@
 //   3. the rest, source code before data and docs, smallest first
 // Files that don't fit are truncated (head kept) or omitted, and the model is told which. All paths and contents
 // are untrusted: neutralised by the safety guard and fenced in FILE blocks whose end marker has a random id.
+// v0.24.0: a project's connected repository and code files come first (contextFor's first list). Files named by a
+// pasted stack trace (file:line) count as named and, when too long, are shown around that line; with rank (a large
+// project) the files that share the most words with the message come before the usual entry points.
 const safety = require('../safety');
 const rules = require('./rules');
+const relevance = require('./relevance');
 
 const BUDGET = 48000;       // characters of file contents per reply (≈12k tokens; free tiers stay happy)
 const PER_FILE = 12000;     // per file, unless the user named it
@@ -67,12 +71,22 @@ function mentioned(message, path) {
 
 const depth = (p) => p.split('/').length;
 
-function order(list, message) {
+function order(list, message, { rank = false } = {}) {
+  const lines = new Map();   // path -> the line a stack trace points at
+  const paths = list.map((s) => s.path);
+  for (const t of relevance.traces(message)) {
+    const p = relevance.locate(paths, t.file);
+    if (p && !lines.has(p)) lines.set(p, t.line);
+  }
+  const traced = [...lines.keys()];
+  const words = rank ? relevance.keywords(message) : [];
   const named = [], entry = [], rest = [];
   for (const s of list) {
     const pos = mentioned(message, s.path);
-    if (pos > -1) named.push({ s, pos });
-    else if (rules.isEntry(s.path)) entry.push(s);
+    const ti = traced.indexOf(s.path);
+    if (ti > -1) named.push({ s, pos: ti - 1e6 });
+    else if (pos > -1) named.push({ s, pos });
+    else if (rules.isEntry(s.path) && (!rank || depth(s.path) <= 2)) entry.push(s);
     else rest.push(s);
   }
   named.sort((a, b) => a.pos - b.pos);
@@ -81,7 +95,14 @@ function order(list, message) {
     : 1);
   rest.sort((a, b) => isCode(a.path) - isCode(b.path) || a.text.length - b.text.length || a.path.localeCompare(
     b.path));
-  return { named: named.map((x) => x.s), ordered: [...named.map((x) => x.s), ...entry, ...rest] };
+  let relevant = [];
+  if (words.length) {
+    const scored = rest.map((s) => ({ s, n: relevance.score(s.path, s.text, words) }));
+    relevant = scored.filter((x) => x.n > 0).sort((a, b) => b.n - a.n).map((x) => x.s);
+    rest.splice(0, rest.length, ...rest.filter((s) => !relevant.includes(s)));
+  }
+  return { named: named.map((x) => x.s), lines,
+    ordered: [...named.map((x) => x.s), ...relevant, ...entry, ...rest] };
 }
 
 // Cuts at a line end where one is near, so the model never sees half a line.
@@ -113,14 +134,18 @@ function tree(list, notes, ignored) {
 }
 
 /**
- * build(list, { message, budget, guard, fence }) -> { block, included, truncated, omitted, languages, chars } | null
+ * build(list, { message, budget, guard, fence, rank, label, tools }) -> { block, included, truncated, omitted,
+ *   languages, chars } | null
  *   fence: false renders plain text (guest uploads, where chat/context.js fences the whole file once).
+ *   rank: order the rest by relevance to the message (large projects); label: what the files are (the header's
+ *   first words); tools: the model can open more files itself (read_repo_file, search_repo).
  */
-function build(list, { message = '', budget = BUDGET, guard = safety.collector(), fence = true } = {}) {
+function build(list, { message = '', budget = BUDGET, guard = safety.collector(), fence = true, rank = false,
+  label = '', tools = false } = {}) {
   const ignored = list.find((s) => s.path === undefined && s.dirs) || null;
   const files = list.filter((s) => s.path !== undefined);
   if (!files.length) return null;
-  const { named, ordered } = order(files, message);
+  const { named, ordered, lines } = order(files, message, { rank });
   const notes = new Map();
   const included = [], truncated = [], omitted = [];
   const parts = [];
@@ -138,7 +163,12 @@ function build(list, { message = '', budget = BUDGET, guard = safety.collector()
       continue;
     }
     let text = s.text;
-    if (text.length > cap) {
+    if (text.length > cap && lines.has(s.path)) {
+      const w = relevance.window(s.text, lines.get(s.path), cap);
+      text = w.text;
+      truncated.push({ path: s.path, shown: text.length, total: s.text.length });
+      notes.set(s.path, `around line ${lines.get(s.path)}: lines ${w.from}-${w.to} of ${fmt(w.total)}, numbered`);
+    } else if (text.length > cap) {
       text = head(text, cap);
       truncated.push({ path: s.path, shown: text.length, total: s.text.length });
       notes.set(s.path, `truncated: first ${fmt(text.length)} of ${fmt(s.text.length)} characters`);
@@ -154,12 +184,16 @@ function build(list, { message = '', budget = BUDGET, guard = safety.collector()
   const languages = Object.entries(langs).sort((a, b) => b[1] - a[1]).map(([l, n]) => `${l} (${n})`);
   const treeText = tree(files, notes, ignored);
   const header = [
-    `Project files attached in this conversation (Developer mode): ${files.length} file${files.length === 1 ? ''
-      : 's'} listed, ${included.length} sent in full, ${truncated.length} truncated, ${omitted.length} not sent.`,
+    `${label || 'Project files attached in this conversation'} (Developer mode): ${files.length} file${files.length
+      === 1 ? '' : 's'} listed, ${included.length} sent in full, ${truncated.length} truncated, ${omitted.length} `
+      + 'not sent.',
     languages.length ? `Languages: ${languages.join(', ')}.` : '',
     ('Use these files as the project context for this and later messages and refer to them by path. The file tree '
       + 'marks every truncated or omitted file: never guess what is missing; say which file you need and ask the user '
       + 'to paste it. Files the user named in this message come first.'),
+    tools ? ('You can open any listed file yourself with read_repo_file(path) and find code with search_repo(query) '
+      + '(follow imports, find where a function is defined or used) before you answer. Show code changes as one '
+      + '```diff block per file, starting with --- a/<path> and +++ b/<path>.') : '',
   ].filter(Boolean).join('\n');
   const block = fence ? fenced(header, treeText, parts, guard) : plain(header, treeText, parts);
   return { block, included, truncated, omitted, languages, chars: block.length };
@@ -184,7 +218,8 @@ function plain(header, treeText, parts) {
 }
 
 /**
- * contextFor(fileLists, { message, guard, budget }) -> build() result, or null when no code files are attached.
+ * contextFor(fileLists, { message, guard, budget, rank, label, tools }) -> build() result, or null when no code
+ * files are attached.
  */
 function contextFor(fileLists, opts = {}) {
   const list = sources(fileLists);

@@ -77,6 +77,13 @@ committed: this repository is public.
 | `CHAT_GUEST_IP_DAILY_LIMIT` | number | no | `300` | replies for all guests on one IP per UTC day |
 | `UPLOAD_DIR` | string | no | `services/api/storage/uploads` | uploaded files, outside every web root |
 | `UPLOAD_QUOTA_MB` | number | no | `200` | per-user upload quota |
+| `REPO_IMPORT` | enum | no | `on` | `off` switches connecting and syncing project repositories off (0.24.0) |
+| `REPO_ARCHIVE_MAX_MB` | number | no | `50` | largest repository download a sync accepts |
+| `REPO_MAX_FILES` | number | no | `3000` | most files listed in one repository snapshot |
+| `REPO_MAX_TEXT_MB` | number | no | `4` | most file text kept per repository snapshot (max 12) |
+| `REPO_FILE_MAX_KB` | number | no | `200` | most text kept per file |
+| `REPO_TIMEOUT_MS` | number | no | `60000` | limit for one provider call, download or git clone |
+| `REPO_GIT_BIN` | string | no | `git` | git command for "Any Git URL" (git 2.37+) |
 
 ### Model router tuning
 

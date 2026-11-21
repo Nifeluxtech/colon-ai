@@ -7,6 +7,8 @@
 //              shadow allows it and logs it (over_limit: true in the answer); off has no limit. Staff: no limit.
 //   delete     the project and its memories go; its chats and files stay and move back out of it.
 //   ownership  every store statement is scoped to the user; another user's project answers 404.
+//   archive    v0.24.0: archived: true sets archived_at (the app lists it apart); nothing is deleted.
+//   repo       v0.24.0: the connected repository (modules/repos) is summarised on the project; the token never is.
 const crypto = require('crypto');
 const config = require('../../config');
 const billing = require('../billing');
@@ -21,12 +23,20 @@ const newId = () => crypto.randomBytes(12).toString('base64url');
 const json = (v) => { if (v == null || typeof v === 'object') return v || {}; try { return JSON.parse(v); } catch {
   return {}; } };
 
+function repoOf(p) {
+  if (!p.repo_provider) return null;
+  return { provider: p.repo_provider, owner: p.repo_owner, name: p.repo_name, branch: p.repo_branch,
+    sha7: p.repo_sha ? String(p.repo_sha).slice(0, 7) : null, synced_at: p.repo_synced_at || null,
+    files: p.repo_files == null ? null : Number(p.repo_files) };
+}
 function projectOut(p) {
   return { id: p.id, name: p.name, instructions: p.instructions || '', chats: Number(p.chats) || 0,
-    files: Number(p.files) || 0, created_at: p.created_at, updated_at: p.updated_at };
+    files: Number(p.files) || 0, archived: Boolean(p.archived_at), repo: repoOf(p), created_at: p.created_at,
+    updated_at: p.updated_at };
 }
 const fileOut = (f) => { const m = json(f.meta); return { id: f.id, name: f.name, type: f.mime, size: f.size,
-  kind: f.kind, pages: m.pages, words: m.words, created_at: f.created_at }; };
+  kind: f.kind, pages: m.pages, words: m.words, format: m.format, repo: m.source === 'repo' || undefined,
+  created_at: f.created_at }; };
 
 function cleanName(v) {
   const s = String(v == null ? '' : v).replace(/\s+/g, ' ').trim();
@@ -97,6 +107,7 @@ function create({ store = sqlStore(), bill = defaultBill } = {}) {
     const fields = {};
     if (b.name !== undefined) fields.name = cleanName(b.name);
     if (b.instructions !== undefined) fields.instructions = cleanInstructions(b.instructions);
+    if (b.archived !== undefined) fields.archived_at = b.archived ? new Date() : null;
     if (!(await store.update(id, pid, fields))) throw notFound();
     return projectOut(await store.get(id, pid));
   }
@@ -110,13 +121,14 @@ function create({ store = sqlStore(), bill = defaultBill } = {}) {
     return p;
   }
 
-  // For chat replies: the project's instructions and its files (with their extracted text). null when none.
+  // For chat replies: the project's instructions, its files (with their extracted text) and its repository summary
+  // (v0.24.0). null when none.
   async function contextFor(userId, pid) {
     if (!userId || !pid) return null;
     const p = await store.get(userId, pid);
     if (!p) return null;
     const files = await store.files(userId, p.id, { text: true });
-    return { id: p.id, name: p.name, instructions: p.instructions || '', files };
+    return { id: p.id, name: p.name, instructions: p.instructions || '', files, repo: repoOf(p) };
   }
 
   return { list, add, get, edit, remove, owned, contextFor, limitFor, store };

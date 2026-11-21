@@ -91,6 +91,16 @@ conversation_id? }` (409 `memory_off` while memory is off, 409 `memory_full`) ·
 `GET /conversations?project_id=` filters. A send that starts with "remember that …" saves a memory when memory is on
 and the stream then carries `memory { memory }` after `user`.
 
+**Project repositories** (v0.24.0, signed in only; another user's project answers 404; `PATCH /projects/:id` also
+takes `archived`, and every project carries `archived` and a `repo` summary): `GET /projects/:id/repo` → `{ repo }` ·
+`POST /projects/:id/repo { provider: github|gitlab|bitbucket|git, repo | url, branch?, token? }` → `{ repo }`
+(connected and synced) · `POST /projects/:id/repo/sync` → `{ repo, unchanged }` · `DELETE /projects/:id/repo`
+(deletes the token and the stored copy) · `POST /projects/:id/repo/branches` → `{ branches[], default_branch }` ·
+`POST /projects/:id/repo/repos { provider, token? }` → `{ repos: [{ repo, private, default_branch }] }`. `repo` is
+`{ provider, owner, name, url, branch, sha, sha7, synced_at, files, has_token }`; the token is never returned.
+Errors: `repo_auth`, `repo_not_found`, `blocked_url` (422), `too_large` (413), `repo_unreachable` (502),
+`repos_off` / `git_missing` (501).
+
 **Tools and media** (v0.17.0, signed in only; another user's id answers 404):
 `POST /conversations/:id/images { prompt, message_id? }` → 201 `{ user_message, message, conversation }`: the image is
 an attachment of the assistant `message` (`origin: 'image'`); when it could not be made the message has

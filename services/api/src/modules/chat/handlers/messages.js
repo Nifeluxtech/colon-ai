@@ -82,14 +82,17 @@ async function streamFor(req, res, conv, userMsg, { version = 1, onOpen, route =
   const all = await store.messages(conv.id);
   const state = await browserState.load({ userId: req.user.id, conversationId: conv.id,
     page: browserState.fromClient(req.body && req.body.browser) }).catch(() => null);
-  const generate = (args) => browserTools.turn(args, { state, userMsg, messages: all, guard, generate: ai.generate,
-    user: req.user });
   // v0.15.0: the chat's project (instructions, files) and the user's memories, when they turned memory on.
   // 0.24.0: and the app guide's sections when the message asks how to do something in Colon.
   const more = await extra.build({ user: req.user, conv, text: userMsg.content, guard, client });
+  // v0.24.0: Developer mode in a project with a connected repository: the model may open its files itself.
+  const repo = conv.mode === 'developer' && more.repo ? { projectId: conv.project_id } : null;
+  const generate = (args) => browserTools.turn(args, { state, userMsg, messages: all, guard, generate: ai.generate,
+    user: req.user, repo });
   return historyFor(req, conv, userMsg.id).then(history => {
     // Developer mode: the project context comes from every file attached so far in this conversation.
-    const built = forMode(history, { mode: conv.mode, guard, message: userMsg.content });
+    const built = forMode(history, { mode: conv.mode, guard, message: userMsg.content, projectFiles: more.code,
+      repo: more.repo, tools: Boolean(repo) && !voice });
     return respond({ extraContext: more.block,
       req, res, mode: conv.mode, model: conv.model, language: replyLanguage(req.user.language, userMsg.content),
         name: req.user.name, route, guard, userText: userMsg.content, project: built.project,
