@@ -97,6 +97,22 @@ class VoiceService : Service(), VoiceOverlay.Actions {
         stopSelf()
     }
 
+    /* ---------- 0.22.1: straight from the recognizer (NativeListen), not through the chat page ---------- */
+
+    /** The real microphone level (0..1): the overlay's wave follows it, flat when nothing is heard. */
+    fun level(v: Float) { overlay?.level(v) }
+
+    /** The words heard so far, shown at once on the overlay while listening. */
+    fun heard(text: String) { overlay?.heard(VoiceUiRules.caption(text)) }
+
+    /** Listening stopped for a reason the user must see (the page also says it aloud and ends voice mode). */
+    fun problem(text: String) {
+        android.util.Log.w("ColonVoice", "overlay problem: $text")
+        val o = overlay ?: return
+        o.heard(VoiceUiRules.caption(text))
+        if (!o.showing) o.showPill()
+    }
+
     /* ---------- VoiceOverlay.Actions: the pill and the expanded overlay ---------- */
 
     override fun end() {

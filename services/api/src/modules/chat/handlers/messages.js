@@ -6,6 +6,7 @@ const limits = require('../../ai').limits;
 const settings = require('../../../shared/settings');
 const { replyLanguage } = require('../../ai').prompts;
 const store = require('../store');
+const { notePlan } = require('../notes');
 const files = require('../files');
 const { forMode } = require('../context');
 const extra = require('../extra-context');
@@ -171,22 +172,14 @@ const postConversationsByIdMessagesByMidStop = async (req) => {
   return [200, { ok: true }];
 };
 
-// AI Browse summaries and other assistant notes written by the app (and, Phase 10, the user's browser instructions).
+// AI Browse summaries and other assistant notes written by the app (and, Phase 10, the user's browser instructions;
+// 0.22.1, phone/music/voice commands and video cards: see ../notes.js).
 // POST /conversations/:id/notes
 const postConversationsByIdNotes = async (req) => {
   const conv = await store.getConv(req.user.id, req.params.id);
-  const content = String(req.body.content || '').slice(0, 60000).trim();
+  const { role, origin, content, sources } = notePlan(req.body);
   if (!content) v.fail('content', 'The note is empty.');
-  const sources = (Array.isArray(req.body.sources) ? req.body.sources : []).slice(0, 20).map((s, i) => ({
-    n: Number(s.n) || i + 1, title: String(s.title || '').slice(0, 200), url: /^https?:\/\//i.test(String(s.url || ''))
-      ? String(s.url).slice(0, 2000) : '', snippet: String(s.snippet || '').slice(0, 500),
-  })).filter(s => s.url);
-  const origin = req.body.origin === 'browse' ? 'browse' : 'note';
-  // Phase 10: an instruction the user typed for the chat's browser ("open google.com", "scroll down") is kept in the
-  // thread as the user's own message (origin browse) before Saga's reply note.
-  const role = req.body.role === 'user' && origin === 'browse' ? 'user' : 'assistant';
-  const msg = await store.insertMessage(conv, { role, content, sources: role === 'user' ? [] : sources,
-    status: 'complete', origin });
+  const msg = await store.insertMessage(conv, { role, content, sources, status: 'complete', origin });
   await store.touch(conv, { preview: content, title: conv.title === 'New chat' && req.body.title ? store.titleFrom(
     req.body.title) : null });
   return [201, { message: msg }];

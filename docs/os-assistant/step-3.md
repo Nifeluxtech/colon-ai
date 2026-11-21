@@ -1,4 +1,4 @@
-# Colon OS Assistant · Step 3: Colon Music (0.19.0; video card in the chat since 0.22.0)
+# Colon OS Assistant · Step 3: Colon Music (0.19.0; video cards in the chat since 0.22.0, one per request 0.22.1)
 
 Colon AI on Android plays music and names songs, with free tools only. Plan: `plan.md` (Step 3, and Step 4's mic
 recognition, which shipped early).
@@ -8,8 +8,15 @@ recognition, which shipped early).
   once), best match plays with the other matches queued. No match (or on the web): Colon finds it on **YouTube** and
   plays it in its own video card in the chat (0.22.0; above the composer in 0.21.x). When that can't, the card stays
   with the reason and an Open in YouTube button.
-- **"watch Davido live"** (also "show me the video of X", "play the video of X", "watch X on YouTube"; 0.22.0): any
-  YouTube video, not only music, in the same card. Never the phone's songs. "watch out" and questions stay chat.
+- **"watch Davido live"** (0.22.0): any YouTube video, not only music, in the card. Never the phone's songs.
+  0.22.1, natural speech, typed or spoken, case and punctuation ignored, filler ("um", "please", "for me") dropped:
+  "let's watch X", "I want/wanna watch X", "can I watch X", "can you show me X", "show me the video of X",
+  "show me X video", "put on X", "play the video of X", "play X video", "open/find X on YouTube", "I'd like to watch
+  X", "let me watch X", "search YouTube for X". Music: "play X", "let's play X", "I want to listen to X", "put on X
+  song", "can you play X". Chat stays chat: "watch out", "what should I watch", "watch your words", "I watched X
+  yesterday". All in one matcher, `apps/chat/src/lib/command-phrases.js` (table tests:
+  `packages/ui/test/command-phrases.test.js`); the Android app runs the same chat page, so typed, voice-mode and
+  overlay commands share it.
 - While the card is open: **"pause"**, **"resume"**, **"forward"** / "skip ahead" / "fast forward" (+10 s),
   **"back"** / "rewind" / "go back" (−5 s), **"stop the music"**. There is no "next" any more.
 - **"play Calm Down on YouTube" / "on Audiomack"**: opens it there directly. **"from my phone"**: phone only.
@@ -33,7 +40,16 @@ recognition, which shipped early).
   `kind=video` (0.22.0, "watch X") drops the Music category; the cache key includes the kind.
   The chat plays the result in `components/music-dock.js` (official IFrame player; pauses in the background per
   YouTube's rules).
-- **Video card** (0.22.0): the card sits in the chat thread under the message that was last when it started.
+- **Video cards** (0.22.1, like Saga's browser card): every watch or play request adds a NEW card under its own
+  reply and never replaces an older one. One plays at a time: a new card stops the one before, which collapses to a
+  row (thumbnail, title, **Play again**, Open in YouTube; `components/video-row.js`). The reply is saved with origin
+  `video` and the video as its one source, so a reload shows past cards collapsed.
+- **Commands in the thread** (0.22.1): every command (phone actions, music, watch, the card's player words, song
+  recognition), typed or spoken, is saved as the user's message plus a short, varied reply
+  (`lib/command-replies.js`, 2–3 wordings each; failures have their own, e.g. "I couldn't find WhatsApp on this
+  phone."), via `POST /conversations/:id/notes` origin `command` (`actions/command-thread.js`). Voice mode speaks the
+  same words (the phone's TTS in the app).
+- **Video card** (0.22.0): the card sits in the chat thread under its reply (0.22.0: the message that was last).
   `message.js` redraws `#cw-page` on every render and moving an iframe restarts its video, so the card lives in a
   stable layer after `#cw-page` (`.cm-layer`) and `components/music-place.js` lays it over a placeholder
   (`.cm-slot`) that goes back into the thread after each render (`CW.placeMusic`, plus a ResizeObserver). A new
@@ -76,4 +92,11 @@ recognition, which shipped early).
 - [ ] Same with an untagged file (e.g. WhatsApp audio named AUD-…): answers from the file
 - [ ] Colon idle, music from a speaker: "Listening…", then the title
 - [ ] Hands-free: answers are spoken; music that starts ends hands-free
+- [ ] 0.22.1: "watch A", then "watch B": two cards; A collapses to a row (thumbnail, title, Play again, YouTube)
+  and stops; Play again on A plays it in its own place and collapses B; reload: both collapsed
+- [ ] 0.22.1: "take me to WhatsApp" (typed and spoken): the thread shows it and "I'll take you to WhatsApp now.";
+  a reload keeps both; "open nosuchapp app": "I couldn't find Nosuchapp on this phone."
+- [ ] 0.22.1: voice mode over WhatsApp (Talk to Colon shortcut): the wave is flat in silence and moves when you
+  talk; your words show live; "what's the capital of Ghana" is answered aloud and saved in the chat; silence gives
+  "I didn't catch that"; with the mic permission revoked, the overlay says so (`adb logcat -s ColonVoice`)
 - [ ] Colon Browser flavor unchanged

@@ -50,7 +50,7 @@ pressed (Log in or Sign up) and offers a link to switch.
 | POST | `/conversations/:id/messages/:mid/stop` | | `{ ok: true }` (the app also just closes the stream) |
 | POST · DELETE | `/conversations/:id/share` | | `{ share: { token, url } }` · `{ ok: true }` (turns the link off) |
 | GET | `/shared/:token` | | `{ conversation: { title, mode, created_at, shared_at, owner }, messages }` (public, read-only, no files; the app shows it at `#/share/:token`) |
-| POST | `/conversations/:id/notes` | `{ content, sources, origin, title }` | `{ message }` (AI Browse summaries) |
+| POST | `/conversations/:id/notes` | `{ content, sources, origin, title, role }` | `{ message }` (AI Browse summaries; 0.22.1: `origin: command` for commands, role `user` for the user line, and `origin: video` for a reply with its YouTube video as its one source) |
 | POST | `/messages/:id/feedback` | `{ rating: 'up'\|'down', reason?, comment? }` or `{}` to clear | `{ ok: true, feedback }` |
 | POST | `/uploads` | multipart `file` (+ `recorder=1`, `duration` for voice notes) | `{ attachment: { id, name, type, size, kind, width?, height?, pages?, words?, note? } }` |
 | GET · DELETE | `/uploads/:id/file` · `/uploads/:id` · `/uploads` | | file · `{ ok: true }` |

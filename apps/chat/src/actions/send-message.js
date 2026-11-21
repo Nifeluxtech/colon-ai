@@ -8,6 +8,7 @@ import { sagaTyped } from './saga-wait.js';
 import { handlePlanText } from './saga-plans.js';
 import { handlePhoneText } from './phone-chat.js';
 import { handleMusicText } from './music-chat.js';
+import { ensureConv } from './command-thread.js';
 import { Colon } from '../../../../packages/ui/js/colon.js';
 import { ColonMarkdown } from '../../../../packages/ui/js/markdown/index.js';
 import { autoGrow, scrollBottom, syncComposer } from '../components/composer.js';
@@ -15,7 +16,6 @@ import { announce, paintMessage, renderThread } from '../components/message.js';
 import { updateHeader } from '../components/model-picker.js';
 import { refreshConvs } from '../components/sidebar.js';
 import { $, S, data, defaultModel, isMobile, mode, modelId, rafThrottle } from '../core/state.js';
-import { setView } from '../pages/chat.js';
 import { imageEditPlan } from '../lib/chat-tools.js';
 import { looksLikePassword, saveLoginIntent } from '../lib/secret-text.js';
 
@@ -56,22 +56,6 @@ function routeText(ta, text, atts) {
   if (!atts.length && sagaText(ta, text)) return;
   ta.value = ''; autoGrow(); S.media.clear(true); syncComposer();
   sendChat(text, atts);
-}
-/** This chat, or a new one (shown in place of the welcome screen). -> Promise<conversation> */
-function ensureConv() {
-  var conv = S.current && !S.loadingConv ? Promise.resolve(S.current) : data.createConversation({ mode: S.draftMode,
-    model: S.draftModel || defaultModel() });
-  return conv.then(function (c) {
-    var fresh = !S.current || S.current.id !== c.id;
-    if (fresh) {
-      S.current = c; S.messages = []; S.browser.createdId = c.id;   // the new chat keeps its browser (adopt)
-      var w = $('.cw-welcome'); if (w) w.classList.add('leaving');
-      history.replaceState(null, '', '#/c/' + encodeURIComponent(c.id)); setView('chat');
-      S.el.querySelectorAll('[data-nav]').forEach(function (a) { a.classList.toggle('active', a.getAttribute(
-        'data-nav') === '/'); });
-    }
-    return c;
-  });
 }
 /** The message as a chat turn (the chat model replies). 0.11.6: also a message Saga can't take while it waits. */
 function sendChat(text, atts) {

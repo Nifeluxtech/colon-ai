@@ -9,6 +9,7 @@
 import { Colon } from '../../../../packages/ui/js/colon.js';
 import { langLabel, transcribe } from '../core/voice-client.js';
 import { NativeSR, usable as nativeListenUsable } from './native-listen.js';
+import { errorKind, testMic, voiceErrorText } from './voice-errors.js';
 
 var C = Colon, icon = C.icon, esc = C.esc;
 var KIND_ICON = { image: 'image', pdf: 'fileText', doc: 'fileText', text: 'file', audio: 'mic' };
@@ -91,22 +92,14 @@ function create(o) {
     if (m === 'dictation' && !SR) m = 'colon';
     return m === 'auto' ? (SR && /^en-/.test(voiceLang()) ? 'dictation' : 'colon') : m; }
   function voiceError(kind) {
-    var msg = {
-      denied: ['Microphone access is blocked',
-        ('Allow the microphone for this site in your browser settings (tap the lock icon in the address bar), then '
-        + 'try again.')],
-      nomic: ['No microphone found', 'Connect a microphone or headset, then try again.'],
-      unsupported: ['Voice input isn’t available here',
-        'This browser can’t record audio. Try Chrome on Android, or type your message.'],
-      network: ['Voice service unavailable', 'Dictation needs an internet connection. Check your data and try again.'],
-      insecure: ['Voice needs a secure connection', 'Open Colon AI over https to use the microphone.']
-    }[kind] || ['Voice input stopped', 'Something went wrong with the microphone. Try again.'];
+    var msg = voiceErrorText(kind);
     bar.hidden = false; bar.className = 'cv-voice error';
     bar.innerHTML = '<span class="cv-voice-ico">' + icon('micOff') + '</span><span class="cv-voice-body"><b>' + esc(msg[
       0]) + '</b><span>' + esc(msg[1])
       + '</span></span><button type="button" class="icon-btn sm" data-voice-dismiss aria-label="Dismiss">' + icon('x')
       + '</button>';
     voice = null; if (o.onVoiceState) o.onVoiceState(false);
+    if (o.onVoiceFail) o.onVoiceFail(kind);   // 0.22.1: voice mode says why and ends
   }
   bar.addEventListener('click', function (e) {
     if (e.target.closest('[data-voice-dismiss]')) { bar.hidden = true; return; }
@@ -183,21 +176,30 @@ function create(o) {
           var low = t.toLowerCase(), prev = said.toLowerCase();
           if (!said || low.indexOf(prev) === 0) said = t; else if (prev.slice(-low.length) !== low) said += ' ' + t; }
         voice.session = said;
+        voice.heardFinal = !!(e.results.length && e.results[e.results.length - 1].isFinal); voice.soft = 0;
         var all = (voice.finalText + ' ' + said).trim();
         var el = bar.querySelector('.cv-interim'); if (el) el.textContent = all || 'Listening…';
         if (o.onTranscript) o.onTranscript(all, false);
       };
       // Android Chrome ends a dictation session after a short pause even with continuous on, so keep
       // restarting until the user taps Done (or the 5-minute cap), and keep the words heard so far.
+      // 0.22.1: in voice mode (o.endOnFinal()) the phone's own end of speech ends the turn, and no speech is an
+      // empty turn ("I didn't catch that"), instead of dictating on until the page's timer (asleep in the
+      // background) notices. A busy or dropped recognizer restarts after a short pause; other errors end voice input
+      // with a reason (onVoiceFail) instead of leaving voice mode on "Listening…".
       rec.onerror = function (e) {
         if (!voice || voice.kind !== 'dictation') return;
-        if ((e.error === 'no-speech' || e.error === 'network') && !voice.stopping && voice.restarts < 40) return;
+        var turnEnds = o.endOnFinal && o.endOnFinal();
+        if (e.error === 'no-speech' && turnEnds && !voice.stopping) { voice.endTurn = true; return; }
+        var soft = e.error === 'no-speech' || e.error === 'network' || e.error === 'busy' || e.error === 'client';
+        if (soft && !voice.stopping && voice.restarts < 40
+          && (e.error === 'no-speech' || (voice.soft = (voice.soft || 0) + 1) <= 6)) {
+          voice.pause = e.error !== 'no-speech'; return; }
         var v = voice; v.failed = true; cleanup(); v.finalText = (v.finalText + ' ' + (v.session || '')).trim();
-        if (e.error === 'not-allowed' || e.error === 'service-not-allowed') voiceError('denied');
-        else if (e.error === 'audio-capture') voiceError('nomic');
-        else if (e.error === 'network') voiceError('network');
-        else if (e.error === 'no-speech') { if (!v.finalText) C.toast('I didn’t hear anything. Try again.'); }
-        else if (e.error !== 'aborted') voiceError('other');
+        var kind = e.error === 'client' ? 'other' : errorKind(e.error);
+        if (e.error === 'no-speech') { if (!v.finalText) C.toast('I didn’t hear anything. Try again.');
+          if (!v.finalText && o.onTranscript) o.onTranscript('', true); }
+        else if (kind && !(v.finalText && kind === 'network')) voiceError(kind);
         if (v.finalText && o.onTranscript) o.onTranscript(v.finalText.trim(), true);
       };
       voice.finish = function () {
@@ -207,11 +209,16 @@ function create(o) {
       };
       rec.onend = function () {
         if (!voice || voice.kind !== 'dictation' || voice.rec !== rec) return;
-        if (!voice.stopping && !voice.cancelled && voice.restarts < 40) {
-          voice.finalText = (voice.finalText + ' ' + (voice.session || '')).trim(); voice.session = '';
-          voice.restarts++; try { rec.start(); return; } catch (err) { /* fall through and finish */ }
+        var v = voice, turnEnds = o.endOnFinal && o.endOnFinal();
+        if (turnEnds && (v.endTurn || (v.heardFinal && (v.session || v.finalText)))) { v.finish(); return; }
+        if (!v.stopping && !v.cancelled && v.restarts < 40) {
+          v.finalText = (v.finalText + ' ' + (v.session || '')).trim(); v.session = '';
+          v.restarts++;
+          var again = function () { if (voice !== v) return; try { rec.start(); } catch (err) { v.finish(); } };
+          if (v.pause) { v.pause = false; setTimeout(again, 400); return; }
+          try { rec.start(); return; } catch (err) { /* fall through and finish */ }
         }
-        voice.finish();
+        v.finish();
       };
       try { rec.start(); showRecording('Listening in ' + langLabel(rec.lang) + '… tap Done when you finish'); }
       catch (e) {
@@ -269,15 +276,6 @@ function create(o) {
   function cancelVoice() { if (!voice) return; voice.cancelled = true; if (voice.kind === 'dictation') {
     voice.stopping = true; voice.rec.abort(); cleanup(); if (o.onTranscript) o.onTranscript('', 'cancel');
     } else if (voice.kind === 'recorder') voice.mr.stop(); }
-  // Permission check for Settings → Voice.
-  function testMic() {
-    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) return Promise.resolve('unsupported');
-    return navigator.mediaDevices.getUserMedia({ audio: true }).then(function (s) { s.getTracks().forEach(function (
-      t) { t.stop(); }); return 'granted'; },
-      function (e) { return e.name === 'NotAllowedError' ? 'denied' : e.name === 'NotFoundError' ? 'nomic' : 'error';
-        });
-  }
-
   var api = {
     pick: function () { input.click(); }, addFiles: addFiles, remove: remove,
     ready: function () { return items.filter(function (i) { return i.status === 'ready'; }).map(function (i) {

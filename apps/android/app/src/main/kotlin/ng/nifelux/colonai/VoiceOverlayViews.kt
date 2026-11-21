@@ -22,6 +22,8 @@ internal fun animationsOn(): Boolean = Build.VERSION.SDK_INT < 26 || ValueAnimat
 /**
  * The voice wave: rounded bars whose height follows a few mixed sine waves. Small on the pill, a wide band along
  * the footer of the expanded overlay. Animates only while attached and visible; flat bars when animations are off.
+ * 0.22.1: while listening its height is the real microphone level ([setLevel], from the recognizer's
+ * onRmsChanged), so a flat line means nothing is heard; it used to move on its own whatever the mic did.
  */
 class VoiceWaveView @JvmOverloads constructor(context: Context, attrs: AttributeSet? = null) : View(context, attrs) {
     /** How many bars to draw. */
@@ -30,11 +32,18 @@ class VoiceWaveView @JvmOverloads constructor(context: Context, attrs: Attribute
     private val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply { strokeCap = Paint.Cap.ROUND }
     private var phase = VoiceUiRules.Phase.LISTENING
     private val start = SystemClock.uptimeMillis()
+    private var level = 0f
+    private var levelAt = 0L
 
     init { importantForAccessibility = IMPORTANT_FOR_ACCESSIBILITY_NO }
 
     fun setPhase(p: VoiceUiRules.Phase) {
+        if (p != phase) level = 0f
         phase = p; paint.color = VoiceUiRules.accent(p); invalidate()
+    }
+
+    fun setLevel(v: Float) {
+        level = VoiceUiRules.smoothLevel(level, v); levelAt = SystemClock.uptimeMillis(); invalidate()
     }
 
     override fun onDraw(canvas: Canvas) {
@@ -43,14 +52,15 @@ class VoiceWaveView @JvmOverloads constructor(context: Context, attrs: Attribute
         val gap = width.toFloat() / bars
         val stroke = (gap * 0.55f).coerceAtMost(height * 0.5f)
         paint.strokeWidth = stroke
-        val energy = VoiceUiRules.waveEnergy(phase)
-        val live = animationsOn() && energy > 0f
+        level = VoiceUiRules.decayLevel(level, SystemClock.uptimeMillis() - levelAt)
+        val energy = VoiceUiRules.waveEnergy(phase, level)
+        val live = animationsOn() && (energy > 0.01f || phase == VoiceUiRules.Phase.LISTENING)
         val t = (SystemClock.uptimeMillis() - start) / 1000.0
         val mid = height / 2f
         val minH = stroke * 0.5f
         for (i in 0 until bars) {
             val x = gap * (i + 0.5f)
-            val wave = if (!live) 0.25 else {
+            val wave = if (!live) (if (phase == VoiceUiRules.Phase.LISTENING) 0.0 else 0.25) else {
                 val a = sin(t * 5.1 + i * 0.9) * 0.5 + sin(t * 2.3 + i * 0.37) * 0.3 + sin(t * 8.7 + i * 1.7) * 0.2
                 abs(a) * energy
             }

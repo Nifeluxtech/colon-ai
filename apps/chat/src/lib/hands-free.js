@@ -4,7 +4,12 @@
    Igbo). Two turns in a row with no speech end the session.
    createHandsFree({ media, send, speak, bar, getSettings, toast, ui }) → { start, stop, active, transcript, level,
    replyDone, mute, muted }. 0.20.0: `ui` (the voice-mode overlay) hears every phase, the words heard, the reply
-   spoken and the mic level; mute(true) pauses listening without ending the session (phase 'muted'). */
+   spoken and the mic level; mute(true) pauses listening without ending the session (phase 'muted').
+   0.22.1: a turn with no speech gets a spoken "I didn't catch that." (the second in a row ends voice mode after
+   saying so); finalReply(text) says a command's reply and then ends (music started, or Colon left for another
+   app); fail(text) says why the microphone stopped (permission, no recognizer…) and ends. */
+
+import { reply } from './command-replies.js';
 
 var QUIET_AFTER_TEXT = 1600; // ms without new words before a dictated turn is sent
 var QUIET_AFTER_VOICE = 1500; // ms below the speech level before a recorded turn is sent
@@ -78,8 +83,8 @@ function createHandsFree(o) {
     if (ui && text) ui.heard(text);
     clear();
     if (!String(text || '').trim()) {
-      if (++misses >= 2) { stop(); o.toast('Hands-free ended: I didn’t hear anything.'); }
-      else listen();
+      if (++misses >= 2) sayThen(reply('give_up'), stop);
+      else sayThen(reply('miss'), listen);
       return true;
     }
     misses = 0; setState('thinking', 'Colon is thinking…');
@@ -92,6 +97,30 @@ function createHandsFree(o) {
     if (!turn || state !== 'listening') return;
     if (ui) ui.level(v);
     if (v > LOUD) { turn.heard = true; turn.last = Date.now(); }
+  }
+
+  // Says text in voice mode (caption, overlay and the phone's TTS), then runs next.
+  function sayThen(text, next) {
+    clear();
+    if (o.media.voiceActive()) o.media.cancelVoice();
+    if (ui) ui.say(text);
+    setState('speaking', 'Speaking… tap End to stop');
+    var v = (o.getSettings().voice) || {};
+    o.speak.play(text.slice(0, 6000), { engine: v.readAloudVoice || 'auto', speaker: v.speaker,
+      rate: v.readAloudRate || 1, lang: v.lang, onEnd: function () { if (state === 'speaking') next(); } });
+  }
+
+  // 0.22.1: a command's reply that ends voice mode once it is said (music started, or Colon left for an app).
+  function finalReply(text) {
+    if (state !== 'thinking' || !text) { stop(); return; }
+    sayThen(text, stop);
+  }
+
+  // 0.22.1: the microphone or the recognizer failed: say why, then end (never sit on "Listening…" for ever).
+  function fail(text) {
+    if (state === 'idle') return;
+    o.toast(text, 'bad');
+    sayThen(text, stop);
   }
 
   // Called when a reply finishes streaming.
@@ -122,7 +151,8 @@ function createHandsFree(o) {
   function reopen() { if (state === 'idle') return start(); if (ui && ui.show) ui.show(); else stop(); }
 
   return { start: start, stop: stop, reopen: reopen, active: function () { return state !== 'idle'; },
-    transcript: transcript, level: level, replyDone: replyDone, mute: mute, muted: function () { return muted; } };
+    transcript: transcript, level: level, replyDone: replyDone, finalReply: finalReply, fail: fail, mute: mute,
+    muted: function () { return muted; } };
 }
 
 export { createHandsFree };

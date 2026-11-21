@@ -57,8 +57,20 @@ class VoiceOverlay(private val ctx: Context, private val actions: Actions) {
     private fun dp(v: Int) = (v * density).toInt()
 
     fun update(p: VoiceUiRules.Phase, text: String, isMuted: Boolean) {
-        phase = p; caption = text; muted = isMuted
+        // 0.22.1: the page's caption lags (its timers sleep in the background); keep the recognizer's live words.
+        if (p == phase && p == VoiceUiRules.Phase.LISTENING && text.isEmpty() && caption.isNotEmpty()) {
+            muted = isMuted
+        } else { phase = p; caption = text; muted = isMuted }
         pill?.let { paintPill(it) }
+        full?.let { paintFull(it) }
+    }
+
+    /** 0.22.1: the real mic level from the recognizer (NativeListen -> VoiceService). */
+    fun level(v: Float) { pill?.let { it.wave.setLevel(v) }; full?.let { it.wave.setLevel(v) } }
+
+    /** 0.22.1: the words heard (or a problem) at once, without waiting for the chat page. */
+    fun heard(text: String) {
+        caption = text
         full?.let { paintFull(it) }
     }
 

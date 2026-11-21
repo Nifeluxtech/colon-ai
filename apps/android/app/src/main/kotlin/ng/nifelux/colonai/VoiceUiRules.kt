@@ -82,6 +82,56 @@ object VoiceUiRules {
     }
 
     /**
+     * 0.22.1: the wave while listening follows the real microphone level from the recognizer (onRmsChanged, see
+     * [rmsLevel]), so it is flat when nothing is heard; the other phases keep their fixed liveliness.
+     */
+    fun waveEnergy(p: Phase, level: Float): Float =
+        if (p == Phase.LISTENING) level.coerceIn(0f, 1f) else waveEnergy(p)
+
+    /** The recognizer's onRmsChanged dB (about -2..10) as a 0..1 level. */
+    fun rmsLevel(rmsdB: Float): Float = ((rmsdB + 2f) / 12f).coerceIn(0f, 1f)
+
+    /** Level smoothing: quick to rise (a syllable shows at once), slower to fall (no flicker between words). */
+    fun smoothLevel(prev: Float, v: Float): Float {
+        val x = v.coerceIn(0f, 1f)
+        return prev + (x - prev) * (if (x > prev) 0.6f else 0.2f)
+    }
+
+    /** How fast a level falls back to flat when the recognizer stops sending (per drawn frame, ~60/s). */
+    fun decayLevel(level: Float, msSinceLast: Long): Float = if (msSinceLast < 250) level else level * 0.9f
+
+    /**
+     * 0.22.1: SpeechRecognizer error codes (their literal values, so this is unit-tested without Android) as the Web
+     * Speech API names the chat page handles. Before this, ERROR_CLIENT, ERROR_RECOGNIZER_BUSY and API 31+'s codes
+     * all became "other", which the page treated as fatal without telling voice mode: it sat on "Listening…".
+     */
+    fun recognizerError(code: Int): String = when (code) {
+        6, 7 -> "no-speech"            // ERROR_SPEECH_TIMEOUT, ERROR_NO_MATCH
+        1, 2, 4, 11 -> "network"       // NETWORK_TIMEOUT, NETWORK, SERVER, SERVER_DISCONNECTED
+        9 -> "not-allowed"             // ERROR_INSUFFICIENT_PERMISSIONS
+        3 -> "audio-capture"           // ERROR_AUDIO
+        8, 10 -> "busy"                // ERROR_RECOGNIZER_BUSY, ERROR_TOO_MANY_REQUESTS
+        5 -> "client"                  // ERROR_CLIENT (often right after a cancel; the page retries)
+        12, 13 -> "language"           // ERROR_LANGUAGE_NOT_SUPPORTED, ERROR_LANGUAGE_UNAVAILABLE
+        else -> "other"
+    }
+
+    /** Language errors are retried once in this language before the page hears about them. */
+    const val FALLBACK_LANG = "en-US"
+
+    fun retryLanguage(error: String, lang: String): String? =
+        if (error == "language" && !lang.equals(FALLBACK_LANG, ignoreCase = true)) FALLBACK_LANG else null
+
+    /** What the overlay shows at once for an error that stops listening (null: the page retries it). */
+    fun problemRes(error: String): Int? = when (error) {
+        "not-allowed" -> R.string.voice_err_permission
+        "audio-capture" -> R.string.voice_err_mic
+        "language" -> R.string.voice_err_language
+        "other" -> R.string.voice_err_other
+        else -> null
+    }
+
+    /**
      * The pill needs "Display over other apps" (SYSTEM_ALERT_WINDOW, a special access the user grants in Settings).
      * Without it Colon asks once, then stays with the ongoing notification. Colon Browser never shows a pill.
      */

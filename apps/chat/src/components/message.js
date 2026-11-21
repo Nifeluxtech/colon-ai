@@ -4,12 +4,14 @@ import { scrollBottom } from './composer.js';
 import { decorateCode } from './code-edit.js';
 import { sourcesHtml } from './sources.js';
 import { attachmentsHtml, loadAttachmentThumbs } from './uploads.js';
+import { videoRowHtml } from './video-row.js';
 import { Colon } from '../../../../packages/ui/js/colon.js';
 import { ColonMarkdown } from '../../../../packages/ui/js/markdown/index.js';
 import { researchHtml } from '../actions/deep-research.js';
 import { startImageEdit } from '../actions/image-gen.js';
 import { editableIds } from '../lib/chat-tools.js';
 import { editMessage, regenerate } from '../actions/send-message.js';
+import { replayVideo } from '../actions/music-chat.js';
 import { ReadAloud } from '../lib/read-aloud.js';
 import { CW } from '../core/cw.js';
 import { $, ASSISTANT, MODES, S, STAGES, data, ephemeral, signedIn } from '../core/state.js';
@@ -32,6 +34,8 @@ function renderThread() {
   if (CW.placeCards) CW.placeCards();
   if (CW.placeMusic) CW.placeMusic();   // 0.22.0: Colon Music's video card (components/music-place.js)
 }
+// 0.22.1: music-dock.js redraws the thread when a video card stops (its reply shows the collapsed row then).
+CW.redrawThread = function () { if ($('#cw-page') && S.current && !S.loadingConv) renderThread(); };
 function lastAssistant() { for (var i = S.messages.length - 1; i >= 0; i--) if (S.messages[
   i].role === 'assistant') return S.messages[i]; return null; }
 function msgHtml(m, isLast) {
@@ -43,11 +47,13 @@ function msgHtml(m, isLast) {
       + '</div>' +
       '<div class="cw-actions"><button class="icon-btn sm" data-msg="copy" aria-label="Copy message" data-tip="Copy">'
         + icon('copy') + '</button>' +
-      (S.streaming || /^tmp/.test(m.id)
+      (S.streaming || /^tmp/.test(m.id) || m.origin === 'command'
         ? '' : '<button class="icon-btn sm" data-msg="edit" aria-label="Edit message" data-tip="Edit">' + icon('edit')
         + '</button>') + '</div></div>';
   }
   var streaming = m.status === 'streaming', fb = m.feedback && m.feedback.rating;
+  // 0.22.1: a command's reply (origin command / video) is Colon's own words: copy only, and a video's row.
+  var cmd = m.origin === 'command' || m.origin === 'video';
   var body = aiBody(m);
   var meta = (S.settings && S.settings.showMeta) ? '<span class="badge">' + icon(MODES[m.mode] ? MODES[m.mode].icon :
     'sparkle') + (MODES[m.mode] ? MODES[m.mode].label : 'General') + '</span>' : '';
@@ -68,8 +74,9 @@ function msgHtml(m, isLast) {
     (m.attachments && m.attachments.length ? '<div class="cw-ai-atts">' + attachmentsHtml(m.attachments) + '</div>'
       : '') + researchHtml(m) +
     (m.status === 'error' ? errorCard(m) : '') +
-    sourcesHtml(m.sources) +
-    (streaming ? '' : '<div class="cw-actions">' +
+    (m.origin === 'video' ? videoRowHtml(m) : sourcesHtml(m.sources)) +
+    (streaming ? '' : cmd ? '<div class="cw-actions"><button class="icon-btn sm" data-msg="copy" aria-label="Copy '
+      + 'response" data-tip="Copy">' + icon('copy') + '</button></div>' : '<div class="cw-actions">' +
       '<button class="icon-btn sm" data-msg="copy" aria-label="Copy response" data-tip="Copy">' + icon('copy')
         + '</button>' +
       // v0.17.1: Edit on a generated image pre-fills `/image ` with it as the image to change.
@@ -129,6 +136,7 @@ function msgAction(b) {
   if (!m) return;
   if (act === 'edit') { editMessage(m); return; }
   if (act === 'imgedit') { startImageEdit(m); return; }
+  if (act === 'replay') { replayVideo(m); return; }   // 0.22.1: a past video card's Play again
   if (act === 'copy') C.copyText(m.content).then(function () { C.toast('Copied.'); }, function () { C.toast(
     'Couldn’t copy.', 'bad'); });
   else if (act === 'regen') regenerate(m.id);

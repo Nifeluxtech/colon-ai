@@ -166,7 +166,7 @@ class NativeBridge(private val host: MainActivity, private val webView: WebView)
                 if (bad != null) done(false, null, bad)
                 else PhoneActions.run(host, a).let { r ->
                     if (r.error != null) done(false, null, r.error)
-                    else done(true, JSONObject().put("say", r.say), null)
+                    else done(true, JSONObject().put("say", r.say).apply { r.label?.let { put("label", it) } }, null)
                 }
             }
             // OS Assistant Step 3: Colon Music, only what MusicRules allows (docs/os-assistant/step-3.md).

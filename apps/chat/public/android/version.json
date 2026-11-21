@@ -1,17 +1,17 @@
 {
-  "versionName": "0.22.0",
-  "versionCode": 2200,
-  "apkUrl": "https://github.com/Nifeluxtech/colon-ai/releases/download/v0.22.0/colon-ai-0.22.0.apk",
-  "releaseUrl": "https://github.com/Nifeluxtech/colon-ai/releases/tag/v0.22.0",
-  "notes": "Videos now play right in the chat with play/pause, back 5 s and forward 10 s. Say \"watch …\" for any video, and \"what song is this?\" can hand off to Shazam.",
+  "versionName": "0.22.1",
+  "versionCode": 2201,
+  "apkUrl": "https://github.com/Nifeluxtech/colon-ai/releases/download/v0.22.1/colon-ai-0.22.1.apk",
+  "releaseUrl": "https://github.com/Nifeluxtech/colon-ai/releases/tag/v0.22.1",
+  "notes": "Every video gets its own card in the chat (older ones fold up with Play again), commands and their replies show in the chat, and voice mode over other apps now hears you and answers.",
   "minSupportedVersionCode": 0,
   "publishedAt": "2026-11-21",
   "browser": {
-    "versionName": "0.22.0",
-    "versionCode": 2200,
-    "apkUrl": "https://github.com/Nifeluxtech/colon-ai/releases/download/v0.22.0/colon-browser-0.22.0.apk",
-    "releaseUrl": "https://github.com/Nifeluxtech/colon-ai/releases/tag/v0.22.0",
-    "notes": "Released alongside Colon AI 0.22.0. No changes to the browser itself.",
+    "versionName": "0.22.1",
+    "versionCode": 2201,
+    "apkUrl": "https://github.com/Nifeluxtech/colon-ai/releases/download/v0.22.1/colon-browser-0.22.1.apk",
+    "releaseUrl": "https://github.com/Nifeluxtech/colon-ai/releases/tag/v0.22.1",
+    "notes": "Released alongside Colon AI 0.22.1. No changes to the browser itself.",
     "minSupportedVersionCode": 0
   }
 }

@@ -264,6 +264,11 @@
     <string name="voice_muted">Mic muted</string>
     <string name="voice_end">End</string>
     <string name="voice_open">Open Colon</string>
+    <!-- 0.22.1: shown on the voice overlay when the recognizer stops (the chat page also says it). -->
+    <string name="voice_err_permission">Microphone permission needed. Tap Open Colon to allow it.</string>
+    <string name="voice_err_mic">I can\'t use the microphone. Another app may be using it.</string>
+    <string name="voice_err_language">The phone\'s speech service can\'t listen in this language.</string>
+    <string name="voice_err_other">The microphone stopped working. Please try again.</string>
     <string name="voice_mute">Mute</string>
     <string name="voice_unmute">Unmute</string>
     <string name="voice_collapse">Close</string>
