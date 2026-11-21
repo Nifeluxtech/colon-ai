@@ -24,6 +24,7 @@ import java.io.StringWriter
 object CrashGuard {
     private const val TAG = "ColonCrash"
     private const val FILE = "last-crash.txt"
+    private const val STEPS = "wake-steps.txt"
     private const val PREFS = "colon.crash"
     private const val KEY_SEEN = "seen_exit_ms"
     private const val MAX_TRACE = 6000
@@ -59,7 +60,7 @@ object CrashGuard {
         val head = "Colon AI ${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE}), " +
             "Android ${Build.VERSION.RELEASE} (SDK ${Build.VERSION.SDK_INT}), ${Build.MANUFACTURER} ${Build.MODEL}, " +
             Build.SUPPORTED_ABIS.joinToString()
-        return listOfNotNull(head, exit, java).joinToString("\n\n")
+        return listOfNotNull(head, exit, java, steps(c)).joinToString("\n\n")
     }
 
     /** The newest crash or ANR Android recorded since the last one we reported (Android 11+). */
@@ -79,12 +80,43 @@ object CrashGuard {
             ApplicationExitInfo.REASON_ANR -> "Not responding (ANR)"
             else -> "Crash"
         }
-        val trace = if (info.reason == ApplicationExitInfo.REASON_ANR) {
-            try { info.traceInputStream?.use { it.readBytes().decodeToString().take(MAX_TRACE) } }
-            catch (_: Throwable) { null }
-        } else null
+        val bytes = try { info.traceInputStream?.use { it.readBytes() } } catch (_: Throwable) { null }
+        val trace = when {
+            bytes == null -> null
+            info.reason == ApplicationExitInfo.REASON_ANR -> bytes.decodeToString().take(MAX_TRACE)
+            else -> tombstoneText(bytes) // 0.24.2: Android 12+ keeps the native tombstone (protobuf)
+        }
         return listOfNotNull("$kind at ${info.timestamp} (${info.processName}): ${info.description ?: "no detail"}",
             trace).joinToString("\n")
+    }
+
+    /** 0.24.2: the readable parts of a native tombstone (signal, abort message, libraries and functions). */
+    fun tombstoneText(bytes: ByteArray): String {
+        val runs = LinkedHashSet<String>()
+        val cur = StringBuilder()
+        fun flush() { if (cur.length >= 4) runs += cur.toString(); cur.setLength(0) }
+        for (b in bytes) { val ch = b.toInt() and 0xff; if (ch in 32..126) cur.append(ch.toChar()) else flush() }
+        flush()
+        val useful = runs.filter { r -> KEYS.any { r.contains(it) } }
+        return "Native trace:\n" + useful.joinToString("\n").take(MAX_TRACE)
+    }
+
+    private val KEYS = listOf(".so", "SIG", "abort", "Abort", "::", "Java_", "sherpa", "onnx", "Kws", "kws", "colon",
+        "fault", "assert", "Check failed", "terminate", "colon-")
+
+    /** 0.24.2: the last steps of "Hey Colon" before a crash, written before each native call. */
+    fun mark(c: Context, step: String) {
+        try {
+            val f = File(c.filesDir, STEPS)
+            val old = if (f.exists()) f.readLines().takeLast(14) else emptyList()
+            f.writeText((old + "${System.currentTimeMillis()} ${Thread.currentThread().name}: $step")
+                .joinToString("\n"))
+        } catch (_: Throwable) { }
+    }
+
+    private fun steps(c: Context): String? {
+        val f = File(c.filesDir, STEPS)
+        return if (f.exists()) "Hey Colon steps:\n" + f.readText() else null
     }
 
     /** The chat screen opened: show the last crash once, with Copy. */
@@ -95,7 +127,7 @@ object CrashGuard {
         try {
             AlertDialog.Builder(a)
                 .setTitle(R.string.crash_title)
-                .setMessage(intro + "\n\n" + report.take(1500))
+                .setMessage(intro + "\n\n" + report.take(3000))
                 .setPositiveButton(R.string.crash_copy) { _, _ ->
                     val cm = a.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
                     cm.setPrimaryClip(ClipData.newPlainText("Colon AI crash report", report))

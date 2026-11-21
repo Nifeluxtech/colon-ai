@@ -77,7 +77,9 @@ class WakeWordService : Service() {
         if (detector != null || engineLoading) return
         engineLoading = true
         Thread({
+            CrashGuard.mark(applicationContext, "engine loading")
             val e = WakeEngines.create(applicationContext)
+            CrashGuard.mark(applicationContext, if (e == null) "engine failed" else "engine ready")
             main.post {
                 engineLoading = false
                 if (e == null) Log.w(TAG, "no wake word engine") else engineName = e.name
@@ -141,6 +143,7 @@ class WakeWordService : Service() {
         if (rec == null || rec.state != AudioRecord.STATE_INITIALIZED) { rec?.release(); micBusy(); return }
         try { rec.startRecording() } catch (_: Exception) { }
         if (rec.recordingState != AudioRecord.RECORDSTATE_RECORDING) { rec.release(); micBusy(); return }
+        CrashGuard.mark(this, "mic open")
         synchronized(engineLock) { det.reset() }
         record = rec; recording = true
         thread = Thread({ listen(rec, det) }, "colon-wake").also { it.start() }
@@ -150,10 +153,12 @@ class WakeWordService : Service() {
 
     private fun listen(rec: AudioRecord, det: WakeWordDetector) {
         val buf = ShortArray(WakeWordEngine.SAMPLE_RATE / 10) // 100 ms
+        var first = true
         while (recording) {
             val n = try { rec.read(buf, 0, buf.size) } catch (_: Exception) { -1 }
             if (!recording) break
             if (n <= 0) { try { Thread.sleep(50) } catch (_: InterruptedException) { break }; continue }
+            if (first) { CrashGuard.mark(applicationContext, "first audio to engine"); first = false }
             val hit = synchronized(engineLock) { if (recording) det.feed(buf, n) else null }
             if (hit != null) main.post { heard(hit) }
             if (det.failed) { Log.w(TAG, "engine stopped: ${det.error}"); main.post { check() }; break }
@@ -162,6 +167,7 @@ class WakeWordService : Service() {
 
     /** Closes the mic (any thread). Colon's own recognizer calls this before it starts. */
     fun closeMic() {
+        if (recording) CrashGuard.mark(applicationContext, "mic close")
         recording = false
         val rec = record; record = null
         try { rec?.stop() } catch (_: Exception) { }
@@ -173,6 +179,7 @@ class WakeWordService : Service() {
     private fun heard(keyword: String) {
         if (instance !== this) return
         Log.i(TAG, "wake word heard: $keyword")
+        CrashGuard.mark(this, "heard $keyword")
         heardAt = SystemClock.elapsedRealtime()
         check() // closes the mic (HEARD) so the recognizer gets it
         VoiceCues.chime()
@@ -183,6 +190,7 @@ class WakeWordService : Service() {
      *  permission (Android blocks other background activity starts), otherwise a tap-to-talk notification. */
     private fun openListener() {
         // 0.24.1: full voice mode in Colon, never the shortcut's step-back behind the pill.
+        CrashGuard.mark(this, "open voice mode")
         val intent = AssistShortcut.assistIntent(this).apply { removeExtra(MainActivity.EXTRA_VOICE_COMPACT) }
         if (VoiceMode.appVisible || Settings.canDrawOverlays(this)) {
             try { startActivity(intent); return } catch (e: Exception) { Log.w(TAG, "open failed", e) }
@@ -205,6 +213,7 @@ class WakeWordService : Service() {
         main.removeCallbacks(tick)
         closeMic()
         val det = detector; detector = null
+        CrashGuard.mark(this, "engine release")
         synchronized(engineLock) { det?.release() }
         if (instance === this) instance = null
         if (foreground) { ServiceCompat.stopForeground(this, ServiceCompat.STOP_FOREGROUND_REMOVE); foreground = false }
@@ -267,6 +276,7 @@ class WakeWordService : Service() {
         /** Colon is about to use the mic itself: let go of it now; re-checked (and resumed later) on the main thread. */
         fun yieldMic() {
             val s = instance ?: return
+            CrashGuard.mark(s.applicationContext, "yield mic to Colon")
             s.closeMic()
             s.main.post { s.check() }
         }

@@ -38,6 +38,7 @@ object WakeWord {
     /** Colon is on screen: (re)start the service when the setting is on (after a reboot or the system stopped it). */
     fun ensure(c: Context) {
         if (!enabled(c) || !micAllowed(c)) return
+        CrashGuard.mark(c, "app on screen")
         val s = WakeWordService.instance
         if (s == null) WakeWordService.start(c) else s.check()
     }
