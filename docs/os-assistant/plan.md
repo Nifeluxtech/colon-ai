@@ -43,3 +43,8 @@ Status: shipped in 0.22.0 (see `step-4.md`, ADR `docs/decisions/0008-free-only-s
 - Opt-in microphone foreground service + persistent notification + Stop (Android 14+)
 - Test: Infinix, Tecno, Samsung; locked, battery saver, Bluetooth, reboot, offline
 - Firebase Crashlytics; pass blueprint's 15-item release checklist
+
+Status: 0.23.0 (PR "0.23.0: Step 5 — Hey Colon wake word", see `step-5.md`). Wake word, opt-in service,
+notification with Stop, pauses (call, Colon's own mic, other apps, battery saver) and unit tests are in; device
+test matrix and the 15-item release checklist are written but not yet run on phones; Crashlytics is a TODO (it needs
+a committed `google-services.json`, see `step-5.md`).

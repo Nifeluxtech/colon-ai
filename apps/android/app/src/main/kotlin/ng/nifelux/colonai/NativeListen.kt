@@ -53,6 +53,9 @@ object NativeListen {
     private const val SILENCE_COMPLETE_MS = 700L
     private const val SILENCE_POSSIBLY_COMPLETE_MS = 500L
 
+    /** 0.23.0: a session is on (the wake word stays paused until it ends). */
+    val inUse: Boolean get() = id != null
+
     fun available(context: Context): Boolean =
         try { SpeechRecognizer.isRecognitionAvailable(context) } catch (_: Exception) { false }
 
@@ -82,6 +85,7 @@ object NativeListen {
         }
         release()
         host = WeakReference(a); id = sid; lang = language; retried = false
+        WakeWordService.yieldMic() // 0.23.0: "Hey Colon" lets go of the mic while Colon's recognizer runs
         done(true, null, null)
         // The page restarts after every pause: give the speech service a moment to let go of the last session.
         val wait = RESTART_GAP_MS - (SystemClock.uptimeMillis() - releasedAt)

@@ -79,7 +79,10 @@ object SongId {
 
     /** About [seconds] of the mic as 16 kHz mono, or null without the permission or a working mic. */
     @SuppressLint("MissingPermission")
-    fun recordMic(context: Context, seconds: Int = SECONDS): ShortArray? {
+    fun recordMic(context: Context, seconds: Int = SECONDS): ShortArray? = ColonMic.using { record(context, seconds) }
+
+    @SuppressLint("MissingPermission")
+    private fun record(context: Context, seconds: Int): ShortArray? {
         if (ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) !=
             PackageManager.PERMISSION_GRANTED) return null
         val min = AudioRecord.getMinBufferSize(RATE, AudioFormat.CHANNEL_IN_MONO, AudioFormat.ENCODING_PCM_16BIT)

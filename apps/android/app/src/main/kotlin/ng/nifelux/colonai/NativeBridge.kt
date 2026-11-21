@@ -181,6 +181,8 @@ class NativeBridge(private val host: MainActivity, private val webView: WebView)
             // 0.20.1: the phone's own speech recognizer for voice input (NativeListen, native-listen.js).
             "listen" -> NativeListen.handle(host, a, done)
             "speak" -> NativeSpeak.handle(host, a, done)
+            // 0.23.0: the "Hey Colon" switch in Settings › Voice (WakeWord, WakeWordService).
+            "wake_word" -> WakeWord.handle(host, a, done)
             else -> done(false, null, "unknown_command")
         }
     }
@@ -309,6 +311,7 @@ class NativeBridge(private val host: MainActivity, private val webView: WebView)
     /** FEATURES, plus "speak" (0.20.2), and "listen" when the phone has a speech recognition service. */
     private fun features(): List<String> =
         (FEATURES + "speak").let { if (NativeListen.available(host)) it + "listen" else it }
+            .let { if (WakeWord.available) it + "wake_word" else it }
 
     private fun shim(): String = SHIM.replace("%INFO%", JSONObject()
         .put("version", BuildConfig.VERSION_NAME).put("versionCode", BuildConfig.VERSION_CODE)

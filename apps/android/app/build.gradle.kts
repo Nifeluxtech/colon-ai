@@ -35,6 +35,12 @@ val customTabHosts: String = ((findProperty("colon.customTabHosts") as String?) 
 // beyond it are deleted. gradle -Pcolon.chatProfiles=30 (1..100, default 20).
 val chatProfilesMax: Int = ((findProperty("colon.chatProfiles") as String?)?.toIntOrNull() ?: 20).coerceIn(1, 100)
 
+// 0.23.0 (Step 5): "Hey Colon" uses sherpa-onnx keyword spotting. CI downloads the AAR into app/libs and the model
+// into src/colonai/assets/kws (pinned URLs, sha256-checked, .github/workflows/android.yml); neither is committed.
+// Without them (a plain local build) Colon AI builds with no wake word (src/wake-none).
+val kwsAar = file("libs/sherpa-onnx-static-link-onnxruntime-2.0.2.aar")
+val hasKws = kwsAar.exists()
+
 android {
     namespace = "ng.nifelux.colonai"
     compileSdk = 36
@@ -66,6 +72,8 @@ android {
             buildConfigField("String", "APK_NAME", "\"colon-ai\"")
             buildConfigField("String", "PARTNER_PACKAGE", "\"ng.nifelux.colonbrowser\"")
             buildConfigField("boolean", "IS_BROWSER_APP", "false")
+            // The wake word's native library: phones only (the x86 copies would add about 50 MB).
+            if (hasKws) ndk { abiFilters += setOf("arm64-v8a", "armeabi-v7a") }
         }
         create("colonbrowser") {
             dimension = "app"
@@ -75,6 +83,11 @@ android {
             buildConfigField("String", "PARTNER_PACKAGE", "\"ng.nifelux.colonai\"")
             buildConfigField("boolean", "IS_BROWSER_APP", "true")
         }
+    }
+
+    sourceSets {
+        getByName("colonai") { java.srcDir(if (hasKws) "src/wake-sherpa/kotlin" else "src/wake-none/kotlin") }
+        getByName("colonbrowser") { java.srcDir("src/wake-none/kotlin") }
     }
 
     signingConfigs {
@@ -133,6 +146,7 @@ kotlin {
 }
 
 dependencies {
+    if (hasKws) "colonaiImplementation"(files(kwsAar)) // sherpa-onnx 2.0.2 (Apache-2.0), see kwsAar above
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.appcompat)
     implementation(libs.androidx.activity)

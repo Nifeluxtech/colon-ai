@@ -24,6 +24,8 @@ object Notifications {
     const val CHANNEL_SAGA_RUN = "saga_run"
     /** 0.20.0: the ongoing "Colon voice mode" notification while voice mode runs (VoiceService). */
     const val CHANNEL_VOICE = "voice"
+    const val CHANNEL_WAKE = "wake" // 0.23.0: the ongoing "Hey Colon" notification
+    const val CHANNEL_WAKE_HEARD = "wake_heard" // 0.23.0: "Tap to talk" when Colon can't open by itself
     private const val ID_UPDATE = 7001
 
     fun createChannels(context: Context) {
@@ -40,6 +42,10 @@ object Notifications {
                 NotificationManager.IMPORTANCE_LOW),
             NotificationChannel(CHANNEL_VOICE, context.getString(R.string.channel_voice),
                 NotificationManager.IMPORTANCE_LOW),
+            NotificationChannel(CHANNEL_WAKE, context.getString(R.string.channel_wake),
+                NotificationManager.IMPORTANCE_LOW),
+            NotificationChannel(CHANNEL_WAKE_HEARD, context.getString(R.string.channel_wake_heard),
+                NotificationManager.IMPORTANCE_HIGH),
         ))
     }
 

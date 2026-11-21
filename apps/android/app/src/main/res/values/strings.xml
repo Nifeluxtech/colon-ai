@@ -257,6 +257,21 @@
     <string name="assist_long_label">Talk to Colon hands-free</string>
     <!-- 0.20.0 voice mode: the floating pill and Siri-style overlay over other apps (VoiceOverlay, VoiceService). -->
     <string name="channel_voice">Voice mode</string>
+    <!-- 0.23.0 "Hey Colon" (WakeWordService) -->
+    <string name="channel_wake">Hey Colon</string>
+    <string name="channel_wake_heard">Hey Colon heard</string>
+    <string name="wake_title">Hey Colon is on</string>
+    <string name="wake_starting">Starting…</string>
+    <string name="wake_listening">Say “Hey Colon” to talk</string>
+    <string name="wake_paused_permission">Paused: microphone permission needed</string>
+    <string name="wake_paused_engine">Paused: the wake word couldn’t start on this phone</string>
+    <string name="wake_paused_call">Paused during the call</string>
+    <string name="wake_paused_colon">Paused while Colon listens</string>
+    <string name="wake_paused_mic">Paused: another app is using the microphone</string>
+    <string name="wake_paused_battery">Paused: battery saver is on</string>
+    <string name="wake_stop">Stop</string>
+    <string name="wake_heard_title">Hey Colon</string>
+    <string name="wake_heard_text">Tap to talk to Colon</string>
     <string name="voice_title">Colon voice mode</string>
     <string name="voice_listening">Listening…</string>
     <string name="voice_thinking">Thinking…</string>

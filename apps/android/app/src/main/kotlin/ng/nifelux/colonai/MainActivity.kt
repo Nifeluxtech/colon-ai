@@ -131,6 +131,7 @@ class MainActivity : AppCompatActivity() {
         super.onStart()
         foreground = true
         VoiceMode.setAppVisible(true)
+        WakeWord.ensure(this) // 0.23.0: "Hey Colon" back on after a reboot or when Android stopped it
         ColonApplication.of(this).bridge.acquire()
         ColonApplication.of(this).addNetworkListener(onNetwork)
     }

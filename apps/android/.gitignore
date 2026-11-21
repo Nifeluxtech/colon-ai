@@ -11,3 +11,7 @@ local.properties
 *.iml
 captures/
 .kotlin/
+# 0.23.0 wake word: downloaded by CI (android.yml), never committed
+app/libs/*.aar
+app/src/colonai/assets/kws/*.onnx
+app/src/colonai/assets/kws/tokens.txt
