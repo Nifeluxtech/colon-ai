@@ -3,29 +3,42 @@
 //   consent    OFF by default (opt-in). Until the user turns it on in Settings › Memory nothing is saved from chat
 //              and nothing is added to a reply's context. Turning it off stops both at once; saved memories stay
 //              until the user deletes them (they can still view, edit and delete them).
-//   saving     only what the user writes in Settings › Memory or asks for in chat ("remember that …"). Colon never
-//              saves anything on its own (no model-suggested memories).
+//   saving     what the user writes in Settings › Memory or asks for in chat ("remember that …"), and (0.24.0) the
+//              personal facts they share in a chat: name, nickname, what to call them, where they live, school, job,
+//              likes, dislikes, "always …" / "never …" (facts.js, deterministic patterns; source 'auto'). Never
+//              questions or secrets. A newer fact of the same kind replaces the older note (kind, migration 0018).
+//              Memory off: nothing is saved; the chat may offer once to turn it on (offerFor).
 //   scopes     user (every chat) · project (chats in that project) · task (one chat).
-//   retrieval  retrieve.js: keyword overlap + recency, within MEMORY_TOKEN_BUDGET tokens. No vector database.
+//   retrieval  retrieve.js: identity notes (name, nickname, what to call them) always, then keyword overlap +
+//              recency, within MEMORY_TOKEN_BUDGET tokens. No vector database.
 //   ownership  every store statement is scoped to the user (store.js); another user's id answers 404.
 const config = require('../../config');
 const { sqlStore, memoryStore } = require('./store');
 const retrieve = require('./retrieve');
+const facts = require('./facts');
 const log = require('../../shared/logger');
 
 const SCOPES = ['user', 'project', 'task'];
 const MAX_CONTENT = 1000;
-const NOTICE = 'When memory is on, Colon keeps the notes you save here (or ask it to remember in a chat) and uses '
-  + 'the relevant ones in its replies. Nothing is saved without you asking. You can edit or delete any note, or '
-  + 'turn memory off, at any time.';
+const NOTICE = 'When memory is on, Colon keeps the notes you save here or ask it to remember in a chat, and the '
+  + 'personal things you tell it (your name, what to call you, where you live, your likes and dislikes, “always” '
+  + 'and “never” requests), and uses the relevant ones in its replies. It never saves passwords, PINs or card numbers. '
+  + 'Nothing is saved while memory is off. You can edit or delete any note, or turn memory off, at any time.';
+const SOURCES = ['settings', 'chat', 'auto'];
 
 const err = (status, code, message, field) => Object.assign(new Error(message), { status, code, field });
 const notFound = () => err(404, 'not_found', 'This memory no longer exists.');
 
-function memOut(m) {
-  return { id: String(m.id), scope: m.scope, content: m.content, source: m.source, project_id: m.project_id || null,
-    conversation_id: m.conversation_id || null, created_at: m.created_at, updated_at: m.updated_at };
+// replaced: the note's earlier text when a newer fact of the same kind replaced it (the chat's Undo puts it back).
+function memOut(m, replaced) {
+  const out = { id: String(m.id), scope: m.scope, content: m.content, source: m.source, kind: m.kind || null,
+    project_id: m.project_id || null, conversation_id: m.conversation_id || null, created_at: m.created_at,
+    updated_at: m.updated_at };
+  if (replaced != null) out.replaced = replaced;
+  return out;
 }
+const sameText = (a, b) => String(a).toLowerCase().replace(/[.!\s]+$/, '') === String(b).toLowerCase()
+  .replace(/[.!\s]+$/, '');
 
 function cleanContent(v) {
   const s = String(v == null ? '' : v).replace(/\s+/g, ' ').trim();
@@ -81,7 +94,7 @@ function create({ store = sqlStore(), cfg = config.memory } = {}) {
     return { scope, project_id: conv.project_id, conversation_id: String(b.conversation_id) };
   }
 
-  async function add(u, b = {}, { source = 'settings' } = {}) {
+  async function add(u, b = {}, { source = 'settings', kind } = {}) {
     const id = user(u);
     if (!(await enabled(id))) throw err(409, 'memory_off', 'Turn memory on in Settings › Memory first.');
     const content = cleanContent(b.content);
@@ -90,14 +103,33 @@ function create({ store = sqlStore(), cfg = config.memory } = {}) {
       throw err(409, 'memory_full', `You have ${cfg.maxItems} memories, the most Colon keeps. Delete some first.`);
     }
     const newId = await store.insert({ user_id: id, ...where, content,
-      source: source === 'chat' ? 'chat' : 'settings' });
+      source: SOURCES.includes(source) ? source : 'settings',
+      kind: kind === undefined ? facts.kindOf(content) : kind });
     return memOut(await store.get(id, newId));
+  }
+
+  // A fact from a chat (0.24.0). Same text already saved in the same place: nothing new (null). A note of the same
+  // kind there: replaced in place (the newest one; any older duplicates go). Otherwise a new note.
+  async function saveFact(u, b, { source, kind }) {
+    const id = user(u);
+    const content = cleanContent(b.content);
+    const where = await placement(id, b);
+    const here = (await store.list(id)).filter((m) => m.scope === where.scope
+      && (m.project_id || null) === where.project_id && (m.conversation_id || null) === where.conversation_id);
+    if (here.some((m) => sameText(m.content, content))) return null;
+    const same = kind ? here.filter((m) => (m.kind || facts.kindOf(m.content)) === kind) : [];
+    if (!same.length) return add(u, b, { source, kind: kind || null });
+    const [keep, ...older] = same;
+    const before = keep.content;
+    for (const m of older) await store.remove(id, String(m.id));
+    await store.update(id, String(keep.id), { content, kind });
+    return memOut(await store.get(id, String(keep.id)), before);
   }
 
   async function edit(u, memId, b = {}) {
     const id = user(u);
     const content = cleanContent(b.content);
-    if (!(await store.update(id, String(memId), { content }))) throw notFound();
+    if (!(await store.update(id, String(memId), { content, kind: facts.kindOf(content) }))) throw notFound();
     return memOut(await store.get(id, String(memId)));
   }
 
@@ -118,30 +150,58 @@ function create({ store = sqlStore(), cfg = config.memory } = {}) {
     }
   }
 
-  // Chat: saves "remember that …" when memory is on. -> the saved memory, or null (not a command / memory off).
-  async function fromChat({ user: u, text, projectId = null, conversationId = null }) {
+  // Chat: what to save from one message, when memory is on. "remember that …" keeps its note (this project's
+  // memory inside a project); otherwise the personal facts in it (facts.js), always for every chat (scope user).
+  // -> [saved memory] (empty: nothing to save, already saved, memory off, or any error: never fatal).
+  async function fromChatAll({ user: u, text, projectId = null, conversationId = null }) {
+    if (!u || !u.id) return [];
     const note = rememberCommand(text);
-    if (!note || !u || !u.id) return null;
+    const found = note ? [] : facts.extract(text);
+    if (!note && !found.length) return [];
     try {
-      if (!(await enabled(u.id))) return null;
-      return await add(u, { content: note, scope: projectId ? 'project' : 'user', project_id: projectId,
-        conversation_id: conversationId }, { source: 'chat' });
+      if (!(await enabled(u.id))) return [];
+      if (note) {
+        const m = await saveFact(u, { content: note, scope: projectId ? 'project' : 'user', project_id: projectId,
+          conversation_id: conversationId }, { source: 'chat', kind: facts.kindOf(note) });
+        return m ? [m] : [];
+      }
+      const out = [];
+      for (const f of found) {
+        const m = await saveFact(u, { content: f.content, scope: 'user' }, { source: 'auto', kind: f.kind });
+        if (m) out.push(m);
+      }
+      return out;
     } catch (e) {
       log.warn('memory_save_failed', { code: e.code, err: String(e.message || '').slice(0, 160) });
-      return null;
+      return [];
     }
   }
+  const fromChat = async (o) => (await fromChatAll(o))[0] || null;
 
-  return { status, setConsent, list, add, edit, remove, clear, contextFor, fromChat, enabled, store };
+  // Memory never chosen (no consent row) and the message shares something worth remembering: the chat offers once
+  // to turn memory on. A user who turned it off (or said "Not now", which records off) is never asked again.
+  // -> the notes the chat saves if they say yes (POST /memories after turning memory on), or [] (no offer).
+  async function offerFor({ user: u, text }) {
+    if (!u || !u.id) return [];
+    const note = rememberCommand(text);
+    const notes = note ? [note] : facts.extract(text).map((f) => f.content);
+    if (!notes.length) return [];
+    try { return (await store.consent(u.id)) ? [] : notes; } catch { return []; }
+  }
+
+  return { status, setConsent, list, add, edit, remove, clear, contextFor, fromChat, fromChatAll, offerFor, enabled,
+    store };
 }
 
 let shared = null;
 const instance = () => (shared || (shared = create()));
 
 module.exports = {
-  create, instance, memoryStore, retrieve, rememberCommand, SCOPES, NOTICE, MAX_CONTENT,
+  create, instance, memoryStore, retrieve, facts, rememberCommand, SCOPES, NOTICE, MAX_CONTENT,
   count: (userId) => instance().store.count(userId),
   contextFor: (o) => instance().contextFor(o),
   fromChat: (o) => instance().fromChat(o),
+  fromChatAll: (o) => instance().fromChatAll(o),
+  offerFor: (o) => instance().offerFor(o),
   handlers: require('./handlers'),
 };
