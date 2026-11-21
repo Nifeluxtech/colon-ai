@@ -1,0 +1,19 @@
+/* Colon AI · Colon Music's YouTube player (0.21.0, apps/chat/src/components/music-dock.js). A card at the top of the
+   composer: YouTube's embedded player (16:9, never under 200 px tall, as YouTube's rules ask), then the title, the
+   channel, Next, Open in YouTube and Close. */
+.cm-dock{display:flex;flex-direction:column;gap:8px;width:100%;max-width:400px;margin:0 auto 2px;padding:8px;
+  border-radius:18px;background:var(--surface,#fff);border:1px solid var(--line,rgba(0,0,0,.08));
+  box-shadow:var(--sh-md,0 8px 24px rgba(0,0,0,.14));animation:cm-in .24s var(--ease,ease) both}
+.cm-dock[hidden]{display:none}
+.cm-video{position:relative;width:100%;aspect-ratio:16/9;min-height:200px;border-radius:12px;overflow:hidden;
+  background:#000}
+.cm-video iframe,.cm-frame{position:absolute;inset:0;width:100%;height:100%;border:0}
+.cm-row{display:flex;align-items:center;gap:8px;padding:0 2px 0 6px}
+.cm-meta{flex:1;min-width:0}
+.cm-title,.cm-artist{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cm-title{font-weight:600;font-size:var(--fs-sm,14px);line-height:1.3;color:var(--text,#0F172A)}
+.cm-artist{font-size:var(--fs-xs,12px);color:var(--muted,#64748B)}
+.cm-acts{display:flex;align-items:center;gap:2px;flex:none}
+.cm-next[hidden]{display:none}
+@keyframes cm-in{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+@media (prefers-reduced-motion:reduce){.cm-dock{animation:none}}

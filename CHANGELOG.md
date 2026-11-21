@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.21.0 — 2026-11-21 · Colon Music on YouTube
+
+- **"Play <song>" plays it inside Colon.** Songs on the phone still come first (Android); otherwise Colon finds the
+  song on YouTube (`GET /music/search`, YouTube Data API v3, embeddable music videos, region NG, answers cached 6 h)
+  and plays it in a player card at the top of the composer (`components/music-dock.js`, YouTube's official IFrame
+  player, `chat-music.css`). The card shows the title and channel, Next (the next search result), Open in YouTube
+  and Close; a video whose owner blocks embedding is skipped. Works on the web too.
+- "pause", "resume", "next", "stop the music" control the player while it is open.
+- YouTube's rules: the player pauses when Colon goes to the background or the screen locks. Phone songs keep
+  playing in the background as before.
+- **Jamendo removed.** New env `YOUTUBE_API_KEY` replaces `JAMENDO_CLIENT_ID`; without it "play X" opens the YouTube
+  app (or a YouTube tab on the web).
+
 ## 0.20.3 — 2026-11-21
 
 - **Voice mode reads replies again on Android 11+.** The app didn't declare the text-to-speech engine or the speech
