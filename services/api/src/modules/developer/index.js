@@ -2,12 +2,14 @@
 //   snapshot  a .zip project read safely at upload time and stored as JSON (chat_attachments.text)
 //   project   the budgeted context block built for every Developer reply from all code files in the conversation
 //   rules     ignore rules, skip reasons and language detection
+//   gitignore the project's own .gitignore / .colonignore rules (v0.24.0)
+//   relevance stack-trace files, message keywords and line windows for large projects (v0.24.0)
 const snapshot = require('./snapshot');
 const project = require('./project');
 const rules = require('./rules');
 
 module.exports = {
-  fromZip: snapshot.fromZip, parseSnapshot: snapshot.parse,
+  fromZip: snapshot.fromZip, fromEntries: snapshot.fromEntries, parseSnapshot: snapshot.parse,
   contextFor: project.contextFor, render: project.render, isProjectFile: project.isProjectFile,
-  snapshot, project, rules,
+  snapshot, project, rules, gitignore: require('./gitignore'), relevance: require('./relevance'),
 };

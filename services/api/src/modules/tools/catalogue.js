@@ -36,6 +36,23 @@ function registerAll(reg) {
     schema: { type: 'object', required: ['name'], properties: { name: str('File name', 255) } },
     note: 'The file bytes come with the call (ctx.data); its real type was checked first (extract.validate).',
     run: (a, ctx) => ctx.read(ctx.data, ctx.sniff, a.name) });
+  // ---- A project's connected repository (v0.24.0, modules/repos): read from its stored snapshot ----
+  reg.register({ name: 'read_repo_file', risk: 'low', timeoutMs: 10000, model: true,
+    description: 'Open one file of this project\'s connected code repository (numbered lines, about 20,000 '
+      + 'characters at a time; start_line reads further down a long file).',
+    schema: { type: 'object', required: ['path'], properties: { path: str('The file\'s path in the repository, '
+      + 'as the file tree shows it', 400), start_line: { type: 'integer', minimum: 1, maximum: 1000000,
+      description: 'First line to read (default 1)' } } },
+    note: 'Developer mode in a project with a repository. Reads the stored, ignore-filtered copy (no network); '
+      + '.env and key files, binaries and lockfiles are never returned. The user\'s own project only.',
+    run: (a, ctx) => require('../repos').readFile(a, ctx) });
+  reg.register({ name: 'search_repo', risk: 'low', timeoutMs: 10000, model: true,
+    description: 'Search this project\'s connected code repository for text (a function, class, import, error '
+      + 'message or file name); returns matching file paths and lines.',
+    schema: { type: 'object', required: ['query'], properties: { query: str('Text to find (case-insensitive, '
+      + 'not a regular expression)', 200, { minLength: 2 }) } },
+    note: 'Developer mode in a project with a repository. At most 40 matching lines; the stored copy only.',
+    run: (a, ctx) => require('../repos').search(a, ctx) });
   // ---- The chat's browser (Saga): executors in modules/chat/browser-tools.js ----
   reg.register({ name: 'browse', risk: 'high', timeoutMs: 15000, model: true,
     description: 'Do something on the web in this chat\'s own browser (Saga drives it: opens pages, clicks, types, '

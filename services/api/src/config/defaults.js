@@ -57,6 +57,15 @@ const SCHEMA = [
   num('MEMORY_TOKEN_BUDGET', 500, 'most tokens of saved memories added to one reply (keyword overlap + recency); '
     + '0 = none'),
   num('MEMORY_MAX_ITEMS', 200, 'most memories one user can keep'),
+  // Project repositories (v0.24.0): modules/repos (GitHub, GitLab, Bitbucket, any https Git URL), synced into a
+  // project's stored snapshot for Developer mode and the read_repo_file / search_repo tools
+  oneOf('REPO_IMPORT', ['on', 'off'], 'on', '"off" switches connecting and syncing repositories off (501)'),
+  num('REPO_ARCHIVE_MAX_MB', 50, 'largest repository download (zip archive) a sync accepts'),
+  num('REPO_MAX_FILES', 3000, 'most files listed in one repository snapshot (the rest are counted)'),
+  num('REPO_MAX_TEXT_MB', 4, 'most file text kept per repository snapshot, in MB of characters (max 12)'),
+  num('REPO_FILE_MAX_KB', 200, 'most text kept per file, in KB of characters (the rest is marked truncated)'),
+  num('REPO_TIMEOUT_MS', 60000, 'give up on one provider call, download or git clone after this long'),
+  str('REPO_GIT_BIN', 'git', 'git command for "Any Git URL" (needs git 2.37 or newer; missing = Git URLs off)'),
   // Jobs and cron (v0.16.0, Blueprint C11-C13): modules/jobs, services/api/scripts/cron.js from cPanel cron
   num('JOBS_CRON_INTERVAL_MIN', 5, 'minutes between cPanel cron runs of scripts/cron.js (Admin › Jobs warns when '
     + 'the last run is older than 3 × this); also the period of the recurring system jobs'),

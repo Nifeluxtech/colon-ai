@@ -2,8 +2,10 @@
 // so every later message in the conversation can rebuild the project context without unpacking the zip again.
 // Safety: the shared safe ZIP reader refuses path traversal, absolute paths and zip bombs; ignored folders are
 // only counted; binaries, lockfiles and secret files (.env, keys) are listed without their contents.
+// v0.24.0: fromEntries() builds the same snapshot from any file list (a connected repository, modules/repos).
 const extract = require('../extract');
 const rules = require('./rules');
+const gitignore = require('./gitignore');
 
 const MAX_LISTED = 3000;          // files listed in the snapshot (the rest are counted)
 const FILE_MAX = 200000;          // characters kept per file
@@ -29,35 +31,54 @@ function commonRoot(names) {
 }
 
 /**
- * fromZip(buf, name) -> { text: JSON snapshot, meta }
+ * fromZip(buf, name, opts) -> { text: JSON snapshot, meta }
  *   snapshot: { v: 1, kind: 'project', name, files: [{ p, n, t?, s?, cut? }], ignored: { count, dirs }, more }
  *     p path, n size in bytes, t text, s skip reason (rules.REASON_TEXT), cut: text shortened to FILE_MAX
+ *   opts: see fromEntries
  */
-function fromZip(buf, name = 'project.zip') {
+function fromZip(buf, name = 'project.zip', opts = {}) {
   const list = extract.zip.entries(buf, { strict: true });
   extract.zip.assertSane(list);
-  const fileEntries = list.filter((e) => !e.dir);
-  const root = commonRoot(fileEntries.map((e) => e.name));
+  const entries = list.filter((e) => !e.dir).map((e) => ({ name: e.name, size: e.size,
+    read: (max) => extract.zip.read(buf, e, max) }));
+  return fromEntries(entries, name, opts);
+}
+
+/**
+ * fromEntries(entries, name, { maxFiles, maxChars, fileMax, extra }) -> { text, meta }
+ *   entries: [{ name (relative path), size, read(maxBytes) -> Buffer | null }] from a .zip or a fetched repository.
+ *   The single top folder GitHub-style downloads add is stripped; the root .gitignore and .colonignore apply on top
+ *   of the fixed ignore rules (v0.24.0). maxFiles / maxChars / fileMax: caps (repositories pass their config).
+ *   extra: fields added to the snapshot (a repository's provider, branch and commit).
+ */
+function fromEntries(entries, name = 'project', o = {}) {
+  const maxFiles = o.maxFiles || MAX_LISTED, maxChars = o.maxChars || SNAPSHOT_MAX, fileMax = o.fileMax || FILE_MAX;
+  const root = commonRoot(entries.map((e) => e.name));
+  const ignoreText = (file) => { const e = entries.find((x) => x.name === root + file);
+    return e ? asText(e.read(65536)) || '' : ''; };
+  const ignore = gitignore.compile(ignoreText('.gitignore'), ignoreText('.colonignore'));
   const files = [];
   const ignored = { count: 0, dirs: {} };
   let kept = 0, more = 0;
-  for (const e of fileEntries) {
+  for (const e of entries) {
     const p = e.name.slice(root.length);
-    if (rules.ignoredDir(p)) {
+    const fixed = rules.ignoredDir(p);
+    if (fixed || (ignore && ignore(p))) {
       ignored.count++;
-      const d = p.split('/').find((x) => rules.IGNORE_DIRS.has(x));
+      const d = fixed ? p.split('/').find((x) => rules.IGNORE_DIRS.has(x)) : (p.includes('/') ? p.split('/')[0]
+        : '.gitignore');
       ignored.dirs[d] = (ignored.dirs[d] || 0) + 1;
       continue;
     }
-    if (files.length >= MAX_LISTED) { more++; continue; }
+    if (files.length >= maxFiles) { more++; continue; }
     const f = { p, n: e.size };
     let reason = rules.skipReason(p, e.size);
     if (!reason) {
-      const text = asText(extract.zip.read(buf, e, READ_MAX));
+      const text = asText(e.read(READ_MAX));
       if (text == null) reason = 'not_text';
-      else if (kept >= SNAPSHOT_MAX) reason = 'snapshot';
+      else if (kept >= maxChars) reason = 'snapshot';
       else {
-        const room = Math.min(FILE_MAX, SNAPSHOT_MAX - kept);
+        const room = Math.min(fileMax, maxChars - kept);
         f.t = text.length > room ? text.slice(0, room) : text;
         if (text.length > room) f.cut = true;
         kept += f.t.length;
@@ -67,7 +88,7 @@ function fromZip(buf, name = 'project.zip') {
     files.push(f);
   }
   files.sort((a, b) => a.p.localeCompare(b.p));
-  const snap = { v: 1, kind: 'project', name: String(name).slice(0, 180), files, ignored, more };
+  const snap = { v: 1, kind: 'project', name: String(name).slice(0, 180), files, ignored, more, ...(o.extra || {}) };
   return { text: JSON.stringify(snap), meta: summary(snap) };
 }
 
@@ -90,4 +111,4 @@ function parse(text) {
   } catch { return null; }
 }
 
-module.exports = { fromZip, parse, summary, asText, commonRoot, MAX_LISTED, FILE_MAX, SNAPSHOT_MAX };
+module.exports = { fromZip, fromEntries, parse, summary, asText, commonRoot, MAX_LISTED, FILE_MAX, SNAPSHOT_MAX };

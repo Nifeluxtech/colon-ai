@@ -19,7 +19,7 @@ const postProjects = async (req) => {
 // GET /projects/:id -> { project, chats[], files[] }
 const getProjectsById = async (req) => [200, await engine().get(req.user, req.params.id)];
 
-// PATCH /projects/:id { name?, instructions? } -> { project }
+// PATCH /projects/:id { name?, instructions?, archived? } -> { project }
 const patchProjectsById = async (req) => [200, { project: await engine().edit(req.user, req.params.id,
   req.body || {}) }];
 
