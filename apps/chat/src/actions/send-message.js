@@ -13,6 +13,7 @@ import { Colon } from '../../../../packages/ui/js/colon.js';
 import { ColonMarkdown } from '../../../../packages/ui/js/markdown/index.js';
 import { autoGrow, scrollBottom, syncComposer } from '../components/composer.js';
 import { announce, paintMessage, renderThread } from '../components/message.js';
+import { memoryEvent } from '../components/memory-chip.js';
 import { updateHeader } from '../components/model-picker.js';
 import { refreshConvs } from '../components/sidebar.js';
 import { $, S, data, defaultModel, isMobile, mode, modelId, rafThrottle } from '../core/state.js';
@@ -124,7 +125,8 @@ function run(call, tempUser, replaceId) {
       // v0.17.1: attachment_ids = the images to edit (the user's attached image, or the last one in the chat).
       else if (ev.type === 'image') image = { prompt: ev.prompt, message_id: ev.message_id || (tempUser && tempUser.id),
         attachment_ids: ev.attachment_ids };
-      else if (ev.type === 'memory') C.toast('Saved to memory. Manage it in Settings › Memory.', 'ok');   // v0.15.0
+      // v0.15.0 memory saved; 0.24.0: a chip under the message with Undo, or a one-time offer to turn memory on.
+      else if (ev.type === 'memory' || ev.type === 'memory_offer') { if (memoryEvent(ev, tempUser)) renderThread(); }
       // 0.11.3: the server sent a browser follow-up to Saga (this chat's last browser task goes on).
       else if (ev.type === 'browse') browseFromServer(ev.goal, (tempUser && tempUser.id) || ev.message_id);
     }

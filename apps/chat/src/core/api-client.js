@@ -1,6 +1,6 @@
 /* Colon AI · account adapter: conversations, messages, uploads and settings through the Colon API. */
 
-import { DEFAULT_SETTINGS, LIMITS, classify } from './common.js';
+import { DEFAULT_SETTINGS, LIMITS, classify, clientInfo } from './common.js';
 import { GuestChatData } from './guest-client.js';
 import { offline, readSSE } from './sse.js';
 import { Colon } from '../../../../packages/ui/js/colon.js';
@@ -13,6 +13,7 @@ function RemoteChatData() {
   var temp = GuestChatData({ signedIn: true });  // temporary chats when "Save chat history" is off
   function sse(path, body, o, cid) {
     var emit = o.onEvent || function () {}, startedId = null;
+    body.client = clientInfo();   // 0.24.0: app and version, for answers about the app itself
     if (o.signal) o.signal.addEventListener('abort', function () {
       // Closing the stream stops the reply; this also reaches a different server worker if needed.
       if (startedId) api('/conversations/' + encodeURIComponent(cid) + '/messages/' + encodeURIComponent(startedId)

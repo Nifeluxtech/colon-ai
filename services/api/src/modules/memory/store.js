@@ -1,9 +1,11 @@
 // Memory persistence (v0.15.0, Blueprint B9). Every statement is scoped to the owner (WHERE user_id = ?), so one
 // user can never read, change or delete another user's memories, projects or chats through this module.
 // sqlStore() talks to MySQL; memoryStore() is the same interface in memory, for tests.
+// 0.24.0: kind (migration 0018) marks a note that holds one personal fact ('name', 'nickname', 'call_me', 'home',
+// 'pref:<thing>', …), so a newer note of the same kind replaces it; source 'auto' = saved from a chat on its own.
 const db = require('../../db');
 
-const COLS = 'id, user_id, project_id, conversation_id, scope, content, source, created_at, updated_at';
+const COLS = 'id, user_id, project_id, conversation_id, scope, content, source, kind, created_at, updated_at';
 
 function sqlStore(q = db) {
   return {
@@ -15,13 +17,15 @@ function sqlStore(q = db) {
     get: (userId, id) => q.one(`SELECT ${COLS} FROM colon_memories WHERE id = ? AND user_id = ?`, [id, userId]),
     async insert(m) {
       const r = await q.query(`INSERT INTO colon_memories (user_id, project_id, conversation_id, scope, content, source,
-        created_at, updated_at) VALUES (?,?,?,?,?,?, UTC_TIMESTAMP(3), UTC_TIMESTAMP(3))`,
-      [m.user_id, m.project_id || null, m.conversation_id || null, m.scope, m.content, m.source]);
+        kind, created_at, updated_at) VALUES (?,?,?,?,?,?,?, UTC_TIMESTAMP(3), UTC_TIMESTAMP(3))`,
+      [m.user_id, m.project_id || null, m.conversation_id || null, m.scope, m.content, m.source, m.kind || null]);
       return r.insertId;
     },
-    async update(userId, id, { content }) {
-      const r = await q.query('UPDATE colon_memories SET content = ?, updated_at = UTC_TIMESTAMP(3) '
-        + 'WHERE id = ? AND user_id = ?', [content, id, userId]);
+    // kind: undefined keeps the note's kind; null clears it (an edited note is re-read by index.js).
+    async update(userId, id, { content, kind }) {
+      const setKind = kind === undefined ? '' : ', kind = ?';
+      const r = await q.query(`UPDATE colon_memories SET content = ?${setKind}, updated_at = UTC_TIMESTAMP(3) `
+        + 'WHERE id = ? AND user_id = ?', kind === undefined ? [content, id, userId] : [content, kind, id, userId]);
       return r.affectedRows > 0;
     },
     async remove(userId, id) {
@@ -75,14 +79,15 @@ function memoryStore(seed = {}) {
     async get(userId, id) { return mine(userId).find((m) => String(m.id) === String(id)) || null; },
     async insert(m) {
       const now = s.clock();
-      const row = { project_id: null, conversation_id: null, ...m, id: ++s.seq, created_at: now, updated_at: now };
+      const row = { project_id: null, conversation_id: null, kind: null, ...m, id: ++s.seq, created_at: now,
+        updated_at: now };
       s.memories.push(row);
       return row.id;
     },
-    async update(userId, id, { content }) {
+    async update(userId, id, { content, kind }) {
       const m = mine(userId).find((x) => String(x.id) === String(id));
       if (!m) return false;
-      Object.assign(m, { content, updated_at: s.clock() });
+      Object.assign(m, { content, updated_at: s.clock() }, kind === undefined ? {} : { kind });
       return true;
     },
     async remove(userId, id) {

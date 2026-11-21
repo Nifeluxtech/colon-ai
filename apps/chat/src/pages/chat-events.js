@@ -13,7 +13,8 @@ import { applySplitWidth, nativeInlineAction, openBrowser, renderEmbed, setLayou
 import { autoGrow, devTemplate, modeMenu, onThreadScroll, scrollBottom, setMode, syncComposer,
   trackComposerHeight } from '../components/composer.js';
 import { openCodeEditor } from '../components/code-edit.js';
-import { msgAction } from '../components/message.js';
+import { memoryChipAction } from '../components/memory-chip.js';
+import { msgAction, renderThread } from '../components/message.js';
 import { modelMenu, updateHeader } from '../components/model-picker.js';
 import { applySidebar, closeDrawer, moreMenu, openDrawer, profileMenu, refreshConvs, toggleSidebar,
   toggleTheme } from '../components/sidebar.js';
@@ -111,6 +112,7 @@ function bind() {
     if (link && (link.closest('.cite') || link.hasAttribute('data-web'))) return;
     if (link && S.settings && S.settings.linksInPanel && !e.ctrlKey && !e.metaKey) { e.preventDefault();
       openBrowser(link.getAttribute('href')); return; }
+    var mc = t.closest('[data-memchip]'); if (mc) { memoryChipAction(mc, renderThread); return; }   // 0.24.0
     var mb = t.closest('[data-msg]'); if (mb) { msgAction(mb); return; }
     if (t.closest('.cw-conv a') && isMobile()) closeDrawer();
     var a = t.closest('[data-a]'); if (!a) return;

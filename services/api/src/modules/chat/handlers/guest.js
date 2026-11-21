@@ -9,6 +9,7 @@ const files = require('../files');
 const { forMode } = require('../context');
 const { respond } = require('../reply');
 const safety = require('../../safety');
+const appguide = require('../../appguide');
 const { MAX_CONTENT, wantsWeb, previousUserText, fileNames } = require('./chat-common');
 
 /* ---------- Guest (and temporary) chat: streams a reply, saves nothing ---------- */
@@ -65,6 +66,8 @@ const postChatGuest = async (req, res) => {
     req, res, mode, model, language: replyLanguage(chosen, last.content), name: req.user ? req.user.name : '',
     route: 'chat.guest', guard, userText: last.content, project: built.project, attachments: fileNames(last.files),
     history: built.messages, counters: await limits.resolveCounters(req, mode),
+    // 0.24.0: "how do I … in Colon?" gets the matching sections of the app guide (modules/appguide).
+    extraContext: appguide.contextFor({ text: last.content, client: req.body.client }),
     webSearch: wantsWeb(mode), searchText: last.content, searchPrevious: previousUserText(history),
     store: {
       async start() {
