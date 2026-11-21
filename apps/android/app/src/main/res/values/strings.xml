@@ -34,9 +34,22 @@
     <string name="update_failed">The update didn\'t download. Try again later.</string>
     <string name="update_invalid">That file isn\'t a valid Colon AI update, so it was deleted.</string>
     <string name="update_other_key">This update is signed with a different key. Uninstall Colon AI, then install the new APK from the release page.</string>
-    <string name="update_allow_installs">Allow Colon AI to install updates, then tap the update notification.</string>
-    <string name="update_ready_title">Colon AI %1$s downloaded</string>
-    <string name="update_ready_text">Tap to install the update.</string>
+    <string name="update_allow_installs">Allow Colon AI to install updates, then come back to finish.</string>
+    <string name="update_ready_title">Colon AI %1$s is ready</string>
+    <string name="update_ready_text">Tap to install</string>
+    <!-- 0.24.0: the update download's progress sheet (UpdateSheet). -->
+    <string name="update_progress_title">Downloading Colon AI %1$s</string>
+    <string name="update_progress_waiting">Waiting to start…</string>
+    <string name="update_progress_paused">Paused, waiting for a connection…</string>
+    <string name="update_progress_percent">%1$d%%</string>
+    <string name="update_progress_bytes">%1$s MB of %2$s MB</string>
+    <string name="update_verifying">Checking the update…</string>
+    <string name="update_ready_sheet">Downloaded and checked. Ready to install.</string>
+    <string name="update_cancel">Cancel</string>
+    <string name="update_hide">Hide</string>
+    <string name="update_install">Install</string>
+    <string name="update_close">Close</string>
+    <string name="update_cancelled">Update download cancelled.</string>
 
     <!-- Browser -->
     <string name="address_hint">Search or type a web address</string>

@@ -87,7 +87,9 @@ object Notifications {
         try { NotificationManagerCompat.from(context).cancel(ID_SAGA) } catch (_: Exception) { }
     }
 
-    /** "Update downloaded: tap to install". Silently skipped when notifications are off. */
+    /** "Colon AI X is ready · Tap to install" (0.24.0: stays until the update is installed or dropped; a tap opens the
+     *  system installer, or the app when "Install unknown apps" is still off). Silently skipped when notifications
+     *  are off: the app shows Install itself the next time it opens. */
     fun updateReady(context: Context, versionName: String, install: Intent) {
         if (!canPost(context)) return
         val pi = PendingIntent.getActivity(context, 1, install,
@@ -97,13 +99,20 @@ object Notifications {
             .setColor(ContextCompat.getColor(context, R.color.colon_primary))
             .setContentTitle(context.getString(R.string.update_ready_title, versionName))
             .setContentText(context.getString(R.string.update_ready_text))
+            .setCategory(NotificationCompat.CATEGORY_STATUS)
             .setContentIntent(pi)
-            .setAutoCancel(true)
+            .setAutoCancel(false)
+            .setOnlyAlertOnce(true)
             .build()
         try {
             NotificationManagerCompat.from(context).notify(ID_UPDATE, n)
         } catch (_: SecurityException) {
             // Permission revoked between the check and the post.
         }
+    }
+
+    /** 0.24.0: the update was installed, cancelled or failed: its "ready" notification goes. */
+    fun cancelUpdate(context: Context) {
+        try { NotificationManagerCompat.from(context).cancel(ID_UPDATE) } catch (_: Exception) { }
     }
 }
