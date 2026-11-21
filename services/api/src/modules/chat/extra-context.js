@@ -3,8 +3,11 @@
 //      context.js fileBlock, within PROJECT_FILE_CHARS);
 //   2. the user's memories, only when they turned memory on (modules/memory: keyword overlap + recency within
 //      MEMORY_TOKEN_BUDGET). Memory off = nothing from memory is added.
+//   3. (0.24.0) a question about Colon's own app ("how do I turn on Hey Colon?"): the matching sections of
+//      docs/app-guide.md (modules/appguide), with the client's platform and version. Guests get it too.
 // Never fatal: a failure here leaves the reply without the extra context.
 const memory = require('../memory');
+const appguide = require('../appguide');
 const projects = require('../projects');
 const safety = require('../safety');
 const { fileBlock } = require('./context');
@@ -36,21 +39,24 @@ function projectBlock(p, guard) {
 function safeJson(s) { try { return JSON.parse(s); } catch { return {}; } }
 
 /**
- * build({ user, conv, text, guard, deps? }) -> { block, memoryIds }
- * deps (tests): { memory: { contextFor }, projects: { contextFor } }
+ * build({ user, conv, text, guard, client?, deps? }) -> { block, memoryIds }
+ * client: { platform, version, web_version } from the chat app (appguide.client cleans it).
+ * deps (tests): { memory: { contextFor }, projects: { contextFor }, appguide: { contextFor } }
  */
-async function build({ user, conv, text = '', guard = safety.collector(), deps = {} }) {
+async function build({ user, conv, text = '', guard = safety.collector(), client = null, deps = {} }) {
   const mem = deps.memory || memory;
   const proj = deps.projects || projects;
+  const guide = (deps.appguide || appguide).contextFor({ text, client });
   const parts = [];
   let memoryIds = [];
-  if (!user || !user.id || !conv) return { block: '', memoryIds };
+  if (!user || !user.id || !conv) return { block: guide, memoryIds };
   try {
     const p = conv.project_id ? await proj.contextFor(user.id, conv.project_id) : null;
     if (p) parts.push(projectBlock(p, guard));
   } catch (e) { log.warn('project_context_failed', { err: String(e.message || '').slice(0, 160) }); }
   const m = await mem.contextFor({ user, query: text, projectId: conv.project_id || null, conversationId: conv.id });
   if (m && m.block) { parts.push(m.block); memoryIds = m.ids || []; }
+  if (guide) parts.push(guide);
   return { block: parts.join('\n\n'), memoryIds };
 }
 
