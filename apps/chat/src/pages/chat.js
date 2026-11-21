@@ -211,6 +211,7 @@ function setView(v) {
 }
 function showPage(name, ctx) {
   if (S.streaming) { /* keep streaming in background */ }
+  if (CW.closeMusic) CW.closeMusic();   // 0.22.0: the video card belongs to its chat
   S.current = null; S.messages = []; setView(name);
   var page = $('#cw-page'); page.className = 'cw-page cw-page-' + name;
   updateHeader();
@@ -222,6 +223,7 @@ function showPage(name, ctx) {
 
 function newChat(fromRoute) {
   if (S.streaming) stopStreaming();
+  if (CW.closeMusic) CW.closeMusic();
   S.current = null; S.messages = []; S.draftModel = null;
   S.draftMode = (S.settings && S.settings.defaultMode) || 'general';
   setView('welcome');
@@ -235,6 +237,7 @@ function openConversation(id) {
   if (S.current && S.current.id === id && S.messages) { renderThread(); updateHeader(); syncComposer(); renderConvs();
     return; }
   if (S.streaming) stopStreaming();
+  if (CW.closeMusic) CW.closeMusic();
   S.loadingConv = true; S.current = { id: id, title: 'Loading…', mode: S.draftMode };
   updateHeader();
   $('#cw-page').className = 'cw-page'; $('#cw-page').innerHTML = '<div class="cw-thread">' + [1, 2, 3].map(function (

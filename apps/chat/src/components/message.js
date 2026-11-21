@@ -21,7 +21,7 @@ function renderThread() {
   var page = $('#cw-page'); page.className = 'cw-page cw-page-chat';
   if (!S.messages.length) { page.innerHTML = '<div class="empty">' + icon('chat')
     + ('<div class="h3">Say hello to Colon</div><p class="small">Ask anything to start this '
-    + 'conversation.</p></div>'); if (CW.placeCards) CW.placeCards(); return; }
+    + 'conversation.</p></div>'); if (CW.placeCards) CW.placeCards(); if (CW.placeMusic) CW.placeMusic(); return; }
   var lastA = lastAssistant();
   page.innerHTML = '<div class="cw-thread" role="log" aria-live="off">' + S.messages.map(function (m) { return msgHtml(
     m, m === lastA); }).join('') + '</div>';
@@ -30,6 +30,7 @@ function renderThread() {
   decorateCode(page);   // v0.17.0: Developer mode's Edit button on code blocks (components/code-edit.js)
   // 0.10.3: Saga's task cards sit under the messages that asked for them (components/browser-card.js).
   if (CW.placeCards) CW.placeCards();
+  if (CW.placeMusic) CW.placeMusic();   // 0.22.0: Colon Music's video card (components/music-place.js)
 }
 function lastAssistant() { for (var i = S.messages.length - 1; i >= 0; i--) if (S.messages[
   i].role === 'assistant') return S.messages[i]; return null; }

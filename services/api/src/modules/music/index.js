@@ -2,7 +2,8 @@
 // phone finds the song on YouTube and the chat plays it in Colon's own YouTube player (the official embed). The
 // search uses the YouTube Data API v3 (YOUTUBE_API_KEY, free from Google Cloud Console); one search costs 100 of the
 // 10,000 daily quota units, so answers are cached for a while.
-//   search(q, { fetch }) -> [{ id, title, channel, image, link }]  (at most 5, embeddable music videos only)
+//   search(q, { fetch, kind }) -> [{ id, title, channel, image, link }]  (at most 5, embeddable videos; kind 'music'
+//   (default) keeps the Music category, kind 'video' (0.22.0, "watch X") searches any video)
 const API = 'https://www.googleapis.com/youtube/v3/search';
 const ID = /^[A-Za-z0-9_-]{11}$/;
 const CACHE_MS = 6 * 3600 * 1000;
@@ -33,17 +34,22 @@ function toTrack(item) {
     image: /^https:\/\/i\.ytimg\.com\//.test(img) ? img : '', link: `https://www.youtube.com/watch?v=${id}` };
 }
 
+const KINDS = { music: 1, video: 1 };
+
 async function search(q, o = {}) {
+  const kind = KINDS[o.kind] ? o.kind : 'music';
   const query = String(q || '').trim().replace(/\s+/g, ' ').slice(0, 120);
   if (!query) throw err(400, 'bad_query', 'Say a song or an artist.');
   const key = apiKey();
   if (!key) throw err(503, 'music_off', 'YouTube music isn’t set up yet (YOUTUBE_API_KEY).');
-  const ck = query.toLowerCase();
+  const ck = `${kind}:${query.toLowerCase()}`;
   const hit = cache.get(ck);
   if (hit && Date.now() - hit.at < CACHE_MS) return hit.value;
-  const url = `${API}?${new URLSearchParams({ part: 'snippet', type: 'video', videoEmbeddable: 'true',
-    videoSyndicated: 'true', videoCategoryId: '10', regionCode: 'NG', relevanceLanguage: 'en', safeSearch: 'moderate',
-    maxResults: '5', q: query, key })}`;
+  const params = { part: 'snippet', type: 'video', videoEmbeddable: 'true', videoSyndicated: 'true',
+    videoCategoryId: '10', regionCode: 'NG', relevanceLanguage: 'en', safeSearch: 'moderate', maxResults: '5',
+    q: query, key };
+  if (kind === 'video') delete params.videoCategoryId;
+  const url = `${API}?${new URLSearchParams(params)}`;
   let res;
   try {
     res = await (o.fetch || fetch)(url, { signal: AbortSignal.timeout(8000) });
@@ -59,7 +65,7 @@ async function search(q, o = {}) {
 }
 
 const handlers = {
-  getSearch: async (req) => [200, { tracks: await search(req.query.get('q')) }],
+  getSearch: async (req) => [200, { tracks: await search(req.query.get('q'), { kind: req.query.get('kind') }) }],
 };
 
 module.exports = { search, unescapeHtml, handlers, _cache: cache };
