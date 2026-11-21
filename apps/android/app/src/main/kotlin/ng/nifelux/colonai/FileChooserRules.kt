@@ -2,8 +2,8 @@ package ng.nifelux.colonai
 
 /**
  * 0.24.0: which picker an <input type="file"> opens (pure, unit-tested in FileChooserRulesTest).
- * The chat's attach sheet sets the input up for each item: Camera = accept="image/*" capture, Photos =
- * accept="image/*" multiple, Files = the full accepted list. capture on images opens the camera, images only open
+ * The chat's attach sheet sets the input up for each item: Camera = accept="image/…" capture, Photos =
+ * accept="image/…" multiple, Files = the full accepted list. capture on images opens the camera, images only open
  * the Android photo picker, anything else the document picker.
  */
 object FileChooserRules {
