@@ -4,6 +4,7 @@ import android.Manifest
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.os.Build
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
@@ -28,6 +29,11 @@ import java.lang.ref.WeakReference
  * new recognizer starts a moment after the old one is released (an immediate restart answered ERROR_RECOGNIZER_BUSY
  * on some phones); a language the speech service can't do is retried once in en-US; and the real level, the words
  * heard and any error go straight to the voice overlay (VoiceService), which no longer waits on the chat page.
+ *
+ * 0.22.1 latency (budget: mic ready < 300 ms, docs/os-assistant/voice-ui.md): a recognizer is pre-warmed when the
+ * app or the voice overlay opens (binding the speech service is the slow part) and the next one is made as soon as
+ * the old one is released; onReadyForSpeech sends {type: 'ready'} to the page and plays a short start beep; the
+ * end-of-speech silences are shortened (700 / 500 ms) and on-device recognition is preferred where the phone has it.
  */
 object NativeListen {
     private const val TAG = "ColonVoice"
@@ -42,6 +48,10 @@ object NativeListen {
     private var retried = false
     private var releasedAt = 0L
     private val main = Handler(Looper.getMainLooper())
+    /** A recognizer made ahead of time (not listening), so a start doesn't wait for the speech service to bind. */
+    private var spare: SpeechRecognizer? = null
+    private const val SILENCE_COMPLETE_MS = 700L
+    private const val SILENCE_POSSIBLY_COMPLETE_MS = 500L
 
     fun available(context: Context): Boolean =
         try { SpeechRecognizer.isRecognitionAvailable(context) } catch (_: Exception) { false }
@@ -79,8 +89,8 @@ object NativeListen {
     }
 
     private fun begin(a: MainActivity, sid: String) {
-        val r = try { SpeechRecognizer.createSpeechRecognizer(a.applicationContext) } catch (e: Exception) {
-            Log.w(TAG, "createSpeechRecognizer failed", e); null }
+        val r = spare?.also { spare = null } ?: try { SpeechRecognizer.createSpeechRecognizer(a.applicationContext) }
+            catch (e: Exception) { Log.w(TAG, "createSpeechRecognizer failed", e); null }
         if (r == null) { fail(sid, "other"); return }
         recognizer = r
         r.setRecognitionListener(Listener(sid))
@@ -90,9 +100,29 @@ object NativeListen {
             .putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, true)
             .putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 1)
             .putExtra(RecognizerIntent.EXTRA_CALLING_PACKAGE, a.packageName)
+            .putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_COMPLETE_SILENCE_LENGTH_MILLIS, SILENCE_COMPLETE_MS)
+            .putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_POSSIBLY_COMPLETE_SILENCE_LENGTH_MILLIS,
+                SILENCE_POSSIBLY_COMPLETE_MS)
+        // On-device first where the phone says it has it (Android 12+); a language retry goes back to the default.
+        if (!retried && onDevice(a)) intent.putExtra(RecognizerIntent.EXTRA_PREFER_OFFLINE, true)
         try { r.startListening(intent) }
         catch (e: Exception) { Log.w(TAG, "startListening failed", e); fail(sid, "other") }
     }
+
+    private fun onDevice(c: Context): Boolean = Build.VERSION.SDK_INT >= Build.VERSION_CODES.S &&
+        try { SpeechRecognizer.isOnDeviceRecognitionAvailable(c) } catch (_: Exception) { false }
+
+    /** 0.22.1: makes a recognizer ahead of the next start (app or voice overlay opened, or a session ended). */
+    fun prewarm(c: Context) {
+        if (spare != null || recognizer != null || BuildConfig.IS_BROWSER_APP) return
+        if (ContextCompat.checkSelfPermission(c, Manifest.permission.RECORD_AUDIO) !=
+            PackageManager.PERMISSION_GRANTED || !available(c)) return
+        spare = try { SpeechRecognizer.createSpeechRecognizer(c.applicationContext) } catch (e: Exception) {
+            Log.w(TAG, "prewarm failed", e); null }
+    }
+
+    /** Frees the pre-warmed recognizer (wake word needs the mic, or the app is going away). */
+    fun dropSpare() { try { spare?.destroy() } catch (_: Exception) { }; spare = null }
 
     /** The session can't go on: tell the page (error, then end) and the overlay. */
     private fun fail(sid: String, error: String) {
@@ -109,6 +139,9 @@ object NativeListen {
         if (r != null) releasedAt = SystemClock.uptimeMillis()
         try { r?.cancel() } catch (_: Exception) { }
         try { r?.destroy() } catch (_: Exception) { }
+        // The next turn's recognizer, made once the speech service has let go of this one.
+        val c = host?.get()?.applicationContext
+        if (r != null && c != null) main.postDelayed({ if (recognizer == null) prewarm(c) }, RESTART_GAP_MS)
     }
 
     private fun emit(sid: String, data: JSONObject) {
@@ -127,7 +160,11 @@ object NativeListen {
     fun errorName(code: Int): String = VoiceUiRules.recognizerError(code)
 
     private class Listener(val sid: String) : RecognitionListener {
-        override fun onReadyForSpeech(params: Bundle?) { }
+        override fun onReadyForSpeech(params: Bundle?) {
+            if (sid != id) return
+            VoiceCues.startBeep()
+            emit(sid, JSONObject().put("type", "ready"))   // 0.22.1: the page marks "mic ready" (voice-timing.js)
+        }
         override fun onBeginningOfSpeech() { }
         override fun onBufferReceived(buffer: ByteArray?) { }
         override fun onEndOfSpeech() { }

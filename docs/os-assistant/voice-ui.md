@@ -163,3 +163,30 @@ The fix (one path for the app, the overlay and, from 0.23.0, the wake word):
 
 Only a phone can confirm (checklist in `step-3.md`): that the speech service hears from the background on
 Infinix/XOS with the microphone foreground service, the real wave, live captions, and TTS over WhatsApp.
+
+## 0.22.1: latency
+
+Targets, measured per turn by `apps/chat/src/lib/voice-timing.js` (console `[Colon] voice timing: …`, and in the
+Android app logcat tag `ColonVoice` via `voice_ui {timing}`; filter with `adb logcat -s ColonVoice`):
+
+| Measure | From → to | Target |
+|---|---|---|
+| Mic ready | page asks for the mic → recognizer `onReadyForSpeech` (`listen` event `ready`) | < 300 ms |
+| Local command | end of speech → reply text of a command answered on the phone | < 500 ms |
+| Chat first audio | end of speech → TTS starts the first sentence | < 2 s |
+
+What does it:
+
+- **Server** (voice turns send `voice: true`): a brief spoken prompt (1–3 sentences, under 60 words, no markdown),
+  `CHAT_VOICE_MAX_TOKENS=300`, `CHAT_VOICE_FIRST_TOKEN_MS=8000` (a model that hasn't started by then hands over),
+  no browser-tool pre-call, and Gemma 4 31B left out of the chain unless nothing else is left.
+- **Page**: each finished sentence is spoken while the rest streams (`hands-free.js` `partial`); "watch/play X"
+  says "Okay, finding X." at once instead of after the YouTube search.
+- **Android**: a recognizer is pre-warmed when the app or the voice overlay opens and again after each session is
+  released (binding the speech service is the slow part); `onReadyForSpeech` beeps (`VoiceCues`) and sends `ready`;
+  extras `EXTRA_PARTIAL_RESULTS`, `EXTRA_SPEECH_INPUT_COMPLETE_SILENCE_LENGTH_MILLIS=700`,
+  `EXTRA_SPEECH_INPUT_POSSIBLY_COMPLETE_SILENCE_LENGTH_MILLIS=500`, and `EXTRA_PREFER_OFFLINE` on Android 12+ when
+  `isOnDeviceRecognitionAvailable` (dropped on the en-US language retry); text-to-speech starts at app start.
+  Many recognition services ignore the silence extras; the page's own quiet timers still end a turn.
+
+Not yet measured on a device: record five turns of each kind on the Infinix and note the numbers here.

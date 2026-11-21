@@ -7,6 +7,7 @@ import android.content.pm.PackageManager
 import android.net.Uri
 import android.provider.Settings
 import androidx.appcompat.app.AlertDialog
+import android.util.Log
 import androidx.core.content.ContextCompat
 import org.json.JSONObject
 import java.lang.ref.WeakReference
@@ -59,6 +60,9 @@ object VoiceMode {
         val u = VoiceUiRules.parse(args) ?: run { done(false, null, "bad_args"); return }
         host = WeakReference(a)
         val was = phase
+        // 0.22.1: the page's timings for one turn (lib/voice-timing.js), next to the recognizer's own lines.
+        args.optString("timing").takeIf { it.isNotBlank() }?.let { Log.i("ColonVoice", it.take(300)) }
+        if (was == VoiceUiRules.Phase.IDLE && u.phase != VoiceUiRules.Phase.IDLE) NativeListen.prewarm(a)
         phase = u.phase; caption = u.caption; muted = u.muted
         if (u.phase == VoiceUiRules.Phase.IDLE) {
             compactPending = false; VoiceService.stop()

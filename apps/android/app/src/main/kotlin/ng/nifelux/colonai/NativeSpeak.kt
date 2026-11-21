@@ -44,6 +44,9 @@ object NativeSpeak {
         }
     }
 
+    /** 0.22.1: starts the engine once at app start, so the first spoken reply doesn't wait for it (~0.5-1 s). */
+    fun warm(ctx: Context) { if (!BuildConfig.IS_BROWSER_APP) withEngine(ctx.applicationContext) { } }
+
     private fun withEngine(ctx: Context, then: (Boolean) -> Unit) {
         if (ready) { then(true); return }
         if (failed) { then(false); return }

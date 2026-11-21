@@ -24,6 +24,15 @@
   own end of speech instead of a page timer that sleeps in the background, and a dead mic is shown and spoken
   ("Microphone permission needed…") before voice mode ends. The overlay's wave follows the real mic level (flat in
   silence) and shows your words live. No speech: "I didn't catch that." See `docs/os-assistant/voice-ui.md`.
+- **Voice mode answers faster** (targets: mic ready < 300 ms, a phone command answered < 500 ms after you stop
+  speaking, first spoken word of a chat reply < 2 s). The server gives voice turns a brief spoken prompt (1–3
+  sentences, no markdown), a 300-token cap (`CHAT_VOICE_MAX_TOKENS`), an 8 s first-token handover
+  (`CHAT_VOICE_FIRST_TOKEN_MS`), skips the browser-tool pre-call and leaves out Gemma 4 31B. The page speaks each
+  sentence as soon as it has streamed, and "watch/play X" says "Okay, finding X." before the search returns. The
+  Android app pre-warms the speech recognizer when the app or the voice overlay opens, beeps and tells the page
+  when the mic is ready, ends a turn after 0.7 s of silence, prefers on-device recognition where the phone has it,
+  and starts text-to-speech at app start. Each turn's timings are logged (console, and logcat tag `ColonVoice`;
+  `lib/voice-timing.js`).
 
 ## 0.22.0 (2026-11-21) · Music card in chat, watch videos, Step 4 song recognition
 
