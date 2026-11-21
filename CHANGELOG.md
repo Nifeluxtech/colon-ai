@@ -1,5 +1,29 @@
 # Changelog
 
+## 0.24.0 (2026-11-21) · Memory that remembers, app help, updater, new chat page, Projects with repositories
+
+- **Memory remembers what you tell it** (PR #40): with memory on, Colon saves name, nickname, "call me X", where
+  you live or are from, school, job, likes, dislikes, favourites and "always/never" requests (English and simple
+  Pidgin, `memory/facts.js`), source `auto`. A newer fact of the same kind replaces the old one (`kind` column,
+  migration `0018_memory_auto.sql`); identity notes always go into the context. "Saved to memory" chip with Undo;
+  a one-time offer to turn memory on. Questions, passwords, codes and card numbers are never saved.
+- **Colon knows its own app** (PR #40): `docs/app-guide.md` (18 sections) and `modules/appguide`. "How do I … in
+  Colon" answers with exact paths (Settings › Voice › Hey Colon); the chat sends its platform and version.
+- **Update progress that survives minimizing** (PR #39): a progress sheet (percent, MB, Cancel, Hide), progress in
+  the notification shade, a manifest receiver that verifies the APK even if the app was killed and posts "Colon AI
+  X is ready · Tap to install". Reopens a running download instead of starting a second; cleans old APKs.
+  `UpdateRules` with 13 unit tests.
+- **New chat page** (PR #41): the Colon intro animation (drop, ripples, clouds, COLON) plays once and holds on the
+  final frame (poster only with reduced motion); the four shortcuts are a list above the input with the mode chips.
+- **Attach sheet** (PR #41): the paperclip lists Camera, Photos and Files. Android: TakePicture with CAMERA asked at
+  use, the system photo picker and the document picker (`FileChooser.kt`, `FileChooserRules`).
+- **Projects redesign + repositories** (PR #42): new Projects list (search, sort, "+ New project") and project page
+  (Private badge, Context and Custom instructions cards, Memory row, sessions, "+ New session"). Context connects
+  GitHub, GitLab, Bitbucket (token) or any https Git URL (`modules/repos`): archive download or shallow clone,
+  ignore rules and caps, SSRF-checked hops, encrypted tokens never shown, Sync by commit. Repo projects open in
+  Developer mode with the file tree, stack-trace files and `read_repo_file` / `search_repo` tools; diffs are
+  coloured with Copy. Migration `0019_project_repos.sql`.
+
 ## 0.23.0 (2026-11-21) · Step 5: "Hey Colon" wake word
 
 - **Say "Hey Colon"** to start talking, from any screen (Colon AI for Android, OS Assistant Step 5). Off by default:

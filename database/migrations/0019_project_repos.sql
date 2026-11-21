@@ -22,4 +22,4 @@ ALTER TABLE colon_projects
   ADD COLUMN repo_attachment_id VARCHAR(24)  NULL AFTER repo_files,
   ADD COLUMN repo_token         TEXT         NULL AFTER repo_attachment_id;
 
-INSERT IGNORE INTO schema_migrations (id) VALUES ('0018_project_repos');
+INSERT IGNORE INTO schema_migrations (id) VALUES ('0019_project_repos');
