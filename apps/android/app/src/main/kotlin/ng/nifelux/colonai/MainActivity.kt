@@ -126,6 +126,7 @@ class MainActivity : AppCompatActivity() {
         if (!ColonApplication.of(this).online) showOffline(null)
         UpdateChecker.onIntent(intent) // 0.24.0: opened from an update notification
         UpdateChecker.checkOnStart(this)
+        CrashGuard.showIfAny(this) // 0.24.1: what made the last run stop, once
     }
 
     override fun onStart() {
