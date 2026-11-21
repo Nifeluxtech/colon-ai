@@ -52,4 +52,11 @@ function summary(c) { return { id: c.id, title: c.title, mode: c.mode, model: c.
   archived: !!c.archived, preview: c.preview || '', created_at: c.created_at, updated_at: c.updated_at,
   temporary: !!c.temporary, browser_mode: c.browser_mode || null }; }
 
-export { DEFAULT_SETTINGS, LIMITS, classify, now, sleep, summary };
+// 0.24.0: which app and version this is, sent with each message so "how do I … in Colon?" answers fit the app
+// (the API's modules/appguide). Inside the Android app: its version; the chat page's own version as web_version.
+function clientInfo() {
+  var N = C.native, app = N && N.isShell && N.isShell();
+  return { platform: app ? 'android' : 'web', version: (app && N.version()) || C.version, web_version: C.version };
+}
+
+export { DEFAULT_SETTINGS, LIMITS, classify, clientInfo, now, sleep, summary };

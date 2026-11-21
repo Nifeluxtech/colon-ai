@@ -5,6 +5,7 @@ import { decorateCode } from './code-edit.js';
 import { sourcesHtml } from './sources.js';
 import { attachmentsHtml, loadAttachmentThumbs } from './uploads.js';
 import { videoRowHtml } from './video-row.js';
+import { memoryChipHtml } from './memory-chip.js';
 import { Colon } from '../../../../packages/ui/js/colon.js';
 import { ColonMarkdown } from '../../../../packages/ui/js/markdown/index.js';
 import { researchHtml } from '../actions/deep-research.js';
@@ -44,7 +45,7 @@ function msgHtml(m, isLast) {
   if (m.role === 'user') {
     return '<div class="cw-msg user' + fresh + '" data-mid="' + esc(m.id) + '"><div class="cw-bubble">'
       + attachmentsHtml(m.attachments) + (m.content ? '<div class="cw-user-text">' + esc(m.content) + '</div>' : '')
-      + '</div>' +
+      + '</div>' + memoryChipHtml(m) +   // 0.24.0: "Saved to memory" with Undo, or the offer to turn memory on
       '<div class="cw-actions"><button class="icon-btn sm" data-msg="copy" aria-label="Copy message" data-tip="Copy">'
         + icon('copy') + '</button>' +
       (S.streaming || /^tmp/.test(m.id) || m.origin === 'command'
