@@ -48,3 +48,19 @@ test('caches by query, quota errors are music_busy, empty query rejected', async
   await assert.rejects(music.search('  ', { fetch: fetchOf([]) }), { code: 'bad_query' });
   delete process.env.YOUTUBE_API_KEY;
 });
+
+test('kind=video drops the music category and caches apart from music', async () => {
+  process.env.YOUTUBE_API_KEY = 'k1';
+  music._cache.clear();
+  const seen = [];
+  await music.search('cat videos', { fetch: fetchOf([item('abcdefghijk', 'Cats', 'Pets')], seen), kind: 'video' });
+  assert.doesNotMatch(seen[0], /videoCategoryId/);
+  assert.match(seen[0], /videoEmbeddable=true/);
+  await music.search('cat videos', { fetch: fetchOf([], seen) });
+  assert.equal(seen.length, 2);
+  assert.match(seen[1], /videoCategoryId=10/);
+  await music.search('Cat Videos', { fetch: fetchOf([], seen), kind: 'video' });
+  await music.search('cat videos', { fetch: fetchOf([], seen), kind: 'weird' });
+  assert.equal(seen.length, 2);
+  delete process.env.YOUTUBE_API_KEY;
+});

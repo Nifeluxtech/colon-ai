@@ -1,4 +1,4 @@
-# Colon OS Assistant · Step 3: Colon Music (0.19.0)
+# Colon OS Assistant · Step 3: Colon Music (0.19.0; video card in the chat since 0.22.0)
 
 Colon AI on Android plays music and names songs, with free tools only. Plan: `plan.md` (Step 3, and Step 4's mic
 recognition, which shipped early).
@@ -6,12 +6,18 @@ recognition, which shipped early).
 ## What the user says
 - **"play Last Last by Burna Boy"**: the phone's own songs first (MediaStore; Android asks for the music permission
   once), best match plays with the other matches queued. No match (or on the web): Colon finds it on **YouTube** and
-  plays it in its own player above the composer (0.21.0). When that can't, the song opens in the YouTube app.
+  plays it in its own video card in the chat (0.22.0; above the composer in 0.21.x). When that can't, the card stays
+  with the reason and an Open in YouTube button.
+- **"watch Davido live"** (also "show me the video of X", "play the video of X", "watch X on YouTube"; 0.22.0): any
+  YouTube video, not only music, in the same card. Never the phone's songs. "watch out" and questions stay chat.
+- While the card is open: **"pause"**, **"resume"**, **"forward"** / "skip ahead" / "fast forward" (+10 s),
+  **"back"** / "rewind" / "go back" (−5 s), **"stop the music"**. There is no "next" any more.
 - **"play Calm Down on YouTube" / "on Audiomack"**: opens it there directly. **"from my phone"**: phone only.
 - **"play my music" / "shuffle my songs"**: the whole library, shuffled.
-- **"what song is this?"** (also "what's playing", "shazam this", "who sings this"): Colon's own player first (its
-  tags; an untagged file is fingerprinted from the file itself, no mic). Only when Colon's player is idle does it
-  listen with the mic for about 11 seconds.
+- **"what song is this?"** (also "what's playing", "shazam this", "who sings this"): Colon's video card first (its
+  title and channel, 0.22.0), then Colon's own player (its tags; an untagged file is fingerprinted from the file
+  itself, no mic). Only when both are idle does it listen with the mic for about 11 seconds (Step 4, `step-4.md`).
+- **"play it"** / "play that song" within 10 minutes of Colon naming a song plays it in the card (0.22.0).
 - Step 2 still owns "play music", "pause", "next song", "previous song" (media keys, which now reach Colon's player
   through its media session too).
 
@@ -24,8 +30,18 @@ recognition, which shipped early).
   identify}. `play_url` streams only from `https://*.jamendo.com` (unused since 0.21.0); open only YouTube or Audiomack search pages.
 - **YouTube** (0.21.0, replaces Jamendo; `services/api/src/modules/music`, `GET /music/search?q=`, signed in,
   60/hour): YouTube Data API v3 search (embeddable music videos, region NG, cached 6 h), needs `YOUTUBE_API_KEY`.
-  The chat plays the result in `components/music-dock.js` (official IFrame player above the composer; pauses in the
-  background per YouTube's rules). Without the key, or when nothing embeds, the YouTube app opens.
+  `kind=video` (0.22.0, "watch X") drops the Music category; the cache key includes the kind.
+  The chat plays the result in `components/music-dock.js` (official IFrame player; pauses in the background per
+  YouTube's rules).
+- **Video card** (0.22.0): the card sits in the chat thread under the message that was last when it started.
+  `message.js` redraws `#cw-page` on every render and moving an iframe restarts its video, so the card lives in a
+  stable layer after `#cw-page` (`.cm-layer`) and `components/music-place.js` lays it over a placeholder
+  (`.cm-slot`) that goes back into the thread after each render (`CW.placeMusic`, plus a ResizeObserver). A new
+  chat, another chat or a page closes it. The video can't be tapped: `controls:0`, `disablekb:1`, `fs:0`,
+  `iv_load_policy:3`, `rel:0`, pointer-events off and a clear shield (YouTube's branding stays visible; the player
+  stays at least 200x200). Colon's row: Back 5 s, Play/Pause (follows the player), Forward 10 s, a progress bar with
+  elapsed/total time, Open in YouTube, Close. A video whose owner blocks embedding silently falls back to the next
+  search result; there is no Next button.
 - **Song ID** (`SongId.kt`): [songprint](https://github.com/hitenpatel/songprint) (MIT, vendored under
   `io/github/hitenpatel/songprint`) builds a Shazam-compatible signature on the phone from 16 kHz mono audio; only
   the signature (a few KB, never the audio) is sent to Shazam's public discovery endpoint, which answers with the
@@ -49,7 +65,11 @@ recognition, which shipped early).
 - [ ] "play <song on the phone>": permission prompt once, then it plays; notification with controls
 - [ ] Lock the phone / leave Colon: music keeps playing; headset button pauses
 - [ ] "next song", "pause" (Step 2) control Colon's player
-- [ ] "play <song not on the phone>": the YouTube card plays it in the chat; "pause", "next", "stop the music"
+- [ ] "play <song not on the phone>": the video card plays it in the chat thread; Play/Pause, −5s, +10s, the
+  progress bar; "pause", "forward", "back", "stop the music"; tapping the video does nothing
+- [ ] Send a chat message while the card plays: the video keeps playing (no reload) and stays in its place
+- [ ] New chat / open another chat: the card closes
+- [ ] "watch <any video>": a non-music video plays in the card
 - [ ] Leave Colon: the YouTube card pauses (YouTube's rule)
 - [ ] "play X on Audiomack": Audiomack search opens
 - [ ] "what song is this?" while Colon plays a tagged song: answers at once, no mic

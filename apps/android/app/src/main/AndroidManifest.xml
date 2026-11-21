@@ -52,6 +52,8 @@
         <package android:name="ng.nifelux.colonbrowser" />
         <package android:name="ng.nifelux.colonai.debug" />
         <package android:name="ng.nifelux.colonbrowser.debug" />
+        <!-- 0.22.0, Step 4: "what song is this?" hands off to the Shazam app when Colon can't name the song. -->
+        <package android:name="com.shazam.android" />
     </queries>
 
     <application

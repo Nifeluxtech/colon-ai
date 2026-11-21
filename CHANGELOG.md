@@ -1,5 +1,27 @@
 # Changelog
 
+## 0.22.0 (2026-11-21) · Music card in chat, watch videos, Step 4 song recognition
+
+- **The video card is in the chat now**, under the message that was last when it started, instead of above the
+  composer. It survives every redraw of the thread without reloading the video (a stable layer after `#cw-page`
+  with a placeholder in the thread, `components/music-place.js`) and scrolls into view when it opens. A new chat,
+  another chat or a page closes it.
+- **The video can't be tapped** (no YouTube controls, keyboard or fullscreen; a clear shield over it, YouTube's
+  branding still visible). Colon's own row: **Back 5 s**, **Play/Pause**, **Forward 10 s**, a progress bar with
+  elapsed/total time, Open in YouTube and Close. **Next is gone**; a video that won't embed still falls back to the
+  next search result silently.
+- Voice/typed words while it is open: "pause", "resume", "forward" / "skip ahead" / "fast forward" (+10 s),
+  "back" / "rewind" / "go back" (−5 s), "stop the music". "next" no longer controls the card.
+- **Watch**: "watch X", "show me the video of X", "play the video of X", "watch X on YouTube" play any YouTube video
+  in the card (`GET /music/search?kind=video` drops the Music category; the cache keeps music and video apart).
+  Never the phone's songs. "watch out" and questions stay chat.
+- **Step 4, recognise music around you** (free only, owner decision 2026-11-21; `docs/os-assistant/step-4.md`):
+  `SongRecognizer.kt` runs songprint first; with no match or no network and the Shazam app installed, Colon hands
+  off to Shazam ("Opening Shazam to listen.", code `handed_off`). Manifest `<queries>` adds `com.shazam.android`.
+  ShazamKit and paid AudD are removed from the plan.
+- "What song is this?" answers from the playing video card without the mic. After Colon names a song, "play it" /
+  "play that song" (within 10 minutes) plays it in the card.
+
 ## 0.21.1 (2026-11-21)
 
 - Colon Music stays in the app: when YouTube won't play a song inside Colon, the player card stays with the reason

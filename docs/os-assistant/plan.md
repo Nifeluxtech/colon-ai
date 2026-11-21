@@ -26,9 +26,14 @@ Shipped in 0.19.0 (see `step-3.md`): songprint (MIT, Shazam-compatible signature
 Chromaprint+AcoustID for untagged files and AudD for the mic; no MySQL tables yet.
 
 ## Step 4: Recognize music around you (week 6)
-- MusicRecognitionProvider adapter
-- Free: hand off to Shazam app via intent; testing: AudD (300 free requests total, key server-side)
-- Later: ShazamKit (needs $99/yr Apple Developer)
+Free-only by owner decision 2026-11-21: no paid providers (ShazamKit's $99/yr Apple Developer account and AudD's
+paid tier are dropped from the plan).
+- MusicRecognitionProvider adapter (`SongRecognizer.kt`), free providers in order:
+  1. songprint on the phone (Shazam-compatible signature; only the signature leaves the phone)
+  2. Hand off to the Shazam app via intent when it is installed (free, the user's own app)
+- "What song is this?" answers from Colon's own player or video card first; the mic only when nothing plays there
+
+Status: shipped in 0.22.0 (see `step-4.md`, ADR `docs/decisions/0008-free-only-song-recognition.md`).
 
 ## Step 5: "Hey Colon" + release (weeks 7–9)
 - Wake word: sherpa-onnx keyword spotting (Apache-2.0, offline, "HEY COLON" in keywords file, no training); backup openWakeWord. (Porcupine free tier ended Jun 30, 2026.)

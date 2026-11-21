@@ -13,7 +13,8 @@ import org.json.JSONObject
  * Colon Music, Step 3 (docs/os-assistant/step-3.md): runs one music command that [MusicRules.check] accepted.
  * play: the phone's songs (asks for the music permission the first time); the chat page falls back to Jamendo
  * (play_url) and then to YouTube or Audiomack (open) when the phone has no match. identify: Colon's own player
- * first (its tags, or a fingerprint of an untagged file), the mic only when the player is idle.
+ * first (its tags, or a fingerprint of an untagged file), the mic only when the player is idle; the mic goes
+ * through [SongRecognizer] (Step 4: songprint, then a hand-off to the Shazam app).
  * [done] answers the page: (ok, result {say, ...}, error code).
  */
 object MusicActions {
@@ -96,13 +97,17 @@ object MusicActions {
             Toast.makeText(host, host.getString(R.string.music_listening), Toast.LENGTH_SHORT).show()
             Thread {
                 val pcm = SongId.recordMic(host)
-                val hit = pcm?.let { SongId.recognise(it) }
+                val hit = pcm?.let { SongRecognizer.recognise(it) }
                 main.post {
+                    if (pcm == null) { done(false, null, "no_mic"); return@post }
+                    // Step 4: songprint first, then the Shazam app when it is installed (free only).
+                    val next = SongRecognizer.outcome(hit != null, SongRecognizer.shazamInstalled(host))
                     when {
-                        pcm == null -> done(false, null, "no_mic")
-                        hit == null -> done(false, null, "no_match")
-                        else -> done(true, found(MusicRules.describe(hit.title, hit.artist), hit.title, hit.artist,
-                            hit.link, "mic"), null)
+                        hit != null -> done(true, found(MusicRules.describe(hit.title, hit.artist), hit.title,
+                            hit.artist, hit.link, "mic"), null)
+                        next == "handed_off" && SongRecognizer.handOff(host) ->
+                            done(true, say("Opening Shazam to listen.").put("code", "handed_off"), null)
+                        else -> done(false, null, "no_match")
                     }
                 }
             }.start()
