@@ -37,7 +37,6 @@
   [data-layout="split"][data-mtab="browser"] .cw-chat{display:none}
   [data-layout="split"][data-mtab="browser"] .cw-split{flex:1;width:auto!important;border-left:0}
   [data-layout="split"] .cw-split-head{display:none}
-  [data-view="welcome"] .cw-hero-p{margin-bottom:16px}
 }
 @media (max-width:480px){
   .cw-mode-btn.on .cw-mode-l,.cw-mode-btn svg:last-child{display:none}
@@ -48,7 +47,6 @@
 }
 @media (max-width:380px){.cw-head-logo b{display:none}}
 @media (max-width:360px){
-  .cw-prompt{padding:10px;min-height:58px}.cw-prompt b{font-size:13px}.cw-prompt-ico{width:32px;height:32px}
   .cw-input .icon-btn,.cw-send{width:40px;height:40px}.cw-input textarea{padding:9px 4px;min-height:40px;height:40px}
 }
 /* ================= Desktop (>= 900 px) ================= */
@@ -75,7 +73,7 @@
   .cw-mode-btn .cw-mode-l{display:inline}
   .cw-drawer-back{display:none}
 }
-@media (min-width:900px) and (max-height:700px){.cw-hero-mark .logo-mark{width:56px}.cw-prompt{min-height:110px}}
+@media (min-width:900px) and (max-height:700px){.cw-intro{max-width:360px}}
 
 /* ---------- v0.4.4: guests (Log in / Sign up), message editing, shared chats ---------- */
 .cw-auth-btns{display:flex;gap:8px;padding:4px 2px 2px}

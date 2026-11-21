@@ -75,6 +75,16 @@ module.exports = {
     modelCosts: env('AI_MODEL_COSTS'),
     dailySpendCapMinor: Number(env('BILLING_DAILY_SPEND_CAP_MINOR')),
   },
+  // v0.24.0 project repositories (modules/repos): download and snapshot caps.
+  repos: {
+    enabled: env('REPO_IMPORT', 'on') !== 'off',
+    archiveMaxMb: Math.max(1, Number(env('REPO_ARCHIVE_MAX_MB'))),
+    maxFiles: Math.max(10, Number(env('REPO_MAX_FILES'))),
+    maxTextMb: Math.min(12, Math.max(0.1, Number(env('REPO_MAX_TEXT_MB')))),
+    fileMaxKb: Math.max(1, Number(env('REPO_FILE_MAX_KB'))),
+    timeoutMs: Math.max(5000, Number(env('REPO_TIMEOUT_MS'))),
+    gitBin: env('REPO_GIT_BIN', 'git'),
+  },
   // v0.15.0 memory (modules/memory): consent is per user (off until they turn it on); retrieval budget in tokens.
   memory: {
     tokenBudget: Math.max(0, Number(env('MEMORY_TOKEN_BUDGET'))),

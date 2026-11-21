@@ -1,17 +1,17 @@
 {
-  "versionName": "0.23.0",
-  "versionCode": 2300,
-  "apkUrl": "https://github.com/Nifeluxtech/colon-ai/releases/download/v0.23.0/colon-ai-0.23.0.apk",
-  "releaseUrl": "https://github.com/Nifeluxtech/colon-ai/releases/tag/v0.23.0",
-  "notes": "Say \"Hey Colon\" to start talking without touching the phone (off until you turn it on in Settings › Voice).",
+  "versionName": "0.24.0",
+  "versionCode": 2400,
+  "apkUrl": "https://github.com/Nifeluxtech/colon-ai/releases/download/v0.24.0/colon-ai-0.24.0.apk",
+  "releaseUrl": "https://github.com/Nifeluxtech/colon-ai/releases/tag/v0.24.0",
+  "notes": "Colon now remembers what you tell it (like your nickname), knows how to use its own app, shows update progress you can install from the notification, a new chat screen, Camera/Photos/Files in the attach button, and Projects that connect to GitHub or any Git repo.",
   "minSupportedVersionCode": 0,
   "publishedAt": "2026-11-21",
   "browser": {
-    "versionName": "0.23.0",
-    "versionCode": 2300,
-    "apkUrl": "https://github.com/Nifeluxtech/colon-ai/releases/download/v0.23.0/colon-browser-0.23.0.apk",
-    "releaseUrl": "https://github.com/Nifeluxtech/colon-ai/releases/tag/v0.23.0",
-    "notes": "Released alongside Colon AI 0.23.0. No changes to the browser itself.",
+    "versionName": "0.24.0",
+    "versionCode": 2400,
+    "apkUrl": "https://github.com/Nifeluxtech/colon-ai/releases/download/v0.24.0/colon-browser-0.24.0.apk",
+    "releaseUrl": "https://github.com/Nifeluxtech/colon-ai/releases/tag/v0.24.0",
+    "notes": "Released alongside Colon AI 0.24.0: update progress with install from the notification, and Camera/Photos/Files when a site asks for a file.",
     "minSupportedVersionCode": 0
   }
 }

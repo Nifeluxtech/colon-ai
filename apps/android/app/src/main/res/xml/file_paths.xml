@@ -1,5 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- FileProvider: only the downloaded update APK is shared (with the system installer). -->
+<!-- FileProvider: the downloaded update APK (shared with the system installer) and, since 0.24.0, photos taken
+     with the camera from the chat's attach sheet (shared with the camera app, then read by the WebView). -->
 <paths>
     <external-files-path name="updates" path="Download/" />
+    <cache-path name="camera" path="camera/" />
 </paths>

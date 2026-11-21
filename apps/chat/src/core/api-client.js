@@ -1,6 +1,6 @@
 /* Colon AI · account adapter: conversations, messages, uploads and settings through the Colon API. */
 
-import { DEFAULT_SETTINGS, LIMITS, classify } from './common.js';
+import { DEFAULT_SETTINGS, LIMITS, classify, clientInfo } from './common.js';
 import { GuestChatData } from './guest-client.js';
 import { offline, readSSE } from './sse.js';
 import { Colon } from '../../../../packages/ui/js/colon.js';
@@ -13,6 +13,7 @@ function RemoteChatData() {
   var temp = GuestChatData({ signedIn: true });  // temporary chats when "Save chat history" is off
   function sse(path, body, o, cid) {
     var emit = o.onEvent || function () {}, startedId = null;
+    body.client = clientInfo();   // 0.24.0: app and version, for answers about the app itself
     if (o.signal) o.signal.addEventListener('abort', function () {
       // Closing the stream stops the reply; this also reaches a different server worker if needed.
       if (startedId) api('/conversations/' + encodeURIComponent(cid) + '/messages/' + encodeURIComponent(startedId)
@@ -35,6 +36,7 @@ function RemoteChatData() {
       { code: 'offline' }); });
   }
   function run(id) { return '/research/' + encodeURIComponent(id); }
+  function repo(id) { return '/projects/' + encodeURIComponent(id) + '/repo'; }   // v0.24.0
   var self = {
     kind: 'remote', LIMITS: LIMITS, classify: classify, describe: 'Chats are synced to your Colon account.',
     listModels: function () { return modelsCache ? Promise.resolve(modelsCache) : api('/models').then(function (d) {
@@ -131,6 +133,12 @@ function RemoteChatData() {
     updateProject: function (id, p) { return api('/projects/' + encodeURIComponent(id), { method: 'PATCH', body: p })
       .then(function (d) { return d.project; }); },
     deleteProject: function (id) { return api('/projects/' + encodeURIComponent(id), { method: 'DELETE' }); },
+    // v0.24.0: a project's connected repository (components/project-context.js). A token goes up, never comes back.
+    connectRepo: function (id, b) { return api(repo(id), { method: 'POST', body: b }); },
+    syncRepo: function (id) { return api(repo(id) + '/sync', { method: 'POST' }); },
+    disconnectRepo: function (id) { return api(repo(id), { method: 'DELETE' }); },
+    repoBranches: function (id, b) { return api(repo(id) + '/branches', { method: 'POST', body: b }); },
+    repoList: function (id, b) { return api(repo(id) + '/repos', { method: 'POST', body: b }); },
     // v0.17.0 (D15): an image in this chat. message_id: the user message whose turn asked for it (the stream's
     // `image` event); without it the prompt becomes a new user message. -> { user_message, message, conversation }
     isTemp: function (cid) { return temp.has(cid); },   // a temporary chat (history off): no images or research

@@ -93,42 +93,65 @@ body.cw-noscroll{overflow:hidden}
   border-radius:999px;background:var(--surface-solid);pointer-events:auto;animation:view-in .2s var(--ease) both}
 
 /* Welcome */
-/* Welcome content is centred in the space above the floating composer and scrolls if it doesn't fit */
+/* Welcome content sits in the space above the floating composer and scrolls if it doesn't fit. 0.24.0: the intro
+   animation replaced the flame; the shortcut list and mode chips live in the composer (.cw-starters, below). */
 .cw-page-welcome{min-height:100%;display:flex;flex-direction:column}
 .cw-page-welcome > .cw-welcome{margin-block:auto}
-.cw-welcome{text-align:center;padding:8px 0 4px;transition:opacity .3s,transform .3s}
-.cw-welcome-modes{margin:16px -14px 0;padding:2px 14px;justify-content:flex-start;overscroll-behavior-x:contain;
-  touch-action:pan-x pan-y}
-/* centred when it fits, scrollable from the first chip when it doesn't (auto margins never clip) */
-.cw-welcome-modes > :first-child{margin-left:auto}.cw-welcome-modes > :last-child{margin-right:auto}
+.cw-welcome{text-align:center;padding:4px 0;transition:opacity .3s,transform .3s}
 .cw-welcome.leaving{opacity:0;transform:translateY(-12px)}
-.cw-hero-mark{display:flex;justify-content:center;margin:0 auto 10px;pointer-events:none}
-.cw-hero-mark .logo-mark{width:clamp(64px,14vw,92px);height:auto;filter:drop-shadow(0 10px 34px rgba(65,105,225,
-  .75)) drop-shadow(0 0 18px rgba(255,138,61,.35));animation:flame 3.2s ease-in-out infinite}
-@keyframes flame{50%{transform:translateY(-3px) scale(1.03)}}
-.cw-hero-h{font-size:clamp(26px,6.4vw,36px);line-height:1.15;font-weight:750;letter-spacing:-.025em;margin:0 0 8px}
-.cw-hero-p{color:var(--text-2);margin:0 0 22px;font-size:clamp(15px,3.8vw,17px)}
-.cw-prompts{display:grid;grid-template-columns:1fr 1fr;gap:10px;text-align:left}
-.cw-prompt{display:grid;grid-template-columns:auto 1fr;grid-template-rows:auto auto;column-gap:10px;align-items:center;
-  padding:12px;border-radius:var(--r-lg);border:1px solid var(--line-2);background:var(--glass);color:var(--text);
-  backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);transition:transform .15s var(--ease),border-color .2s,
-    box-shadow .2s;min-height:64px}
-.cw-prompt:hover{border-color:var(--primary-line);box-shadow:0 8px 26px rgba(65,105,225,.22);transform:translateY(-1px)}
-.cw-prompt:active{transform:scale(.98)}
-.cw-prompt-ico{grid-row:span 2;width:38px;height:38px;border-radius:12px;display:grid;place-items:center;
-  background:var(--primary-soft);color:#9DB6FF}
-[data-theme="light"] .cw-prompt-ico{color:var(--primary)}
-.cw-prompt-ico svg{width:21px;height:21px}
-.cw-prompt-ico.i3{color:#FBBF24;background:rgba(251,191,36,.14)}
-.cw-prompt b{font-size:14px;font-weight:650;line-height:1.25}
-.cw-prompt > span:last-child{font-size:12px;color:var(--muted);line-height:1.3;display:none}
-@media (min-width:640px){
-  .cw-prompts{grid-template-columns:repeat(4,1fr);gap:12px}
-  .cw-prompt{display:flex;flex-direction:column;align-items:center;text-align:center;padding:18px 12px;gap:8px;
-    min-height:136px;justify-content:center}
-  .cw-prompt-ico,.cw-prompt-ico.i3{width:46px;height:46px;background:none}.cw-prompt-ico svg{width:30px;height:30px}
-  .cw-prompt b{font-size:15px}.cw-prompt > span:last-child{display:block;font-size:13px}
-}
+/* Full width with the page's side padding, rounded, its edges fading into the page */
+.cw-intro{position:relative;width:100%;max-width:560px;margin:0 auto 14px;aspect-ratio:507/337;border-radius:22px;
+  overflow:hidden;pointer-events:none;background:#06123A;transition:max-width .25s var(--ease),margin .25s var(--ease);
+  -webkit-mask-image:linear-gradient(to right,transparent,#000 7%,#000 93%,transparent),
+    linear-gradient(to bottom,transparent,#000 7%,#000 88%,transparent);
+  -webkit-mask-composite:source-in;
+  mask-image:linear-gradient(to right,transparent,#000 7%,#000 93%,transparent),
+    linear-gradient(to bottom,transparent,#000 7%,#000 88%,transparent);
+  mask-composite:intersect}
+.cw-intro img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block}
+/* While the animation loads the poster waits dimmed; while it plays it is hidden under it; then it holds the end */
+.cw-intro[data-intro="play"] .cw-intro-poster{opacity:.35;filter:blur(6px);transform:scale(1.04)}
+.cw-intro.playing .cw-intro-poster{opacity:0}
+.cw-intro-poster{transition:opacity .35s,filter .35s,transform .35s}
+.cw-intro-anim{animation:intro-in .25s ease-out both}
+@keyframes intro-in{from{opacity:0}}
+.cw-intro[data-intro="poster"] .cw-intro-anim{opacity:0;transition:opacity .35s}
+/* Keyboard open: the animation shrinks out of the way; the list stays pinned above the message box */
+/* (the app's WebView resizes the page for the keyboard, so a short viewport counts as keyboard open too) */
+.kb-open .cw-intro{max-width:132px;margin-bottom:8px;border-radius:14px}
+.kb-open [data-view="welcome"] .cw-hero-p{display:none}
+@media (max-height:560px){.cw-intro{max-width:132px;margin-bottom:8px;border-radius:14px}
+  [data-view="welcome"] .cw-hero-p{display:none}.cw-start{min-height:40px;padding-block:6px}}
+.cw-hero-h{font-size:clamp(22px,6.4vw,36px);line-height:1.15;font-weight:750;letter-spacing:-.025em;margin:0 0 6px}
+.cw-hero-p{color:var(--text-2);margin:0 0 12px;font-size:clamp(13px,3.7vw,17px)}
+/* Shortcuts: one rounded box of rows (icon, title, small arrow) right above the message box, then the mode chips */
+.cw-starters{display:none;flex-direction:column;gap:10px}
+[data-view="welcome"] .cw-starters{display:flex}
+.cw-start-list{display:flex;flex-direction:column;border:1px solid var(--line-2);border-radius:20px;overflow:hidden;
+  background:var(--elev-1,var(--glass));box-shadow:var(--sh-xs,none);backdrop-filter:blur(14px);
+  -webkit-backdrop-filter:blur(14px)}
+[data-theme="light"] .cw-start-list{background:#fff;border-color:#E2E8F0;box-shadow:0 4px 18px rgba(15,23,42,.05)}
+.cw-start{display:flex;align-items:center;gap:14px;min-height:46px;padding:8px 16px;background:none;border:0;
+  color:var(--text);text-align:left;font:inherit;font-size:15px;cursor:pointer;transition:background .15s}
+.cw-start + .cw-start{border-top:1px solid var(--line)}
+[data-theme="light"] .cw-start + .cw-start{border-top-color:#E8EDF5}
+.cw-start:hover{background:var(--glass-2)}
+.cw-start:active{background:var(--primary-soft)}
+.cw-start:focus-visible{outline:2px solid var(--primary);outline-offset:-2px}
+.cw-start-ico{display:grid;place-items:center;width:24px;height:24px;flex:none;color:#7C9BFF}
+[data-theme="light"] .cw-start-ico{color:var(--primary)}
+.cw-start-ico svg{width:22px;height:22px}
+.cw-start-ico.i3,[data-theme="light"] .cw-start-ico.i3{color:#F5B301}
+.cw-start-t{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cw-start-go{display:grid;place-items:center;flex:none;color:var(--muted)}
+.cw-start-go svg{width:16px;height:16px}
+.cw-starters .cw-welcome-modes{margin:0;padding:0;justify-content:flex-start;overscroll-behavior-x:contain;
+  touch-action:pan-x pan-y}
+.cw-starters .cw-welcome-modes{gap:8px}
+.cw-starters .cw-welcome-modes .chip{min-height:34px;padding:0 12px;gap:6px;font-size:13.5px}
+.cw-starters .cw-welcome-modes .chip svg{width:16px;height:16px}
+[data-theme="light"] .cw-starters .cw-welcome-modes .chip{background:#fff}
+.kb-open .cw-start{min-height:40px;padding-block:6px}
 
 /* Thread */
 .cw-thread{display:flex;flex-direction:column;gap:22px;padding-bottom:8px}

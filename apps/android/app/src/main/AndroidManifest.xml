@@ -101,6 +101,19 @@
             android:exported="false"
             android:foregroundServiceType="dataSync" />
 
+        <!-- 0.24.0: the update download's completion, declared here so it installs even after Android stopped the
+             minimized app (UpdateReceiver checks the id saved in "colon.update"). Exported for the system download
+             provider, the only holder of SEND_DOWNLOAD_COMPLETED_INTENTS, so no other app can send it. -->
+        <receiver
+            android:name=".UpdateReceiver"
+            android:exported="true"
+            android:permission="android.permission.SEND_DOWNLOAD_COMPLETED_INTENTS">
+            <intent-filter>
+                <action android:name="android.intent.action.DOWNLOAD_COMPLETE" />
+                <action android:name="android.intent.action.DOWNLOAD_NOTIFICATION_CLICKED" />
+            </intent-filter>
+        </receiver>
+
         <provider
             android:name="androidx.core.content.FileProvider"
             android:authorities="${applicationId}.files"

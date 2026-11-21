@@ -70,13 +70,24 @@ function buildMessages(history, { guard = safety.collector(), project = false, b
 }
 
 /**
- * forMode(history, { mode, guard, message }) -> { messages, project }
+ * forMode(history, { mode, guard, message, projectFiles, repo, tools }) -> { messages, project }
  * Developer mode: the project context (code files and .zip projects from every message so far, so follow-ups keep
  * it) is built first and the history gets the rest of the budget. Other modes: buildMessages as before.
+ * v0.24.0: projectFiles (chat/extra-context.js codeFiles) are the chat's project's own code and its connected
+ * repository, listed first; with them the files are ranked by relevance to the message, and tools says the model
+ * can open more with read_repo_file / search_repo.
  */
-function forMode(history, { mode, guard = safety.collector(), message = '' } = {}) {
+function forMode(history, { mode, guard = safety.collector(), message = '', projectFiles = [], repo = null,
+  tools = false } = {}) {
+  const lists = history.map(m => m.files || []);
+  const fromProject = projectFiles.length > 0;
+  const safe = (v) => String(v || '').replace(/[^\w./@+-]+/g, '_').slice(0, 120);
+  const label = repo ? `Project repository ${safe(repo.owner)}/${safe(repo.name)} (branch ${safe(repo.branch)}`
+    + `${repo.sha7 ? `, commit ${repo.sha7}` : ''}) and files in this chat` : fromProject
+    ? 'Project files (this chat\'s project and this conversation)' : '';
   const project = mode === 'developer'
-    ? developer.contextFor(history.map(m => m.files || []), { message, guard }) : null;
+    ? developer.contextFor(fromProject ? [projectFiles, ...lists] : lists, { message, guard, rank: fromProject,
+      label, tools: tools && Boolean(repo) }) : null;
   const budget = project ? Math.max(HISTORY_MIN, MAX_CHARS - project.chars) : MAX_CHARS;
   return { messages: buildMessages(history, { guard, project: Boolean(project), budget }), project };
 }

@@ -92,6 +92,7 @@
 .md-code.streaming .md-code-head span::after{content:" · writing…";color:var(--cyan)}
 .tok-kw{color:#C792EA}.tok-str{color:#A5E075}.tok-num{color:#F9A66C}.tok-com{color:#6B7AA6;font-style:italic}.tok-fn{
   color:#82AAFF}.tok-type{color:#FFCB6B}.tok-attr{color:#7FDBCA}
+.tok-add{color:#A5E075;background:rgba(52,209,122,.12)}.tok-del{color:#FF8A8A;background:rgba(248,113,113,.12)}
 .md-table{margin:0 0 14px;overflow-x:auto;-webkit-overflow-scrolling:touch;border:1px solid var(--line);
   border-radius:var(--r)}
 .md-table table{border-collapse:collapse;width:100%;font-size:14.5px}

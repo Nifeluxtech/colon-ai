@@ -1,6 +1,7 @@
 /* Colon AI · Memory screen (v0.15.0, Blueprint B9): turn memory on or off, and view, add, edit and delete what
    Colon remembers. Memory is OFF until the user turns it on here; nothing is saved without them asking (a note
-   added here, or "remember that …" in a chat). Signed-in only (GET /memory, PUT /memory/consent, /memories). */
+   added here, or "remember that …" in a chat; 0.24.0: and personal facts shared in a chat, source auto).
+   Signed-in only (GET /memory, PUT /memory/consent, /memories). */
 import { Colon } from '../../../../packages/ui/js/colon.js';
 import { CW } from '../core/cw.js';
 
@@ -18,7 +19,8 @@ function head() {
 function itemHtml(m, names) {
   var where = m.scope === 'project' ? 'Project · ' + (names[m.project_id] || 'deleted') : SCOPE_LABEL[m.scope];
   return '<div class="set-row" data-mem="' + esc(m.id) + '"><span class="body"><span class="title">' + esc(m.content)
-    + '</span><span class="sub">' + esc(where) + ' · ' + (m.source === 'chat' ? 'from a chat' : 'added here') + ' · '
+    + '</span><span class="sub">' + esc(where) + ' · ' + (m.source === 'auto' ? 'you told Colon'
+    : m.source === 'chat' ? 'from a chat' : 'added here') + ' · '
     + esc(C.ago(m.updated_at)) + '</span></span>'
     + '<button class="icon-btn sm" type="button" data-mem-edit aria-label="Edit memory">' + icon('edit') + '</button>'
     + '<button class="icon-btn sm" type="button" data-mem-del aria-label="Delete memory">' + icon('trash')
@@ -59,7 +61,8 @@ CW.pages.memory = function (page) {
         + state.list.length + (m.max ? ' / ' + m.max : '') + '</span></h2>' +
         '<form class="set-row stack" data-mem-add novalidate><span class="body"><label class="title" for="mem-new">'
           + 'Add a memory</label><span class="sub">For example “I’m a nurse in Ibadan” or “Keep answers short”. '
-          + 'In a chat you can also say “remember that …”.</span></span><span class="set-inline">'
+          + 'In a chat, say “remember that …”, or just tell Colon about yourself (“Call me Elijah”).</span></span>'
+          + '<span class="set-inline">'
           + '<input class="input" id="mem-new" maxlength="1000"' + (on ? '' : ' disabled')
           + ' placeholder="Something Colon should remember"><button class="btn sm" type="submit"'
           + (on ? '' : ' disabled') + '>Add</button></span></form>' +

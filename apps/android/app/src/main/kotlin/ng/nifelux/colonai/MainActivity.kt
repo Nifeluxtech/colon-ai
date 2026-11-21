@@ -124,6 +124,7 @@ class MainActivity : AppCompatActivity() {
         val opened = handleIntent(intent)
         if (!restored && !opened) webView.loadUrl(BuildConfig.WEB_URL)
         if (!ColonApplication.of(this).online) showOffline(null)
+        UpdateChecker.onIntent(intent) // 0.24.0: opened from an update notification
         UpdateChecker.checkOnStart(this)
     }
 
@@ -134,6 +135,9 @@ class MainActivity : AppCompatActivity() {
         WakeWord.ensure(this) // 0.23.0: "Hey Colon" back on after a reboot or when Android stopped it
         ColonApplication.of(this).bridge.acquire()
         ColonApplication.of(this).addNetworkListener(onNetwork)
+        // 0.24.0: a running update download reopens its sheet, a finished one offers Install, an installed one is
+        // cleaned up; back from "Install unknown apps" the install goes on.
+        UpdateChecker.resume(this)
     }
 
     override fun onStop() {
@@ -193,6 +197,7 @@ class MainActivity : AppCompatActivity() {
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
+        if (UpdateChecker.onIntent(intent)) UpdateChecker.resume(this) // 0.24.0: tap on an update notification
         handleIntent(intent)
     }
 

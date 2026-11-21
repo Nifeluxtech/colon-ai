@@ -120,7 +120,7 @@ class BrowserActivity : AppCompatActivity(), TabManager.Host, BrowserHost {
                 }
             }
         })
-        if (BuildConfig.IS_BROWSER_APP) UpdateChecker.checkOnStart(this)
+        if (BuildConfig.IS_BROWSER_APP) { UpdateChecker.onIntent(intent); UpdateChecker.checkOnStart(this) }
     }
 
     private fun wireControls() {
@@ -144,6 +144,8 @@ class BrowserActivity : AppCompatActivity(), TabManager.Host, BrowserHost {
 
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
+        // 0.24.0: a tap on an update notification brings the update's sheet back.
+        if (BuildConfig.IS_BROWSER_APP && UpdateChecker.onIntent(intent)) UpdateChecker.resume(this)
         handleIntent(intent)
     }
 
@@ -165,6 +167,9 @@ class BrowserActivity : AppCompatActivity(), TabManager.Host, BrowserHost {
     override fun onStart() {
         super.onStart()
         saga.attach()
+        // 0.24.0: a running update download reopens its sheet, a finished one offers Install, an installed one is
+        // cleaned up; back from "Install unknown apps" the install goes on.
+        if (BuildConfig.IS_BROWSER_APP) UpdateChecker.resume(this)
     }
 
     override fun onStop() {

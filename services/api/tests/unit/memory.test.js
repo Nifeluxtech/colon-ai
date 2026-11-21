@@ -18,7 +18,7 @@ test('consent is off until the user turns it on; nothing can be saved before', a
   const { e } = engine();
   const st = await e.status(ada);
   assert.deepEqual([st.enabled, st.chosen, st.count], [false, false, 0]);
-  assert.match(st.notice, /Nothing is saved without you asking/);
+  assert.match(st.notice, /Nothing is saved while memory is off/);
   await assert.rejects(e.add(ada, { content: 'I am vegetarian' }), (x) => x.code === 'memory_off' && x.status === 409);
   assert.equal((await e.setConsent(ada, true)).enabled, true);
   const m = await e.add(ada, { content: '  I am   vegetarian ' });
@@ -93,7 +93,7 @@ test('retrieval: relevant memories first, then the most recent, never past the t
   assert.deepEqual(picked.map((m) => m.id), [2, 3, 1]);   // then newest first while they fit
   assert.deepEqual(select(rows, { query: 'chemistry', budget: 0 }), []);
   assert.deepEqual(select(rows, { query: 'chemistry', budget: 10, now: NOW }).map((m) => m.id), [3]);
-  assert.match(block(picked), /^What the user asked Colon to remember[\s\S]*- My JAMB exam/);
+  assert.match(block(picked), /^What Colon remembers about the user[\s\S]*- My JAMB exam/);
   assert.equal(block([]), '');
 });
 

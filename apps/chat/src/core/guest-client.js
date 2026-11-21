@@ -1,6 +1,6 @@
 /* Colon AI · guest adapter: signed-out chats streamed from POST /chat/guest, kept in this tab only. */
 
-import { DEFAULT_SETTINGS, LIMITS, classify, now, summary } from './common.js';
+import { DEFAULT_SETTINGS, LIMITS, classify, clientInfo, now, summary } from './common.js';
 import { offline, readSSE } from './sse.js';
 import { Colon } from '../../../../packages/ui/js/colon.js';
 import { ColonMarkdown } from '../../../../packages/ui/js/markdown/index.js';
@@ -32,7 +32,7 @@ function GuestChatData(opts) {
     var body = {
       messages: turns.slice(-40).map(function (m) { return { role: m.role, content: m.content || '',
         attachments: opts.signedIn ? [] : (m.attachments || []).map(fileFor) }; }),
-      mode: c.mode, model: c.model, language: (C.user && C.user.language) || 'en'
+      mode: c.mode, model: c.model, language: (C.user && C.user.language) || 'en', client: clientInfo()
     };
     if (opts.signedIn && lastUser && lastUser.attachments && lastUser.attachments.length) body.attachment_ids =
       lastUser.attachments.map(function (a) { return a.id; });

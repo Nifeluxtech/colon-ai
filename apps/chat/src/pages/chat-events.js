@@ -10,10 +10,11 @@ import { send, stopStreaming } from '../actions/send-message.js';
 import { cardAction } from '../components/browser-chrome.js';
 import { applySplitWidth, nativeInlineAction, openBrowser, renderEmbed, setLayout, setMobileTab, toggleBrowser }
   from '../components/browser-panel.js';
-import { autoGrow, devTemplate, modeMenu, onThreadScroll, scrollBottom, setMode, syncComposer,
-  trackComposerHeight } from '../components/composer.js';
+import { attachMenu, autoGrow, devTemplate, modeMenu, onThreadScroll, pickFiles, scrollBottom, setMode,
+  syncComposer, trackComposerHeight } from '../components/composer.js';
 import { openCodeEditor } from '../components/code-edit.js';
-import { msgAction } from '../components/message.js';
+import { memoryChipAction } from '../components/memory-chip.js';
+import { msgAction, renderThread } from '../components/message.js';
 import { modelMenu, updateHeader } from '../components/model-picker.js';
 import { applySidebar, closeDrawer, moreMenu, openDrawer, profileMenu, refreshConvs, toggleSidebar,
   toggleTheme } from '../components/sidebar.js';
@@ -111,6 +112,7 @@ function bind() {
     if (link && (link.closest('.cite') || link.hasAttribute('data-web'))) return;
     if (link && S.settings && S.settings.linksInPanel && !e.ctrlKey && !e.metaKey) { e.preventDefault();
       openBrowser(link.getAttribute('href')); return; }
+    var mc = t.closest('[data-memchip]'); if (mc) { memoryChipAction(mc, renderThread); return; }   // 0.24.0
     var mb = t.closest('[data-msg]'); if (mb) { msgAction(mb); return; }
     if (t.closest('.cw-conv a') && isMobile()) closeDrawer();
     var a = t.closest('[data-a]'); if (!a) return;
@@ -120,7 +122,9 @@ function bind() {
       model: function () { modelMenu(a); }, profile: function () { profileMenu(a); }, more: function () { moreMenu(a);
         }, theme: toggleTheme,
       'rename-current': function () { if (S.current) renameConv(S.current); },
-      attach: function () { S.media.pick(); }, mic: function () { voiceMenu(a); },
+      // 0.24.0: the paperclip opens Camera / Photos / Files; Developer mode's Attach project goes straight to Files.
+      attach: function () { attachMenu(a); }, 'attach-files': function () { pickFiles('files'); },
+      mic: function () { voiceMenu(a); },
       // 0.18.1: the send button in voice mode (empty composer) starts or ends hands-free.
       send: function () { if (!a.classList.contains('voice') || S.streaming) return;
         if (S.hf.active()) S.hf.reopen(); else S.hf.start(); syncComposer(); },

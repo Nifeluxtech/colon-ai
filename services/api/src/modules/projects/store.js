@@ -2,7 +2,8 @@
 // sqlStore() talks to MySQL; memoryStore() is the same interface in memory, for tests.
 const db = require('../../db');
 
-const COLS = 'p.id, p.user_id, p.name, p.instructions, p.created_at, p.updated_at';
+const COLS = ('p.id, p.user_id, p.name, p.instructions, p.archived_at, p.repo_provider, p.repo_owner, '
+  + 'p.repo_name, p.repo_branch, p.repo_sha, p.repo_synced_at, p.repo_files, p.created_at, p.updated_at');
 const COUNTS = `(SELECT COUNT(*) FROM chat_conversations c
     WHERE c.project_id = p.id AND c.user_id = p.user_id) AS chats,
   (SELECT COUNT(*) FROM chat_attachments a WHERE a.project_id = p.id AND a.user_id = p.user_id) AS files`;
@@ -21,7 +22,7 @@ function sqlStore(q = db) {
       VALUES (?,?,?,?, UTC_TIMESTAMP(3), UTC_TIMESTAMP(3))`, [p.id, p.user_id, p.name, p.instructions || null]),
     async update(userId, id, fields) {
       const sets = [], params = [];
-      for (const k of ['name', 'instructions']) {
+      for (const k of ['name', 'instructions', 'archived_at']) {
         if (fields[k] !== undefined) { sets.push(`${k} = ?`); params.push(fields[k]); }
       }
       if (!sets.length) return true;
@@ -59,7 +60,7 @@ function memoryStore(seed = {}) {
     async update(userId, id, fields) {
       const p = find(userId, id);
       if (!p) return false;
-      for (const k of ['name', 'instructions']) if (fields[k] !== undefined) p[k] = fields[k];
+      for (const k of ['name', 'instructions', 'archived_at']) if (fields[k] !== undefined) p[k] = fields[k];
       p.updated_at = new Date();
       return true;
     },

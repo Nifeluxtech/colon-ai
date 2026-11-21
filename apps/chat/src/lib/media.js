@@ -278,7 +278,7 @@ function create(o) {
     voice.stopping = true; voice.rec.abort(); cleanup(); if (o.onTranscript) o.onTranscript('', 'cancel');
     } else if (voice.kind === 'recorder') voice.mr.stop(); }
   var api = {
-    pick: function () { input.click(); }, addFiles: addFiles, remove: remove,
+    pick: function (setup) { if (setup) setup(input); input.click(); }, addFiles: addFiles, remove: remove,
     ready: function () { return items.filter(function (i) { return i.status === 'ready'; }).map(function (i) {
       return i.att; }); },
     state: function () { return { count: items.length, uploading: items.some(function (i) {

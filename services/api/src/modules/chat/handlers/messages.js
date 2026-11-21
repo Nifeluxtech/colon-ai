@@ -75,19 +75,24 @@ async function seqOf(id) {
 }
 
 async function streamFor(req, res, conv, userMsg, { version = 1, onOpen, route = 'chat.send', voice = false } = {}) {
+  const client = (req.body && req.body.client) || null;   // 0.24.0: { platform, version } for app-help answers
   const counters = await limits.resolveCounters(req, conv.mode);
   const guard = safety.collector();   // injection flags found in attached files (logged as safety events)
   // 0.11.5: the chat model decides whether to browse (browser tools), with this chat's browser state in context.
   const all = await store.messages(conv.id);
   const state = await browserState.load({ userId: req.user.id, conversationId: conv.id,
     page: browserState.fromClient(req.body && req.body.browser) }).catch(() => null);
-  const generate = (args) => browserTools.turn(args, { state, userMsg, messages: all, guard, generate: ai.generate,
-    user: req.user });
   // v0.15.0: the chat's project (instructions, files) and the user's memories, when they turned memory on.
-  const more = await extra.build({ user: req.user, conv, text: userMsg.content, guard });
+  // 0.24.0: and the app guide's sections when the message asks how to do something in Colon.
+  const more = await extra.build({ user: req.user, conv, text: userMsg.content, guard, client });
+  // v0.24.0: Developer mode in a project with a connected repository: the model may open its files itself.
+  const repo = conv.mode === 'developer' && more.repo ? { projectId: conv.project_id } : null;
+  const generate = (args) => browserTools.turn(args, { state, userMsg, messages: all, guard, generate: ai.generate,
+    user: req.user, repo });
   return historyFor(req, conv, userMsg.id).then(history => {
     // Developer mode: the project context comes from every file attached so far in this conversation.
-    const built = forMode(history, { mode: conv.mode, guard, message: userMsg.content });
+    const built = forMode(history, { mode: conv.mode, guard, message: userMsg.content, projectFiles: more.code,
+      repo: more.repo, tools: Boolean(repo) && !voice });
     return respond({ extraContext: more.block,
       req, res, mode: conv.mode, model: conv.model, language: replyLanguage(req.user.language, userMsg.content),
         name: req.user.name, route, guard, userText: userMsg.content, project: built.project,
@@ -122,13 +127,16 @@ const postConversationsByIdMessages = async (req, res) => {
   const title = conv.title === 'New chat' ? store.titleFrom(content || (atts[0] && atts[0].name)) : null;
   await store.touch(conv, { title, preview: content || (atts[0] && atts[0].name) });
   const fresh = await store.getConv(req.user.id, conv.id);
-  // v0.15.0: "remember that …" saves a memory when the user turned memory on (never on Colon's own initiative).
-  const saved = await memory.fromChat({ user: req.user, text: content, projectId: fresh.project_id || null,
+  // v0.15.0: "remember that …" saves a memory when the user turned memory on. 0.24.0: so do the personal facts the
+  // user shares ("My nickname is Elijah"); memory never chosen: the chat offers once to turn it on (memory_offer).
+  const saved = await memory.fromChatAll({ user: req.user, text: content, projectId: fresh.project_id || null,
     conversationId: fresh.id });
+  const offer = saved.length ? [] : await memory.offerFor({ user: req.user, text: content });
   // 0.11.5: browsing is the chat model's own choice (browser-tools.js); keyword routing only when it fails.
   await streamFor(req, res, fresh, userMsg, { voice: req.body.voice === true, onOpen: (sse) => {
     sse.send('user', { message: userMsg, conversation: store.convOut(fresh) });
-    if (saved) sse.send('memory', { memory: saved });
+    if (saved.length) sse.send('memory', { memory: saved[0], memories: saved });
+    if (offer.length) sse.send('memory_offer', { notes: offer });
   } });
 };
 
