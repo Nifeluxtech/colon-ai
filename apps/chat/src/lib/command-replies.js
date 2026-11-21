@@ -80,6 +80,8 @@ var T = {
   watch: function (d) { var t = cut(d.title, 100);
     return ['Here’s ' + t + '.', 'Playing ' + t + ' for you.', 'Okay, here’s ' + t + '.']; },
   open_service: function (d) { return ['Opening it on ' + d.service + '.', 'Taking you to ' + d.service + '.']; },
+  finding: function (d) { var q = cut(d.query, 80);
+    return ['Okay, finding ' + q + '.', 'Looking for ' + q + ' on YouTube.', 'One moment, getting ' + q + '.']; },
   not_found_video: function () { return ['I couldn’t find that video.', 'I couldn’t find a video for that.']; },
   not_found_song: function () { return ['I couldn’t find that song.', 'I couldn’t find that one anywhere.']; },
   embed_blocked: function () { return ['YouTube won’t play that one inside Colon. Tap Open in YouTube to watch it.',

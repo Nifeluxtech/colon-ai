@@ -55,6 +55,8 @@ module.exports = {
     toolTimeoutMs: Number(env('CHAT_TOOL_TIMEOUT_MS', 15000)),
     specialistRouting: env('AI_SPECIALIST_ROUTING', 'on') !== 'off',   // read live by modules/ai/specialists.js
     idleTimeoutMs: Number(env('AI_IDLE_TIMEOUT_MS', 30000)),
+    voiceMaxTokens: Number(env('CHAT_VOICE_MAX_TOKENS', 300)),        // 0.22.1: spoken replies stay short
+    voiceFirstTokenMs: Number(env('CHAT_VOICE_FIRST_TOKEN_MS', 8000)),
     maxReplyMs: Number(env('AI_MAX_REPLY_MS', 180000)),
     maxTokens: Number(env('AI_MAX_TOKENS', 4096)),
     developerMaxTokens: Number(env('AI_DEVELOPER_MAX_TOKENS', 8192)),  // Developer mode replies (full files)

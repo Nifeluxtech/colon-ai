@@ -120,6 +120,9 @@ const SCHEMA = [
   oneOf('AI_SPECIALIST_ROUTING', ['on', 'off'], 'on',
     'specialist routing: the benchmark winner per task category leads the chain (Admin › Routing overrides)'),
   num('AI_IDLE_TIMEOUT_MS', 30000, 'give up on a stream that went quiet'),
+  // 0.22.1: voice mode replies (POST /conversations/:id/messages with voice: true) are short and fast.
+  num('CHAT_VOICE_MAX_TOKENS', 300, 'output cap for a spoken reply in voice mode'),
+  num('CHAT_VOICE_FIRST_TOKEN_MS', 8000, 'voice mode: a model that has not started answering by then hands over'),
   num('AI_MAX_REPLY_MS', 180000, 'hard cap on one reply'),
   num('AI_MAX_TOKENS', 4096, 'max tokens per reply'),
   num('AI_DEVELOPER_MAX_TOKENS', 8192, 'max tokens per Developer-mode reply (whole files of code)'),

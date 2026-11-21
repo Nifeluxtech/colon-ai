@@ -67,7 +67,8 @@ function sendChat(text, atts) {
     S.messages.push(temp); renderThread(); updateHeader(); scrollBottom(true);
     // 0.11.5: the chat model sees this chat's browser (page, summary, numbered items) and decides to browse.
     run(function (o) { return pageState().then(function (b) { return data.send(Object.assign({ conversationId: c.id,
-      content: text, attachments: atts, mode: c.mode, model: c.model || defaultModel(), browser: b }, o)); }); },
+      content: text, attachments: atts, mode: c.mode, model: c.model || defaultModel(), browser: b,
+      voice: !!(S.hf && S.hf.active()) }, o)); }); },   // 0.22.1: a short spoken answer, fastest route
       temp);
   }).catch(function (e) { ta.value = text; autoGrow(); syncComposer(); C.toast(e.message, 'bad'); });
 }
@@ -111,7 +112,9 @@ function run(call, tempUser, replaceId) {
       }
       else if (ev.type === 'sources' && msg) { msg.sources = ev.sources; renderThread(); scrollBottom(); }
       else if (ev.type === 'status' && msg) { msg.stage = ev.stage; msg.stageCount = ev.count || 0; paint(); }
-      else if (ev.type === 'delta' && msg) { if (data.kind === 'remote') msg.content += ev.text; paint(); }
+      else if (ev.type === 'delta' && msg) { if (data.kind === 'remote') msg.content += ev.text; paint();
+        // 0.22.1: voice mode speaks each finished sentence while the rest streams (lib/hands-free.js partial).
+        if (S.hf && S.hf.active() && S.hf.partial) S.hf.partial(ColonMarkdown.toText(msg.content)); }
       else if (ev.type === 'done' && msg && ev.dropped) {
         // 0.11.5: the turn only started browsing: no reply bubble (Saga's own note and card follow).
         S.messages = S.messages.filter(function (m) { return m !== msg; }); msg = null; renderThread(); }

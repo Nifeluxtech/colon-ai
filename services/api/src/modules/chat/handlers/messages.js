@@ -74,7 +74,7 @@ async function seqOf(id) {
   return row ? row.seq : null;
 }
 
-async function streamFor(req, res, conv, userMsg, { version = 1, onOpen, route = 'chat.send' } = {}) {
+async function streamFor(req, res, conv, userMsg, { version = 1, onOpen, route = 'chat.send', voice = false } = {}) {
   const counters = await limits.resolveCounters(req, conv.mode);
   const guard = safety.collector();   // injection flags found in attached files (logged as safety events)
   // 0.11.5: the chat model decides whether to browse (browser tools), with this chat's browser state in context.
@@ -92,7 +92,9 @@ async function streamFor(req, res, conv, userMsg, { version = 1, onOpen, route =
       req, res, mode: conv.mode, model: conv.model, language: replyLanguage(req.user.language, userMsg.content),
         name: req.user.name, route, guard, userText: userMsg.content, project: built.project,
       attachments: fileNames((history[history.length - 1] || {}).files),
-      history: built.messages, counters, store: persistedStore(conv, { version }), onOpen, generate,
+      // 0.22.1 voice mode: the plain chain with a brief spoken answer (no browser-tool round trip first).
+      history: built.messages, counters, store: persistedStore(conv, { version }), onOpen, voice,
+      generate: voice ? undefined : generate,
       webSearch: wantsWeb(conv.mode), searchText: userMsg.content, searchPrevious: previousUserText(history),
     });
   });
@@ -124,7 +126,7 @@ const postConversationsByIdMessages = async (req, res) => {
   const saved = await memory.fromChat({ user: req.user, text: content, projectId: fresh.project_id || null,
     conversationId: fresh.id });
   // 0.11.5: browsing is the chat model's own choice (browser-tools.js); keyword routing only when it fails.
-  await streamFor(req, res, fresh, userMsg, { onOpen: (sse) => {
+  await streamFor(req, res, fresh, userMsg, { voice: req.body.voice === true, onOpen: (sse) => {
     sse.send('user', { message: userMsg, conversation: store.convOut(fresh) });
     if (saved) sse.send('memory', { memory: saved });
   } });

@@ -14,6 +14,7 @@ import { Colon } from '../../../../packages/ui/js/colon.js';
 import { closeMusicDock, controlMusicDock, musicDockError, musicDockNow, musicDockOpen, playOnYouTube }
   from '../components/music-dock.js';
 import { videoOf } from '../components/video-row.js';
+import { S } from '../core/state.js';
 import { reply } from '../lib/command-replies.js';
 import { dockWord, musicError, parseMusic, playLast } from '../lib/music-intent.js';
 import { answer, commandLine } from './command-thread.js';
@@ -41,8 +42,8 @@ function openOn(service, query) {
 }
 
 /** Plays a track in a new card under its reply (the reply is written first: the card sits under it). */
-function playCard(tracks, say) {
-  return answer(say, { ends: true, video: tracks[0] }).then(function (m) {
+function playCard(tracks, say, quiet) {
+  return answer(say, { ends: true, video: tracks[0], quiet: quiet }).then(function (m) {
     return playOnYouTube(tracks, { anchor: m && m.id }).then(function (ok) {
       // On failure the card stays with its YouTube button; Colon doesn't leave the app by itself (0.21.1).
       if (!ok) fail(reply('embed_blocked') + (musicDockError() ? ' (' + musicDockError() + ')' : ''));
@@ -53,15 +54,19 @@ function playCard(tracks, say) {
 
 /** Find it on YouTube and play it in a new card; kind 'video' for "watch X". */
 function youtube(query, kind) {
+  // 0.22.1: in voice mode the search (a server round trip) doesn't hold the reply: Colon says it is on it at once.
+  var hf = S.hf && S.hf.active(), quiet = !!hf;
+  if (hf) { S.hf.localReply(); S.hf.finalReply(reply('finding', { query: query })); }
   var url = '/music/search?q=' + encodeURIComponent(query) + (kind === 'video' ? '&kind=video' : '');
   Colon.api(url).then(function (d) {
     var tracks = (d && d.tracks) || [];
-    if (!tracks.length) { fail(reply(kind === 'video' ? 'not_found_video' : 'not_found_song')); return; }
+    if (!tracks.length) {
+      answer(reply(kind === 'video' ? 'not_found_video' : 'not_found_song'), { ok: false, quiet: quiet }); return; }
     if (onPhone()) music({ action: 'stop' }).catch(function () { /* nothing was playing */ });
-    playCard(tracks, reply(kind === 'video' ? 'watch' : 'play', { title: tracks[0].title }));
+    playCard(tracks, reply(kind === 'video' ? 'watch' : 'play', { title: tracks[0].title }), quiet);
   }, function (e) {
     var why = (e && (e.message || e.code)) || 'no answer';
-    fail('I couldn’t search YouTube: ' + why);
+    answer('I couldn’t search YouTube: ' + why, { ok: false, quiet: quiet });
   });
 }
 

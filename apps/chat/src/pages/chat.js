@@ -127,7 +127,7 @@ function mount(view, ctx) {
       if (S.hf.transcript(text, final)) { delete ta.dataset.before; return; }
       if (final === true) { delete ta.dataset.before; if (S.settings.voice.autoSend && text) send(); else ta.focus(); }
     },
-    onLevel: function (v) { S.hf.level(v); },
+    onLevel: function (v) { S.hf.level(v); }, onVoiceReady: function () { S.hf.ready(); },
     // 0.22.1: in voice mode the phone's end of speech ends the turn; a dead mic is said out loud, never left on
     // "Listening…" (lib/voice-errors.js), and in the app a missing permission is asked for again.
     endOnFinal: function () { return !!(S.hf && S.hf.active()); },
@@ -138,7 +138,8 @@ function mount(view, ctx) {
   var vm = createVoiceOverlay({ onMute: function (on) { S.hf.mute(on); }, onEnd: function () { S.hf.stop(); },
     muted: function () { return S.hf.muted(); } });
   S.hf = createHandsFree({ media: S.media, send: send, speak: ReadAloud, bar: $('.cv-voice'), toast: C.toast, ui: vm,
-    getSettings: function () { return S.settings || {}; }, onState: function () { syncComposer(); } });
+    getSettings: function () { return S.settings || {}; }, onState: function () { syncComposer(); },
+    onTiming: function (t) { console.info('[Colon] ' + t.line); vm.timing(t.line); } });   // 0.22.1
   S.collapsed = localStorage.getItem('colon.sidebar') === 'closed';
   applySidebar();
   Promise.all([

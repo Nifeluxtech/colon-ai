@@ -54,7 +54,8 @@ function nativeSpeak(list, o, my) {
   function end() { if (ended) return; ended = true; if (nativeOff) { nativeOff(); nativeOff = null; }
     if (my === run && o.onEnd) o.onEnd(); }
   if (nativeOff) nativeOff();
-  nativeOff = b.on('speak', function (d) { if (d && d.id === id && (d.type === 'done' || d.type === 'error')) end(); });
+  nativeOff = b.on('speak', function (d) { if (d && d.id === id && (d.type === 'done' || d.type === 'error')) end();
+    if (d && d.id === id && d.type === 'start' && o.onAudio) o.onAudio(); });   // 0.22.1: first audio (timings)
   b.call('speak', { action: 'speak', id: id, text: list.join(' ').slice(0, 6000), lang: voiceLang(o.lang),
     rate: o.rate || 1 }).catch(end);
 }
@@ -67,6 +68,7 @@ function device(list, o, my) {
   var u = new SpeechSynthesisUtterance(list.join(' ').slice(0, 6000));
   u.lang = voiceLang(o.lang); u.rate = o.rate || 1;
   u.onend = u.onerror = function () { if (my === run && o.onEnd) o.onEnd(); };
+  u.onstart = function () { if (o.onAudio) o.onAudio(); };
   speechSynthesis.speak(u);
 }
 
@@ -101,6 +103,7 @@ function play(text, o) {
         if (after) step(i + 1, after); else if (o.onEnd) o.onEnd();
       };
       audio.onerror = function () { if (my === run) device(list.slice(i), o, my); };
+      if (i === 0 && o.onAudio) audio.onplaying = o.onAudio;
       audio.play().catch(function () { if (my === run) device(list.slice(i), o, my); });
     }, function () { if (my === run) device(list.slice(i), o, my); });
   })(0, next);

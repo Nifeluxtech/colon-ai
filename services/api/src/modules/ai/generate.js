@@ -98,6 +98,16 @@ function listModels(cfg = routingDefault) {
   }));
 }
 
+// 0.22.1: voice mode. Short replies, a first-token timeout that hands a slow start to the next model, and never the
+// big Gemma 4 31B (about 21 s to its first token on the free tier, bench 2026-11-12) unless nothing else is left.
+const voiceTimeouts = () => ({ maxTokens: config.chat.voiceMaxTokens || 300,
+  firstTokenTimeoutMs: config.chat.voiceFirstTokenMs || 8000 });
+function forVoice(chain, voice) {
+  if (!voice) return chain;
+  const quick = chain.filter(c => !/31b/i.test(String(c.model)));
+  return quick.length ? Object.assign(quick, { route: chain.route }) : chain;
+}
+
 const needsVisionFor = (messages) => messages.some(m => Array.isArray(m.content) && m.content.some(p => p
   && p.type === 'image_url'));
 
@@ -113,7 +123,8 @@ async function generate(o) {
   const cfg = o.routing || routingDefault;
   // Developer mode gets a larger output cap (whole files of code); explicit o.timeouts.maxTokens still wins.
   const timeouts = { ...config.chat, ...(o.mode === 'developer' && config.chat.developerMaxTokens
-    ? { maxTokens: config.chat.developerMaxTokens } : {}), ...(o.timeouts || {}) };
+    ? { maxTokens: config.chat.developerMaxTokens } : {}), ...(o.voice ? voiceTimeouts() : {}),
+    ...(o.timeouts || {}) };
   if (!isConfigured(cfg)) {
     throw Object.assign(new Error('Colon isn’t connected to an AI provider yet.'), { status: 503,
       code: 'no_provider' });
@@ -122,8 +133,8 @@ async function generate(o) {
   // Specialist routing: a cheap rule-based look at the message picks the category (no model call).
   const task = o.category ? { category: o.category } : classify({ mode: o.mode, language: o.language,
     messages: o.messages, text: o.taskText, attachments: o.attachments, web: o.web });
-  const chain = chainFor({ mode: o.mode, language: o.language, model: o.model, needsVision, category: task.category },
-    cfg);
+  const chain = forVoice(chainFor({ mode: o.mode, language: o.language, model: o.model, needsVision,
+    category: task.category }, cfg), o.voice);
   if (!chain.length) {
     throw Object.assign(new Error(needsVision
       ? ('Image reading isn’t switched on yet: no vision-capable model is configured. Describe the image in words, '
@@ -132,7 +143,7 @@ async function generate(o) {
         ? 'no_vision' : 'no_provider' });
   }
   const messages = [{ role: 'system', content: systemPrompt({ mode: o.mode, language: o.language, name: o.name,
-    web: Boolean(o.web), context: o.context }) }, ...o.messages];
+    web: Boolean(o.web), context: o.context, voice: Boolean(o.voice) }) }, ...o.messages];
   const attempts = [];
   // Hedged racing: free hosts are often slow to start, so each "wave" asks up to `hedge` models at once
   // (different providers first) and keeps whichever starts answering first; the others are cancelled.
@@ -148,4 +159,5 @@ async function generate(o) {
     { status: 503, attempts });
 }
 
-module.exports = { generate, chainFor, listModels, isConfigured, hasVision, enabledProviders, _resting: resting };
+module.exports = { generate, chainFor, forVoice, listModels, isConfigured, hasVision, enabledProviders,
+  _resting: resting };

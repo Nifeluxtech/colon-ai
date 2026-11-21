@@ -166,6 +166,7 @@ function create(o) {
     if (method === 'dictation' && SR) {
       var rec = new SR(); rec.lang = (s.voice && s.voice.lang) || 'en-NG'; rec.interimResults = true;
         rec.continuous = true; rec.onlevel = function (v) { if (o.onLevel) o.onLevel(v); };
+      rec.onready = rec.onstart = function () { if (o.onVoiceReady) o.onVoiceReady(); };
       voice = { kind: 'dictation', rec: rec, finalText: '', cancelled: false, stopping: false, restarts: 0 };
       // Android Chrome repeats earlier words inside each new result ("hi", "hi how", "hi how are you"), so the
       // session text is rebuilt from all results each time, and a result that already contains the text so far

@@ -6,10 +6,11 @@
    Lines are written in order (each waits for the one before), whatever order the phone answers in.
      ensureConv() -> Promise<conversation>            this chat, or a new one (also used by send-message.js)
      commandLine(text) -> Promise<message|null>       the user's command
-     answer(say, { ok, ends, video }) -> Promise<message|null>
+     answer(say, { ok, ends, video, quiet }) -> Promise<message|null>
                                                       Colon's reply; ends: voice mode stops after saying it (the
                                                       command left Colon or started music); video: the track that
-                                                      the reply's card plays ({ id, title, channel }) */
+                                                      the reply's card plays ({ id, title, channel }); quiet: not
+                                                      spoken (voice mode already said "Okay, finding X.") */
 
 import { Colon } from '../../../../packages/ui/js/colon.js';
 import { scrollBottom } from '../components/composer.js';
@@ -76,7 +77,8 @@ function answer(say, o) {
   o = o || {};
   var ok = o.ok !== false;
   C.native.haptic(ok ? 'confirm' : 'reject');
-  if (handsFree()) {
+  if (handsFree() && !o.quiet) {
+    if (S.hf.localReply) S.hf.localReply();   // answered on the phone: no server round trip (timings)
     if (o.ends && ok && S.hf.finalReply) S.hf.finalReply(say);
     else S.hf.replyDone({ status: 'complete' }, say);
   }

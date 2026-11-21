@@ -10,6 +10,15 @@
    app); fail(text) says why the microphone stopped (permission, no recognizer…) and ends. */
 
 import { reply } from './command-replies.js';
+import { createTiming } from './voice-timing.js';
+
+// 0.22.1: the reply is spoken sentence by sentence while it streams (the first sentence starts at once).
+var SENTENCE = /[.!?…](?:["'”’)\]]*)(?=\s)|\n+/g;
+function lastBoundary(text, from) {
+  var at = -1, m; SENTENCE.lastIndex = from;
+  while ((m = SENTENCE.exec(text))) at = m.index + m[0].length;
+  return at;
+}
 
 var QUIET_AFTER_TEXT = 1600; // ms without new words before a dictated turn is sent
 var QUIET_AFTER_VOICE = 1500; // ms below the speech level before a recorded turn is sent
@@ -18,6 +27,7 @@ var LOUD = 0.12; // average spectrum level (0–1) that counts as speech
 
 function createHandsFree(o) {
   var state = 'idle', misses = 0, timer = null, pill = null, turn = null, muted = false, ui = o.ui || null;
+  var talk = null, timing = createTiming(o.now), local = false;   // talk: the reply being spoken as it streams
 
   function setState(s, label) {
     var was = state; state = s;
@@ -44,6 +54,7 @@ function createHandsFree(o) {
     if (state === 'idle') return;
     if (muted) { clear(); return setState('muted', 'Mic muted. Unmute to talk'); }
     clear(); setState('listening', 'Listening… just start talking');
+    talk = null; local = false; timing.reset(); timing.mark('listen');
     turn = { start: Date.now(), last: 0, text: '', heard: false };
     if (o.media.voiceActive()) o.media.stopVoice();
     o.media.startVoice();
@@ -65,7 +76,7 @@ function createHandsFree(o) {
 
   function stop() {
     if (state === 'idle') return;
-    clear(); var was = state; muted = false; setState('idle');
+    clear(); talk = null; var was = state; muted = false; setState('idle');
     if (o.media.voiceActive()) o.media.cancelVoice();
     if (was === 'speaking') o.speak.stop();
   }
@@ -87,7 +98,7 @@ function createHandsFree(o) {
       else sayThen(reply('miss'), listen);
       return true;
     }
-    misses = 0; setState('thinking', 'Colon is thinking…');
+    misses = 0; setState('thinking', 'Colon is thinking…'); timing.mark('speechEnd');
     o.send();
     return true;
   }
@@ -99,15 +110,48 @@ function createHandsFree(o) {
     if (v > LOUD) { turn.heard = true; turn.last = Date.now(); }
   }
 
+  function voiceOpts(onEnd) {
+    var v = (o.getSettings().voice) || {};
+    return { engine: v.readAloudVoice || 'auto', speaker: v.speaker, rate: v.readAloudRate || 1, lang: v.lang,
+      onEnd: onEnd, onAudio: function () { if (timing.mark('firstAudio') && o.onTiming) o.onTiming(
+        timing.summary(local)); } };
+  }
+
   // Says text in voice mode (caption, overlay and the phone's TTS), then runs next.
   function sayThen(text, next) {
-    clear();
+    clear(); talk = null;
     if (o.media.voiceActive()) o.media.cancelVoice();
     if (ui) ui.say(text);
+    timing.mark('firstToken');
     setState('speaking', 'Speaking… tap End to stop');
-    var v = (o.getSettings().voice) || {};
-    o.speak.play(text.slice(0, 6000), { engine: v.readAloudVoice || 'auto', speaker: v.speaker,
-      rate: v.readAloudRate || 1, lang: v.lang, onEnd: function () { if (state === 'speaking') next(); } });
+    o.speak.play(text.slice(0, 6000), voiceOpts(function () { if (state === 'speaking') next(); }));
+  }
+
+  /** 0.22.1: a command answered on the phone (no server): timings count it against the local budget. */
+  function localReply() { local = true; }
+
+  // Speaks the next queued sentence; when the reply is complete and all said, listens again.
+  function pump() {
+    if (!talk || talk.playing || state !== 'speaking') return;
+    var next = talk.queue.shift();
+    if (!next) { if (talk.done) { talk = null; setTimeout(listen, 300); } return; }
+    talk.playing = true;
+    o.speak.play(next, voiceOpts(function () { if (talk) talk.playing = false; pump(); }));
+  }
+
+  /** 0.22.1: the reply so far, while it streams (plain text): each finished sentence is spoken at once. */
+  function partial(text) {
+    if (state !== 'thinking' && !(state === 'speaking' && talk)) return;
+    timing.mark('firstToken');
+    if (!talk) talk = { at: 0, queue: [], playing: false, done: false };
+    var cut = lastBoundary(text, talk.at);
+    if (cut <= talk.at) return;
+    var piece = text.slice(talk.at, cut).trim(); talk.at = cut;
+    if (!piece) return;
+    talk.queue.push(piece);
+    if (ui) ui.say(text);
+    if (state === 'thinking') setState('speaking', 'Speaking… tap End to stop');
+    pump();
   }
 
   // 0.22.1: a command's reply that ends voice mode once it is said (music started, or Colon left for an app).
@@ -125,16 +169,19 @@ function createHandsFree(o) {
 
   // Called when a reply finishes streaming.
   function replyDone(msg, text) {
+    if (talk && state === 'speaking') {   // streamed: say what is left, then listen again
+      var rest = String(text || '').slice(talk.at).trim();
+      if (rest) talk.queue.push(rest);
+      talk.done = true; if (ui && text) ui.say(text); pump(); return;
+    }
     if (state !== 'thinking') return;
     if (!msg || msg.status !== 'complete' || !text) {
       o.toast('That reply didn’t come through. Listening again.', 'bad'); return listen();
     }
     if (ui) ui.say(text);
+    timing.mark('firstToken'); talk = null;
     setState('speaking', 'Speaking… tap End to stop');
-    var v = (o.getSettings().voice) || {};
-    o.speak.play(text.slice(0, 6000), { engine: v.readAloudVoice || 'auto', speaker: v.speaker,
-      rate: v.readAloudRate || 1, lang: v.lang, onEnd: function () {
-        if (state === 'speaking') setTimeout(listen, 300); } });
+    o.speak.play(text.slice(0, 6000), voiceOpts(function () { if (state === 'speaking') setTimeout(listen, 300); }));
   }
 
   // 0.20.0: mute the mic without ending voice mode. While Colon thinks or speaks it takes effect at the next turn.
@@ -152,6 +199,7 @@ function createHandsFree(o) {
 
   return { start: start, stop: stop, reopen: reopen, active: function () { return state !== 'idle'; },
     transcript: transcript, level: level, replyDone: replyDone, finalReply: finalReply, fail: fail, mute: mute,
+    partial: partial, localReply: localReply, ready: function () { timing.mark('ready'); },
     muted: function () { return muted; } };
 }
 

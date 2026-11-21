@@ -131,7 +131,11 @@ function createVoiceOverlay(o) {
     heard: function (t) { apply({ type: 'heard', text: t }); },
     say: function (t) { apply({ type: 'say', text: t }); },
     level: function (v) { apply({ type: 'level', v: v }); },
-    show: show, hide: hide, model: function () { return m; }
+    show: show, hide: hide, model: function () { return m; },
+    // 0.22.1: one turn's timings, logged by the app (logcat tag ColonVoice) next to its own.
+    timing: function (line) { if (!C.native.can('voice_ui') || m.state === 'idle') return;
+      var p = VoiceOrb.nativePayload(m); p.muted = !!o.muted(); p.timing = String(line).slice(0, 300);
+      C.native.call('voice_ui', p).catch(function () {}); }
   };
 }
 

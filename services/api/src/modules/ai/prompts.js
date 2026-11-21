@@ -130,11 +130,16 @@ function languageRule(lang) {
     + 'Hausa or Igbo, reply in that language.');
 }
 
+// 0.22.1: voice mode. The reply is read aloud by the phone as it streams, so it must be short and plain.
+const VOICE = 'Voice: this is a spoken conversation and your reply is read aloud as it arrives. Answer at once in '
+  + 'one to three short sentences (under 60 words), most important point first. Plain spoken words only: no '
+  + 'markdown, headings, lists, tables, code, emoji or links. Offer to say more instead of saying everything.';
+
 // web: true when numbered web sources follow (Research mode with search); context: extra system text appended last.
-function systemPrompt({ mode = 'general', language = 'en', name = '', web = false, context = '' } = {}) {
+function systemPrompt({ mode = 'general', language = 'en', name = '', web = false, context = '', voice = false } = {}) {
   const modeText = mode === 'research' ? `${MODES.research}\n${web ? RESEARCH_WEB : RESEARCH_NO_WEB}` : (MODES[mode]
     || MODES.general);
-  return [BASE, SAFETY, modeText, languageRule(language),
+  return [BASE, SAFETY, modeText, voice ? VOICE : '', languageRule(language),
     name ? `The user's name is ${String(name).replace(/[\r\n<>]+/g, ' ').slice(0, 80)}.` : '', context]
     .filter(Boolean).join('\n\n');
 }
@@ -176,4 +181,4 @@ function replyLanguage(chosen, latestUserText) {
   return detectLanguage(latestUserText) || 'en';
 }
 
-module.exports = { systemPrompt, detectLanguage, replyLanguage, LANGUAGE_NAMES };
+module.exports = { VOICE, systemPrompt, detectLanguage, replyLanguage, LANGUAGE_NAMES };

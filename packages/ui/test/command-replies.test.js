@@ -17,7 +17,8 @@ test('every action has 2 or 3 wordings, and they take turns', () => {
     place: 'Ikeja', title: 'Essence', service: 'YouTube', what: 'Essence by Wizkid', say: 'Volume at 40%.' };
   for (const k of ['open_app', 'open_app_missing', 'settings', 'camera', 'torch', 'volume', 'media', 'dial', 'sms',
     'alarm', 'timer', 'navigate', 'play', 'watch', 'open_service', 'not_found_video', 'not_found_song',
-    'embed_blocked', 'pause', 'resume', 'forward', 'back', 'stop', 'identified', 'handed_off', 'miss', 'give_up']) {
+    'embed_blocked', 'finding', 'pause', 'resume', 'forward', 'back', 'stop', 'identified', 'handed_off', 'miss',
+    'give_up']) {
     const n = variants(k, data);
     assert.ok(n >= 2 && n <= 3, k + ' has ' + n);
     const seen = new Set([reply(k, data), reply(k, data), reply(k, data)]);

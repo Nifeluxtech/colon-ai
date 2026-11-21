@@ -58,3 +58,20 @@ test('interim text is left to the composer and nothing happens while idle', () =
   assert.equal(hf.transcript('hi', true), false);
   hf.start(); assert.equal(hf.transcript('hi', false), false); hf.stop();
 });
+
+test('a streamed reply is spoken sentence by sentence, then it listens again (0.22.1)', async () => {
+  const { hf, log, media, speak } = rig();
+  hf.start(); media.on = false; hf.transcript('tell me about Lagos', true);
+  hf.partial('Lagos is');
+  assert.equal(log[log.length - 1], 'send');
+  hf.partial('Lagos is a big city. It');
+  assert.equal(log[log.length - 1], 'speak:Lagos is a big city.');
+  hf.partial('Lagos is a big city. It has lagoons. And');
+  speak.end();
+  assert.equal(log[log.length - 1], 'speak:It has lagoons.');
+  hf.replyDone({ status: 'complete' }, 'Lagos is a big city. It has lagoons. And beaches.');
+  speak.end();
+  assert.equal(log[log.length - 1], 'speak:And beaches.');
+  speak.end(); await new Promise((r) => setTimeout(r, 350));
+  assert.equal(log[log.length - 1], 'listen');
+});
