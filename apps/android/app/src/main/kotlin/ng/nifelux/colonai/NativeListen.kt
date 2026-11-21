@@ -40,6 +40,7 @@ object NativeListen {
     private var lastLevel = 0L
     private var lang = "en-NG"
     private var retried = false
+    private var releasedAt = 0L
     private val main = Handler(Looper.getMainLooper())
 
     fun available(context: Context): Boolean =
@@ -69,12 +70,12 @@ object NativeListen {
         if (!available(a)) {
             Log.w(TAG, "start refused: no recognition service"); done(false, null, "unavailable"); return
         }
-        val busy = recognizer != null
         release()
         host = WeakReference(a); id = sid; lang = language; retried = false
         done(true, null, null)
         // The page restarts after every pause: give the speech service a moment to let go of the last session.
-        if (busy) main.postDelayed({ if (id == sid) begin(a, sid) }, RESTART_GAP_MS) else begin(a, sid)
+        val wait = RESTART_GAP_MS - (SystemClock.uptimeMillis() - releasedAt)
+        if (wait > 0) main.postDelayed({ if (id == sid) begin(a, sid) }, wait) else begin(a, sid)
     }
 
     private fun begin(a: MainActivity, sid: String) {
@@ -105,6 +106,7 @@ object NativeListen {
     private fun release() {
         val r = recognizer
         recognizer = null; id = null
+        if (r != null) releasedAt = SystemClock.uptimeMillis()
         try { r?.cancel() } catch (_: Exception) { }
         try { r?.destroy() } catch (_: Exception) { }
     }
