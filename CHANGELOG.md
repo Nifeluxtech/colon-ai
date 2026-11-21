@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.21.1 (2026-11-21)
+
+- Colon Music stays in the app: when YouTube won't play a song inside Colon, the player card stays with the reason
+  (for example "YouTube error 152") and its YouTube button, instead of jumping to the YouTube app.
+- The player retries on the regular youtube.com host when the no-cookie host is refused (errors 150, 152, 153), and
+  skips error 152 like the other embed errors.
+- A failed music search now says why (signed out, offline, not set up) instead of opening YouTube.
+- Mostly a chat-page change; the APKs are rebuilt only to keep the version in step.
+
 ## 0.21.0 — 2026-11-21 · Colon Music on YouTube
 
 - **"Play <song>" plays it inside Colon.** Songs on the phone still come first (Android); otherwise Colon finds the

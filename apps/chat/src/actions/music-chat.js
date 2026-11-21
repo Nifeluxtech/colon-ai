@@ -1,13 +1,14 @@
 /* Colon AI · Colon Music from the chat (Colon OS Assistant, Step 3; docs/os-assistant/step-3.md). "play X" plays the
    best match from the phone's own songs (Android app, feature "music"); with none (or on the web), Colon finds it on
    YouTube (GET /music/search) and plays it in its own YouTube player above the composer (components/music-dock.js,
-   v0.21.0). When that can't play it, the song opens in the YouTube app (or Audiomack when asked). "pause", "next",
-   "stop the music" control that player while it is open. "What song is this?" asks the phone, which answers from
-   Colon's own player first and listens with the mic only when the player is idle. Music that starts ends
-   hands-free so Colon doesn't listen over it. */
+   v0.21.0). When that can't play it, the card stays and says why (0.21.1); "on Audiomack" opens Audiomack.
+   "pause", "next", "stop the music" control that player while it is open. "What song is this?" asks the phone,
+   which answers from Colon's own player first and listens with the mic only when the player is idle. Music that
+   starts ends hands-free so Colon doesn't listen over it. */
 
 import { Colon } from '../../../../packages/ui/js/colon.js';
-import { closeMusicDock, controlMusicDock, musicDockOpen, playOnYouTube } from '../components/music-dock.js';
+import { closeMusicDock, controlMusicDock, musicDockError, musicDockOpen, playOnYouTube }
+  from '../components/music-dock.js';
 import { S } from '../core/state.js';
 import { dockWord, musicError, parseMusic } from '../lib/music-intent.js';
 
@@ -45,11 +46,14 @@ function youtube(query) {
     if (!tracks.length) { finish(musicError('not_found'), false, false); return; }
     if (onPhone()) music({ action: 'stop' }).catch(function () { /* nothing was playing */ });
     playOnYouTube(tracks).then(function (ok) {
-      if (ok) finish('Playing ' + tracks[0].title + '.', true, true); else openOn('youtube', query);
+      // On failure the card stays with its YouTube button; Colon doesn't leave the app by itself (0.21.1).
+      if (ok) finish('Playing ' + tracks[0].title + '.', true, true);
+      else finish('YouTube won’t play it inside Colon (' + musicDockError() + '). Tap the YouTube button to open it.',
+        false, false);
     });
   }, function (e) {
-    if (e && e.code === 'music_busy') { finish(e.message, false, false); return; }
-    openOn('youtube', query);   // not set up, signed out or offline: YouTube itself still has it
+    var why = (e && (e.message || e.code)) || 'no answer';
+    finish('Couldn’t search YouTube: ' + why + (e && e.code ? ' (' + e.code + ')' : ''), false, false);
   });
 }
 
