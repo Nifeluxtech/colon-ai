@@ -27,7 +27,8 @@ object WakeWord {
 
     fun setEnabled(c: Context, on: Boolean) { prefs(c).edit().putBoolean(KEY_ON, on).apply() }
 
-    fun pauseOnSaver(c: Context): Boolean = prefs(c).getBoolean(KEY_SAVER, true)
+    /** 0.24.1: off by default, so "Hey Colon" keeps listening with battery saver on. */
+    fun pauseOnSaver(c: Context): Boolean = prefs(c).getBoolean(KEY_SAVER, false)
 
     fun setPauseOnSaver(c: Context, on: Boolean) { prefs(c).edit().putBoolean(KEY_SAVER, on).apply() }
 

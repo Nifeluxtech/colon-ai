@@ -305,4 +305,11 @@
     <string name="voice_overlay_text">Let Colon show a small voice pill at the top of the screen while you talk to it from other apps. Turn on “Display over other apps” for Colon AI on the next screen. Without it, Colon uses a notification instead.</string>
     <string name="voice_overlay_allow">Open settings</string>
     <string name="voice_overlay_later">Not now</string>
+    <!-- 0.24.1 CrashGuard.kt -->
+    <string name="crash_title">Colon AI stopped last time</string>
+    <string name="crash_intro">Colon AI closed unexpectedly. Copy this report and send it to us so we can fix it.</string>
+    <string name="crash_intro_wake">Colon AI closed unexpectedly, so \"Hey Colon\" was switched off to keep the app working. Copy this report and send it to us so we can fix it.</string>
+    <string name="crash_copy">Copy report</string>
+    <string name="crash_copied">Crash report copied</string>
+    <string name="crash_close">Close</string>
 </resources>

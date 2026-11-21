@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.24.1 (2026-11-21) · "Hey Colon" no longer stops the app
+
+- **Fix: "Colon AI keeps stopping" with Hey Colon on** (Infinix SMART 20). `WakeWordService` now uses the native
+  sherpa-onnx engine from one thread at a time (`engineLock` around feed, reset and release) and waits up to 1 s
+  for the listening thread before reusing or freeing the engine (was 300 ms).
+- **Hey Colon opens full voice mode** in the app instead of the shortcut's step-back behind the pill.
+- **Works with battery saver**: "Pause with battery saver" is now off by default.
+- **Crash guard** (`CrashGuard.kt`): Java crashes are written to a file; native crashes and ANRs are read from
+  `ApplicationExitInfo` (Android 11+). On the next start Hey Colon is switched off if it was on, so the app always
+  opens, and the chat screen shows the report once with Copy report.
+
 ## 0.24.0 (2026-11-21) · Memory that remembers, app help, updater, new chat page, Projects with repositories
 
 - **Memory remembers what you tell it** (PR #40): with memory on, Colon saves name, nickname, "call me X", where

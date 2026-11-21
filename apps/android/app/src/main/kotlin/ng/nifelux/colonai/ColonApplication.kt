@@ -27,6 +27,7 @@ class ColonApplication : Application() {
 
     override fun onCreate() {
         super.onCreate()
+        CrashGuard.onAppStart(this) // 0.24.1: first, so a crash in "Hey Colon" never stops the app opening
         http = OkHttpClient.Builder()
             .connectTimeout(15, TimeUnit.SECONDS)
             .readTimeout(30, TimeUnit.SECONDS)

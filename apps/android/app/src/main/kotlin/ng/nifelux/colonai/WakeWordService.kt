@@ -49,6 +49,8 @@ class WakeWordService : Service() {
     @Volatile private var record: AudioRecord? = null
     private var thread: Thread? = null
     private val tick = Runnable { check() }
+    /** 0.24.1: the native engine is never used by two threads at once (a crash on slower phones). */
+    private val engineLock = Any()
 
     override fun onBind(intent: Intent?): IBinder? = null
 
@@ -139,7 +141,7 @@ class WakeWordService : Service() {
         if (rec == null || rec.state != AudioRecord.STATE_INITIALIZED) { rec?.release(); micBusy(); return }
         try { rec.startRecording() } catch (_: Exception) { }
         if (rec.recordingState != AudioRecord.RECORDSTATE_RECORDING) { rec.release(); micBusy(); return }
-        det.reset()
+        synchronized(engineLock) { det.reset() }
         record = rec; recording = true
         thread = Thread({ listen(rec, det) }, "colon-wake").also { it.start() }
     }
@@ -152,7 +154,7 @@ class WakeWordService : Service() {
             val n = try { rec.read(buf, 0, buf.size) } catch (_: Exception) { -1 }
             if (!recording) break
             if (n <= 0) { try { Thread.sleep(50) } catch (_: InterruptedException) { break }; continue }
-            val hit = det.feed(buf, n)
+            val hit = synchronized(engineLock) { if (recording) det.feed(buf, n) else null }
             if (hit != null) main.post { heard(hit) }
             if (det.failed) { Log.w(TAG, "engine stopped: ${det.error}"); main.post { check() }; break }
         }
@@ -164,7 +166,7 @@ class WakeWordService : Service() {
         val rec = record; record = null
         try { rec?.stop() } catch (_: Exception) { }
         val t = thread; thread = null
-        if (t != null && t !== Thread.currentThread()) try { t.join(300) } catch (_: InterruptedException) { }
+        if (t != null && t !== Thread.currentThread()) try { t.join(JOIN_MS) } catch (_: InterruptedException) { }
         try { rec?.release() } catch (_: Exception) { }
     }
 
@@ -180,7 +182,8 @@ class WakeWordService : Service() {
     /** Opens the voice listener like the "Talk to Colon" shortcut; from the background only with the overlay
      *  permission (Android blocks other background activity starts), otherwise a tap-to-talk notification. */
     private fun openListener() {
-        val intent = AssistShortcut.assistIntent(this)
+        // 0.24.1: full voice mode in Colon, never the shortcut's step-back behind the pill.
+        val intent = AssistShortcut.assistIntent(this).apply { removeExtra(MainActivity.EXTRA_VOICE_COMPACT) }
         if (VoiceMode.appVisible || Settings.canDrawOverlays(this)) {
             try { startActivity(intent); return } catch (e: Exception) { Log.w(TAG, "open failed", e) }
         }
@@ -201,7 +204,8 @@ class WakeWordService : Service() {
     private fun finish() {
         main.removeCallbacks(tick)
         closeMic()
-        detector?.release(); detector = null
+        val det = detector; detector = null
+        synchronized(engineLock) { det?.release() }
         if (instance === this) instance = null
         if (foreground) { ServiceCompat.stopForeground(this, ServiceCompat.STOP_FOREGROUND_REMOVE); foreground = false }
         stopSelf()
@@ -246,6 +250,7 @@ class WakeWordService : Service() {
         private const val CHIME_MS = 250L
         private const val HEARD_QUIET_MS = 8000L
         private const val MIC_RETRY_MS = 5000L
+        private const val JOIN_MS = 1000L
 
         /** The running service (main thread), or null. */
         @Volatile var instance: WakeWordService? = null
