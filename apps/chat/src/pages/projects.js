@@ -1,20 +1,26 @@
-/* Colon AI · Projects (v0.15.0, Blueprint B10): the project list (create, rename, delete) and one project's page
-   (instructions, its chats, a new chat in it, its files and its memories). How many projects a user may have
-   comes from their plan; the server says so (402 quota) when BILLING_MODE is enforce. Signed-in only. */
+/* Colon AI · Projects (v0.15.0, Blueprint B10; v0.24.0 redesign in the Claude-app style, mobile-first from 360px):
+   the list (menu, title, sort; search; plain rows "Edited <time>"; a floating "New project" pill) and one project's
+   page (back, title, Private badge, the Context and Custom instructions cards, the Memory row, its chats as sessions
+   and a floating "New session" pill). A project with a repository or code files starts sessions in Developer mode
+   (the mode chips still switch it). How many projects a user may have comes from their plan (402 quota in enforce
+   mode). Signed-in only. The Context sheet (files, repositories) is components/project-context.js. */
 import { Colon } from '../../../../packages/ui/js/colon.js';
+import { openContext } from '../components/project-context.js';
 import * as UI from '../components/project-ui.js';
 import { CW } from '../core/cw.js';
 
 var C = Colon, icon = C.icon, esc = C.esc;
 CW.pages = CW.pages || {};
+var SORT_KEY = 'colon.projects.sort';
+var SORTS = [['edited', 'Last edited'], ['name', 'Name'], ['created', 'Date created']];
 
 function fail(e) {
   C.toast(e.message, 'bad', e.code === 'quota' ? { label: 'See plans', fn: function () { C.go('/account/plan'); } }
     : undefined);
 }
-function screen(title, lead, action) {
-  return '<div class="cw-screen"><header class="cw-screen-head"><div><h1 class="h1">' + esc(title)
-    + '</h1><p class="lead">' + esc(lead) + '</p></div>' + (action || '') + '</header>';
+function pref(k, v) {
+  try { if (v === undefined) return localStorage.getItem(k); localStorage.setItem(k, v); } catch (e) { /* private */ }
+  return v;
 }
 function newProject() {
   C.prompt({ title: 'New project', label: 'Project name', placeholder: 'e.g. Final year thesis', max: 80,
@@ -26,123 +32,125 @@ function newProject() {
     }).catch(fail);
   });
 }
-function renameProject(p, after) {
-  C.prompt({ title: 'Rename project', label: 'Project name', value: p.name, max: 80 }).then(function (name) {
-    if (name && name !== p.name) CW.data.updateProject(p.id, { name: name }).then(after).catch(fail);
-  });
-}
-function deleteProject(p, after) {
-  C.confirm({ title: 'Delete “' + p.name + '”?', body: 'Its chats and files stay and move back to your chat list. '
-    + 'Its instructions and project memories are deleted.', confirm: 'Delete project', danger: true })
-    .then(function (ok) { if (ok) CW.data.deleteProject(p.id).then(after).catch(fail); });
-}
 
 CW.pages.projects = function (page) {
-  var data = CW.data;
-  page.innerHTML = screen('Projects', 'Group chats, files and memories, with instructions for every chat in them.',
-    '<button class="btn primary sm" type="button" data-new>' + icon('plus') + 'New project</button>')
-    + '<div class="pj-list">' + UI.skeletonHtml(3) + '</div></div>';
-  var scr = page.querySelector('.cw-screen'); scr.classList.add('pj-screen');
-  // bound to this screen's own node: #cw-page is reused by every view, so listeners on it would pile up
-  scr.addEventListener('click', function (e) { if (e.target.closest('[data-new]')) newProject(); });
-  var box = page.querySelector('.pj-list');
-  if (!data.listProjects) { box.innerHTML = '<div class="card empty">' + icon('lock')
-    + '<div class="h3">Log in to use projects</div></div>'; return; }
-  function load() {
-    data.listProjects().then(function (d) {
-      var h1 = page.querySelector('.cw-screen-head .h1');
-      h1.innerHTML = 'Projects' + (d.projects.length ? '<span class="pj-count">' + d.projects.length + '</span>' : '');
-      box.innerHTML = d.projects.length ? UI.usageHtml(d.limit) + '<div class="pj-grid">'
-        + d.projects.map(UI.cardHtml).join('') + '</div>' : UI.emptyHtml();
-      box.querySelectorAll('[data-pmenu]').forEach(function (b) {
-        var p = d.projects.filter(function (x) { return x.id === b.getAttribute('data-pmenu'); })[0];
-        b.addEventListener('click', function () {
-          C.menu(b, [{ label: 'Rename', icon: 'edit', onClick: function () { renameProject(p, load); } }, '-',
-            { label: 'Delete', icon: 'trash', danger: true, onClick: function () { deleteProject(p, load); } }],
-          { align: 'right', label: 'Project options' });
-        });
-      });
-    }).catch(function (e) { box.innerHTML = '<div class="card empty">' + icon('alert')
-      + '<div class="h3">Projects didn’t load</div><p class="small">' + esc(e.message) + '</p></div>'; });
+  var data = CW.data, all = [], sort = pref(SORT_KEY) || 'edited', showArchived = false;
+  page.innerHTML = '<div class="cw-screen px-screen">' + UI.bar('<button class="icon-btn" type="button" '
+    + 'data-a="sidebar" aria-label="Menu">' + icon('menu') + '</button>', 'Projects', '<button class="icon-btn" '
+    + 'type="button" data-sort aria-label="Sort projects" aria-haspopup="menu">' + icon('filter') + '</button>')
+    + '<label class="px-search">' + icon('search') + '<input type="search" data-q placeholder="Search projects" '
+    + 'aria-label="Search projects" autocomplete="off"></label><div class="px-list" role="list">'
+    + UI.skeletonHtml(4) + '</div>' + UI.fab('data-new', 'New project') + '</div>';
+  var scr = page.querySelector('.px-screen'), box = page.querySelector('.px-list'), q = page.querySelector('[data-q]');
+  if (!data.listProjects) { box.innerHTML = '<p class="px-empty">Log in to use projects.</p>'; return; }
+  function render() {
+    var term = q.value.trim().toLowerCase();
+    var list = all.filter(function (p) { return (showArchived || !p.archived) && (!term
+      || p.name.toLowerCase().indexOf(term) > -1); });
+    list.sort(function (a, b) {
+      if (sort === 'name') return a.name.localeCompare(b.name);
+      var k = sort === 'created' ? 'created_at' : 'updated_at';
+      return new Date(b[k]) - new Date(a[k]);
+    });
+    box.innerHTML = list.length ? list.map(UI.rowHtml).join('') : '<p class="px-empty">' + (all.length
+      ? (term ? 'No projects match “' + esc(q.value.trim()) + '”.' : 'All your projects are archived.')
+      : 'No projects yet. Group chats, files and instructions in one.') + '</p>';
   }
-  load();
+  scr.addEventListener('click', function (e) {
+    if (e.target.closest('[data-new]')) return newProject();
+    var s = e.target.closest('[data-sort]');
+    if (s) C.menu(s, [{ head: 'Sort by' }].concat(SORTS.map(function (x) {
+      return { label: x[1], icon: sort === x[0] ? 'check' : 'list', onClick: function () { sort = pref(SORT_KEY, x[0]);
+        render(); } }; }), ['-', { label: showArchived ? 'Hide archived' : 'Show archived', icon: 'archive',
+      onClick: function () { showArchived = !showArchived; render(); } }]), { align: 'right', label: 'Sort projects' });
+  });
+  q.addEventListener('input', render);
+  data.listProjects().then(function (d) { all = d.projects || []; render(); }).catch(function (e) {
+    box.innerHTML = '<p class="px-empty">Projects didn’t load. ' + esc(e.message) + '</p>'; });
 };
 
 CW.pages.project = function (page, ctx) {
   var data = CW.data, id = ctx && ctx.projectId, st = {};
-  var back = '<a class="pj-back" href="#/projects">' + icon('left') + 'All projects</a>';
-  page.innerHTML = '<div class="cw-screen pj-screen">' + back + '<div class="skel" style="height:96px"></div>'
-    + '<div class="skel" style="height:220px;margin-top:16px"></div></div>';
+  var back = '<a class="icon-btn" href="#/projects" aria-label="All projects">' + icon('left') + '</a>';
+  page.innerHTML = '<div class="cw-screen px-screen">' + UI.bar(back, '', '') + '<div class="skel px-skel-t"></div>'
+    + '<div class="px-cards"><div class="skel px-skel-c"></div><div class="skel px-skel-c"></div></div></div>';
   function load() {
-    Promise.all([data.getProject(id), data.getMemory({ projectId: id }).catch(function () { return null; })])
+    return Promise.all([data.getProject(id), data.getMemory({ projectId: id }).catch(function () { return null; })])
       .then(function (r) { st = r[0]; st.mem = r[1]; render(); })
-      .catch(function (e) { page.innerHTML = '<div class="cw-screen pj-screen">' + back + '<div class="card empty">'
-        + icon('alert') + '<div class="h3">' + esc(e.message) + '</div><a class="btn" href="#/projects">All projects'
-        + '</a></div></div>'; });
+      .catch(function (e) { page.innerHTML = '<div class="cw-screen px-screen">' + UI.bar(back, '', '')
+        + '<p class="px-empty">' + esc(e.message) + '</p></div>'; });
   }
+  function mems() { return st.mem ? st.mem.memories.filter(function (m) { return m.scope === 'project'; }) : []; }
   function render() {
-    var p = st.project, memOn = st.mem && st.mem.memory.enabled;
-    var mems = st.mem ? st.mem.memories.filter(function (m) { return m.scope === 'project'; }) : [];
-    var newChat = '<button class="btn primary sm" type="button" data-pchat>' + icon('plus') + 'New chat</button>';
-    page.innerHTML = '<div class="cw-screen pj-screen pj-detail" style="--pj:' + UI.hue(p.id) + '">' + back
-      + '<header class="pj-hero"><span class="pj-ico lg">' + icon('folder') + '</span><div class="pj-hero-t"><h1 '
-      + 'class="h1">' + esc(p.name) + '</h1><div class="pj-stats"><span>' + icon('chat') + UI.plural(p.chats, 'chat')
-      + '</span><span>' + icon('file') + UI.plural(p.files, 'file') + '</span><span>' + icon('clock')
-      + 'Updated ' + esc(C.ago(p.updated_at)) + '</span></div></div><span class="pj-hero-acts">' + newChat
-      + '<button class="icon-btn sm boxed" type="button" data-pmore aria-label="Project options">' + icon('more')
-      + '</button></span></header><div class="pj-cols"><div class="pj-col">' +
-      UI.panel('edit', 'Instructions', { sub: 'Colon follows these in every chat in this project.' },
-        '<form class="pj-inst" data-pinst novalidate><textarea class="textarea" rows="4" maxlength="4000" '
-        + 'data-pinst-t aria-label="Project instructions" placeholder="e.g. I study nursing at UI. Explain simply '
-        + 'and cite sources.">' + esc(p.instructions) + '</textarea><div class="pj-inst-f"><span class="tiny muted">'
-        + 'Up to 4,000 characters</span><button class="btn sm" type="submit">Save instructions</button></div></form>')
-      + UI.panel('chat', 'Chats', { count: st.chats.length }, st.chats.length ? '<div class="pj-rows">'
-        + st.chats.map(UI.chatRow).join('') + '</div>' : UI.note('No chats yet. Start one, or move a chat here '
-        + 'from its menu.')) + '</div><div class="pj-col">'
-      + UI.panel('file', 'Files', { count: st.files.length, sub: 'Their text is shared with every chat here.',
-        action: '<label class="btn sm pj-add">' + icon('upload') + 'Add<input type="file" data-fup hidden></label>' },
-        st.files.length ? '<div class="pj-rows">' + st.files.map(UI.fileRow).join('') + '</div>'
-          : UI.note('No files yet. Add notes, PDFs or code for every chat in this project to use.'))
-      + UI.panel('bookmark', 'Project memories', { count: mems.length }, (memOn
-        ? '<form class="pj-memadd" data-pmem novalidate><input class="input" maxlength="1000" aria-label="New '
-          + 'project memory" placeholder="Something Colon should remember here"><button class="btn sm" '
-          + 'type="submit">Add</button></form>'
-        : UI.note('Memory is off. ', '<a class="link" href="#/memory">Turn it on</a> to keep project memories.'))
-        + (mems.length ? '<div class="pj-rows">' + mems.map(UI.memRow).join('') + '</div>' : ''))
-      + '</div></div></div>';
+    var p = st.project;
+    page.innerHTML = '<div class="cw-screen px-screen px-detail">' + UI.bar(back, '', '<button class="icon-btn" '
+      + 'type="button" data-pmore aria-label="Project options" aria-haspopup="menu">' + icon('more') + '</button>')
+      + '<h1 class="px-title">' + esc(p.name) + '</h1><span class="px-badge">' + icon('lock') + 'Private</span>'
+      + (p.archived ? '<span class="px-badge">' + icon('archive') + 'Archived</span>' : '')
+      + UI.cardsHtml(p, st.files) + UI.memoryRow(mems().length)
+      + '<h2 class="px-h">Sessions</h2><div class="px-sessions">' + (st.chats.length
+        ? st.chats.map(UI.sessionRow).join('') : '<p class="px-empty">No sessions yet.</p>') + '</div>'
+      + UI.fab('data-pchat', 'New session') + '</div>';
     bind(p);
   }
   function bind(p) {
     var $ = function (s) { return page.querySelector(s); };
     $('[data-pchat]').addEventListener('click', function () {
-      data.createConversation({ mode: (CW.S.settings && CW.S.settings.defaultMode) || 'general', project_id: p.id })
-        .then(function (c) { if (CW.refreshConvs) CW.refreshConvs(); C.go('/c/' + encodeURIComponent(c.id)); })
-        .catch(fail);
+      var dev = UI.isCodeProject(p, st.files);
+      data.createConversation({ mode: dev ? 'developer' : (CW.S.settings && CW.S.settings.defaultMode) || 'general',
+        project_id: p.id }).then(function (c) { if (CW.refreshConvs) CW.refreshConvs();
+        C.go('/c/' + encodeURIComponent(c.id)); }).catch(fail);
     });
-    $('[data-pmore]').addEventListener('click', function (e) {
-      C.menu(e.currentTarget, [{ label: 'Rename', icon: 'edit', onClick: function () { renameProject(p, load); } },
-        '-', { label: 'Delete', icon: 'trash', danger: true, onClick: function () { deleteProject(p, function () {
-          C.go('/projects'); }); } }], { align: 'right', label: 'Project options' });
-    });
-    $('[data-pinst]').addEventListener('submit', function (e) {
-      e.preventDefault();
-      data.updateProject(p.id, { instructions: $('[data-pinst-t]').value }).then(function (n) {
-        st.project = Object.assign(p, n); C.toast('Instructions saved.', 'ok'); }).catch(fail);
-    });
-    $('[data-fup]').addEventListener('change', function (e) {
-      var f = e.target.files && e.target.files[0]; if (!f) return;
-      C.toast('Uploading ' + f.name + '…');
-      data.upload(f, { projectId: p.id }).then(function () { C.toast('File added.', 'ok'); load(); }).catch(fail);
-    });
-    page.querySelectorAll('[data-fdel]').forEach(function (b) { b.addEventListener('click', function () {
-      data.removeUpload(b.getAttribute('data-fdel')).then(load).catch(fail); }); });
-    var pm = $('[data-pmem]');
-    if (pm) pm.addEventListener('submit', function (e) {
-      e.preventDefault(); var v = pm.querySelector('input').value.trim(); if (!v) return;
-      data.addMemory({ content: v, scope: 'project', project_id: p.id }).then(load).catch(fail);
-    });
-    page.querySelectorAll('[data-mdel]').forEach(function (b) { b.addEventListener('click', function () {
-      data.deleteMemory(b.getAttribute('data-mdel')).then(load).catch(fail); }); });
+    $('[data-pmore]').addEventListener('click', function (e) { projectMenu(e.currentTarget, p); });
+    $('[data-ctx]').addEventListener('click', function () { openContext(p, st.files, load); });
+    $('[data-inst]').addEventListener('click', function () { editInstructions(p); });
+    $('[data-mem]').addEventListener('click', function () { memorySheet(p); });
+  }
+  function projectMenu(anchor, p) {
+    C.menu(anchor, [{ label: 'Rename', icon: 'edit', onClick: function () {
+      C.prompt({ title: 'Rename project', label: 'Project name', value: p.name, max: 80 }).then(function (name) {
+        if (name && name !== p.name) data.updateProject(p.id, { name: name }).then(load).catch(fail); });
+    } }, { label: p.archived ? 'Unarchive' : 'Archive', icon: 'archive', onClick: function () {
+      data.updateProject(p.id, { archived: !p.archived }).then(function () {
+        C.toast(p.archived ? 'Project restored.' : 'Project archived.', 'ok'); load(); }).catch(fail);
+    } }, '-', { label: 'Delete', icon: 'trash', danger: true, onClick: function () {
+      C.confirm({ title: 'Delete “' + p.name + '”?', body: 'Its chats and files stay and move back to your chat '
+        + 'list. Its instructions, project memories and connected repository are deleted.', confirm: 'Delete project',
+      danger: true }).then(function (ok) { if (ok) data.deleteProject(p.id).then(function () { C.go('/projects'); })
+        .catch(fail); });
+    } }], { align: 'right', label: 'Project options' });
+  }
+  function editInstructions(p) {
+    C.sheet('<div class="px-sheet"><h2 class="h3">Custom instructions</h2><p class="small muted">Colon follows these '
+      + 'in every chat in this project.</p><textarea class="textarea" rows="7" maxlength="4000" data-t aria-label='
+      + '"Custom instructions" placeholder="e.g. I study nursing at UI. Explain simply and cite sources.">'
+      + esc(p.instructions) + '</textarea><div class="sheet-actions"><button type="button" class="btn ghost" '
+      + 'data-close>Cancel</button><button type="button" class="btn primary" data-save>Save</button></div></div>',
+    function (el, close) {
+      el.querySelector('[data-save]').addEventListener('click', function () {
+        data.updateProject(p.id, { instructions: el.querySelector('[data-t]').value }).then(function () {
+          close(); C.toast('Instructions saved.', 'ok'); load(); }).catch(fail);
+      });
+    }, { label: 'Custom instructions' });
+  }
+  function memorySheet(p) {
+    var on = st.mem && st.mem.memory.enabled;
+    C.sheet('<div class="px-sheet"><h2 class="h3">Memory</h2><p class="small muted">What Colon remembers in this '
+      + 'project only.</p>' + (on ? '<form class="px-memadd" novalidate><input class="input" maxlength="1000" '
+      + 'aria-label="New project memory" placeholder="Something Colon should remember here"><button class="btn" '
+      + 'type="submit">Add</button></form>' : '<p class="px-note">Memory is off. <a class="link" href="#/memory">'
+      + 'Turn it on</a> to keep project memories.</p>') + '<div class="px-memlist">' + (mems().map(UI.memRow).join('')
+      || '<p class="px-empty">No project memories yet.</p>') + '</div></div>', function (el, close) {
+      var f = el.querySelector('form');
+      if (f) f.addEventListener('submit', function (e) {
+        e.preventDefault(); var v = f.querySelector('input').value.trim(); if (!v) return;
+        data.addMemory({ content: v, scope: 'project', project_id: p.id }).then(function () { close(); load()
+          .then(function () { memorySheet(p); }); }).catch(fail);
+      });
+      el.querySelectorAll('[data-mdel]').forEach(function (b) { b.addEventListener('click', function () {
+        data.deleteMemory(b.getAttribute('data-mdel')).then(function () { close(); load().then(function () {
+          memorySheet(p); }); }).catch(fail); }); });
+    }, { label: 'Project memory' });
   }
   load();
 };

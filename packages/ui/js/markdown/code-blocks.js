@@ -1,4 +1,4 @@
-/* ColonMarkdown · fenced code blocks with lightweight syntax highlighting (keywords per language). */
+/* ColonMarkdown · fenced code blocks with lightweight syntax highlighting (keywords per language; diffs, v0.24.0). */
 
 import { esc } from './escape.js';
 
@@ -45,6 +45,7 @@ function span(cls, text) { return '<span class="tok-' + cls + '">' + esc(text) +
 function highlight(code, lang) {
   var l = ALIAS[String(lang || '').toLowerCase()] || String(lang || '').toLowerCase();
   if (l === 'html') return highlightHtml(code);
+  if (l === 'diff' || l === 'patch') return highlightDiff(code);
   if (l === 'json') return code.replace(
     /("(?:\\.|[^"\\])*")(\s*:)?|(-?\b\d+(?:\.\d+)?(?:e[+-]?\d+)?\b)|\b(true|false|null)\b|([\s\S])/gi, function (m,
     str, colon, num, lit, other) {
@@ -101,12 +102,30 @@ function highlightHtml(code) {
     });
 }
 
+// v0.24.0: Developer mode shows code changes as one diff per file (--- a/path, +++ b/path): added and removed lines
+// are coloured and the block is labelled with the file's path.
+function highlightDiff(code) {
+  return code.split('\n').map(function (line) {
+    if (/^(\+\+\+|---)( |$)/.test(line) || /^diff --git /.test(line)) return span('com', line);
+    if (/^@@/.test(line)) return span('fn', line);
+    if (line.charAt(0) === '+') return span('add', line);
+    if (line.charAt(0) === '-') return span('del', line);
+    return esc(line);
+  }).join('\n');
+}
+function diffPath(code) {
+  var m = /^\+\+\+ (?:b\/)?([^\t\n]+)/m.exec(code) || /^--- (?:a\/)?([^\t\n]+)/m.exec(code);
+  return m && m[1] !== '/dev/null' ? m[1].trim().slice(0, 120) : '';
+}
+
 function codeBlock(code, lang, open) {
   var label = lang || 'text';
+  var l = String(lang || '').toLowerCase();
+  if (l === 'diff' || l === 'patch') { var fp = diffPath(code); if (fp) label = fp; }
   return '<div class="md-code' + (open ? ' streaming' : '') + '"><div class="md-code-head"><span>' + esc(label)
     + '</span>' +
     '<button type="button" class="md-copy" data-copy-code aria-label="Copy code">Copy</button></div>' +
-    '<pre><code class="lang-' + esc(label) + '">' + highlight(code, lang) + '</code></pre></div>';
+    '<pre><code class="lang-' + esc(lang || 'text') + '">' + highlight(code, lang) + '</code></pre></div>';
 }
 
 export { codeBlock, highlight };

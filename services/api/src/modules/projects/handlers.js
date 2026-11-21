@@ -24,7 +24,10 @@ const patchProjectsById = async (req) => [200, { project: await engine().edit(re
   req.body || {}) }];
 
 // DELETE /projects/:id (its chats and files stay and leave the project; its memories are deleted)
+// v0.24.0: a connected repository's token and stored copy are deleted first (modules/repos).
 const deleteProjectsById = async (req) => {
+  await engine().owned(req.user.id, String(req.params.id));
+  await require('../repos').instance().disconnect(req.user, req.params.id);
   await engine().remove(req.user, req.params.id);
   await audit(req, 'project.deleted', { actorId: req.user.id, targetType: 'project', targetId: String(req.params.id) });
   return [200, { ok: true }];

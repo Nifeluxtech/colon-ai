@@ -35,6 +35,7 @@ function RemoteChatData() {
       { code: 'offline' }); });
   }
   function run(id) { return '/research/' + encodeURIComponent(id); }
+  function repo(id) { return '/projects/' + encodeURIComponent(id) + '/repo'; }   // v0.24.0
   var self = {
     kind: 'remote', LIMITS: LIMITS, classify: classify, describe: 'Chats are synced to your Colon account.',
     listModels: function () { return modelsCache ? Promise.resolve(modelsCache) : api('/models').then(function (d) {
@@ -131,6 +132,12 @@ function RemoteChatData() {
     updateProject: function (id, p) { return api('/projects/' + encodeURIComponent(id), { method: 'PATCH', body: p })
       .then(function (d) { return d.project; }); },
     deleteProject: function (id) { return api('/projects/' + encodeURIComponent(id), { method: 'DELETE' }); },
+    // v0.24.0: a project's connected repository (components/project-context.js). A token goes up, never comes back.
+    connectRepo: function (id, b) { return api(repo(id), { method: 'POST', body: b }); },
+    syncRepo: function (id) { return api(repo(id) + '/sync', { method: 'POST' }); },
+    disconnectRepo: function (id) { return api(repo(id), { method: 'DELETE' }); },
+    repoBranches: function (id, b) { return api(repo(id) + '/branches', { method: 'POST', body: b }); },
+    repoList: function (id, b) { return api(repo(id) + '/repos', { method: 'POST', body: b }); },
     // v0.17.0 (D15): an image in this chat. message_id: the user message whose turn asked for it (the stream's
     // `image` event); without it the prompt becomes a new user message. -> { user_message, message, conversation }
     isTemp: function (cid) { return temp.has(cid); },   // a temporary chat (history off): no images or research
