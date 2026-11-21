@@ -3,7 +3,7 @@
 const http = require('http'), fs = require('fs'), path = require('path');
 const [port, dir] = process.argv.slice(2);
 const T = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.json': 'application/json',
-  '.svg': 'image/svg+xml', '.woff2': 'font/woff2', '.md': 'text/plain' };
+  '.svg': 'image/svg+xml', '.webp': 'image/webp', '.woff2': 'font/woff2', '.md': 'text/plain' };
 http.createServer((req, res) => {
   let p = decodeURIComponent(new URL(req.url, 'http://x').pathname);
   if (p.endsWith('/')) p += 'index.html';

@@ -1,19 +1,23 @@
-/* Colon AI · composer: message box, send/stop button, mode chips and menu, thread scrolling. */
+/* Colon AI · composer: message box, send/stop button, mode chips and menu, thread scrolling, the new chat's
+   shortcut list above the message box and the attach sheet (Camera, Photos, Files) (0.24.0). */
 
 import { renderThread } from './message.js';
 import { researchChipHtml } from '../actions/deep-research.js';
 import { updateHeader } from './model-picker.js';
 import { refreshConvs } from './sidebar.js';
 import { Colon } from '../../../../packages/ui/js/colon.js';
-import { $, DEV_ACTIONS, MODES, S, data, isMobile, mode } from '../core/state.js';
+import { CW } from '../core/cw.js';
+import { $, DEV_ACTIONS, MODES, PROMPTS, S, data, isMobile, mode } from '../core/state.js';
+import { AttachOptions } from '../lib/attach-options.js';
 import { disclaimer } from '../pages/chat.js';
 
-var C = Colon, icon = C.icon;
+var C = Colon, icon = C.icon, esc = C.esc;
 
 function composerHtml() {
   // Floating composer: a pill that hovers above the bottom edge; the thread scrolls underneath it.
   return ('<div class="cw-composer"><button type="button" class="cw-jump btn sm" data-a="jump" hidden '
     + 'aria-label="Jump to latest message">') + icon('chevDown') + 'Latest</button><div class="cw-composer-in">' +
+    startersHtml() +
     '<div class="att-tray" hidden aria-label="Attachments"></div>' +
     '<div class="cw-dev-chips" role="group" aria-label="Mode quick actions" hidden></div>' +
     '<div class="cv-voice" hidden></div>' +
@@ -37,6 +41,28 @@ function composerHtml() {
     '<p class="cw-disclaimer">' + disclaimer() + '</p>' +
     '</div></div>';
 }
+// 0.24.0: a new chat's shortcuts, one per row in a single box right above the message box (pinned there when the
+// keyboard opens), then the Study / Developer / Research chips. Only the welcome view shows them (CSS).
+function startersHtml() {
+  return '<div class="cw-starters"><div class="cw-start-list" role="group" aria-label="Shortcuts">'
+    + PROMPTS.map(function (p, i) {
+      return '<button type="button" class="cw-start" data-prompt="' + i + '"><span class="cw-start-ico i' + i + '">'
+        + icon(p.icon) + '</span><span class="cw-start-t">' + esc(p.title) + '</span><span class="cw-start-go">'
+        + icon('arrowUpRight') + '</span></button>';
+    }).join('') + '</div>'
+    + '<div class="cw-welcome-modes chips" role="radiogroup" aria-label="Mode"></div></div>';
+}
+// 0.24.0: the paperclip opens Camera / Photos / Files (a sheet on phones, a menu on wide screens). Repository is
+// added in a project chat only when a repository hook (CW.attachRepo) is installed.
+function attachMenu(anchor) {
+  var items = AttachOptions.attachItems({ project: !!(S.current && S.current.project_id), repoHook: CW.attachRepo });
+  C.menu(anchor, [{ head: 'Attach' }].concat(items.map(function (it) {
+    return { label: it.label, sub: it.sub, icon: it.icon, onClick: function () {
+      if (it.key === 'repository') CW.attachRepo(anchor); else pickFiles(it.key); } };
+  })), { label: 'Attach', sheetOnMobile: true });
+}
+// Opens the system picker set up for Camera, Photos or Files (the media module's hidden file input).
+function pickFiles(kind) { S.media.pick(function (input) { AttachOptions.apply(input, kind, data.LIMITS.accept); }); }
 function renderModeChips() {
   var m = mode(), box = $('.cw-welcome-modes');
   if (!box) return;  // the chips live on the welcome screen; in a chat the mode button in the pill takes over
@@ -59,7 +85,7 @@ function renderDevChips() {
   box.innerHTML = DEV_ACTIONS.map(function (a) {
     return '<button type="button" class="chip sm" data-dev-chip="' + a.key + '">' + icon(a.icon) + a.label
       + '</button>';
-  }).join('') + '<button type="button" class="chip sm" data-a="attach" aria-label="Attach code files or a .zip '
+  }).join('') + '<button type="button" class="chip sm" data-a="attach-files" aria-label="Attach code files or a .zip '
     + 'project">' + icon('clip') + 'Attach project</button>';
 }
 function devTemplate(key) {
@@ -147,5 +173,5 @@ function trackComposerHeight() {
   upd();
 }
 
-export { autoGrow, composerHtml, devTemplate, modeMenu, onThreadScroll, renderDevChips, renderModeChips, scrollBottom,
-  setMode, syncComposer, syncJump, trackComposerHeight };
+export { attachMenu, autoGrow, composerHtml, devTemplate, modeMenu, onThreadScroll, pickFiles, renderDevChips,
+  renderModeChips, scrollBottom, setMode, syncComposer, syncJump, trackComposerHeight };

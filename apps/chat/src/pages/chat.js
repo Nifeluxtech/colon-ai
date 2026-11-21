@@ -9,15 +9,14 @@ import { install as installSaga } from '../actions/saga-extras.js';
 import { loadRoutines } from '../actions/saga-plans.js';
 import { send, stopStreaming } from '../actions/send-message.js';
 import { applyTextSize, setMobileTab, startNativeBrowser } from '../components/browser-panel.js';
-import { autoGrow, composerHtml, renderModeChips, scrollBottom, syncComposer,
-  syncJump } from '../components/composer.js';
+import { autoGrow, composerHtml, scrollBottom, syncComposer, syncJump } from '../components/composer.js';
 import { renderThread } from '../components/message.js';
 import { updateHeader } from '../components/model-picker.js';
-import { bindNotice, noticeBanner } from '../components/notice.js';
 import { applySidebar, closeDrawer, refreshConvs, renderConvs } from '../components/sidebar.js';
+import { renderWelcome } from '../components/welcome.js';
 import { CW } from '../core/cw.js';
 import { ColonChatData } from '../core/data.js';
-import { $, PROMPTS, S, brandName, data, ephemeral, isMobile, setData, signedIn } from '../core/state.js';
+import { $, S, brandName, data, ephemeral, isMobile, setData, signedIn } from '../core/state.js';
 import { createHandsFree } from '../lib/hands-free.js';
 import { spokenError } from '../lib/voice-errors.js';
 import { ChatMedia } from '../lib/media.js';
@@ -233,6 +232,7 @@ function newChat(fromRoute) {
   if (CW.closeMusic) CW.closeMusic(true);
   S.current = null; S.messages = []; S.draftModel = null;
   S.draftMode = (S.settings && S.settings.defaultMode) || 'general';
+  if (S.view !== 'welcome') S.introPlayed = false;   // 0.24.0: a new chat plays the intro once; re-renders don't
   setView('welcome');
   if (!fromRoute && location.hash !== '#/' && location.hash !== '') { C.go('/'); return; }
   renderWelcome(); updateHeader(); syncComposer(); renderConvs();
@@ -272,22 +272,7 @@ function openConversation(id) {
 CW.open = function (id) { C.go('/c/' + encodeURIComponent(id)); };
 
 /* ================= Welcome ================= */
-function renderWelcome() {
-  var page = $('#cw-page'); page.className = 'cw-page cw-page-welcome';
-  page.innerHTML = noticeBanner() + (typeof C.verifyBanner === 'function' ? C.verifyBanner() : '')
-    + '<section class="cw-welcome">' +
-    '<div class="cw-hero-mark" aria-hidden="true">' + C.MARK + '</div>' +
-    '<h1 class="cw-hero-h">What can we explore today?</h1>' +
-    '<p class="cw-hero-p">Your ideas, questions and ambitions start here.</p>' +
-    '<div class="cw-prompts">' + PROMPTS.map(function (p, i) {
-      return '<button type="button" class="cw-prompt" data-prompt="' + i + '"><span class="cw-prompt-ico i' + i + '">'
-        + icon(p.icon) + '</span><b>' + esc(p.title) + '</b><span>' + esc(p.text) + '</span></button>';
-    }).join('') + '</div>' +
-    '<div class="cw-welcome-modes chips" role="radiogroup" aria-label="Mode"></div></section>';
-  if (typeof C.bindBanner === 'function') C.bindBanner(page);
-  bindNotice(page);
-  renderModeChips();  // mode chips scroll with the welcome content, above the floating composer
-}
+// 0.24.0: components/welcome.js (the intro animation; the shortcuts and mode chips are in the composer).
 CW.applySettings = function (s) { S.settings = s; applyTextSize(); if (S.view === 'chat') renderThread(); };
 CW.media = function () { return S.media; };
 CW.mount = mount;
