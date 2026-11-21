@@ -7,8 +7,11 @@
 import { Colon } from '../../../../packages/ui/js/colon.js';
 
 var C = Colon, esc = C.esc;
-var ERR_SKIP = { 2: 1, 5: 1, 100: 1, 101: 1, 150: 1, 153: 1 };
-var api = null, el = null, player = null, list = [], at = 0, done = null;
+var ERR_SKIP = { 2: 1, 5: 1, 100: 1, 101: 1, 150: 1, 152: 1, 153: 1 };
+// 15x = the embedder was refused (Android WebView, no-cookie host): try the regular youtube.com player once.
+var ERR_HOST = { 150: 1, 152: 1, 153: 1 };
+var HOSTS = ['https://www.youtube-nocookie.com', 'https://www.youtube.com'];
+var api = null, el = null, player = null, list = [], at = 0, done = null, hostAt = 0, lastErr = '';
 
 function loadApi() {
   if (api) return api;
@@ -53,7 +56,7 @@ function paint(t) {
 function settle(v) { if (done) { var d = done; done = null; d(v); } }
 
 function next() {
-  if (at >= list.length - 1) { settle(false); close(); return false; }
+  if (at >= list.length - 1) return false;
   at++; paint(list[at]);
   if (player && player.loadVideoById) player.loadVideoById(list[at].id);
   return true;
@@ -61,25 +64,44 @@ function next() {
 
 function onState(e) { if (e.data === 1) settle(true); }   // 1 = playing
 
+function build(YT) {
+  var box = el.querySelector('.cm-video');
+  box.innerHTML = '<div class="cm-frame"></div>';
+  player = new YT.Player(box.firstChild, { videoId: list[at].id, width: '100%', height: '100%', host: HOSTS[hostAt],
+    playerVars: { autoplay: 1, playsinline: 1, rel: 0, modestbranding: 1, origin: location.origin },
+    events: { onReady: function (e) { e.target.playVideo(); }, onStateChange: onState, onError: onError } });
+}
+
+/** Nothing would play: keep the card (its YouTube button still works) and say why. */
+function fail(why) {
+  lastErr = why;
+  if (!el) { settle(false); return; }
+  el.querySelector('.cm-artist').innerHTML = esc('Can’t play here: ' + why);
+  el.querySelector('.cm-next').hidden = true;
+  settle(false);
+}
+
 function onError(e) {
+  if (ERR_HOST[e.data] && hostAt < HOSTS.length - 1 && window.YT) {
+    hostAt++; try { player.destroy(); } catch (x) { /* gone */ } build(window.YT); return;
+  }
   if (ERR_SKIP[e.data] && next()) return;
-  settle(false); close();
+  fail('YouTube error ' + e.data);
 }
 
 function play(tracks) {
   list = (tracks || []).filter(function (t) { return t && /^[\w-]{11}$/.test(t.id); });
   at = 0;
+  lastErr = !list.length ? 'no playable videos' : 'no room for the player';
   if (!list.length || !mount()) return Promise.resolve(false);
   settle(false);
   var p = new Promise(function (ok) { done = ok; });
   paint(list[0]); el.hidden = false;
+  lastErr = '';
   loadApi().then(function (YT) {
     if (player && player.loadVideoById) { player.loadVideoById(list[0].id); return; }
-    player = new YT.Player(el.querySelector('.cm-frame'), { videoId: list[0].id, width: '100%', height: '100%',
-      host: 'https://www.youtube-nocookie.com',
-      playerVars: { autoplay: 1, playsinline: 1, rel: 0, modestbranding: 1, origin: location.origin },
-      events: { onReady: function (e) { e.target.playVideo(); }, onStateChange: onState, onError: onError } });
-  }, function () { settle(false); close(); });
+    hostAt = 0; build(YT);
+  }, function () { fail('the YouTube player didn’t load'); });
   // Autoplay can be held back (no tap yet on the web): the player is on screen, so it still counts as shown.
   setTimeout(function () { settle(true); }, 8000);
   return p;
@@ -105,4 +127,8 @@ function control(word) {
 
 function isOpen() { return !!(el && el.isConnected); }
 
-export { close as closeMusicDock, control as controlMusicDock, isOpen as musicDockOpen, play as playOnYouTube };
+/** Why the last play failed ('' when it didn't). */
+function lastError() { return lastErr; }
+
+export { close as closeMusicDock, control as controlMusicDock, isOpen as musicDockOpen, play as playOnYouTube,
+  lastError as musicDockError };
