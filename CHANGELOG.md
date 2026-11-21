@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.23.0 (2026-11-21) · Step 5: "Hey Colon" wake word
+
+- **Say "Hey Colon"** to start talking, from any screen (Colon AI for Android, OS Assistant Step 5). Off by default:
+  Settings › Voice › Hey Colon. Offline keyword spotting with sherpa-onnx 2.0.2 (Apache-2.0) and its gigaspeech
+  3.3M mobile model, keywords `▁HE Y ▁COL ON`, no training, free. Behind a `WakeWordEngine` interface;
+  openWakeWord is the documented backup.
+- A microphone foreground service with a persistent notification and **Stop**. It pauses during calls, while
+  Colon's own recognizer, voice mode or song ID use the mic, while another app records, and (option, on by default)
+  on battery saver, and resumes by itself.
+- On "Hey Colon": a chime, then the voice listener opens like the "Talk to Colon" shortcut, so the command or chat
+  and its reply show in the thread. Without "Display over other apps", a "Tap to talk" notification instead.
+- CI downloads the AAR and model from pinned sha256-checked URLs (nothing binary committed); Colon AI ships arm
+  libraries only. Unit tests for the engine wrapper and the service state machine (`WakeWordTest`).
+- Docs: `docs/os-assistant/step-5.md` (15-item release checklist, device test matrix, Crashlytics setup TODO).
+
 ## 0.22.1 (2026-11-21) · Video cards like the browser card, natural watch phrases, commands shown in chat
 
 - **One video card per request**, like Saga's browser card: each "watch" or "play" adds a new card under its own

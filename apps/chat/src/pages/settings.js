@@ -3,6 +3,7 @@
    everything else goes through ColonChatData.saveSettings(). */
 import { appRowHtml, bindAppRow } from '../components/app-row.js';
 import { bindSagaSettings, sagaSettingsHtml } from '../components/saga-settings.js';
+import { bindWakeWordSettings, wakeWordSettingsHtml } from '../components/wake-word-settings.js';
 import { CW } from '../core/cw.js';
 import { Colon } from '../../../../packages/ui/js/colon.js';
 import { ColonBrowser } from '../../../../packages/ui/js/browser/index.js';
@@ -100,7 +101,7 @@ CW.pages.settings = function (page, ctx) {
         select('voice.speaker', 'Colon voice', '', s.voice.speaker || 'female', [['female', 'Female'], ['male',
           'Male']]) +
         select('voice.readAloudRate', 'Read-aloud speed', '', s.voice.readAloudRate, [[0.8, 'Slower'], [1, 'Normal'],
-          [1.25, 'Faster']]) +
+          [1.25, 'Faster']]) + wakeWordSettingsHtml() +
         ('<div class="set-row"><span class="body"><span class="title">Microphone access</span><span class="sub" '
           + 'data-mic-state>Check that Colon can hear you.</span></span><button class="btn sm" type="button" '
           + 'data-test-mic>') + icon('mic') + 'Test</button></div>' +
@@ -157,7 +158,7 @@ CW.pages.settings = function (page, ctx) {
         + (data.kind === 'local' ? 'preview data mode' : 'synced') + ' · by Nifelux</p></div></div>';
     bind(s);
     bindAppRow(page);
-    bindSagaSettings(page);
+    bindSagaSettings(page); bindWakeWordSettings(page);   // 0.23.0: Hey Colon (Android app only)
     stats();
     if (ctx && ctx.query && ctx.query.get('s')) jump(ctx.query.get('s'));
   }

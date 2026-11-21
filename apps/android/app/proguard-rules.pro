@@ -4,6 +4,8 @@
     @android.webkit.JavascriptInterface <methods>;
 }
 -keepattributes JavascriptInterface
+# sherpa-onnx (wake word): its JNI code reads these classes' fields by name.
+-keep class com.k2fsa.sherpa.onnx.** { *; }
 # OkHttp ships its own consumer rules; these silence optional platform warnings.
 -dontwarn org.conscrypt.**
 -dontwarn org.bouncycastle.**

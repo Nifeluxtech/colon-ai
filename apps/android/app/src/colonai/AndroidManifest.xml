@@ -104,5 +104,11 @@
             android:name=".VoiceService"
             android:exported="false"
             android:foregroundServiceType="microphone" />
+        <!-- 0.23.0 "Hey Colon" (WakeWordService.kt): opt-in, listens for the wake word with a persistent
+             notification and a Stop action; off by default (Settings › Voice). -->
+        <service
+            android:name=".WakeWordService"
+            android:exported="false"
+            android:foregroundServiceType="microphone" />
     </application>
 </manifest>
