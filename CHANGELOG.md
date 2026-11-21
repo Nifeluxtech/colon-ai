@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.24.2 (2026-11-21) · Native crash details for "Hey Colon"
+
+- **Crash report shows the native trace**: on Android 12+ `CrashGuard` reads the tombstone Android keeps for a native
+  crash and adds its readable lines (signal, abort message, libraries, functions). 0.24.1 only showed "crash".
+- **Hey Colon steps**: `WakeWordService` notes each step (engine loading/ready, mic open/close, first audio, heard,
+  yield to Colon, release) in a small file; the report includes the last 15, so we see what ran when it stopped.
+
 ## 0.24.1 (2026-11-21) · "Hey Colon" no longer stops the app
 
 - **Fix: "Colon AI keeps stopping" with Hey Colon on** (Infinix SMART 20). `WakeWordService` now uses the native
