@@ -31,9 +31,6 @@
 
 /* ---------- Welcome ---------- */
 .cw-hero-h{letter-spacing:-.03em}
-.cw-prompt{border-color:var(--line);background:var(--elev-1);box-shadow:var(--sh-xs),var(--inset-hi)}
-[data-theme="light"] .cw-prompt{background:#fff;box-shadow:var(--sh-sm)}
-.cw-prompt:hover{box-shadow:var(--sh-md)}
 
 /* ---------- Messages ---------- */
 .cw-bubble{border-radius:20px 20px 6px 20px;padding:10px 15px;box-shadow:var(--sh-xs)}
@@ -68,4 +65,4 @@
 .menu .menu-head + .mi{margin-top:2px}
 .menu .mi .badge.ok{background:var(--ok-bg)}
 
-@media (prefers-reduced-motion:reduce){.pj-card:hover,.explore-card:hover,.cw-prompt:hover{transform:none}}
+@media (prefers-reduced-motion:reduce){.pj-card:hover,.explore-card:hover{transform:none}}
