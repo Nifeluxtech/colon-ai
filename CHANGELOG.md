@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.27.2 (2026-11-22) · Workspace chat shows its steps live, and you can talk to it while it builds
+
+- While Colon works, the chat shows each step as it happens, like other assistants show their tools: reading your
+  site's files (count and size), thinking and writing the code (with the model used), checking the changes, then
+  each file it created, edited or deleted and the version it saved. The running step has a spinner and a timer;
+  finished steps get a tick, failed ones a warning.
+- Finished replies keep a "N steps · time" line you can open to see them again.
+- Steps are saved in the database (migration 0022 adds `colon_workspace_messages.steps`), so any API process can
+  answer the app's poll. The poll runs every 1.5 s while Colon works.
+- You can keep typing while Colon builds. A question ("how far are you?") gets a quick answer from the live steps
+  without touching your files; a change or new feature is marked "Queued: builds next" and is built right after the
+  current build (one at a time, oldest first). Migration 0022 also adds `colon_workspace_messages.kind`
+  (running, queued, done, side). New `services/api/src/modules/workspace/side.js`.
+
 ## 0.27.1 (2026-11-22) · Fix: Workspace chat showed no reply
 
 - The server runs several API processes, and the chat's "Colon is working" state lived in one process's memory.
