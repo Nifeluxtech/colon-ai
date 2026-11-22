@@ -160,3 +160,35 @@
 .wk-steps-box[open] summary{margin-bottom:8px}
 .wk-q{display:flex;align-items:center;gap:4px;margin-top:6px;font-size:12px;opacity:.85}
 .wk-q svg{width:12px;height:12px}
+
+/* v0.27.2: one workspace's header is its tabs (sticky) with Back beside them; the chat box floats at the bottom */
+.wk-top{position:sticky;top:0;z-index:6;display:flex;align-items:center;gap:6px;margin:0 0 var(--sp-3);
+  padding:8px 0;background:color-mix(in srgb,var(--bg) 86%,transparent);-webkit-backdrop-filter:blur(14px);
+  backdrop-filter:blur(14px)}
+.wk-top > .icon-btn{flex:none}
+.wk-top .wk-tabs{flex:1;min-width:0;margin:0}
+.wk-one.wk-on-chat{padding-bottom:0}
+.wk-on-chat .wk-chat{min-height:calc(100dvh - 150px)}
+.wk-compose{z-index:5;padding:14px 0 calc(12px + env(safe-area-inset-bottom));
+  background:linear-gradient(to top,var(--bg) 55%,transparent)}
+.wk-compose textarea{box-shadow:0 8px 28px rgba(0,0,0,.14);background:var(--bg)}
+.wk-send{box-shadow:0 8px 22px color-mix(in srgb,var(--primary) 38%,transparent)}
+.wk-row{display:flex;align-items:center;gap:4px}
+.wk-row .px-row{flex:1;min-width:0}
+.wk-row > .icon-btn{flex:none}
+.wk-top .wk-tab{padding:0 9px}
+
+/* v0.27.3: + menu and context chips above the chat box */
+.wk-compose{flex-direction:column;align-items:stretch;gap:6px}
+.wk-row-in{display:flex;align-items:flex-end;gap:8px}
+.wk-plus{width:46px;height:46px;flex:none;border-radius:50%;border:1px solid var(--line);background:var(--bg);
+  box-shadow:0 8px 22px rgba(0,0,0,.12)}
+.wk-ctx{display:flex;flex-wrap:wrap;gap:6px}
+.wk-ctx:empty{display:none}
+.wk-chip{display:inline-flex;align-items:center;gap:6px;max-width:100%;padding:5px 10px;border-radius:999px;
+  border:1px solid var(--line);background:var(--elev-1);color:var(--text);font:inherit;font-size:12.5px}
+.wk-chip svg{width:13px;height:13px;flex:none;color:var(--primary)}
+.wk-chip span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.wk-chip button{display:flex;padding:0;border:0;background:none;color:var(--muted);cursor:pointer}
+.wk-chip button svg{color:var(--muted)}
+.wk-instr .textarea{margin:var(--sp-3) 0}
