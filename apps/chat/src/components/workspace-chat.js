@@ -33,6 +33,9 @@ function msgHtml(m, current) {
 var WORKING = '<div class="wk-msg wk-colon wk-working" role="status"><span class="wk-dots"><i></i><i></i><i></i>'
   + '</span>Colon is building your site…</div>';
 
+var LOST = '<div class="wk-msg wk-colon wk-err">' + icon('alert') + '<p>Colon didn’t answer this one. Nothing '
+  + 'was changed; please send it again.</p></div>';
+
 export function mount(el, o) {
   var data = o.data, id = o.id, timer = null, lastVersion = null, busy = false;
   el.innerHTML = '<div class="wk-chat"><div class="wk-msgs" aria-live="polite"><div class="skel px-skel-c"></div>'
@@ -45,8 +48,9 @@ export function mount(el, o) {
   function setBusy(b) { busy = b; send.disabled = b; input.disabled = b; }
   function render(h) {
     var msgs = h.messages || [];
+    var tail = h.working ? WORKING : msgs.length && msgs[msgs.length - 1].role === 'user' ? LOST : '';
     list.innerHTML = msgs.length ? msgs.map(function (m) { return msgHtml(m, h.version); }).join('')
-      + (h.working ? WORKING : '') : '<div class="wk-ideas"><p>What should we build? Describe it in your own '
+      + tail : '<div class="wk-ideas"><p>What should we build? Describe it in your own '
       + 'words, or start with an idea:</p>' + IDEAS.map(function (t) {
         return '<button type="button" class="wk-idea" data-idea="' + esc(t) + '">' + icon('sparkles') + esc(t)
           + '</button>';
