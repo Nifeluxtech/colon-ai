@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{TITLE}}</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="top">
+    <div class="wrap row">
+      <a class="brand" href="#">{{TITLE}}</a>
+      <button class="menu" aria-label="Menu" onclick="document.body.classList.toggle('open')">☰</button>
+      <nav>
+        <a href="#services">Services</a><a href="#about">About</a><a href="#contact" class="btn sm">Contact us</a>
+      </nav>
+    </div>
+  </header>
+  <section class="hero">
+    <div class="wrap">
+      <h1>Reliable service for growing businesses.</h1>
+      <p>Tell customers in one sentence what you do and why they should choose you.</p>
+      <a class="btn" href="#contact">Get a quote</a>
+    </div>
+  </section>
+  <section id="services" class="wrap">
+    <h2>Our services</h2>
+    <div class="grid">
+      <div class="card"><h3>Service one</h3><p>What it is and who it helps.</p></div>
+      <div class="card"><h3>Service two</h3><p>What it is and who it helps.</p></div>
+      <div class="card"><h3>Service three</h3><p>What it is and who it helps.</p></div>
+    </div>
+  </section>
+  <section id="about" class="wrap split">
+    <div><h2>About us</h2><p>Your story: when you started, what you believe in and the results you deliver.</p></div>
+    <ul class="stats"><li><b>10+</b>years</li><li><b>500+</b>clients</li><li><b>24/7</b>support</li></ul>
+  </section>
+  <section id="contact" class="wrap">
+    <h2>Contact</h2>
+    <p>Email <a href="mailto:hello@example.com">hello@example.com</a> or call <a href="tel:+2340000000000">+234 000 000
+      0000</a>.</p>
+  </section>
+  <footer class="foot"><div class="wrap">© <span id="y"></span> {{TITLE}}. All rights reserved.</div></footer>
+  <script src="script.js"></script>
+</body>
+</html>

@@ -1,17 +1,17 @@
 {
-  "versionName": "0.24.4",
-  "versionCode": 2404,
-  "apkUrl": "https://github.com/Nifeluxtech/colon-ai/releases/download/v0.24.4/colon-ai-0.24.4.apk",
-  "releaseUrl": "https://github.com/Nifeluxtech/colon-ai/releases/tag/v0.24.4",
-  "notes": "\"Hey Colon\" listens a bit harder, and Settings › Voice now shows the mic level and how many times it heard you. No more flame splash when the site opens.",
+  "versionName": "0.25.0",
+  "versionCode": 2500,
+  "apkUrl": "https://github.com/Nifeluxtech/colon-ai/releases/download/v0.25.0/colon-ai-0.25.0.apk",
+  "releaseUrl": "https://github.com/Nifeluxtech/colon-ai/releases/tag/v0.25.0",
+  "notes": "New: Workspace, right after Projects. Start a website from a template, open its files and restore any earlier version. Chat building, live preview and publishing come next.",
   "minSupportedVersionCode": 0,
   "publishedAt": "2026-11-22",
   "browser": {
-    "versionName": "0.24.4",
-    "versionCode": 2404,
-    "apkUrl": "https://github.com/Nifeluxtech/colon-ai/releases/download/v0.24.4/colon-browser-0.24.4.apk",
-    "releaseUrl": "https://github.com/Nifeluxtech/colon-ai/releases/tag/v0.24.4",
-    "notes": "Released alongside Colon AI 0.24.4 (no browser changes).",
+    "versionName": "0.25.0",
+    "versionCode": 2500,
+    "apkUrl": "https://github.com/Nifeluxtech/colon-ai/releases/download/v0.25.0/colon-browser-0.25.0.apk",
+    "releaseUrl": "https://github.com/Nifeluxtech/colon-ai/releases/tag/v0.25.0",
+    "notes": "Released alongside Colon AI 0.25.0 (no browser changes).",
     "minSupportedVersionCode": 0
   }
 }

@@ -126,7 +126,8 @@ CW.pages.settings = function (page, ctx) {
       section('saga', 'Saga (browsing)', 'globe', sagaSettingsHtml()) +
       section('memory', 'Memory and projects', 'bookmark',
         C.row('#/memory', 'bookmark', 'Memory', 'Off until you turn it on. View, edit or delete what Colon remembers.')
-        + C.row('#/projects', 'folder', 'Projects', 'Chats, files and instructions grouped together')) +
+        + C.row('#/projects', 'folder', 'Projects', 'Chats, files and instructions grouped together')
+        + C.row('#/workspace', 'code', 'Workspace', 'Build a website by chatting, then publish it')) +
       section('privacy', 'Privacy and security', 'shield',
         toggle('saveHistory', 'Save chat history',
           'When off, new chats are temporary: not saved to your account, and gone when you close the tab.',
