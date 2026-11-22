@@ -179,7 +179,7 @@ async function snapFor(ctx) {
 }
 
 module.exports = {
-  create, instance, memoryStore, repoOut, providers, tools: repoTools,
+  create, instance, memoryStore, repoOut, providers, tools: repoTools, git, download,   // download/git: Workspace
   snapshotFor: (userId, pid) => instance().snapshotFor(userId, pid),
   readFile: async (args, ctx) => repoTools.readFile(await snapFor(ctx), args),
   search: async (args, ctx) => repoTools.search(await snapFor(ctx), args),
