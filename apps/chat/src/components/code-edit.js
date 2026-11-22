@@ -85,4 +85,4 @@ function openCodeEditor(btn) {
   }, { cls: 'wide', label: 'Edit code', onClose: function () { if (editor) editor.dispose(); } });
 }
 
-export { decorateCode, openCodeEditor };
+export { decorateCode, loadMonaco, openCodeEditor };
