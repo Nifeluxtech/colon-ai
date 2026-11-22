@@ -12,7 +12,7 @@ only (owner decision 2026-11-21). Plan: `plan.md` (Step 5). Off by default.
   off. Android 14+ only lets a microphone service start while Colon is on screen, so it starts from the app
   (switching it on, or opening Colon after a reboot), never at boot.
 - **Engine** (`WakeWordEngine` interface, `src/wake-sherpa/.../WakeEngines.kt`): sherpa-onnx keyword spotting
-  v2.0.2 (Apache-2.0, offline), model `sherpa-onnx-kws-zipformer-gigaspeech-3.3M-2024-01-01-mobile` (int8 encoder
+  v2.0.2 (Apache-2.0, offline), model `sherpa-onnx-kws-zipformer-gigaspeech-3.3M-2024-01-01` (0.24.3: the `-mobile` export crashed) (int8 encoder
   and joiner, about 5 MB), keywords file `assets/kws/keywords.txt` = `▁HE Y ▁COL ON` (no training). 16 kHz mono
   PCM in 100 ms chunks from `AudioSource.VOICE_RECOGNITION`; one thread; a 3 s cooldown (`WakeWordDetector`).
 - **Backup engine: openWakeWord** (Apache-2.0 code). Train a "hey colon" model with its free Colab notebook (synthetic
@@ -37,7 +37,7 @@ CI (`.github/workflows/android.yml`, step "Wake word engine and model") download
 | File | URL | sha256 |
 |---|---|---|
 | `app/libs/sherpa-onnx-static-link-onnxruntime-2.0.2.aar` | `https://github.com/k2-fsa/sherpa-onnx/releases/download/v2.0.2/sherpa-onnx-static-link-onnxruntime-2.0.2.aar` | `cb73564809268c8b96bf98f1a32b0b3b611e01d028d22f10beb57ef55418c0cb` |
-| model archive (4 files copied to `app/src/colonai/assets/kws/`) | `https://github.com/k2-fsa/sherpa-onnx/releases/download/kws-models/sherpa-onnx-kws-zipformer-gigaspeech-3.3M-2024-01-01-mobile.tar.bz2` | `2e6ac2577310bfa2f4b6b5fab0478b868c9d0b2cb2c51b3e13b50581b588864d` |
+| model archive (4 files copied to `app/src/colonai/assets/kws/`) | `https://github.com/k2-fsa/sherpa-onnx/releases/download/kws-models/sherpa-onnx-kws-zipformer-gigaspeech-3.3M-2024-01-01.tar.bz2` | `f170013b4716e41b62b9bfd809687c207cef798ef9bc6534d524e17af9b6561a` |
 
 The static-link AAR is used (onnxruntime linked into `libsherpa-onnx-jni.so`: one library, smaller APK than the
 shared AAR, sha256 `6420cfb8…a80e`). Colon AI packages only `arm64-v8a` and `armeabi-v7a`. Nothing downloaded is
