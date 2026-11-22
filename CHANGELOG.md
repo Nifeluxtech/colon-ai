@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.27.4 (2026-11-22) · Workspace builds no longer get stuck; "stop" stops
+
+- Fixed: a build could sit on "Thinking and writing the code" forever when the API process running it ended
+  (cPanel recycles processes) or a provider ignored the time limit. Builds now have a hard 4-minute limit, and a
+  build with no progress for 6 minutes is reported once ("stopped before it finished", nothing changed) and the
+  queue moves on. Only one API process can pick up or report a build.
+- Sending "stop" (or "cancel") while Colon builds now stops it: nothing is changed and queued requests are
+  dropped. Before, "stop" was queued as a change request.
+
 ## 0.27.3 (2026-11-22) · Workspace header, list menus, and the chat's + menu
 
 - Inside a workspace, the tabs are the header: they stick to the top while you scroll, with Back beside Chat. The

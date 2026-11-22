@@ -166,3 +166,35 @@ test('repo: clone takes the site folder, learn keeps reference text, instruction
   await r.forget(ME, w.id);
   assert.equal((await chat.history(ME, w.id)).reference, null);
 });
+
+test('chat: "stop" ends the build and drops the queue; a lost build is reported once (v0.27.3)', async () => {
+  const store = ws.memoryStore();
+  const e = ws.create({ store });
+  const { workspace: w } = await e.add(ME, { title: 'Cafe', template: 'blank' });
+  const generate = (o) => (o.mode === 'general' ? Promise.resolve({ text: 'QUEUE: Later.' })
+    : new Promise((ok, no) => o.signal.addEventListener('abort', () => no(new Error('aborted')))));
+  const chat = createChat({ engine: e, deps: { generate } });
+  const first = chat.send(ME, w.id, { message: 'make a menu' }, { wait: true });
+  await new Promise((r) => setImmediate(r));
+  await chat.send(ME, w.id, { message: 'add a map' }, { wait: true });
+  const r = await chat.send(ME, w.id, { message: 'Stop' }, { wait: true });
+  assert.equal(r.working, false);
+  await first;
+  let h = await chat.history(ME, w.id);
+  assert.equal(h.working, false);
+  assert.deepEqual(h.messages.filter((m) => m.role === 'user').map((m) => m.kind), ['stopped', 'dropped', 'side']);
+  assert.equal(h.messages[h.messages.length - 1].content, 'Stopped. Nothing was changed.');
+  assert.ok(!h.messages.some((m) => m.error));
+  assert.equal((await e.get(ME, w.id)).workspace.version, 1);
+  // a build whose process ended: no progress for over 6 minutes
+  const old = new Date(Date.now() - 7 * 60 * 1000).toISOString();
+  const id = await store.addMessage(w.id, { role: 'user', content: 'add a footer', kind: 'running' });
+  await store.setSteps(id, [{ label: 'Thinking and writing the code', state: 'run', start: 5, at: Date.parse(old) }]);
+  (await store.messages(w.id, 100)).find((m) => m.id === id).created_at = old;
+  h = await chat.history(ME, w.id);
+  assert.equal(h.working, false);
+  assert.equal(h.messages.find((m) => m.id === id).kind, 'lost');
+  assert.match(h.messages[h.messages.length - 1].content, /stopped before it finished/);
+  h = await chat.history(ME, w.id);
+  assert.equal(h.messages.filter((m) => m.error).length, 1);
+});

@@ -18,12 +18,17 @@ const HISTORY = 8;          // earlier messages the model sees
 const STALE_MS = 5 * 60 * 1000;   // a reply not written by then is treated as lost (the process died)
 const QUEUE_STALE_MS = 15 * 60 * 1000;   // the same for a build that waited in the queue (v0.27.2)
 const SIDE_STALE_MS = 2 * 60 * 1000;     // ... and for a quick answer to a mid-build message
+// v0.27.3: a build gets 240 s; one with no progress for RUN_STALE_MS was lost (the process running it ended).
+const BUILD_MS = 240000, RUN_STALE_MS = 6 * 60 * 1000;
+const STOP = new RegExp('^\\s*(please\\s+)?(stop|cancel|abort|halt)'
+  + '(\\s+(it|that|this|now|please|the build|building|everything))*[\\s.!]*$', 'i');
 const err = (status, code, message) => Object.assign(new Error(message), { status, code });
 const FRIENDLY = {
   no_provider: 'Colon isn’t connected to an AI provider yet.',
   provider_down: 'Colon couldn’t reach an AI provider right now. Please try again in a moment.',
   edit_failed: 'Colon’s change didn’t fit the current files, so nothing was changed. Try asking again.',
   empty: 'Colon didn’t send any changes. Try describing what you want a little differently.',
+  timeout: 'Colon took too long on this one, so nothing was changed. Try a smaller change, or send it again.',
 };
 
 const msgOut = (m) => ({ id: Number(m.id), role: m.role, content: m.content, error: Boolean(Number(m.error)),
@@ -33,6 +38,11 @@ const msgOut = (m) => ({ id: Number(m.id), role: m.role, content: m.content, err
   steps: m.steps ? (typeof m.steps === 'string' ? JSON.parse(m.steps) : m.steps) : [], kind: m.kind || null,
   created_at: m.created_at });
 const young = (m, ms) => Date.now() - new Date(m.created_at).getTime() < ms;
+// a running build is alive while its newest step (or the message itself) is under RUN_STALE_MS old
+const alive = (m) => {
+  const at = Math.max(new Date(m.created_at).getTime(), ...(m.steps || []).map((x) => Number(x.at) || 0));
+  return Date.now() - at < RUN_STALE_MS;
+};
 
 // v0.27.2: the live step list for one reply. Each change is saved on the user's message (any API process can then
 // answer the poll); writes are chained so they land in order, and a failed write never stops the reply.
@@ -47,7 +57,7 @@ function tracker(save) {
     if (cur && detail) cur.detail = String(detail).slice(0, 120);
   };
   return {
-    start(label, detail) { finish('done'); steps.push({ label, state: 'run', start: Date.now() - t0,
+    start(label, detail) { finish('done'); steps.push({ label, state: 'run', start: Date.now() - t0, at: Date.now(),
       ...(detail ? { detail } : {}) }); return flush(); },
     done(detail) { finish('done', detail); return flush(); },
     fail(detail) { finish('fail', detail); return flush(); },
@@ -73,17 +83,43 @@ function createChat({ engine, deps }) {
   // v0.27.2: a build running or queued (kind), or a mid-build question still waiting for its quick answer.
   const pending = (msgs) => {
     const last = msgs[msgs.length - 1];
-    if (msgs.some((m) => m.role === 'user' && (m.kind === 'running' || m.kind === 'queued')
-      && young(m, QUEUE_STALE_MS))) return true;
+    if (msgs.some((m) => m.role === 'user' && ((m.kind === 'running' && alive(m))
+      || (m.kind === 'queued' && young(m, QUEUE_STALE_MS))))) return true;
     if (!last || last.role !== 'user') return false;
     return last.kind === 'side' ? young(last, SIDE_STALE_MS) : !last.kind && young(last, STALE_MS);
   };
   async function history(u, id) {
     const w = await engine.owned(u, id);
-    const messages = (await store.messages(w.id, 100)).map(msgOut);
+    let messages = (await store.messages(w.id, 100)).map(msgOut);
+    if (await recover(u, w, messages)) messages = (await store.messages(w.id, 100)).map(msgOut);
     return { messages, working: running.has(w.id) || pending(messages), version: Number(w.version),
       now: new Date().toISOString(), instructions: w.instructions || '',
       reference: w.ref_url ? { url: w.ref_url, files: Number(w.ref_files) || 0 } : null };
+  }
+
+  // v0.27.3: a build whose process ended (cPanel recycles API processes) is reported once, with nothing changed,
+  // and the queue moves on. claimKind makes sure only one process does it. -> true when something changed.
+  async function recover(u, w, messages) {
+    if (running.has(w.id)) return false;
+    let changed = false;
+    for (const m of messages.filter((x) => x.role === 'user' && x.kind === 'running' && !alive(x))) {
+      if (!(await store.claimKind(m.id, 'running', 'lost'))) continue;
+      changed = true;
+      await store.setSteps(m.id, m.steps.map((x) => (x.state === 'run' ? { ...x, state: 'fail',
+        detail: 'Stopped: the server restarted' } : x)));
+      await store.addMessage(w.id, { role: 'assistant', error: true, content: 'This build stopped before it '
+        + 'finished (the server restarted), so nothing was changed. Send it again when you’re ready.' });
+    }
+    if (changed) await next(u, w, {});
+    return changed;
+  }
+  // Starts the oldest queued request when no build is alive. -> the drain promise, or null
+  async function next(u, w, ctx) {
+    const now = (await store.messages(w.id, 30)).map(msgOut);
+    if (now.some((x) => x.role === 'user' && x.kind === 'running' && alive(x))) return null;
+    const q = now.find((x) => x.role === 'user' && x.kind === 'queued' && young(x, QUEUE_STALE_MS));
+    if (!q || !(await store.claimKind(q.id, 'queued', 'running'))) return null;
+    return drain(u, w, { id: q.id, content: q.content }, ctx);
   }
 
   async function reply(u, w, m, ctx, t) {
@@ -103,10 +139,18 @@ function createChat({ engine, deps }) {
     let r;
     try {
       const ref = w.ref_url ? await store.reference(w.id) : null;
-      r = await deps.generate({ mode: 'developer', language: 'en', messages, taskText: text,
+      // a hard limit too, in case a provider ignores the abort signal
+      let timer;
+      r = await Promise.race([deps.generate({ mode: 'developer', language: 'en', messages, taskText: text,
         context: prompt.context({ files, message: text, title: w.title, instructions: w.instructions,
-          reference: ref }), routing: ctx.routing, signal: ctx.signal });
-    } catch (e) { await t.fail('The AI provider didn’t answer'); throw e; }
+          reference: ref }), routing: ctx.routing, signal: ctx.signal }),
+      new Promise((_, no) => { timer = setTimeout(() => no(err(504, 'timeout', FRIENDLY.timeout)), BUILD_MS + 10000);
+        if (timer.unref) timer.unref(); })]).finally(() => clearTimeout(timer));
+    } catch (e) {
+      if (await stopped(m)) throw err(499, 'stopped', 'stopped');
+      await t.fail(e.code === 'timeout' ? 'Took too long' : 'The AI provider didn’t answer'); throw e;
+    }
+    if (await stopped(m)) throw err(499, 'stopped', 'stopped');   // "stop" was sent while Colon was thinking
     if (ctx.record) await Promise.resolve(ctx.record(r)).catch(() => {});
     const ok = (r.attempts || []).filter((a) => a.ok).pop();
     await t.done(ok && ok.model ? `${ok.model}` : '');
@@ -141,14 +185,20 @@ function createChat({ engine, deps }) {
     return { message: { id: Number(mid), role: 'user', content: text, kind: 'running' }, working: true };
   }
 
+  const stopped = async (m) => (await store.kindOf(m.id).catch(() => 'running')) === 'stopped';
   async function build(u, w0, m, ctx0) {
     const t = tracker((steps) => store.setSteps(m.id, steps));
-    // each build gets its own time limit, and the newest settings (instructions, reference) of the workspace
-    const ctx = ctx0.signal ? { ...ctx0, signal: AbortSignal.timeout(240000) } : ctx0;
+    // each build gets its own time limit and stop switch, and the newest settings of the workspace
+    const ctl = new AbortController();
+    const limit = AbortSignal.timeout(BUILD_MS);
+    const ctx = { ...ctx0, signal: typeof AbortSignal.any === 'function' ? AbortSignal.any([limit, ctl.signal])
+      : limit };
+    if (running.has(w0.id)) running.get(w0.id).ctl = ctl;
     const w = (await store.get(u.id, w0.id).catch(() => null)) || w0;
     try {
       await reply(u, w, m, ctx, t);
     } catch (e) {
+      if (e.code === 'stopped') { await t.fail('Stopped'); return; }
       if (ctx.onFail) await ctx.onFail(e);
       const known = FRIENDLY[e.code] || (e.status && e.status < 500 && e.message);
       if (!known && deps.log) deps.log.error('workspace_chat_failed', { err: e.message, code: e.code });
@@ -156,7 +206,7 @@ function createChat({ engine, deps }) {
         || 'Something went wrong while Colon was building. Nothing was changed; please try again.' })
         .catch(() => {});
     } finally {
-      await store.setKind(m.id, 'done').catch(() => {});
+      await store.claimKind(m.id, 'running', 'done').catch(() => {});
     }
   }
   // Builds m, then every request queued meanwhile, oldest first, in this process.
@@ -168,7 +218,7 @@ function createChat({ engine, deps }) {
           await build(u, w, m, ctx);
           m = (await store.messages(w.id, 30)).map(msgOut).find((x) => x.role === 'user' && x.kind === 'queued'
             && young(x, QUEUE_STALE_MS));
-          if (m) await store.setKind(m.id, 'running');
+          if (m && !(await store.claimKind(m.id, 'queued', 'running'))) m = null;
         }
       } finally {
         running.delete(w.id);
@@ -181,6 +231,7 @@ function createChat({ engine, deps }) {
     const mid = Number(await store.addMessage(w.id, { role: 'user', content: text, kind: 'side' }));
     const users = recent.filter((x) => x.role === 'user');
     const cur = users.filter((x) => x.kind === 'running').pop() || users.filter((x) => x.kind !== 'side').pop();
+    if (STOP.test(text)) return stop(w, mid, text, users);
     const job = (async () => {
       let ans;
       try {
@@ -196,16 +247,26 @@ function createChat({ engine, deps }) {
       if (ans.queue) await store.setKind(mid, 'queued');
       await store.addMessage(w.id, { role: 'assistant', content: ans.text, kind: 'side' });
       // The build may have ended while we answered; then nobody would pick the queue up.
-      if (ans.queue && !running.has(w.id)) {
-        const now = (await store.messages(w.id, 30)).map(msgOut);
-        if (!now.some((x) => x.role === 'user' && x.kind === 'running' && young(x, QUEUE_STALE_MS))) {
-          await store.setKind(mid, 'running');
-          await drain(u, w, { id: mid, content: text }, ctx);
-        }
-      }
+      if (ans.queue && !running.has(w.id)) await next(u, w, ctx);
     })().catch((e) => { if (deps.log) deps.log.error('workspace_side_failed', { err: e.message }); });
     if (ctx.wait) await job;
     return { message: { id: mid, role: 'user', content: text, kind: 'side' }, working: true };
+  }
+
+  // v0.27.3: "stop" ends the running build (in this process at once; in another one before it saves anything)
+  // and drops the queue. Nothing is changed.
+  async function stop(w, mid, text, users) {
+    for (const x of users.filter((y) => y.kind === 'queued')) await store.claimKind(x.id, 'queued', 'dropped');
+    const cur = users.filter((y) => y.kind === 'running').pop();
+    if (cur && (await store.claimKind(cur.id, 'running', 'stopped'))) {
+      await store.setSteps(cur.id, cur.steps.map((x) => (x.state === 'run' ? { ...x, state: 'fail',
+        detail: 'Stopped' } : x)));
+    }
+    const r = running.get(w.id);
+    if (r && r.ctl) r.ctl.abort();
+    await store.addMessage(w.id, { role: 'assistant', kind: 'side', content: cur
+      ? 'Stopped. Nothing was changed.' : 'Nothing is building right now.' });
+    return { message: { id: mid, role: 'user', content: text, kind: 'side' }, working: false };
   }
 
   return { send, history, _running: running };
