@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.25.0 (2026-11-22) · Workspace, step 1
+
+- **New: Workspace** (sidebar, right after Projects; also in Settings). A chat-first website builder, planned in
+  `docs/workspace/plan.md` (5 steps). Step 1: create a workspace from a template (Blank, Portfolio, Business,
+  Landing page), five tabs (Chat, Preview, Code, Files, Publish), open any file, and a history of every change with
+  one-tap restore. Chat building (step 2), live preview and code editor (step 3) and publishing to
+  `apparatus.name.ng/<name>/` (step 4) come next.
+- API: `/workspaces` (list, create, get, rename, delete), `/workspaces/:id/file` (read, write, move, delete),
+  `/bundle`, `/versions` and restore. Static sites only: HTML, CSS, JS, JSON, text, SVG, images and fonts; `.php`,
+  `.htaccess`, hidden files and `..` are refused. Limits: 20 workspaces, 200 files, 512 KB per text file, 1 MB per
+  image or font, 4 MB per workspace, newest 20 versions kept.
+- Database: migration `0020_workspaces` (colon_workspaces, colon_workspace_files, colon_workspace_versions).
+
 ## 0.24.4 (2026-11-22) · "Hey Colon" hears better, no web splash
 
 - **Hey Colon is more eager**: keywords score 1.5 and threshold 0.2 (defaults 1.0 / 0.25). In sandbox tests with
