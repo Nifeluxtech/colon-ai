@@ -16,12 +16,14 @@ const edits = require('./edits');
 
 const { LIMITS } = paths;
 const MAX_TITLE = 80;
+const MAX_INSTRUCTIONS = 4000;
 const err = (status, code, message, extra) => Object.assign(new Error(message), { status, code, ...extra });
 const notFound = () => err(404, 'not_found', 'This workspace no longer exists.');
 const newId = () => crypto.randomBytes(12).toString('base64url');
 
 const wsOut = (w) => ({ id: w.id, title: w.title, template: w.template, version: Number(w.version) || 0,
-  files: Number(w.files) || 0, bytes: Number(w.bytes) || 0, published: w.slug ? { name: w.slug,
+  files: Number(w.files) || 0, bytes: Number(w.bytes) || 0, instructions: w.instructions || '',
+  reference: w.ref_url ? { url: w.ref_url, files: Number(w.ref_files) || 0 } : null, published: w.slug ? { name: w.slug,
     version: w.published_version, at: w.published_at } : null, created_at: w.created_at, updated_at: w.updated_at });
 const fileOut = (f) => ({ path: f.path, type: f.mime, size: Number(f.size), updated_at: f.updated_at });
 const isText = (p) => { const t = paths.typeOf(p); return Boolean(t && t.text); };
@@ -97,6 +99,13 @@ function create({ store = sqlStore() } = {}) {
   async function edit(u, id, b = {}) {
     const w = await owned(u, id);
     if (b.title !== undefined) await store.update(u.id, w.id, { title: cleanTitle(b.title) });
+    if (b.instructions !== undefined) {   // v0.28.0
+      const t = String(b.instructions == null ? '' : b.instructions).trim();
+      if (t.length > MAX_INSTRUCTIONS) {
+        throw err(422, 'invalid', `Keep instructions under ${MAX_INSTRUCTIONS} characters.`, { field: 'instructions' });
+      }
+      await store.update(u.id, w.id, { instructions: t || null });
+    }
     return wsOut(await store.get(u.id, w.id));
   }
 
@@ -212,8 +221,28 @@ function create({ store = sqlStore() } = {}) {
       changes: uniq };
   }
 
+  // v0.28.0: replaces every file with files [{ path, content: Buffer }] (a cloned repository) as ONE version.
+  async function importFiles(u, id, files, note) {
+    const w = await owned(u, id);
+    if (files.length > LIMITS.files) {
+      throw err(413, 'too_many_files', `A workspace can hold up to ${LIMITS.files} files.`);
+    }
+    if (files.reduce((n, f) => n + f.content.length, 0) > LIMITS.totalBytes) {
+      throw err(413, 'too_large', `A workspace can hold up to ${LIMITS.totalBytes / 1048576} MB of files.`);
+    }
+    const before = (await store.allFiles(w.id)).map((f) => f.path), incoming = new Set(files.map((f) => f.path));
+    for (const p of before) if (!incoming.has(p)) await store.deleteFile(w.id, p);
+    for (const f of files) {
+      await store.putFile(w.id, { path: f.path, mime: paths.typeOf(f.path).mime, content: f.content });
+    }
+    const had = new Set(before);
+    const changes = files.map((f) => ({ op: had.has(f.path) ? 'edited' : 'created', path: f.path }))
+      .concat(before.filter((p) => !incoming.has(p)).map((p) => ({ op: 'deleted', path: p })));
+    return { version: await commit(u, w, cleanNote(note, 'Imported files')), before: Number(w.version), changes };
+  }
+
   return { list, add, get, edit, remove, readFile, bundle, writeFile, moveFile, deleteFile, versions, restore,
-    applyOps, owned, store };
+    applyOps, importFiles, owned, store };
 }
 
 let shared = null;

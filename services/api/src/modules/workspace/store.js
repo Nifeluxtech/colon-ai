@@ -3,7 +3,10 @@
 // the same interface in memory, for tests. Versions hold every file base64-encoded as JSON { path: [mime, b64] }.
 // The db module is loaded on first use, so tests (memoryStore) run without the mysql2 driver.
 
-const WS = 'id, user_id, title, template, version, slug, published_version, published_at, created_at, updated_at';
+const WS = 'id, user_id, title, template, version, slug, published_version, published_at, instructions, ref_url, '
+  + 'ref_files, created_at, updated_at';
+// Columns update() may set (v0.28.0 adds the instructions and the learned-from repository).
+const FIELDS = ['title', 'version', 'instructions', 'ref_url', 'ref_text', 'ref_files'];
 const COUNTS = `(SELECT COUNT(*) FROM colon_workspace_files f WHERE f.workspace_id = w.id) AS files,
   (SELECT COALESCE(SUM(f.size), 0) FROM colon_workspace_files f WHERE f.workspace_id = w.id) AS bytes`;
 
@@ -22,7 +25,7 @@ function sqlStore(q) {
       updated_at) VALUES (?,?,?,?,0, UTC_TIMESTAMP(3), UTC_TIMESTAMP(3))`, [w.id, w.user_id, w.title, w.template]),
     async update(userId, id, fields) {
       const sets = [], params = [];
-      for (const k of ['title', 'version']) {
+      for (const k of FIELDS) {
         if (fields[k] !== undefined) { sets.push(`${k} = ?`); params.push(fields[k]); }
       }
       const r = await q.query(`UPDATE colon_workspaces SET ${sets.concat('updated_at = UTC_TIMESTAMP(3)').join(', ')}
@@ -69,6 +72,8 @@ function sqlStore(q) {
         m.version_after ?? null, m.error ? 1 : 0, m.steps ? JSON.stringify(m.steps) : null, m.kind || null]);
       return r.insertId;
     },
+    reference: async (wsId) => { const r = await q.one('SELECT ref_text FROM colon_workspaces WHERE id = ?',
+      [String(wsId)]); return r ? r.ref_text : null; },
     setKind: (msgId, kind) => q.query('UPDATE colon_workspace_messages SET kind = ? WHERE id = ?',
       [kind, Number(msgId)]),
     setSteps: (msgId, steps) => q.query('UPDATE colon_workspace_messages SET steps = ? WHERE id = ?',
@@ -94,7 +99,7 @@ function memoryStore() {
     async update(userId, id, fields) {
       const w = find(userId, id);
       if (!w) return false;
-      for (const k of ['title', 'version']) if (fields[k] !== undefined) w[k] = fields[k];
+      for (const k of FIELDS) if (fields[k] !== undefined) w[k] = fields[k];
       w.updated_at = now();
       return true;
     },
@@ -138,6 +143,7 @@ function memoryStore() {
         created_at: now() });
       return id;
     },
+    async reference(wsId) { const w = s.ws.find((x) => x.id === wsId); return w ? w.ref_text || null : null; },
     async setKind(msgId, kind) {
       const m = s.messages.find((x) => x.id === Number(msgId));
       if (m) m.kind = kind;

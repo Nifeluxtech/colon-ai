@@ -82,7 +82,8 @@ function createChat({ engine, deps }) {
     const w = await engine.owned(u, id);
     const messages = (await store.messages(w.id, 100)).map(msgOut);
     return { messages, working: running.has(w.id) || pending(messages), version: Number(w.version),
-      now: new Date().toISOString() };
+      now: new Date().toISOString(), instructions: w.instructions || '',
+      reference: w.ref_url ? { url: w.ref_url, files: Number(w.ref_files) || 0 } : null };
   }
 
   async function reply(u, w, m, ctx, t) {
@@ -101,8 +102,10 @@ function createChat({ engine, deps }) {
     await t.start('Thinking and writing the code');
     let r;
     try {
+      const ref = w.ref_url ? await store.reference(w.id) : null;
       r = await deps.generate({ mode: 'developer', language: 'en', messages, taskText: text,
-        context: prompt.context({ files, message: text, title: w.title }), routing: ctx.routing, signal: ctx.signal });
+        context: prompt.context({ files, message: text, title: w.title, instructions: w.instructions,
+          reference: ref }), routing: ctx.routing, signal: ctx.signal });
     } catch (e) { await t.fail('The AI provider didn’t answer'); throw e; }
     if (ctx.record) await Promise.resolve(ctx.record(r)).catch(() => {});
     const ok = (r.attempts || []).filter((a) => a.ok).pop();
@@ -138,8 +141,11 @@ function createChat({ engine, deps }) {
     return { message: { id: Number(mid), role: 'user', content: text, kind: 'running' }, working: true };
   }
 
-  async function build(u, w, m, ctx) {
+  async function build(u, w0, m, ctx0) {
     const t = tracker((steps) => store.setSteps(m.id, steps));
+    // each build gets its own time limit, and the newest settings (instructions, reference) of the workspace
+    const ctx = ctx0.signal ? { ...ctx0, signal: AbortSignal.timeout(240000) } : ctx0;
+    const w = (await store.get(u.id, w0.id).catch(() => null)) || w0;
     try {
       await reply(u, w, m, ctx, t);
     } catch (e) {
