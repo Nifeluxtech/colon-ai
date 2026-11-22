@@ -148,6 +148,12 @@ function RemoteChatData() {
     workspaceRepo: function (id, action, url) { return api(wsp(id) + '/repo', { method: 'POST',
       body: { action: action, url: url } }); },
     forgetWorkspaceReference: function (id) { return api(wsp(id) + '/reference', { method: 'DELETE' }); },
+    // v0.28.0 (step 4): publish to apparatus.name.ng/<name>/
+    checkWorkspacePublish: function (id, name) { return api(wsp(id) + '/publish/check?name='
+      + encodeURIComponent(name)); },
+    publishWorkspace: function (id, name) { return api(wsp(id) + '/publish', { method: 'POST',
+      body: { name: name } }); },
+    unpublishWorkspace: function (id) { return api(wsp(id) + '/publish', { method: 'DELETE' }); },
     sendWorkspaceChat: function (id, message) { return api(wsp(id) + '/chat', { method: 'POST',
       body: { message: message } }); },
     // v0.27.0 (step 3): Preview (whole site), Code, Files and Terminal edits. Each write is a new version.
