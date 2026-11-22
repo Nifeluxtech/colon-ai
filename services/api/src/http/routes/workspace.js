@@ -21,5 +21,8 @@ r.post('/workspaces/:id/versions/:n/restore', requireUser, perUser('workspace-wr
 // v0.26.0 (step 2): the Workspace chat. Each message is one Developer-mode reply against the daily limits.
 r.get('/workspaces/:id/chat', requireUser, perUser('workspace-read', 600, 3600), h.getChat);
 r.post('/workspaces/:id/chat', requireUser, perUser('workspace-chat', 60, 3600), h.postChat);
+// v0.27.3: clone a repository into the workspace, or learn from one
+r.post('/workspaces/:id/repo', requireUser, perUser('workspace-repo', 30, 3600), h.postRepo);
+r.delete('/workspaces/:id/reference', requireUser, h.deleteReference);
 
 module.exports = r;
