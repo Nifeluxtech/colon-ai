@@ -1,20 +1,22 @@
 # Colon Workspace — agreed 5-step plan
 
-Status: **planned, not started** (Nov 22, 2026, after v0.24.4). Source of truth for this feature.
+Status: **Step 1 shipped in v0.25.0** (Nov 22, 2026). Next: Step 2. Details per step: `step-N.md`. Source of truth for this feature.
 Origin: two ChatGPT "Design Colon Workspace" chats from the owner (chat-first builder + free tools list),
 summarised in `source-notes.md`. Where they differ from this file, **this file wins**.
 
 ## What it is
 **Workspace** is a chat-first website builder inside Colon AI: describe a site → Colon writes the files →
-live preview → ask for changes → Publish → the site is live at its own link. Code and Files are optional tabs;
+live preview → ask for changes → Publish → the site is live at `apparatus.name.ng/<name>/`. Code and Files are optional tabs;
 chat is the default view.
 
 ## Decisions (owner, Nov 22, 2026)
 - Name: **Workspace** (not "Colon Dev"). Sidebar/nav entry sits **directly after Projects**
   (`apps/chat/src/pages/chat.js` navLink list, `main.js` routes, Settings row after Projects).
-- Domain: use the current domain. Published sites live at **`<name>.apparatus.name.ng`**
-  (not colon.site, which we don't own). Name = lowercase a–z, 0–9, hyphen, 3–30 chars; reserved:
-  chat, browser, admin, api, www, mail, cpanel, webmail, ftp, and any existing subdomain.
+- Domain: use the current domain, **no new subdomains** (owner, Nov 22, 2026). Published sites live at
+  **`https://apparatus.name.ng/<name>/`** (a folder under the main domain's document root, not
+  `<name>.apparatus.name.ng`, not colon.site). Name = lowercase a–z, 0–9, hyphen, 3–30 chars; reserved:
+  chat, browser, admin, api, www, mail, cpanel, webmail, ftp, cgi-bin, well-known, assets, static, v, and any
+  folder or file that already exists in the main domain's document root.
 - Best FREE tools only: no Vercel/Netlify/Replit/Codespaces/E2B/hosted sandboxes, no paid APIs.
   Use the existing Saga/Colon model connection, existing MySQL, cPanel hosting, Monaco (already vendored for
   Developer mode, `components/code-edit.js`).
@@ -54,14 +56,16 @@ chat is the default view.
 - Code: Monaco editor on any file, save = new version. Files: tree, add/rename/delete, upload image.
 - Errors from the preview (window.onerror via postMessage) appear in chat with "Fix it" → sends to the model.
 
-### Step 4 — Publish to `<name>.apparatus.name.ng`
-- cPanel one-time setup: wildcard subdomain `*.apparatus.name.ng` → document root
-  `/home/apparatu/sites` (or similar), wildcard DNS A record, AutoSSL for the wildcard
-  (verify AutoSSL covers wildcard on this host; if not, fall back to creating each subdomain via cPanel UAPI
-  `SubDomain::addsubdomain` + AutoSSL run).
-- Publish: API writes the chosen version's files to `/home/apparatu/sites/<name>/` and `.htaccess`
-  in `sites/` maps `Host: <name>.apparatus.name.ng` → `<name>/` (mod_rewrite). Static only; strip/deny
-  `.php`, `.htaccess`, server-side files.
+### Step 4 — Publish to `apparatus.name.ng/<name>/`
+- No DNS, subdomain or SSL work: the main domain already has HTTPS. Find the main domain's document root
+  on cPanel (usually `/home/apparatu/public_html`) and confirm it is writable by the Node API user.
+- Publish: API writes the chosen version's files to `<docroot>/<name>/` (write to a temp folder, then rename,
+  so a site is never half-published). Static only; `.php`, `.htaccess` and server-side files are never written
+  (paths.js already refuses them). Each published folder gets its own `.htaccess` written by Colon (not by the
+  user) that turns off script handlers (`RemoveHandler`/`php_flag engine off`) and Options -Indexes.
+- Sites use relative links (templates already do), so they work under `/<name>/`. The preview (step 3) must
+  also serve files under a sub-path so what users see matches the published site.
+- Name check refuses reserved names and any existing folder/file in the document root.
 - Publish tab: pick name (availability check), Publish / Republish / Unpublish, Copy link, deploy history
   (versions), visibility Public. Custom domains = later.
 - Abuse: report link in a tiny footer badge "Made with Colon", admin can take a site down (Admin Dashboard).
@@ -86,8 +90,8 @@ chat is the default view.
 - Update the **Status** line at the top and tick steps here as they ship.
 
 ## Progress
-- [ ] Step 1 — shell + storage
+- [x] Step 1 — shell + storage (v0.25.0, see step-1.md)
 - [ ] Step 2 — chat builds the site
 - [ ] Step 3 — preview + code/files
-- [ ] Step 4 — publish to `<name>.apparatus.name.ng`
+- [ ] Step 4 — publish to `apparatus.name.ng/<name>/`
 - [ ] Step 5 — polish, limits, release
