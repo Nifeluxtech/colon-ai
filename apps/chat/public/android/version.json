@@ -1,17 +1,17 @@
 {
-  "versionName": "0.27.2",
-  "versionCode": 2702,
-  "apkUrl": "https://github.com/Nifeluxtech/colon-ai/releases/download/v0.27.2/colon-ai-0.27.2.apk",
-  "releaseUrl": "https://github.com/Nifeluxtech/colon-ai/releases/tag/v0.27.2",
-  "notes": "Workspace chat shows each step live, and you can ask questions or queue changes while it builds.",
+  "versionName": "0.27.3",
+  "versionCode": 2703,
+  "apkUrl": "https://github.com/Nifeluxtech/colon-ai/releases/download/v0.27.3/colon-ai-0.27.3.apk",
+  "releaseUrl": "https://github.com/Nifeluxtech/colon-ai/releases/tag/v0.27.3",
+  "notes": "Workspace: tabs are the sticky header, floating chat box, ⋯ menus in the list, and a + to clone or learn from a repository and set instructions.",
   "minSupportedVersionCode": 0,
   "publishedAt": "2026-11-22",
   "browser": {
-    "versionName": "0.27.2",
-    "versionCode": 2702,
-    "apkUrl": "https://github.com/Nifeluxtech/colon-ai/releases/download/v0.27.2/colon-browser-0.27.2.apk",
-    "releaseUrl": "https://github.com/Nifeluxtech/colon-ai/releases/tag/v0.27.2",
-    "notes": "Released alongside Colon AI 0.27.2 (no browser changes).",
+    "versionName": "0.27.3",
+    "versionCode": 2703,
+    "apkUrl": "https://github.com/Nifeluxtech/colon-ai/releases/download/v0.27.3/colon-browser-0.27.3.apk",
+    "releaseUrl": "https://github.com/Nifeluxtech/colon-ai/releases/tag/v0.27.3",
+    "notes": "Released alongside Colon AI 0.27.3 (no browser changes).",
     "minSupportedVersionCode": 0
   }
 }
