@@ -13,6 +13,7 @@ const { sqlStore, memoryStore } = require('./store');
 const paths = require('./paths');
 const templates = require('./templates');
 const edits = require('./edits');
+const { createPublisher } = require('./publish');
 
 const { LIMITS } = paths;
 const MAX_TITLE = 80;
@@ -39,7 +40,8 @@ function cleanTitle(v) {
 }
 const cleanNote = (v, dflt) => String(v || dflt).replace(/\s+/g, ' ').trim().slice(0, 200) || dflt;
 
-function create({ store = sqlStore() } = {}) {
+function create({ store = sqlStore(), publishRoot } = {}) {
+  const pub = createPublisher({ store, root: publishRoot });
   const uid = (u) => { if (!u || !u.id) throw err(401, 'unauthorized', 'Log in to use Workspace.'); return u.id; };
   async function owned(u, id) {
     const w = await store.get(uid(u), id);
@@ -109,7 +111,16 @@ function create({ store = sqlStore() } = {}) {
     return wsOut(await store.get(u.id, w.id));
   }
 
-  async function remove(u, id) { if (!(await store.remove(uid(u), id))) throw notFound(); return true; }
+  async function remove(u, id) {
+    const w = await owned(u, id);
+    if (w.slug) await pub.removeSite(w, w.slug).catch(() => {});
+    if (!(await store.remove(u.id, id))) throw notFound();
+    return true;
+  }
+  // v0.28.0 (step 4): publishing to apparatus.name.ng/<name>/ (publish.js).
+  const checkName = async (u, id, name) => pub.check(await owned(u, id), name);
+  const publish = async (u, id, b = {}) => pub.publish(u, await owned(u, id), b.name);
+  const unpublish = async (u, id) => pub.unpublish(u, await owned(u, id));
 
   async function readFile(u, id, p) {
     const w = await owned(u, id);
@@ -242,7 +253,7 @@ function create({ store = sqlStore() } = {}) {
   }
 
   return { list, add, get, edit, remove, readFile, bundle, writeFile, moveFile, deleteFile, versions, restore,
-    applyOps, importFiles, owned, store };
+    applyOps, importFiles, owned, store, checkName, publish, unpublish };
 }
 
 let shared = null;
