@@ -87,3 +87,52 @@
 .wk-compose textarea:focus{outline:none;border-color:var(--primary)}
 .wk-send{width:46px;height:46px;border-radius:50%;background:var(--primary);color:#fff;flex:none}
 .wk-send:disabled{opacity:.45}
+
+/* ---------- v0.27.0 (step 3): Preview, Code, Files actions, Terminal ---------- */
+.wk-pv,.wk-code-ed,.wk-term{display:flex;flex-direction:column;gap:10px}
+.wk-pv-bar{display:flex;align-items:center;gap:8px}
+.wk-pv-bar select{flex:1;min-width:0;height:40px;padding:0 10px}
+.wk-seg{display:flex;padding:3px;border-radius:12px;background:var(--elev-1);border:1px solid var(--line)}
+.wk-seg button{display:grid;place-items:center;width:38px;height:32px;border:0;border-radius:9px;
+  background:transparent;color:var(--muted);cursor:pointer}
+.wk-seg button svg{width:17px;height:17px}
+.wk-seg button[aria-pressed="true"]{background:var(--bg);color:var(--text);box-shadow:0 1px 3px rgba(0,0,0,.18)}
+.wk-pv-stage{position:relative;height:calc(100dvh - 250px);min-height:320px;overflow:hidden;border-radius:16px;
+  border:1px solid var(--line);background:#fff}
+.wk-pv-stage > .px-empty,.wk-pv-stage > .skel{margin:16px}
+.wk-pv-frame{display:block;width:100%;height:100%;border:0;background:#fff}
+.wk-pv-stage.desk .wk-pv-frame{position:absolute;top:0;left:0;transform-origin:0 0}
+.wk-iss{padding:12px 14px;border-radius:14px;border:1px solid color-mix(in srgb,var(--danger,#e5484d) 45%,transparent);
+  background:color-mix(in srgb,var(--danger,#e5484d) 9%,transparent)}
+.wk-iss b{display:flex;align-items:center;gap:6px;font-size:14px}
+.wk-iss b svg{width:16px;height:16px;color:var(--danger,#e5484d)}
+.wk-iss ul{margin:6px 0 10px;padding-left:18px;font-size:13px;line-height:1.45;color:var(--muted);word-break:break-word}
+.wk-editor{height:calc(100dvh - 230px);min-height:320px;border-radius:14px;overflow:hidden;
+  border:1px solid var(--line);background:var(--elev-1)}
+.wk-ed-msg{padding:14px}
+.wk-ta{width:100%;height:100%;border:0;border-radius:0;resize:none;padding:12px;font-size:13px;line-height:1.5}
+.wk-fbar{display:flex;gap:8px;margin-bottom:var(--sp-2)}
+.wk-file{display:flex;align-items:center;gap:4px;padding-right:0}
+.wk-file-open{display:flex;align-items:center;gap:12px;flex:1;min-width:0;border:0;background:transparent;
+  font:inherit;color:inherit;text-align:left;cursor:pointer;padding:0}
+.wk-file-open .px-file-b{min-width:0}
+.wk-file-open b{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+.wk-term{height:calc(100dvh - 210px);min-height:340px;gap:0;border-radius:16px;overflow:hidden;
+  background:#0d1117;color:#d6deeb;border:1px solid #263041;
+  font:13px/1.45 ui-monospace,SFMono-Regular,Menlo,Consolas,"Liberation Mono",monospace}
+.wk-term-out{flex:1;margin:0;padding:12px 12px 4px;overflow:auto;white-space:pre-wrap;word-break:break-word;
+  font:inherit;background:transparent;color:inherit}
+.wk-t-cmd{color:#7ee787}
+.wk-t-err{color:#ff7b72}
+.wk-t-info{color:#8b949e}
+.wk-term-in{display:flex;align-items:center;gap:4px;padding:6px 12px 8px;border-top:1px solid #1c2430}
+.wk-term-ps{color:#7ee787;white-space:nowrap}
+.wk-term-in input{flex:1;min-width:0;height:34px;border:0;outline:0;background:transparent;color:#fff;font:inherit;
+  font-size:16px;caret-color:#7ee787}
+.wk-term.busy .wk-term-in input{opacity:.5}
+.wk-term-keys{display:flex;gap:6px;padding:6px 8px;overflow-x:auto;background:#161b22;border-top:1px solid #1c2430}
+.wk-term-keys button{flex:none;display:flex;align-items:center;gap:4px;min-width:40px;height:32px;padding:0 10px;
+  border:1px solid #30363d;border-radius:8px;background:#21262d;color:#d6deeb;font:inherit;cursor:pointer}
+.wk-term-keys button svg{width:14px;height:14px}
+.wk-term-keys .wk-term-stop{margin-left:auto;color:#ff7b72}
