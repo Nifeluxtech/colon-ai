@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.26.1 (2026-11-22) · Workspace fix
+
+- Fix: opening a workspace failed in 0.26.0 (`quiet()` was declared in the list page instead of the workspace
+  page, so the Chat tab threw a ReferenceError). Moved it into `workspaceOne`.
+
 ## 0.26.0 (2026-11-22) · Workspace, step 2: chat builds the site
 
 - **Workspace chat works**: describe the site ("a one-page site for my bakery with a menu and contact form") or a

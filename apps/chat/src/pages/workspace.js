@@ -67,9 +67,6 @@ CW.pages.workspace = function (page) {
     + UI.skeletonHtml(3) + '</div>' + UI.fab('data-new', 'New workspace') + '</div>';
   var box = page.querySelector('.px-list'), q = page.querySelector('[data-q]');
   if (!data.listWorkspaces) { box.innerHTML = '<p class="px-empty">Log in to use Workspace.</p>'; return; }
-  function quiet() {   // the chat changed the files: refresh what the other tabs show, without redrawing the chat
-    data.getWorkspace(id).then(function (d) { st.workspace = d.workspace; st.files = d.files; }).catch(function () {});
-  }
   function render() {
     var term = q.value.trim().toLowerCase();
     var list = all.filter(function (w) { return !term || w.title.toLowerCase().indexOf(term) > -1; });
@@ -128,6 +125,9 @@ CW.pages.workspaceOne = function (page, ctx) {
     return data.getWorkspace(id).then(function (d) { st.workspace = d.workspace; st.files = d.files; render(); })
       .catch(function (e) { page.innerHTML = '<div class="cw-screen px-screen">' + UI.bar(back, '', '')
         + '<p class="px-empty">' + esc(e.message) + '</p></div>'; });
+  }
+  function quiet() {   // the chat changed the files: refresh what the other tabs show, without redrawing the chat
+    data.getWorkspace(id).then(function (d) { st.workspace = d.workspace; st.files = d.files; }).catch(function () {});
   }
   function render() {
     var w = st.workspace;
