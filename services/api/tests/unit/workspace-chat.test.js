@@ -76,11 +76,54 @@ test('chat: a reply edits the files, is saved with its versions, and failures ch
   assert.equal(h.messages[1].content, 'Made it blue.');
   assert.deepEqual(h.messages[1].changes, [{ op: 'edited', path: 'style.css' }]);
   assert.deepEqual([h.messages[1].version_before, h.messages[1].version_after], [1, 2]);
+  // v0.27.2: the steps Colon took, saved live on the user's message and copied to the reply
+  const labels = h.messages[1].steps.map((x) => x.label);
+  assert.deepEqual(labels, ['Reading your site’s files', 'Thinking and writing the code', 'Checking the changes',
+    'Edited style.css', 'Saved version 2']);
+  assert.ok(h.messages[1].steps.every((x) => x.state === 'done'));
+  assert.equal(h.messages[0].steps.length, 3);
+  assert.ok(h.now);
   reply = '=== EDIT: style.css\n<<<<<<< SEARCH\nnot there\n=======\nx\n>>>>>>> REPLACE\n=== END';
   await chat.send(ME, w.id, { message: 'again' }, { wait: true });
   h = await chat.history(ME, w.id);
   assert.equal(h.messages[3].error, true);
+  assert.equal(h.messages[3].steps.pop().state, 'fail');
   assert.equal(h.version, 2);
   await assert.rejects(chat.send(ME, w.id, { message: '  ' }), (x) => x.status === 422);
   await assert.rejects(chat.history(OTHER, w.id), (x) => x.status === 404);
+});
+
+test('chat: mid-build questions get a quick answer, change requests queue and build next (v0.27.2)', async () => {
+  const side = require('../../src/modules/workspace/side');
+  assert.deepEqual(side.parse('QUEUE: Sure, after this build.'), { queue: true, text: 'Sure, after this build.' });
+  assert.equal(side.parse('About halfway.').queue, false);
+  assert.match(side.context({ title: 'Cafe', request: 'make a menu', queued: ['add a map'],
+    steps: [{ label: 'Thinking and writing the code', state: 'run' }] }), /in progress[\s\S]*add a map/);
+  const e = ws.create({ store: ws.memoryStore() });
+  const { workspace: w } = await e.add(ME, { title: 'Cafe', template: 'blank' });
+  let release, gate = new Promise((r) => { release = r; });
+  const builds = [];
+  const generate = async (o) => {
+    if (o.mode === 'general') return { text: /\?$/.test(o.taskText) ? 'Writing the code now.' : 'QUEUE: Will do.' };
+    builds.push(o.taskText);
+    if (builds.length === 1) await gate;
+    return { text: `Done ${builds.length}.\n=== FILE: p${builds.length}.html\n<p>x</p>\n=== END` };
+  };
+  const chat = createChat({ engine: e, deps: { generate } });
+  const first = chat.send(ME, w.id, { message: 'make a menu' }, { wait: true });
+  await new Promise((r) => setImmediate(r));
+  await chat.send(ME, w.id, { message: 'how far are you?' }, { wait: true });
+  await chat.send(ME, w.id, { message: 'add a map' }, { wait: true });
+  let h = await chat.history(ME, w.id);
+  assert.equal(h.working, true);
+  assert.deepEqual(h.messages.map((m) => [m.role, m.kind]).slice(1), [['user', 'side'], ['assistant', 'side'],
+    ['user', 'queued'], ['assistant', 'side']]);
+  assert.equal(h.messages[2].content, 'Writing the code now.');
+  release();
+  await first;
+  h = await chat.history(ME, w.id);
+  assert.deepEqual(builds, ['make a menu', 'add a map']);
+  assert.equal(h.working, false);
+  assert.ok(h.messages.filter((m) => m.role === 'user' && m.kind !== 'side').every((m) => m.kind === 'done'));
+  assert.equal(h.messages[h.messages.length - 1].content, 'Done 2.');
 });
