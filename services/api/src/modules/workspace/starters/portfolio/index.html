@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{TITLE}}</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="top wrap">
+    <a class="brand" href="#">{{TITLE}}</a>
+    <nav><a href="#work">Work</a><a href="#about">About</a><a href="#contact">Contact</a></nav>
+  </header>
+  <section class="hero wrap">
+    <p class="eyebrow">Designer &amp; developer · Lagos</p>
+    <h1>I build clean, fast websites that people enjoy using.</h1>
+    <a class="btn" href="#work">See my work</a>
+  </section>
+  <section id="work" class="wrap">
+    <h2>Selected work</h2>
+    <div class="grid">
+      <article class="card"><div class="thumb"></div><h3>Project one</h3><p>A short line about it.</p></article>
+      <article class="card"><div class="thumb"></div><h3>Project two</h3><p>A short line about it.</p></article>
+      <article class="card"><div class="thumb"></div><h3>Project three</h3><p>A short line about it.</p></article>
+    </div>
+  </section>
+  <section id="about" class="wrap">
+    <h2>About</h2>
+    <p>A few sentences about who you are, what you do and who you do it for.</p>
+  </section>
+  <section id="contact" class="wrap">
+    <h2>Contact</h2>
+    <form class="form" onsubmit="event.preventDefault(); this.querySelector('.ok').hidden = false;">
+      <input placeholder="Your name" required>
+      <input type="email" placeholder="Email" required>
+      <textarea rows="4" placeholder="Message" required></textarea>
+      <button class="btn" type="submit">Send</button>
+      <p class="ok" hidden>Thanks! I'll get back to you soon.</p>
+    </form>
+  </section>
+  <footer class="wrap foot">© <span id="y"></span> {{TITLE}}</footer>
+  <script src="script.js"></script>
+</body>
+</html>
