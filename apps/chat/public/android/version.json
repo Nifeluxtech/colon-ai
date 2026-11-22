@@ -1,17 +1,17 @@
 {
-  "versionName": "0.27.4",
-  "versionCode": 2704,
-  "apkUrl": "https://github.com/Nifeluxtech/colon-ai/releases/download/v0.27.4/colon-ai-0.27.4.apk",
-  "releaseUrl": "https://github.com/Nifeluxtech/colon-ai/releases/tag/v0.27.4",
-  "notes": "Workspace builds no longer get stuck on \"Thinking\", and sending \"stop\" now stops a build.",
+  "versionName": "0.28.0",
+  "versionCode": 2800,
+  "apkUrl": "https://github.com/Nifeluxtech/colon-ai/releases/download/v0.28.0/colon-ai-0.28.0.apk",
+  "releaseUrl": "https://github.com/Nifeluxtech/colon-ai/releases/tag/v0.28.0",
+  "notes": "Workspace can now publish your site live at apparatus.name.ng/<name>/, with Republish and Take down.",
   "minSupportedVersionCode": 0,
   "publishedAt": "2026-11-22",
   "browser": {
-    "versionName": "0.27.4",
-    "versionCode": 2704,
-    "apkUrl": "https://github.com/Nifeluxtech/colon-ai/releases/download/v0.27.4/colon-browser-0.27.4.apk",
-    "releaseUrl": "https://github.com/Nifeluxtech/colon-ai/releases/tag/v0.27.4",
-    "notes": "Released alongside Colon AI 0.27.4 (no browser changes).",
+    "versionName": "0.28.0",
+    "versionCode": 2800,
+    "apkUrl": "https://github.com/Nifeluxtech/colon-ai/releases/download/v0.28.0/colon-browser-0.28.0.apk",
+    "releaseUrl": "https://github.com/Nifeluxtech/colon-ai/releases/tag/v0.28.0",
+    "notes": "Released alongside Colon AI 0.28.0 (no browser changes).",
     "minSupportedVersionCode": 0
   }
 }
