@@ -59,15 +59,20 @@ function sqlStore(q) {
       WHERE workspace_id = ? AND n = ?`, [wsId, Number(n)]),
     // v0.26.0 (step 2): the Workspace chat.
     messages: (wsId, limit) => q.query(`SELECT * FROM (SELECT id, role, content, changes, version_before,
-      version_after, error, created_at FROM colon_workspace_messages WHERE workspace_id = ? ORDER BY id DESC
+      version_after, error, steps, kind, created_at FROM colon_workspace_messages WHERE workspace_id = ?
+      ORDER BY id DESC
       LIMIT ${Math.max(1, Math.min(200, Number(limit) || 50))}) t ORDER BY id`, [wsId]),
     async addMessage(wsId, m) {
       const r = await q.query(`INSERT INTO colon_workspace_messages (workspace_id, role, content, changes,
-        version_before, version_after, error, created_at) VALUES (?,?,?,?,?,?,?, UTC_TIMESTAMP(3))`, [wsId, m.role,
-        m.content, m.changes ? JSON.stringify(m.changes) : null, m.version_before ?? null, m.version_after ?? null,
-        m.error ? 1 : 0]);
+        version_before, version_after, error, steps, kind, created_at) VALUES (?,?,?,?,?,?,?,?,?, UTC_TIMESTAMP(3))`,
+      [wsId, m.role, m.content, m.changes ? JSON.stringify(m.changes) : null, m.version_before ?? null,
+        m.version_after ?? null, m.error ? 1 : 0, m.steps ? JSON.stringify(m.steps) : null, m.kind || null]);
       return r.insertId;
     },
+    setKind: (msgId, kind) => q.query('UPDATE colon_workspace_messages SET kind = ? WHERE id = ?',
+      [kind, Number(msgId)]),
+    setSteps: (msgId, steps) => q.query('UPDATE colon_workspace_messages SET steps = ? WHERE id = ?',
+      [JSON.stringify(steps), Number(msgId)]),
   };
 }
 
@@ -129,8 +134,17 @@ function memoryStore() {
       const id = s.messages.length + 1;
       s.messages.push({ id, workspace_id: wsId, role: m.role, content: m.content, changes: m.changes
         ? JSON.stringify(m.changes) : null, version_before: m.version_before ?? null, version_after: m.version_after
-        ?? null, error: m.error ? 1 : 0, created_at: now() });
+        ?? null, error: m.error ? 1 : 0, steps: m.steps ? JSON.stringify(m.steps) : null, kind: m.kind || null,
+        created_at: now() });
       return id;
+    },
+    async setKind(msgId, kind) {
+      const m = s.messages.find((x) => x.id === Number(msgId));
+      if (m) m.kind = kind;
+    },
+    async setSteps(msgId, steps) {
+      const m = s.messages.find((x) => x.id === Number(msgId));
+      if (m) m.steps = JSON.stringify(steps);
     },
   };
 }
