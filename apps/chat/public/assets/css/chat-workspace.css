@@ -136,3 +136,27 @@
   border:1px solid #30363d;border-radius:8px;background:#21262d;color:#d6deeb;font:inherit;cursor:pointer}
 .wk-term-keys button svg{width:14px;height:14px}
 .wk-term-keys .wk-term-stop{margin-left:auto;color:#ff7b72}
+
+/* v0.27.2: live steps in the Workspace chat */
+.wk-working{flex-direction:column;align-items:stretch;gap:8px}
+.wk-work-h{display:flex;align-items:center;gap:10px;color:var(--text);font-weight:500}
+.wk-steps{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px}
+.wk-steps li{display:flex;align-items:flex-start;gap:8px;font-size:13px;color:var(--muted)}
+.wk-steps li > svg{width:15px;height:15px;flex:none;margin-top:2px;color:var(--success,#22a06b)}
+.wk-steps li.wk-st-fail > svg{color:var(--danger,#d14343)}
+.wk-steps li.wk-st-run{color:var(--text)}
+.wk-st-b{flex:1;min-width:0;display:flex;flex-direction:column}
+.wk-st-b small{font-size:12px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.wk-t{flex:none;font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums}
+.wk-spin{width:13px;height:13px;flex:none;margin-top:3px;border-radius:50%;border:2px solid var(--hairline);
+  border-top-color:var(--primary);animation:wk-spin .8s linear infinite}
+@keyframes wk-spin{to{transform:rotate(360deg)}}
+@media (prefers-reduced-motion:reduce){.wk-spin{animation:none}}
+.wk-steps-box{margin:0 0 8px}
+.wk-steps-box summary{display:inline-flex;align-items:center;gap:6px;font-size:12.5px;color:var(--muted);
+  cursor:pointer;list-style:none}
+.wk-steps-box summary::-webkit-details-marker{display:none}
+.wk-steps-box summary svg{width:13px;height:13px}
+.wk-steps-box[open] summary{margin-bottom:8px}
+.wk-q{display:flex;align-items:center;gap:4px;margin-top:6px;font-size:12px;opacity:.85}
+.wk-q svg{width:12px;height:12px}
