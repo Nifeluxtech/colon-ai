@@ -78,6 +78,12 @@ function sqlStore(q) {
       [kind, Number(msgId)]),
     setSteps: (msgId, steps) => q.query('UPDATE colon_workspace_messages SET steps = ? WHERE id = ?',
       [JSON.stringify(steps), Number(msgId)]),
+    // v0.27.3: moves a message from one kind to another only if it still has the first; true when it did, so
+    // two API processes never both pick up the same build (or both report it lost).
+    claimKind: async (msgId, from, to) => { const r = await q.query('UPDATE colon_workspace_messages SET kind = ? '
+      + 'WHERE id = ? AND kind = ?', [to, Number(msgId), from]); return Number((r && r.affectedRows) || 0) > 0; },
+    kindOf: async (msgId) => { const r = await q.one('SELECT kind FROM colon_workspace_messages WHERE id = ?',
+      [Number(msgId)]); return r ? r.kind : null; },
   };
 }
 
@@ -152,6 +158,12 @@ function memoryStore() {
       const m = s.messages.find((x) => x.id === Number(msgId));
       if (m) m.steps = JSON.stringify(steps);
     },
+    async claimKind(msgId, from, to) {
+      const m = s.messages.find((x) => x.id === Number(msgId));
+      if (!m || (m.kind || null) !== from) return false;
+      m.kind = to; return true;
+    },
+    async kindOf(msgId) { const m = s.messages.find((x) => x.id === Number(msgId)); return m ? m.kind || null : null; },
   };
 }
 
