@@ -51,5 +51,50 @@ const getVersions = async (req) => [200, await engine().versions(req.user, req.p
 // POST /workspaces/:id/versions/:n/restore -> { version, files[] }
 const restoreVersion = async (req) => [200, await engine().restore(req.user, req.params.id, req.params.n)];
 
+// ---------- v0.26.0 (step 2): the Workspace chat ----------
+// Live pieces, loaded on first use (tests replace them with setChatDeps).
+let chatDeps = null, chatShared = null;
+function liveDeps() {
+  const ai = require('../ai');
+  return { generate: ai.generate, loadRouting: () => ai.dynamic.load(), isConfigured: ai.isConfigured,
+    resolveCounters: (req) => ai.limits.resolveCounters(req, 'developer'), consumeAll: (c) => ai.limits.consumeAll(c),
+    refundAll: (c) => ai.limits.refundAll(c), checkInput: require('../safety').checkInput,
+    record: (info) => ai.calls.record(info), log: require('../../shared/logger') };
+}
+function chat() {
+  if (!chatShared) {
+    const d = chatDeps || liveDeps();
+    chatShared = { d, chat: require('./chat').createChat({ engine: engine(), deps: d }) };
+  }
+  return chatShared;
+}
+const setChatDeps = (d) => { chatDeps = d; chatShared = null; };
+
+// GET /workspaces/:id/chat -> { messages[], working, version }
+const getChat = async (req) => [200, await chat().chat.history(req.user, req.params.id)];
+
+// POST /workspaces/:id/chat { message } -> 202 { message, working: true }; poll GET /chat for the reply.
+const postChat = async (req) => {
+  const { d, chat: c } = chat();
+  await engine().owned(req.user, req.params.id);
+  const text = String((req.body || {}).message || '');
+  const verdict = await d.checkInput({ text, req, mode: 'developer', language: 'en', route: 'workspace.chat' });
+  if (verdict.action === 'refuse') return [422, { error: 'refused', message: verdict.refusal }];
+  const routing = await d.loadRouting();
+  if (!d.isConfigured(routing)) {
+    throw Object.assign(new Error('Colon isn’t connected to an AI provider yet.'), { status: 503,
+      code: 'no_provider' });
+  }
+  const counters = await d.resolveCounters(req);
+  await d.consumeAll(counters);
+  const signal = AbortSignal.timeout(240000);
+  const record = (r) => d.record({ mode: 'developer', route: 'workspace', userId: req.user.id,
+    attempts: r.attempts || [] });
+  try {
+    return [202, await c.send(req.user, req.params.id, req.body || {}, { routing, signal, record,
+      onFail: () => d.refundAll(counters) })];
+  } catch (e) { await d.refundAll(counters); throw e; }
+};
+
 module.exports = { getWorkspaces, postWorkspaces, getWorkspace, patchWorkspace, deleteWorkspace, getBundle, getFile,
-  putFile, moveFile, deleteFile, getVersions, restoreVersion };
+  putFile, moveFile, deleteFile, getVersions, restoreVersion, getChat, postChat, setChatDeps };

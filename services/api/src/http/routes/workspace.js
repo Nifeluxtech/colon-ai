@@ -1,4 +1,4 @@
-// Workspace (v0.25.0, Workspace step 1): route wiring only. Handlers: modules/workspace/handlers.js.
+// Workspace (v0.25.0 step 1, v0.26.0 step 2 chat): route wiring only. Handlers: modules/workspace/handlers.js.
 const Router = require('../router');
 const { requireUser } = require('../../modules/auth').guards;
 const { perUser } = require('../middleware/ratelimit');
@@ -18,5 +18,8 @@ r.delete('/workspaces/:id/file', requireUser, perUser('workspace-write', 600, 36
 r.post('/workspaces/:id/file/move', requireUser, perUser('workspace-write', 600, 3600), h.moveFile);
 r.get('/workspaces/:id/versions', requireUser, h.getVersions);
 r.post('/workspaces/:id/versions/:n/restore', requireUser, perUser('workspace-write', 600, 3600), h.restoreVersion);
+// v0.26.0 (step 2): the Workspace chat. Each message is one Developer-mode reply against the daily limits.
+r.get('/workspaces/:id/chat', requireUser, perUser('workspace-read', 600, 3600), h.getChat);
+r.post('/workspaces/:id/chat', requireUser, perUser('workspace-chat', 60, 3600), h.postChat);
 
 module.exports = r;

@@ -143,6 +143,9 @@ function RemoteChatData() {
     workspaceFile: function (id, path) { return api(wsp(id) + '/file?path=' + encodeURIComponent(path)); },
     workspaceVersions: function (id) { return api(wsp(id) + '/versions'); },
     restoreWorkspace: function (id, n) { return api(wsp(id) + '/versions/' + n + '/restore', { method: 'POST' }); },
+    workspaceChat: function (id) { return api(wsp(id) + '/chat'); },   // v0.26.0 (step 2)
+    sendWorkspaceChat: function (id, message) { return api(wsp(id) + '/chat', { method: 'POST',
+      body: { message: message } }); },
     // v0.24.0: a project's connected repository (components/project-context.js). A token goes up, never comes back.
     connectRepo: function (id, b) { return api(repo(id), { method: 'POST', body: b }); },
     syncRepo: function (id) { return api(repo(id) + '/sync', { method: 'POST' }); },

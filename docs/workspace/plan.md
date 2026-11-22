@@ -1,6 +1,6 @@
 # Colon Workspace — agreed 5-step plan
 
-Status: **Step 1 shipped in v0.25.0** (Nov 22, 2026). Next: Step 2. Details per step: `step-N.md`. Source of truth for this feature.
+Status: **Steps 1–2 shipped (v0.25.0, v0.26.0)** (Nov 22, 2026). Next: Step 3. Details per step: `step-N.md`. Source of truth for this feature.
 Origin: two ChatGPT "Design Colon Workspace" chats from the owner (chat-first builder + free tools list),
 summarised in `source-notes.md`. Where they differ from this file, **this file wins**.
 
@@ -91,7 +91,7 @@ chat is the default view.
 
 ## Progress
 - [x] Step 1 — shell + storage (v0.25.0, see step-1.md)
-- [ ] Step 2 — chat builds the site
+- [x] Step 2 — chat builds the site (v0.26.0, see step-2.md)
 - [ ] Step 3 — preview + code/files
 - [ ] Step 4 — publish to `apparatus.name.ng/<name>/`
 - [ ] Step 5 — polish, limits, release

@@ -57,12 +57,23 @@ function sqlStore(q) {
       ORDER BY n DESC`, [wsId]),
     version: (wsId, n) => q.one(`SELECT n, note, files, created_at FROM colon_workspace_versions
       WHERE workspace_id = ? AND n = ?`, [wsId, Number(n)]),
+    // v0.26.0 (step 2): the Workspace chat.
+    messages: (wsId, limit) => q.query(`SELECT * FROM (SELECT id, role, content, changes, version_before,
+      version_after, error, created_at FROM colon_workspace_messages WHERE workspace_id = ? ORDER BY id DESC
+      LIMIT ${Math.max(1, Math.min(200, Number(limit) || 50))}) t ORDER BY id`, [wsId]),
+    async addMessage(wsId, m) {
+      const r = await q.query(`INSERT INTO colon_workspace_messages (workspace_id, role, content, changes,
+        version_before, version_after, error, created_at) VALUES (?,?,?,?,?,?,?, UTC_TIMESTAMP(3))`, [wsId, m.role,
+        m.content, m.changes ? JSON.stringify(m.changes) : null, m.version_before ?? null, m.version_after ?? null,
+        m.error ? 1 : 0]);
+      return r.insertId;
+    },
   };
 }
 
 // In-memory twin for tests.
 function memoryStore() {
-  const s = { ws: [], files: [], versions: [] };
+  const s = { ws: [], files: [], versions: [], messages: [] };
   const find = (userId, id) => s.ws.find((w) => w.id === String(id) && w.user_id === userId);
   const filesOf = (wsId) => s.files.filter((f) => f.workspace_id === wsId).sort((a, b) => (a.path < b.path ? -1 : 1));
   const withCounts = (w) => ({ ...w, files: filesOf(w.id).length, bytes: filesOf(w.id).reduce((n, f) => n + f.size,
@@ -88,6 +99,7 @@ function memoryStore() {
       s.ws = s.ws.filter((x) => x !== w);
       s.files = s.files.filter((f) => f.workspace_id !== w.id);
       s.versions = s.versions.filter((v) => v.workspace_id !== w.id);
+      s.messages = s.messages.filter((m) => m.workspace_id !== w.id);
       return true;
     },
     async files(wsId) { return filesOf(wsId).map(({ path, mime, size, updated_at }) => ({ path, mime, size,
@@ -112,6 +124,14 @@ function memoryStore() {
     async versions(wsId) { return s.versions.filter((v) => v.workspace_id === wsId).sort((a, b) => b.n - a.n)
       .map(({ n, note, created_at }) => ({ n, note, created_at })); },
     async version(wsId, n) { return s.versions.find((v) => v.workspace_id === wsId && v.n === Number(n)) || null; },
+    async messages(wsId, limit) { return s.messages.filter((m) => m.workspace_id === wsId).slice(-(limit || 50)); },
+    async addMessage(wsId, m) {
+      const id = s.messages.length + 1;
+      s.messages.push({ id, workspace_id: wsId, role: m.role, content: m.content, changes: m.changes
+        ? JSON.stringify(m.changes) : null, version_before: m.version_before ?? null, version_after: m.version_after
+        ?? null, error: m.error ? 1 : 0, created_at: now() });
+      return id;
+    },
   };
 }
 

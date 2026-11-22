@@ -1,17 +1,17 @@
 {
-  "versionName": "0.25.0",
-  "versionCode": 2500,
-  "apkUrl": "https://github.com/Nifeluxtech/colon-ai/releases/download/v0.25.0/colon-ai-0.25.0.apk",
-  "releaseUrl": "https://github.com/Nifeluxtech/colon-ai/releases/tag/v0.25.0",
-  "notes": "New: Workspace, right after Projects. Start a website from a template, open its files and restore any earlier version. Chat building, live preview and publishing come next.",
+  "versionName": "0.26.0",
+  "versionCode": 2600,
+  "apkUrl": "https://github.com/Nifeluxtech/colon-ai/releases/download/v0.26.0/colon-ai-0.26.0.apk",
+  "releaseUrl": "https://github.com/Nifeluxtech/colon-ai/releases/tag/v0.26.0",
+  "notes": "Workspace can now build your site from chat: describe it, and Colon writes the files. Ask for changes anytime, and undo any of them in one tap.",
   "minSupportedVersionCode": 0,
   "publishedAt": "2026-11-22",
   "browser": {
-    "versionName": "0.25.0",
-    "versionCode": 2500,
-    "apkUrl": "https://github.com/Nifeluxtech/colon-ai/releases/download/v0.25.0/colon-browser-0.25.0.apk",
-    "releaseUrl": "https://github.com/Nifeluxtech/colon-ai/releases/tag/v0.25.0",
-    "notes": "Released alongside Colon AI 0.25.0 (no browser changes).",
+    "versionName": "0.26.0",
+    "versionCode": 2600,
+    "apkUrl": "https://github.com/Nifeluxtech/colon-ai/releases/download/v0.26.0/colon-browser-0.26.0.apk",
+    "releaseUrl": "https://github.com/Nifeluxtech/colon-ai/releases/tag/v0.26.0",
+    "notes": "Released alongside Colon AI 0.26.0 (no browser changes).",
     "minSupportedVersionCode": 0
   }
 }
