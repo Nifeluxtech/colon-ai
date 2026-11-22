@@ -1,5 +1,6 @@
 // Workspace (v0.25.0, Workspace step 1; plan: docs/workspace/plan.md): a chat-first website builder. This module
-// keeps a user's workspaces, their files and a version after every change. Step 2 adds chat edits, step 3 the
+// keeps a user's workspaces, their files and a version after every change. Step 2 (v0.26.0) adds chat edits
+// (applyOps here, the chat itself in chat.js), step 3 the
 // preview, step 4 publishing to apparatus.name.ng/<name>/.
 //
 //   limits     paths.js LIMITS: workspaces per user, files per workspace, bytes per file and in total.
@@ -11,6 +12,7 @@ const crypto = require('crypto');
 const { sqlStore, memoryStore } = require('./store');
 const paths = require('./paths');
 const templates = require('./templates');
+const edits = require('./edits');
 
 const { LIMITS } = paths;
 const MAX_TITLE = 80;
@@ -166,7 +168,52 @@ function create({ store = sqlStore() } = {}) {
     return { version, files: (await store.files(w.id)).map(fileOut) };
   }
 
-  return { list, add, get, edit, remove, readFile, bundle, writeFile, moveFile, deleteFile, versions, restore, store };
+  // v0.26.0 (step 2): applies a chat reply's operations (edits.js) as ONE version. Every operation is checked
+  // before anything is written, so a bad reply changes nothing. -> { version, before, changes: [{ op, path }] }
+  async function applyOps(u, id, ops, note) {
+    const w = await owned(u, id);
+    const current = new Map((await store.allFiles(w.id)).map((f) => [f.path, f]));
+    const next = new Map(), gone = new Set(), changes = [];
+    for (const o of ops) {
+      const p = paths.cleanPath(o.path);
+      if (!isText(p)) throw err(422, 'invalid', `Colon can only write text files (${p} isn’t one).`);
+      const had = next.has(p) ? next.get(p) : gone.has(p) ? null : current.get(p) ? Buffer.from(current.get(p)
+        .content) : null;
+      if (o.op === 'delete') {
+        if (!had) continue;
+        next.delete(p); gone.add(p); changes.push({ op: 'deleted', path: p });
+        continue;
+      }
+      let text = o.content;
+      if (o.op === 'edit') {
+        if (!had) throw err(422, 'edit_failed', `Colon tried to edit ${p}, which doesn’t exist.`);
+        text = edits.applyEdit(had.toString('utf8'), o.blocks);
+      }
+      next.set(p, paths.contentBuffer(p, text, 'utf8')); gone.delete(p);
+      changes.push({ op: had ? 'edited' : 'created', path: p });
+    }
+    if (!changes.length) return { version: Number(w.version), before: Number(w.version), changes };
+    const final = new Map(current);
+    for (const p of gone) final.delete(p);
+    for (const [p, b] of next) final.set(p, { content: b });
+    if (final.size > LIMITS.files) {
+      throw err(413, 'too_many_files', `A workspace can hold up to ${LIMITS.files} files.`);
+    }
+    let total = 0;
+    for (const f of final.values()) total += Buffer.from(f.content).length;
+    if (total > LIMITS.totalBytes) {
+      throw err(413, 'too_large', `A workspace can hold up to ${LIMITS.totalBytes / 1048576} MB of files.`);
+    }
+    for (const p of gone) await store.deleteFile(w.id, p);
+    for (const [p, b] of next) await store.putFile(w.id, { path: p, mime: paths.typeOf(p).mime, content: b });
+    const seen = new Set();
+    const uniq = changes.filter((c) => !seen.has(c.path) && seen.add(c.path));
+    return { version: await commit(u, w, cleanNote(note, 'Colon edited the site')), before: Number(w.version),
+      changes: uniq };
+  }
+
+  return { list, add, get, edit, remove, readFile, bundle, writeFile, moveFile, deleteFile, versions, restore,
+    applyOps, owned, store };
 }
 
 let shared = null;
