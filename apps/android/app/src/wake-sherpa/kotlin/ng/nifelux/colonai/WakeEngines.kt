@@ -10,7 +10,7 @@ import com.k2fsa.sherpa.onnx.OnlineStream
 import com.k2fsa.sherpa.onnx.OnlineTransducerModelConfig
 
 /**
- * 0.23.0: sherpa-onnx keyword spotting (v2.0.2, Apache-2.0) with the gigaspeech 3.3M mobile model, from assets
+ * 0.23.0: sherpa-onnx keyword spotting (v2.0.2, Apache-2.0) with the gigaspeech 3.3M model (not -mobile), from assets
  * kws/ (encoder and joiner int8, decoder fp32, tokens.txt; CI downloads them, sha256-checked) and the committed
  * kws/keywords.txt holding [WakeWordEngine.KEYWORDS]. Built only when the AAR is in app/libs (app/build.gradle.kts).
  */
