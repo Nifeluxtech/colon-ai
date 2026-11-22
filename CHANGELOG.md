@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.26.0 (2026-11-22) · Workspace, step 2: chat builds the site
+
+- **Workspace chat works**: describe the site ("a one-page site for my bakery with a menu and contact form") or a
+  change ("make the header blue", "add a pricing page") and Colon writes or edits the files. Each reply lists the
+  files it created, edited or deleted, with a one-tap **Undo** while it is the newest change. Ideas to start from
+  when the chat is empty.
+- How it works: `POST /workspaces/:id/chat` saves the message and builds in the background; the app polls
+  `GET /workspaces/:id/chat`. The model (Developer mode, larger output) gets Workspace rules, the file tree and the
+  files' contents (60k-character budget) and answers with `=== FILE` / `=== EDIT` (SEARCH/REPLACE) / `=== DELETE`
+  blocks (`modules/workspace/edits.js`). Every block is checked first (static types only, sizes, file count), then
+  the whole reply is saved as ONE version; a bad reply changes nothing. One reply at a time per workspace; each
+  counts as one Developer-mode reply against the daily limits (refunded if it fails).
+- Database: migration `0021_workspace_chat` (colon_workspace_messages).
+
 ## 0.25.0 (2026-11-22) · Workspace, step 1
 
 - **New: Workspace** (sidebar, right after Projects; also in Settings). A chat-first website builder, planned in
