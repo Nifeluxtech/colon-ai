@@ -17,8 +17,13 @@ import com.k2fsa.sherpa.onnx.OnlineTransducerModelConfig
 object WakeEngines {
     const val BUNDLED = true
 
+    /** Why [create] returned null (0.24.4, shown in Settings). */
+    @Volatile var lastError: String? = null
+        private set
+
     fun create(context: Context): WakeWordEngine? = try { SherpaKwsEngine(context) } catch (e: Throwable) {
-        Log.w("ColonWake", "sherpa-onnx KWS failed to load", e); null
+        Log.w("ColonWake", "sherpa-onnx KWS failed to load", e)
+        lastError = e.javaClass.simpleName + (e.message?.let { ": $it" } ?: ""); null
     }
 }
 
@@ -39,6 +44,9 @@ class SherpaKwsEngine(context: Context) : WakeWordEngine {
             modelType = "zipformer2",
         ),
         keywordsFile = "$DIR/keywords.txt",
+        // 0.24.4: a little more eager than the defaults (1.0 / 0.25); caught more quiet and noisy "Hey Colon"s in tests.
+        keywordsScore = 1.5f,
+        keywordsThreshold = 0.2f,
     ))
     private val stream: OnlineStream = kws.createStream()
 
