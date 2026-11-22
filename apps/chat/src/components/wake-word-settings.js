@@ -33,7 +33,14 @@ function wakeWordSettingsHtml() {
 
 function statusText(s) {
   if (!s.on) return 'Off. Say “Hey Colon” to start talking, even with the screen off.';
-  return STATUS[s.state === 'paused' ? s.reason : s.state] || STATUS.starting;
+  var t = STATUS[s.state === 'paused' ? s.reason : s.state] || STATUS.starting;
+  // 0.24.4: the engine's own error, and while listening the mic level and how often it heard "Hey Colon".
+  if (s.state === 'paused' && s.reason === 'no_engine' && s.error) t += ' (' + s.error + ')';
+  if (s.state === 'listening' && typeof s.level === 'number') {
+    t += ' Mic level ' + s.level + '%' + (s.level < 5 ? ' (quiet: speak closer)' : '') + ', heard ' + (s.heard || 0)
+      + (s.heard === 1 ? ' time.' : ' times.');
+  }
+  return t;
 }
 
 function bindWakeWordSettings(root) {
@@ -43,6 +50,11 @@ function bindWakeWordSettings(root) {
   function show(s) { on.checked = !!s.on; saver.checked = s.pauseOnSaver !== false; line.textContent = statusText(s); }
   function call(args) { return C.native.call('wake_word', args).then(show); }
   call({ action: 'status' }).catch(function () { line.textContent = 'Not available right now.'; });
+  // 0.24.4: keep the status live while Settings › Voice is open (it stops once the page is gone).
+  var poll = setInterval(function () {
+    if (!root.isConnected) { clearInterval(poll); return; }
+    if (!document.hidden && !on.disabled) C.native.call('wake_word', { action: 'status' }).then(show, function () {});
+  }, 1000);
   on.addEventListener('change', function () {
     var want = on.checked; on.disabled = true;
     call({ action: 'set', on: want }).then(function () {
