@@ -1,7 +1,8 @@
 /* Colon AI · Workspace (v0.25.0, Workspace step 1; plan: docs/workspace/plan.md): a chat-first website builder.
    The list (#/workspace: bar, search, rows, "New workspace" pill with a template sheet) and one workspace (#/w/:id)
    with six tabs: Chat (default; v0.26.0, components/workspace-chat.js), Preview, Code, Files and Terminal (v0.27.0,
-   step 3: workspace-preview.js, workspace-code.js, workspace-files.js, workspace-term.js) and Publish (step 4).
+   step 3: workspace-preview.js, workspace-code.js, workspace-files.js, workspace-term.js) and Publish (v0.28.0,
+   step 4: workspace-publish.js).
    Signed-in only. Reuses the Projects markup (components/project-ui.js) and its styles (chat-projects.css) plus
    chat-workspace.css. */
 import { Colon } from '../../../../packages/ui/js/colon.js';
@@ -12,20 +13,16 @@ import { mount as mountPreview } from '../components/workspace-preview.js';
 import { mount as mountCode } from '../components/workspace-code.js';
 import { mount as mountFiles } from '../components/workspace-files.js';
 import { mount as mountTerm } from '../components/workspace-term.js';
+import { mount as mountPublish } from '../components/workspace-publish.js';
 
 var C = Colon, icon = C.icon, esc = C.esc;
 CW.pages = CW.pages || {};
 var TABS = [['chat', 'Chat', 'chat'], ['preview', 'Preview', 'eye'], ['code', 'Code', 'code'],
   ['files', 'Files', 'folder'], ['term', 'Terminal', 'terminal'], ['publish', 'Publish', 'globe']];
-var SITE = 'apparatus.name.ng/';
 
 function fail(e) {
   C.toast(e.message, 'bad', e.code === 'quota' ? { label: 'See plans', fn: function () { C.go('/account/plan'); } }
     : undefined);
-}
-function siteName(title) {
-  return String(title || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 30)
-    || 'my-site';
 }
 // v0.27.2: Rename and Delete live on each row here (one workspace's screen keeps only its tabs).
 function wsRow(w) {
@@ -106,17 +103,6 @@ CW.pages.workspace = function (page) {
 };
 
 /* ---------- One workspace ---------- */
-function soon(ico, title, body) {
-  return '<div class="wk-soon">' + icon(ico) + '<b>' + esc(title) + '</b><p>' + esc(body) + '</p></div>';
-}
-function publishHtml(st) {
-  var w = st.workspace;
-  return '<div class="wk-pub"><small>YOUR SITE’S ADDRESS</small><b>' + esc(SITE + (w.published ? w.published.name
-    : siteName(w.title)) + '/') + '</b><span class="px-badge">' + (w.published ? 'Live' : 'Not published yet')
-    + '</span></div>' + soon('globe', 'Publishing is coming', 'One tap will put this site live at the address '
-    + 'above. You’ll be able to republish after changes or take it down.');
-}
-
 CW.pages.workspaceOne = function (page, ctx) {
   var data = CW.data, id = ctx && ctx.workspaceId, st = { tab: 'chat' }, cur = null;
   var back = '<a class="icon-btn" href="#/workspace" aria-label="All workspaces">' + icon('left') + '</a>';
@@ -144,8 +130,7 @@ CW.pages.workspaceOne = function (page, ctx) {
       + '<div class="wk-tabs" role="tablist" aria-label="' + esc(w.title) + '">' + TABS.map(function (t) {
       return '<button type="button" role="tab" class="wk-tab" data-tab="' + t[0] + '" aria-selected="'
         + (st.tab === t[0]) + '">' + icon(t[2]) + '<span>' + t[1] + '</span></button>';
-    }).join('') + '</div></div><div class="wk-pane" role="tabpanel" data-pane>' + (st.tab === 'publish'
-      ? publishHtml(st) : '') + '</div></div>';
+    }).join('') + '</div></div><div class="wk-pane" role="tabpanel" data-pane></div></div>';
     var pane = page.querySelector('[data-pane]'), o = { id: id, data: data };
     page.querySelectorAll('[data-tab]').forEach(function (b) { b.addEventListener('click', function () {
       if (b.getAttribute('data-tab') !== st.tab) go(b.getAttribute('data-tab')); }); });
@@ -164,6 +149,9 @@ CW.pages.workspaceOne = function (page, ctx) {
     } else if (st.tab === 'term') {
       cur = mountTerm(pane, Object.assign(o, { onChanged: quiet,
         onOpen: function (p) { go('preview', { page: p }); } }));
+    } else if (st.tab === 'publish') {
+      cur = mountPublish(pane, Object.assign(o, { workspace: w, files: st.files,
+        onChanged: function () { quiet().then(render); } }));
     }
   }
   load();
