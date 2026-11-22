@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.24.4 (2026-11-22) · "Hey Colon" hears better, no web splash
+
+- **Hey Colon is more eager**: keywords score 1.5 and threshold 0.2 (defaults 1.0 / 0.25). In sandbox tests with
+  three synthetic voices, quiet and noisy, it caught more "Hey Colon"s (166 vs 162 of 216) with few extra false hits.
+- **Settings › Voice shows what Hey Colon is doing**, refreshed every second: "Starting…" while the engine loads
+  (it used to say "couldn't start on this phone"), the engine's error if it really fails, and while listening the
+  mic level and how many times it heard "Hey Colon". A level under 5% means the mic is too quiet.
+- **No flame splash**: the full-screen COLON intro no longer plays when Chat, Browser or Admin open; the Android app
+  keeps its own launch screen.
+
 ## 0.24.3 (2026-11-22) · "Hey Colon" crash fixed
 
 - **Fix: Colon AI stopped a few seconds after Hey Colon started listening.** The 0.24.2 crash report showed the
