@@ -111,6 +111,24 @@ const postRepo = async (req) => {
 };
 const deleteReference = async (req) => [200, await repo().forget(req.user, req.params.id)];
 
+// ---------- v0.28.0 (step 4): publishing ----------
+// GET /workspaces/:id/publish/check?name=… -> { name, ok, reason?, url }
+const getPublishCheck = async (req) => [200, await engine().checkName(req.user, req.params.id, qp(req, 'name'))];
+// POST /workspaces/:id/publish { name? } -> { name, url, version, at }
+const postPublish = async (req) => {
+  const out = await engine().publish(req.user, req.params.id, req.body || {});
+  await audit(req, 'workspace.published', { actorId: req.user.id, targetType: 'workspace',
+    targetId: String(req.params.id), meta: { name: out.name, version: out.version } });
+  return [200, out];
+};
+// DELETE /workspaces/:id/publish -> { ok }
+const deletePublish = async (req) => {
+  await engine().unpublish(req.user, req.params.id);
+  await audit(req, 'workspace.unpublished', { actorId: req.user.id, targetType: 'workspace',
+    targetId: String(req.params.id) });
+  return [200, { ok: true }];
+};
+
 module.exports = { getWorkspaces, postWorkspaces, getWorkspace, patchWorkspace, deleteWorkspace, getBundle, getFile,
   putFile, moveFile, deleteFile, getVersions, restoreVersion, getChat, postChat, setChatDeps, postRepo,
-  deleteReference };
+  deleteReference, getPublishCheck, postPublish, deletePublish };

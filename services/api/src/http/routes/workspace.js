@@ -24,5 +24,9 @@ r.post('/workspaces/:id/chat', requireUser, perUser('workspace-chat', 60, 3600),
 // v0.27.3: clone a repository into the workspace, or learn from one
 r.post('/workspaces/:id/repo', requireUser, perUser('workspace-repo', 30, 3600), h.postRepo);
 r.delete('/workspaces/:id/reference', requireUser, h.deleteReference);
+// v0.28.0 (step 4): publish to apparatus.name.ng/<name>/.
+r.get('/workspaces/:id/publish/check', requireUser, perUser('workspace-read', 600, 3600), h.getPublishCheck);
+r.post('/workspaces/:id/publish', requireUser, perUser('workspace-publish', 60, 3600), h.postPublish);
+r.delete('/workspaces/:id/publish', requireUser, perUser('workspace-publish', 60, 3600), h.deletePublish);
 
 module.exports = r;

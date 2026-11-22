@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.28.0 (2026-11-22) · Workspace step 4: Publish
+
+- The Publish tab puts a workspace live at `https://apparatus.name.ng/<name>/`: pick the name (checked as you
+  type: 3 to 30 lowercase letters, numbers or hyphens; reserved names and existing folders are refused), tap
+  Publish. Afterwards it shows the live link (Open, Copy link), the published version and "Changes not live yet"
+  when the files changed since, with Republish and Take down.
+- Publishing writes the current files to a hidden temp folder and swaps it in with one rename, so a site is never
+  half-written. Static files only; every site gets a Colon-written `.htaccess` (no scripts, no folder listings) and
+  a small "Made with Colon · Report" badge on each HTML page. Deleting a workspace takes its site down.
+- New: `GET /workspaces/:id/publish/check?name=`, `POST /workspaces/:id/publish { name }`,
+  `DELETE /workspaces/:id/publish` (audited). Sites are written under `WORKSPACE_PUBLISH_ROOT`, default
+  `~/public_html`. Details and the device checklist: docs/workspace/step-4.md.
+
 ## 0.27.4 (2026-11-22) · Workspace builds no longer get stuck; "stop" stops
 
 - Fixed: a build could sit on "Thinking and writing the code" forever when the API process running it ended

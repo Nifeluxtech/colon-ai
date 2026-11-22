@@ -6,7 +6,8 @@
 const WS = 'id, user_id, title, template, version, slug, published_version, published_at, instructions, ref_url, '
   + 'ref_files, created_at, updated_at';
 // Columns update() may set (v0.28.0 adds the instructions and the learned-from repository).
-const FIELDS = ['title', 'version', 'instructions', 'ref_url', 'ref_text', 'ref_files'];
+const FIELDS = ['title', 'version', 'instructions', 'ref_url', 'ref_text', 'ref_files', 'slug', 'published_version',
+  'published_at'];
 const COUNTS = `(SELECT COUNT(*) FROM colon_workspace_files f WHERE f.workspace_id = w.id) AS files,
   (SELECT COALESCE(SUM(f.size), 0) FROM colon_workspace_files f WHERE f.workspace_id = w.id) AS bytes`;
 
@@ -36,6 +37,7 @@ function sqlStore(q) {
       const r = await q.query('DELETE FROM colon_workspaces WHERE id = ? AND user_id = ?', [String(id), userId]);
       return r.affectedRows > 0;
     },
+    bySlug: (slug) => q.one('SELECT id, user_id FROM colon_workspaces WHERE slug = ?', [slug]),
     files: (wsId) => q.query(`SELECT path, mime, size, updated_at FROM colon_workspace_files WHERE workspace_id = ?
       ORDER BY path`, [wsId]),
     file: (wsId, p) => q.one(`SELECT path, mime, size, content, updated_at FROM colon_workspace_files
@@ -117,6 +119,10 @@ function memoryStore() {
       s.versions = s.versions.filter((v) => v.workspace_id !== w.id);
       s.messages = s.messages.filter((m) => m.workspace_id !== w.id);
       return true;
+    },
+    async bySlug(slug) {
+      const w = s.ws.find((x) => x.slug === slug);
+      return w ? { id: w.id, user_id: w.user_id } : null;
     },
     async files(wsId) { return filesOf(wsId).map(({ path, mime, size, updated_at }) => ({ path, mime, size,
       updated_at })); },
