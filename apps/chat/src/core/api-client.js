@@ -37,6 +37,7 @@ function RemoteChatData() {
   }
   function run(id) { return '/research/' + encodeURIComponent(id); }
   function repo(id) { return '/projects/' + encodeURIComponent(id) + '/repo'; }   // v0.24.0
+  function wsp(id) { return '/workspaces/' + encodeURIComponent(id); }   // v0.25.0
   var self = {
     kind: 'remote', LIMITS: LIMITS, classify: classify, describe: 'Chats are synced to your Colon account.',
     listModels: function () { return modelsCache ? Promise.resolve(modelsCache) : api('/models').then(function (d) {
@@ -133,6 +134,15 @@ function RemoteChatData() {
     updateProject: function (id, p) { return api('/projects/' + encodeURIComponent(id), { method: 'PATCH', body: p })
       .then(function (d) { return d.project; }); },
     deleteProject: function (id) { return api('/projects/' + encodeURIComponent(id), { method: 'DELETE' }); },
+    // v0.25.0 (Workspace step 1, docs/workspace/plan.md): website workspaces (pages/workspace.js).
+    listWorkspaces: function () { return api('/workspaces'); },
+    createWorkspace: function (b) { return api('/workspaces', { method: 'POST', body: b }); },
+    getWorkspace: function (id) { return api(wsp(id)); },
+    updateWorkspace: function (id, b) { return api(wsp(id), { method: 'PATCH', body: b }); },
+    deleteWorkspace: function (id) { return api(wsp(id), { method: 'DELETE' }); },
+    workspaceFile: function (id, path) { return api(wsp(id) + '/file?path=' + encodeURIComponent(path)); },
+    workspaceVersions: function (id) { return api(wsp(id) + '/versions'); },
+    restoreWorkspace: function (id, n) { return api(wsp(id) + '/versions/' + n + '/restore', { method: 'POST' }); },
     // v0.24.0: a project's connected repository (components/project-context.js). A token goes up, never comes back.
     connectRepo: function (id, b) { return api(repo(id), { method: 'POST', body: b }); },
     syncRepo: function (id) { return api(repo(id) + '/sync', { method: 'POST' }); },
