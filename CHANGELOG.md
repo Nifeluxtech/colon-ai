@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.27.1 (2026-11-22) · Fix: Workspace chat showed no reply
+
+- The server runs several API processes, and the chat's "Colon is working" state lived in one process's memory.
+  The app's poll often reached another process, saw "not working" and stopped, so only your message showed.
+  "Working" now also comes from the database (newest message is yours and under 5 minutes old).
+- If a reply is lost, the chat now says so ("Colon didn't answer this one…") instead of showing nothing.
+
 ## 0.27.0 (2026-11-22) · Workspace, step 3: preview, code, files, terminal
 
 - **Preview tab**: the site as it will look once published, built on the phone from its files and shown in a

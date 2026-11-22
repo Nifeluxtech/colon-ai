@@ -13,6 +13,7 @@ const prompt = require('./prompt');
 
 const MAX_MESSAGE = 4000;
 const HISTORY = 8;          // earlier messages the model sees
+const STALE_MS = 5 * 60 * 1000;   // a reply not written by then is treated as lost (the process died)
 const err = (status, code, message) => Object.assign(new Error(message), { status, code });
 const FRIENDLY = {
   no_provider: 'Colon isn’t connected to an AI provider yet.',
@@ -34,10 +35,17 @@ function createChat({ engine, deps }) {
   const store = engine.store;
   const running = new Map();   // workspace id -> { started }
 
+  // v0.28.0: "working" also comes from the database (the newest message is the user's and under STALE_MS old),
+  // because cPanel's Passenger runs several API processes: the poll can reach a process other than the one
+  // writing the reply, whose in-memory map is empty. Without this the app stopped polling and showed no reply.
+  const pending = (msgs) => {
+    const last = msgs[msgs.length - 1];
+    return Boolean(last && last.role === 'user' && Date.now() - new Date(last.created_at).getTime() < STALE_MS);
+  };
   async function history(u, id) {
     const w = await engine.owned(u, id);
-    return { messages: (await store.messages(w.id, 100)).map(msgOut), working: running.has(w.id),
-      version: Number(w.version) };
+    const messages = (await store.messages(w.id, 100)).map(msgOut);
+    return { messages, working: running.has(w.id) || pending(messages), version: Number(w.version) };
   }
 
   async function reply(u, w, text, ctx) {
@@ -66,7 +74,9 @@ function createChat({ engine, deps }) {
     const text = String(body.message == null ? '' : body.message).trim();
     if (!text) throw err(422, 'invalid', 'Tell Colon what to build or change.');
     if (text.length > MAX_MESSAGE) throw err(422, 'invalid', `Keep a message under ${MAX_MESSAGE} characters.`);
-    if (running.has(w.id)) throw err(409, 'busy', 'Colon is still working on your last message.');
+    if (running.has(w.id) || pending((await store.messages(w.id, 1)).map(msgOut))) {
+      throw err(409, 'busy', 'Colon is still working on your last message.');
+    }
     running.set(w.id, { started: Date.now() });
     const mid = await store.addMessage(w.id, { role: 'user', content: text });
     const job = (async () => {
