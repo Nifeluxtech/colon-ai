@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.24.3 (2026-11-22) · "Hey Colon" crash fixed
+
+- **Fix: Colon AI stopped a few seconds after Hey Colon started listening.** The 0.24.2 crash report showed the
+  cause: the `-mobile` gigaspeech KWS model aborts on its first decode in sherpa-onnx (Reshape
+  `/downsample/Reshape_1`, input {17,1,128} vs {8,2,1,128}); reproduced with sherpa-onnx 1.13.8 and 2.0.x on x86.
+  CI now bundles the regular `sherpa-onnx-kws-zipformer-gigaspeech-3.3M-2024-01-01` model (same file names: int8
+  encoder and joiner, fp32 decoder), which decodes without error and still spots keywords.
+- Hey Colon stays off after the crash; switch it back on in Settings › Voice.
+
 ## 0.24.2 (2026-11-21) · Native crash details for "Hey Colon"
 
 - **Crash report shows the native trace**: on Android 12+ `CrashGuard` reads the tombstone Android keeps for a native
