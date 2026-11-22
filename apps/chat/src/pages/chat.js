@@ -50,7 +50,8 @@ function mount(view, ctx) {
         + 'class="kbd cw-hide-touch">Ctrl K</span></label>') +
       '<nav class="nav-list cw-nav" aria-label="Main">' +
         navLink('/', 'home', 'Home') + navLink('/explore', 'explore', 'Explore') +
-        navLink('/cbt', 'target', 'CBT practice') + (signedIn() ? navLink('/projects', 'folder', 'Projects') : '') +
+        navLink('/cbt', 'target', 'CBT practice') + (signedIn() ? navLink('/projects', 'folder', 'Projects')
+          + navLink('/workspace', 'code', 'Workspace') : '') +   // v0.25.0: Workspace sits right after Projects
         // 0.17.2 (owner): Saved, History, Settings and Help & Support left the sidebar list. Recent chats sit right
         // under it; Settings and Help & Support are in the profile menu (signed out: the More menu).
           '</nav>' +
@@ -195,12 +196,14 @@ function route(a, b) {
   var sh = /^\/share\/([^/]+)$/.exec(p);
   if (sh) return showShared(decodeURIComponent(sh[1]));
   var pages = { '/history': 'history', '/saved': 'saved', '/explore': 'explore', '/settings': 'settings',
-    '/help': 'help', '/cbt': 'cbt', '/memory': 'memory', '/projects': 'projects' };
+    '/help': 'help', '/cbt': 'cbt', '/memory': 'memory', '/projects': 'projects', '/workspace': 'workspace' };
   var pr = /^\/p\/([^/]+)$/.exec(p);   // v0.15.0: one project's page (signed in, like Settings, Memory, Projects)
-  var mine = p === '/settings' || p === '/memory' || p === '/projects' || pr;
-  if ((pages[p] || pr) && ((ephemeral() && (p === '/history' || p === '/saved')) || (!signedIn()
+  var wk = /^\/w\/([^/]+)$/.exec(p);   // v0.25.0: one workspace (Workspace step 1)
+  var mine = p === '/settings' || p === '/memory' || p === '/projects' || p === '/workspace' || pr || wk;
+  if ((pages[p] || pr || wk) && ((ephemeral() && (p === '/history' || p === '/saved')) || (!signedIn()
     && mine))) return showPage('login', ctx);
   if (pr) return showPage('project', Object.assign({}, ctx, { projectId: decodeURIComponent(pr[1]) }));
+  if (wk) return showPage('workspaceOne', Object.assign({}, ctx, { workspaceId: decodeURIComponent(wk[1]) }));
   if (pages[p]) return showPage(pages[p], ctx);
   newChat(true);
 }
