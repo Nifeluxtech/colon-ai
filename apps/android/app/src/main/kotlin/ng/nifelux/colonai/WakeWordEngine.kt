@@ -3,7 +3,7 @@ package ng.nifelux.colonai
 /**
  * 0.23.0 (OS Assistant Step 5): "Hey Colon". The keyword spotter behind [WakeWordEngine] runs on the phone, offline.
  *
- * Engine: sherpa-onnx keyword spotting (Apache-2.0), model sherpa-onnx-kws-zipformer-gigaspeech-3.3M-2024-01-01-mobile,
+ * Engine: sherpa-onnx keyword spotting (Apache-2.0), model sherpa-onnx-kws-zipformer-gigaspeech-3.3M-2024-01-01,
  * keywords line [KEYWORDS] (no training; SherpaKwsEngine, built only when CI downloaded the AAR and the model, see
  * docs/os-assistant/step-5.md). Backup: openWakeWord (Apache-2.0 code; a "hey colon" model has to be trained with
  * its free Colab notebook, then run through ONNX Runtime) as another [WakeWordEngine]; nothing else changes.
