@@ -43,6 +43,7 @@ class WakeWordService : Service() {
     private var engineName = ""
     private var foreground = false
     private var heardAt = 0L
+    private var heardCount = 0
     private var micFailedAt = 0L
     private var shownLabel: String? = null
     @Volatile private var recording = false
@@ -180,7 +181,7 @@ class WakeWordService : Service() {
         if (instance !== this) return
         Log.i(TAG, "wake word heard: $keyword")
         CrashGuard.mark(this, "heard $keyword")
-        heardAt = SystemClock.elapsedRealtime()
+        heardAt = SystemClock.elapsedRealtime(); heardCount++
         check() // closes the mic (HEARD) so the recognizer gets it
         VoiceCues.chime()
         main.postDelayed({ openListener() }, CHIME_MS)
@@ -248,8 +249,9 @@ class WakeWordService : Service() {
         else -> R.string.wake_starting
     }
 
-    /** For the settings page: {state, reason, engine}. */
-    fun status(): Pair<WakeWordRules.Decision, String> = Pair(decision, engineName)
+    /** For the settings page (0.24.4: also loading, the engine's error, the mic level and how often it heard). */
+    fun status() = WakeWord.Status(decision, engineName, engineLoading,
+        detector?.error ?: if (engineLoading) null else WakeEngines.lastError, detector?.level ?: 0f, heardCount)
 
     companion object {
         private const val TAG = "ColonWake"
