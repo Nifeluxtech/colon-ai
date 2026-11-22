@@ -83,17 +83,19 @@ jobs:
 
       # 0.23.0 "Hey Colon" (docs/os-assistant/step-5.md): sherpa-onnx keyword spotting, Apache-2.0. Pinned release
       # files, each checked against its sha256; nothing downloaded here is committed (apps/android/.gitignore).
+      # 0.24.3: the regular model, not "-mobile": its static-shape export aborts on the first decode in sherpa-onnx
+      # 1.13.8 and 2.0.x (Reshape /downsample/Reshape_1, {17,1,128} vs {8,2,1,128}), which crashed the app.
       - name: Wake word engine and model (sherpa-onnx)
         run: |
           set -euo pipefail
           base=https://github.com/k2-fsa/sherpa-onnx/releases/download
           aar=sherpa-onnx-static-link-onnxruntime-2.0.2.aar
-          kws=sherpa-onnx-kws-zipformer-gigaspeech-3.3M-2024-01-01-mobile
+          kws=sherpa-onnx-kws-zipformer-gigaspeech-3.3M-2024-01-01
           mkdir -p app/libs "$RUNNER_TEMP/kws"
           curl -fsSL --retry 3 -o "app/libs/$aar" "$base/v2.0.2/$aar"
           curl -fsSL --retry 3 -o "$RUNNER_TEMP/kws.tar.bz2" "$base/kws-models/$kws.tar.bz2"
           echo "cb73564809268c8b96bf98f1a32b0b3b611e01d028d22f10beb57ef55418c0cb  app/libs/$aar" | sha256sum -c -
-          echo "2e6ac2577310bfa2f4b6b5fab0478b868c9d0b2cb2c51b3e13b50581b588864d  $RUNNER_TEMP/kws.tar.bz2" \
+          echo "f170013b4716e41b62b9bfd809687c207cef798ef9bc6534d524e17af9b6561a  $RUNNER_TEMP/kws.tar.bz2" \
             | sha256sum -c -
           tar xjf "$RUNNER_TEMP/kws.tar.bz2" -C "$RUNNER_TEMP/kws"
           for f in encoder-epoch-12-avg-2-chunk-16-left-64.int8.onnx decoder-epoch-12-avg-2-chunk-16-left-64.onnx \
