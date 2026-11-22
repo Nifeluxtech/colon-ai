@@ -1,17 +1,17 @@
 {
-  "versionName": "0.24.2",
-  "versionCode": 2402,
-  "apkUrl": "https://github.com/Nifeluxtech/colon-ai/releases/download/v0.24.2/colon-ai-0.24.2.apk",
-  "releaseUrl": "https://github.com/Nifeluxtech/colon-ai/releases/tag/v0.24.2",
-  "notes": "Crash reports now include the native trace and the last Hey Colon steps, so a \"keeps stopping\" can be pinned to the exact line.",
+  "versionName": "0.24.3",
+  "versionCode": 2403,
+  "apkUrl": "https://github.com/Nifeluxtech/colon-ai/releases/download/v0.24.3/colon-ai-0.24.3.apk",
+  "releaseUrl": "https://github.com/Nifeluxtech/colon-ai/releases/tag/v0.24.3",
+  "notes": "Fixes \"Hey Colon\" crashing the app: the wake word now uses a speech model that works with the engine. Turn Hey Colon back on in Settings › Voice.",
   "minSupportedVersionCode": 0,
-  "publishedAt": "2026-11-21",
+  "publishedAt": "2026-11-22",
   "browser": {
-    "versionName": "0.24.2",
-    "versionCode": 2402,
-    "apkUrl": "https://github.com/Nifeluxtech/colon-ai/releases/download/v0.24.2/colon-browser-0.24.2.apk",
-    "releaseUrl": "https://github.com/Nifeluxtech/colon-ai/releases/tag/v0.24.2",
-    "notes": "Released alongside Colon AI 0.24.2 (no browser changes).",
+    "versionName": "0.24.3",
+    "versionCode": 2403,
+    "apkUrl": "https://github.com/Nifeluxtech/colon-ai/releases/download/v0.24.3/colon-browser-0.24.3.apk",
+    "releaseUrl": "https://github.com/Nifeluxtech/colon-ai/releases/tag/v0.24.3",
+    "notes": "Released alongside Colon AI 0.24.3 (no browser changes).",
     "minSupportedVersionCode": 0
   }
 }
