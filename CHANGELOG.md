@@ -1,5 +1,24 @@
 # Changelog
 
+## 0.27.3 (2026-11-22) · Workspace header, list menus, and the chat's + menu
+
+- Inside a workspace, the tabs are the header: they stick to the top while you scroll, with Back beside Chat. The
+  old title bar with its ⋯ menu is gone.
+- The chat box floats at the bottom over the conversation.
+- Rename and Delete moved to a ⋯ menu on each workspace in the Workspace list.
+- A + beside the chat box opens:
+  - Clone a repository: paste a GitHub link (owner/name, a repo page, or a /tree/branch page) or any https Git
+    address; its website files replace the workspace's as one version, with Undo in the chat. A site kept in
+    public/, docs/, dist/, build/, site/, www/, _site/ or out/ is taken from that folder.
+  - Learn from a repository: Colon reads its key files (README, pages, styles, scripts; about 40 KB) and follows
+    its structure and style in every build until you stop it (chip above the chat box).
+  - Set instructions: standing rules for this site (up to 4,000 characters) sent with every build.
+- New: `POST /workspaces/:id/repo { action: clone | learn, url }`, `DELETE /workspaces/:id/reference`,
+  `PATCH /workspaces/:id { instructions }`; migration 0023 adds `instructions`, `ref_url`, `ref_text`, `ref_files`
+  to `colon_workspaces`; `services/api/src/modules/workspace/repo.js` reuses the Projects repository download
+  (GitHub zip from codeload, shallow git clone otherwise; public repositories only).
+- Each build in the queue gets its own 4-minute limit and the workspace's latest instructions and reference.
+
 ## 0.27.2 (2026-11-22) · Workspace chat shows its steps live, and you can talk to it while it builds
 
 - While Colon works, the chat shows each step as it happens, like other assistants show their tools: reading your

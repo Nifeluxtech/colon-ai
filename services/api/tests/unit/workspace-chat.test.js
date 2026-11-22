@@ -127,3 +127,42 @@ test('chat: mid-build questions get a quick answer, change requests queue and bu
   assert.ok(h.messages.filter((m) => m.role === 'user' && m.kind !== 'side').every((m) => m.kind === 'done'));
   assert.equal(h.messages[h.messages.length - 1].content, 'Done 2.');
 });
+
+test('repo: clone takes the site folder, learn keeps reference text, instructions reach the prompt', async () => {
+  const repo = require('../../src/modules/workspace/repo');
+  const providers = { parseGitUrl: (u) => ({ url: u, owner: 'a', name: 'b' }) };   // repos/index needs mysql2
+  assert.equal(repo.source('Nifeluxtech/colon-ai', providers).url, 'https://github.com/Nifeluxtech/colon-ai');
+  assert.equal(repo.source('https://github.com/a/b/tree/dev/x', providers).branch, 'dev/x');
+  assert.throws(() => repo.source('nope', providers), (x) => x.status === 422);
+  const ent = (name, text) => ({ name, size: Buffer.byteLength(text), read: () => Buffer.from(text) });
+  const entries = [ent('README.md', '# Hi'), ent('package.json', '{}'), ent('public/index.html', '<h1>x</h1>'),
+    ent('public/css/a.css', 'h1{}'), ent('public/.env', 'X=1'), ent('node_modules/x/index.js', 'x')];
+  const site = repo.siteFiles(entries);
+  assert.equal(site.root, 'public/');
+  assert.deepEqual(site.files.map((f) => f.path).sort(), ['css/a.css', 'index.html']);
+  const ref = repo.learnText(entries, 'a/b');
+  assert.match(ref.text, /--- README\.md ---\n# Hi/);
+  assert.doesNotMatch(ref.text, /X=1/);
+  const zip = { entries };
+  const e = ws.create({ store: ws.memoryStore() });
+  const { workspace: w } = await e.add(ME, { title: 'Cafe', template: 'blank' });
+  const git = { clone: async () => ({ dir: '/x', cleanup: async () => {} }), walk: async () => zip.entries };
+  const r = repo.createRepo({ engine: e, deps: { git, providers, download: {},
+    cfg: { enabled: true, timeoutMs: 1000 } } });
+  const out = await r.clone(ME, w.id, { url: 'https://gitlab.com/a/b.git' });
+  assert.equal(out.cloned, 2);
+  assert.deepEqual((await e.get(ME, w.id)).files.map((f) => f.path).sort(), ['css/a.css', 'index.html']);
+  await r.learn(ME, w.id, { url: 'https://gitlab.com/a/b.git' });
+  await e.edit(ME, w.id, { instructions: 'Use French.' });
+  let seen = null;
+  const chat = createChat({ engine: e, deps: { generate: async (o) => { seen = o; return { text: 'Ok.' }; } } });
+  await chat.send(ME, w.id, { message: 'hi' }, { wait: true });
+  assert.match(seen.context, /standing instructions[\s\S]*Use French\./);
+  assert.match(seen.context, /Reference repository[\s\S]*README\.md/);
+  const h = await chat.history(ME, w.id);
+  assert.equal(h.instructions, 'Use French.');
+  assert.equal(h.reference.url, 'https://gitlab.com/a/b.git');
+  assert.equal(h.messages[1].changes.length > 0, true);
+  await r.forget(ME, w.id);
+  assert.equal((await chat.history(ME, w.id)).reference, null);
+});

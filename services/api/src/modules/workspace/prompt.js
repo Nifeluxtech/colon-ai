@@ -43,7 +43,7 @@ function tree(files) {
 }
 
 // context({ files: [{ path, size, text: bool, content? }], message }) -> system context string
-function context({ files, message = '', title = '' }) {
+function context({ files, message = '', title = '', instructions = '', reference = '' }) {
   const asked = String(message).toLowerCase();
   const textFiles = files.filter((f) => f.text);
   const rank = (f) => (f.path === 'index.html' ? 0 : asked.includes(f.path.toLowerCase())
@@ -60,7 +60,12 @@ function context({ files, message = '', title = '' }) {
     `Files now in the site:\n${tree(files) || '(none yet)'}`,
     shown.length ? `Current contents:\n${shown.join('\n\n')}` : '',
     skipped.length ? `Not shown (too large for this request; use FILE to rewrite them only if needed): ${
-      skipped.join(', ')}` : ''].filter(Boolean).join('\n\n');
+      skipped.join(', ')}` : '',
+    // v0.27.3: the user's standing instructions, and a repository to learn from
+    instructions ? `The user's standing instructions for this site (follow them unless this message says `
+      + `otherwise):\n${String(instructions).slice(0, 4000)}` : '',
+    reference ? 'Reference repository: follow its structure, conventions and visual style when building. Do not '
+      + `copy it wholesale unless the user asks.\n${String(reference)}` : ''].filter(Boolean).join('\n\n');
 }
 
 module.exports = { context, RULES, BUDGET };

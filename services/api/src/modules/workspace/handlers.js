@@ -96,5 +96,21 @@ const postChat = async (req) => {
   } catch (e) { await d.refundAll(counters); throw e; }
 };
 
+// v0.27.3: POST /workspaces/:id/repo { action: 'clone' | 'learn', url } and DELETE /workspaces/:id/reference
+let repoShared = null;
+const repo = () => repoShared || (repoShared = require('./repo').createRepo({ engine: engine() }));
+const postRepo = async (req) => {
+  const b = req.body || {};
+  if (b.action !== 'clone' && b.action !== 'learn') {
+    throw Object.assign(new Error('Choose clone or learn.'), { status: 422, code: 'invalid' });
+  }
+  const out = await repo()[b.action](req.user, req.params.id, b);
+  await audit(req, `workspace.repo_${b.action}`, { actorId: req.user.id, targetType: 'workspace',
+    targetId: String(req.params.id) });
+  return [200, out];
+};
+const deleteReference = async (req) => [200, await repo().forget(req.user, req.params.id)];
+
 module.exports = { getWorkspaces, postWorkspaces, getWorkspace, patchWorkspace, deleteWorkspace, getBundle, getFile,
-  putFile, moveFile, deleteFile, getVersions, restoreVersion, getChat, postChat, setChatDeps };
+  putFile, moveFile, deleteFile, getVersions, restoreVersion, getChat, postChat, setChatDeps, postRepo,
+  deleteReference };

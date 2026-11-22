@@ -144,6 +144,10 @@ function RemoteChatData() {
     workspaceVersions: function (id) { return api(wsp(id) + '/versions'); },
     restoreWorkspace: function (id, n) { return api(wsp(id) + '/versions/' + n + '/restore', { method: 'POST' }); },
     workspaceChat: function (id) { return api(wsp(id) + '/chat'); },   // v0.26.0 (step 2)
+    // v0.27.3: clone a repository into the workspace, or learn from one (and stop)
+    workspaceRepo: function (id, action, url) { return api(wsp(id) + '/repo', { method: 'POST',
+      body: { action: action, url: url } }); },
+    forgetWorkspaceReference: function (id) { return api(wsp(id) + '/reference', { method: 'DELETE' }); },
     sendWorkspaceChat: function (id, message) { return api(wsp(id) + '/chat', { method: 'POST',
       body: { message: message } }); },
     // v0.27.0 (step 3): Preview (whole site), Code, Files and Terminal edits. Each write is a new version.

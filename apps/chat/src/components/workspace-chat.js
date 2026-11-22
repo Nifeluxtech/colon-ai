@@ -6,6 +6,7 @@
    o = { id, data, onChanged, send? }: onChanged() runs after the files change (the page refreshes its file list);
    send (v0.27.0): a message to send as soon as the chat is free, e.g. the Preview tab's "Fix it". */
 import { Colon } from '../../../../packages/ui/js/colon.js';
+import { chipsHtml, openPlus, editInstructions, forget } from './workspace-plus.js';
 
 var C = Colon, icon = C.icon, esc = C.esc;
 var POLL_MS = 1500;
@@ -71,11 +72,25 @@ var LOST = '<div class="wk-msg wk-colon wk-err">' + icon('alert') + '<p>Colon di
 export function mount(el, o) {
   var data = o.data, id = o.id, timer = null, lastVersion = null, busy = false;
   el.innerHTML = '<div class="wk-chat"><div class="wk-msgs" aria-live="polite"><div class="skel px-skel-c"></div>'
-    + '</div><form class="wk-compose" novalidate><textarea rows="1" maxlength="4000" data-in aria-label="Message '
+    + '</div><form class="wk-compose" novalidate><div class="wk-ctx" data-ctxs></div><div class="wk-row-in">'
+    + '<button type="button" class="icon-btn wk-plus" aria-label="Add: clone, learn, instructions" '
+    + 'aria-haspopup="menu" data-plus>' + icon('plus') + '</button><textarea rows="1" maxlength="4000" data-in '
+    + 'aria-label="Message '
     + 'Colon" placeholder="Describe your site or a change…"></textarea><button type="submit" class="icon-btn '
-    + 'wk-send" aria-label="Send">' + icon('send') + '</button></form></div>';
+    + 'wk-send" aria-label="Send">' + icon('send') + '</button></div></form></div>';
   var list = el.querySelector('.wk-msgs'), form = el.querySelector('form'), input = el.querySelector('[data-in]');
-  var send = el.querySelector('.wk-send');
+  var send = el.querySelector('.wk-send'), ctxs = el.querySelector('[data-ctxs]'), lastH = null, note = null;
+  // v0.27.3: the + menu (clone / learn from a repository, instructions) and the chips for what is on
+  var po = { id: id, data: data, onDone: function () { load(); if (o.onChanged) o.onChanged(); },
+    onBusy: function (t) { note = t; if (lastH) render(lastH); } };
+  el.querySelector('[data-plus]').addEventListener('click', function (e) {
+    po.h = lastH; openPlus(e.currentTarget, po); });
+  ctxs.addEventListener('click', function (e) {
+    var b = e.target.closest('[data-ctx]');
+    if (!b) return;
+    po.h = lastH;
+    if (b.getAttribute('data-ctx') === 'instr') editInstructions(po); else forget(po);
+  });
   var tick = setInterval(function () {   // the timer of the running step counts up between polls
     if (!el.isConnected) { clearInterval(tick); return; }
     el.querySelectorAll('[data-tick]').forEach(function (t) {
@@ -91,7 +106,11 @@ export function mount(el, o) {
     var msgs = h.messages || [], open = {};
     list.querySelectorAll('details[open][data-mid]').forEach(function (d) { open[d.getAttribute('data-mid')] = 1; });
     input.placeholder = h.working ? 'Ask or add a change…' : idle;
-    var tail = h.working ? workingHtml(h, msgs) : msgs.length && msgs[msgs.length - 1].role === 'user' ? LOST : '';
+    lastH = h;
+    ctxs.innerHTML = chipsHtml(h);
+    var tail = note ? '<div class="wk-msg wk-colon wk-working" role="status"><div class="wk-work-h"><span '
+      + 'class="wk-dots"><i></i><i></i><i></i></span>' + esc(note) + '</div></div>' : h.working ? workingHtml(h, msgs)
+      : msgs.length && msgs[msgs.length - 1].role === 'user' ? LOST : '';
     list.innerHTML = msgs.length ? msgs.map(function (m) { return msgHtml(m, h.version); }).join('')
       + tail : '<div class="wk-ideas"><p>What should we build? Describe it in your own '
       + 'words, or start with an idea:</p>' + IDEAS.map(function (t) {
@@ -104,7 +123,7 @@ export function mount(el, o) {
       undo(Number(b.getAttribute('data-undo'))); }); });
     list.querySelectorAll('details[data-mid]').forEach(function (d) {
       if (open[d.getAttribute('data-mid')]) d.open = true; });
-    var sig = msgs.length + ':' + h.working;   // scroll only when something new arrives, not on every poll
+    var sig = msgs.length + ':' + h.working + ':' + note;   // scroll only when something new arrives, not on every poll
     if (sig === seen) return;
     seen = sig;
     list.scrollTop = list.scrollHeight;

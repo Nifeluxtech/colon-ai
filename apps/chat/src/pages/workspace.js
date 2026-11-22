@@ -27,10 +27,24 @@ function siteName(title) {
   return String(title || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 30)
     || 'my-site';
 }
+// v0.27.2: Rename and Delete live on each row here (one workspace's screen keeps only its tabs).
 function wsRow(w) {
-  return '<a class="px-row" role="listitem" href="#/w/' + encodeURIComponent(w.id) + '"><b>' + esc(w.title)
-    + '</b><small>' + esc(UI.plural(w.files, 'file')) + ' · Edited ' + esc(UI.rel(w.updated_at))
-    + (w.published ? ' · Live' : '') + '</small></a>';
+  return '<div class="wk-row" role="listitem"><a class="px-row" href="#/w/' + encodeURIComponent(w.id) + '"><b>'
+    + esc(w.title) + '</b><small>' + esc(UI.plural(w.files, 'file')) + ' · Edited ' + esc(UI.rel(w.updated_at))
+    + (w.published ? ' · Live' : '') + '</small></a><button class="icon-btn" type="button" data-wmore="'
+    + esc(w.id) + '" aria-label="Options for ' + esc(w.title) + '" aria-haspopup="menu">' + icon('more')
+    + '</button></div>';
+}
+function wsMenu(anchor, w, done) {
+  var data = CW.data;
+  C.menu(anchor, [{ label: 'Rename', icon: 'edit', onClick: function () {
+    C.prompt({ title: 'Rename workspace', label: 'Name', value: w.title, max: 80 }).then(function (t) {
+      if (t && t !== w.title) data.updateWorkspace(w.id, { title: t }).then(done).catch(fail); });
+  } }, '-', { label: 'Delete', icon: 'trash', danger: true, onClick: function () {
+    C.confirm({ title: 'Delete “' + w.title + '”?', body: 'Its files and history are deleted for good.',
+      confirm: 'Delete workspace', danger: true }).then(function (ok) {
+      if (ok) data.deleteWorkspace(w.id).then(done).catch(fail); });
+  } }], { align: 'right', label: 'Workspace options' });
 }
 
 function newWorkspace(templates) {
@@ -76,11 +90,17 @@ CW.pages.workspace = function (page) {
     box.innerHTML = list.length ? list.map(wsRow).join('') : '<p class="px-empty">' + (all.length
       ? 'No workspaces match “' + esc(q.value.trim()) + '”.' : 'No workspaces yet. Start one and describe the '
       + 'website you want.') + '</p>';
+    box.querySelectorAll('[data-wmore]').forEach(function (b) { b.addEventListener('click', function () {
+      var w = all.filter(function (x) { return String(x.id) === b.getAttribute('data-wmore'); })[0];
+      if (w) wsMenu(b, w, reload); }); });
+  }
+  function reload() {
+    return data.listWorkspaces().then(function (d) { all = d.workspaces || []; templates = d.templates || [];
+      render(); });
   }
   page.querySelector('[data-new]').addEventListener('click', function () { newWorkspace(templates); });
   q.addEventListener('input', render);
-  data.listWorkspaces().then(function (d) { all = d.workspaces || []; templates = d.templates || []; render(); })
-    .catch(function (e) {
+  reload().catch(function (e) {
       box.innerHTML = '<p class="px-empty">Workspaces didn’t load. ' + esc(e.message) + '</p>';
     });
 };
@@ -119,17 +139,16 @@ CW.pages.workspaceOne = function (page, ctx) {
     var w = st.workspace;
     if (cur && cur.dispose) cur.dispose();
     cur = null;
-    page.innerHTML = '<div class="cw-screen px-screen wk-one wk-on-' + st.tab + '">' + UI.bar(back, w.title,
-      '<button class="icon-btn" type="button" data-wmore aria-label="Workspace options" aria-haspopup="menu">'
-      + icon('more') + '</button>') + '<div class="wk-tabs" role="tablist">' + TABS.map(function (t) {
+    // v0.27.2: the tabs are the header (sticky), with Back beside them; the title shows in the tab list's label.
+    page.innerHTML = '<div class="cw-screen px-screen wk-one wk-on-' + st.tab + '"><div class="wk-top">' + back
+      + '<div class="wk-tabs" role="tablist" aria-label="' + esc(w.title) + '">' + TABS.map(function (t) {
       return '<button type="button" role="tab" class="wk-tab" data-tab="' + t[0] + '" aria-selected="'
         + (st.tab === t[0]) + '">' + icon(t[2]) + '<span>' + t[1] + '</span></button>';
-    }).join('') + '</div><div class="wk-pane" role="tabpanel" data-pane>' + (st.tab === 'publish' ? publishHtml(st)
-      : '') + '</div></div>';
+    }).join('') + '</div></div><div class="wk-pane" role="tabpanel" data-pane>' + (st.tab === 'publish'
+      ? publishHtml(st) : '') + '</div></div>';
     var pane = page.querySelector('[data-pane]'), o = { id: id, data: data };
     page.querySelectorAll('[data-tab]').forEach(function (b) { b.addEventListener('click', function () {
       if (b.getAttribute('data-tab') !== st.tab) go(b.getAttribute('data-tab')); }); });
-    page.querySelector('[data-wmore]').addEventListener('click', function (e) { menu(e.currentTarget); });
     if (st.tab === 'chat') {
       cur = mountChat(pane, Object.assign(o, { onChanged: quiet, send: st.send }));
       st.send = null;
@@ -146,17 +165,6 @@ CW.pages.workspaceOne = function (page, ctx) {
       cur = mountTerm(pane, Object.assign(o, { onChanged: quiet,
         onOpen: function (p) { go('preview', { page: p }); } }));
     }
-  }
-  function menu(anchor) {
-    var w = st.workspace;
-    C.menu(anchor, [{ label: 'Rename', icon: 'edit', onClick: function () {
-      C.prompt({ title: 'Rename workspace', label: 'Name', value: w.title, max: 80 }).then(function (t) {
-        if (t && t !== w.title) data.updateWorkspace(id, { title: t }).then(load).catch(fail); });
-    } }, '-', { label: 'Delete', icon: 'trash', danger: true, onClick: function () {
-      C.confirm({ title: 'Delete “' + w.title + '”?', body: 'Its files and history are deleted for good.',
-        confirm: 'Delete workspace', danger: true }).then(function (ok) {
-        if (ok) data.deleteWorkspace(id).then(function () { C.go('/workspace'); }).catch(fail); });
-    } }], { align: 'right', label: 'Workspace options' });
   }
   load();
 };
