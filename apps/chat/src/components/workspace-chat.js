@@ -28,7 +28,8 @@ function changesHtml(m, undo) {
 }
 function msgHtml(m, current) {
   if (m.role === 'user') return '<div class="wk-msg wk-me">' + textHtml(m.content) + (m.kind === 'queued'
-    ? '<span class="wk-q">' + icon('clock') + 'Queued: builds next</span>' : '') + '</div>';
+    ? '<span class="wk-q">' + icon('clock') + 'Queued: builds next</span>' : m.kind === 'dropped' || m.kind
+    === 'stopped' ? '<span class="wk-q">' + icon('alert') + 'Stopped: not built</span>' : '') + '</div>';
   var undo = !m.error && m.version_after != null && m.version_after === current;
   return '<div class="wk-msg wk-colon' + (m.error ? ' wk-err' : '') + '">' + (m.error ? icon('alert') : '')
     + doneSteps(m) + '<p>' + textHtml(m.content) + '</p>' + changesHtml(m, undo) + '</div>';
@@ -59,7 +60,7 @@ function workingHtml(h, msgs) {
   var steps = me && me.steps && me.steps.length ? me.steps : null;
   var cur = steps && steps[steps.length - 1], live = 0;
   if (cur && cur.state === 'run' && h.now) {
-    live = new Date(h.now).getTime() - new Date(me.created_at).getTime() - (cur.start || 0);
+    live = new Date(h.now).getTime() - (cur.at || new Date(me.created_at).getTime() + (cur.start || 0));
   }
   return '<div class="wk-msg wk-colon wk-working" role="status"><div class="wk-work-h"><span class="wk-dots"><i></i>'
     + '<i></i><i></i></span>' + (cur ? esc(cur.label) + '…' : 'Starting…') + '</div>'
