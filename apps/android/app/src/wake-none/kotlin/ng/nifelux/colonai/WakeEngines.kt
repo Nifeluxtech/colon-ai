@@ -9,6 +9,9 @@ import android.content.Context
 object WakeEngines {
     const val BUNDLED = false
 
+    /** Why [create] returned null (0.24.4, shown in Settings). */
+    val lastError: String? = null
+
     @Suppress("UNUSED_PARAMETER")
     fun create(context: Context): WakeWordEngine? = null
 }

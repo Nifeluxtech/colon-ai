@@ -65,11 +65,20 @@ object WakeWord {
         }
     }
 
+    /** What the service reports to Settings › Voice. */
+    data class Status(val decision: WakeWordRules.Decision, val engine: String, val loading: Boolean = false,
+        val error: String? = null, val level: Float = 0f, val heard: Int = 0)
+
     private fun status(c: Context): JSONObject {
-        val (d, engine) = WakeWordService.instance?.status()
-            ?: Pair(WakeWordRules.Decision(WakeWordRules.State.OFF, WakeWordRules.Reason.NONE), "")
+        val s = WakeWordService.instance?.status()
+            ?: Status(WakeWordRules.Decision(WakeWordRules.State.OFF, WakeWordRules.Reason.NONE), "")
+        val d = s.decision
+        // 0.24.4: "starting" while the engine loads (it used to read as "couldn't start on this phone").
+        val starting = enabled(c) && (d.state == WakeWordRules.State.OFF ||
+            (s.loading && d.reason == WakeWordRules.Reason.NO_ENGINE))
         return JSONObject().put("available", available).put("on", enabled(c)).put("pauseOnSaver", pauseOnSaver(c))
-            .put("state", if (enabled(c) && d.state == WakeWordRules.State.OFF) "starting" else d.state.name.lowercase())
-            .put("reason", d.reason.name.lowercase()).put("engine", engine)
+            .put("state", if (starting) "starting" else d.state.name.lowercase())
+            .put("reason", d.reason.name.lowercase()).put("engine", s.engine).put("error", s.error ?: "")
+            .put("level", Math.round(s.level * 100)).put("heard", s.heard)
     }
 }

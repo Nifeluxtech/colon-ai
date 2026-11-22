@@ -44,9 +44,14 @@ class WakeWordDetector(
     var error: String? = null
         private set
 
+    /** 0.24.4: the loudest sample of the last ~second (0..1), shown in Settings so a quiet microphone is visible. */
+    @Volatile var level = 0f
+        private set
+
     /** Feeds [count] samples of [pcm]; returns the keyword when "Hey Colon" was just heard (not in cooldown). */
     fun feed(pcm: ShortArray, count: Int = pcm.size): String? {
         if (failed || count <= 0) return null
+        level = maxOf(peak(pcm, minOf(count, pcm.size)), level * 0.8f)
         val hit = try { engine.accept(toFloats(pcm, minOf(count, pcm.size))) } catch (e: Throwable) {
             failed = true; error = e.javaClass.simpleName + (e.message?.let { ": $it" } ?: ""); return null
         }
@@ -65,6 +70,12 @@ class WakeWordDetector(
 
     companion object {
         const val COOLDOWN_MS = 3000L
+
+        fun peak(pcm: ShortArray, count: Int): Float {
+            var m = 0
+            for (i in 0 until count) { val v = kotlin.math.abs(pcm[i].toInt()); if (v > m) m = v }
+            return m / 32768f
+        }
 
         fun toFloats(pcm: ShortArray, count: Int): FloatArray = FloatArray(count) { pcm[it] / 32768f }
     }
