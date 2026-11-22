@@ -1,19 +1,22 @@
 /* Colon AI · Workspace (v0.25.0, Workspace step 1; plan: docs/workspace/plan.md): a chat-first website builder.
    The list (#/workspace: bar, search, rows, "New workspace" pill with a template sheet) and one workspace (#/w/:id)
-   with five tabs: Chat (default), Preview, Code, Files and Publish. Step 1 ships the shell, storage, templates,
-   the Files tab (open any file, version history with restore) and the publish address; chat building (step 2,
-   v0.26.0, components/workspace-chat.js),
-   the live preview and editor (step 3) and publishing (step 4) fill the other tabs. Signed-in only. Reuses the
-   Projects markup (components/project-ui.js) and its styles (chat-projects.css) plus chat-workspace.css. */
+   with six tabs: Chat (default; v0.26.0, components/workspace-chat.js), Preview, Code, Files and Terminal (v0.27.0,
+   step 3: workspace-preview.js, workspace-code.js, workspace-files.js, workspace-term.js) and Publish (step 4).
+   Signed-in only. Reuses the Projects markup (components/project-ui.js) and its styles (chat-projects.css) plus
+   chat-workspace.css. */
 import { Colon } from '../../../../packages/ui/js/colon.js';
 import * as UI from '../components/project-ui.js';
 import { CW } from '../core/cw.js';
 import { mount as mountChat } from '../components/workspace-chat.js';
+import { mount as mountPreview } from '../components/workspace-preview.js';
+import { mount as mountCode } from '../components/workspace-code.js';
+import { mount as mountFiles } from '../components/workspace-files.js';
+import { mount as mountTerm } from '../components/workspace-term.js';
 
 var C = Colon, icon = C.icon, esc = C.esc;
 CW.pages = CW.pages || {};
 var TABS = [['chat', 'Chat', 'chat'], ['preview', 'Preview', 'eye'], ['code', 'Code', 'code'],
-  ['files', 'Files', 'folder'], ['publish', 'Publish', 'globe']];
+  ['files', 'Files', 'folder'], ['term', 'Terminal', 'terminal'], ['publish', 'Publish', 'globe']];
 var SITE = 'apparatus.name.ng/';
 
 function fail(e) {
@@ -86,38 +89,16 @@ CW.pages.workspace = function (page) {
 function soon(ico, title, body) {
   return '<div class="wk-soon">' + icon(ico) + '<b>' + esc(title) + '</b><p>' + esc(body) + '</p></div>';
 }
-function fileRowHtml(f) {
-  var ext = (String(f.path).split('.').pop() || '').slice(0, 4).toUpperCase();
-  return '<button type="button" class="px-file wk-file" data-open="' + esc(f.path) + '"><span class="px-file-ico">'
-    + esc(ext) + '</span><span class="px-file-b"><b>' + esc(f.path) + '</b><small>' + esc(C.fmtBytes(f.size))
-    + '</small></span>' + icon('right') + '</button>';
+function publishHtml(st) {
+  var w = st.workspace;
+  return '<div class="wk-pub"><small>YOUR SITE’S ADDRESS</small><b>' + esc(SITE + (w.published ? w.published.name
+    : siteName(w.title)) + '/') + '</b><span class="px-badge">' + (w.published ? 'Live' : 'Not published yet')
+    + '</span></div>' + soon('globe', 'Publishing is coming', 'One tap will put this site live at the address '
+    + 'above. You’ll be able to republish after changes or take it down.');
 }
-var PANES = {
-  chat: function () { return '<div data-chatpane></div>'; },   // v0.26.0: components/workspace-chat.js
-  preview: function () {
-    return soon('eye', 'Live preview is coming', 'Your site will show here, at phone and desktop widths, updating '
-      + 'after every change.');
-  },
-  code: function () {
-    return soon('code', 'The code editor is coming', 'Open any file in a full code editor and save your own changes. '
-      + 'For now, open files from the Files tab.');
-  },
-  files: function (st) {
-    return '<h2 class="px-h">Files</h2><div class="wk-files">' + (st.files.length ? st.files.map(fileRowHtml)
-      .join('') : '<p class="px-empty">No files yet.</p>') + '</div><h2 class="px-h">History</h2><div '
-      + 'class="wk-versions" data-versions><div class="skel px-skel-c"></div></div>';
-  },
-  publish: function (st) {
-    var w = st.workspace;
-    return '<div class="wk-pub"><small>YOUR SITE’S ADDRESS</small><b>' + esc(SITE + (w.published ? w.published.name
-      : siteName(w.title)) + '/') + '</b><span class="px-badge">' + (w.published ? 'Live' : 'Not published yet')
-      + '</span></div>' + soon('globe', 'Publishing is coming', 'One tap will put this site live at the address '
-      + 'above. You’ll be able to republish after changes or take it down.');
-  },
-};
 
 CW.pages.workspaceOne = function (page, ctx) {
-  var data = CW.data, id = ctx && ctx.workspaceId, st = { tab: 'chat' };
+  var data = CW.data, id = ctx && ctx.workspaceId, st = { tab: 'chat' }, cur = null;
   var back = '<a class="icon-btn" href="#/workspace" aria-label="All workspaces">' + icon('left') + '</a>';
   page.innerHTML = '<div class="cw-screen px-screen">' + UI.bar(back, '', '') + '<div class="skel px-skel-t"></div>'
     + '<div class="px-cards"><div class="skel px-skel-c"></div></div></div>';
@@ -126,58 +107,45 @@ CW.pages.workspaceOne = function (page, ctx) {
       .catch(function (e) { page.innerHTML = '<div class="cw-screen px-screen">' + UI.bar(back, '', '')
         + '<p class="px-empty">' + esc(e.message) + '</p></div>'; });
   }
-  function quiet() {   // the chat changed the files: refresh what the other tabs show, without redrawing the chat
-    data.getWorkspace(id).then(function (d) { st.workspace = d.workspace; st.files = d.files; }).catch(function () {});
+  function quiet() {   // files changed from a tab: refresh what the other tabs show, without redrawing this one
+    return data.getWorkspace(id).then(function (d) { st.workspace = d.workspace; st.files = d.files; })
+      .catch(function () {});
+  }
+  function go(tab, extra) {
+    var ask = cur && cur.ask ? cur.ask() : Promise.resolve(true);
+    ask.then(function (ok) { if (!ok) return; Object.assign(st, extra || {}); st.tab = tab; render(); });
   }
   function render() {
     var w = st.workspace;
-    page.innerHTML = '<div class="cw-screen px-screen wk-one">' + UI.bar(back, w.title, '<button class="icon-btn" '
-      + 'type="button" data-wmore aria-label="Workspace options" aria-haspopup="menu">' + icon('more') + '</button>')
-      + '<div class="wk-tabs" role="tablist">' + TABS.map(function (t) {
-        return '<button type="button" role="tab" class="wk-tab" data-tab="' + t[0] + '" aria-selected="'
-          + (st.tab === t[0]) + '">' + icon(t[2]) + '<span>' + t[1] + '</span></button>';
-      }).join('') + '</div><div class="wk-pane" role="tabpanel">' + PANES[st.tab](st) + '</div></div>';
-    bind();
-    if (st.tab === 'files') loadVersions();
-    if (st.tab === 'chat') mountChat(page.querySelector('[data-chatpane]'), { id: id, data: data, onChanged: quiet });
-  }
-  function bind() {
+    if (cur && cur.dispose) cur.dispose();
+    cur = null;
+    page.innerHTML = '<div class="cw-screen px-screen wk-one wk-on-' + st.tab + '">' + UI.bar(back, w.title,
+      '<button class="icon-btn" type="button" data-wmore aria-label="Workspace options" aria-haspopup="menu">'
+      + icon('more') + '</button>') + '<div class="wk-tabs" role="tablist">' + TABS.map(function (t) {
+      return '<button type="button" role="tab" class="wk-tab" data-tab="' + t[0] + '" aria-selected="'
+        + (st.tab === t[0]) + '">' + icon(t[2]) + '<span>' + t[1] + '</span></button>';
+    }).join('') + '</div><div class="wk-pane" role="tabpanel" data-pane>' + (st.tab === 'publish' ? publishHtml(st)
+      : '') + '</div></div>';
+    var pane = page.querySelector('[data-pane]'), o = { id: id, data: data };
     page.querySelectorAll('[data-tab]').forEach(function (b) { b.addEventListener('click', function () {
-      st.tab = b.getAttribute('data-tab'); render(); }); });
+      if (b.getAttribute('data-tab') !== st.tab) go(b.getAttribute('data-tab')); }); });
     page.querySelector('[data-wmore]').addEventListener('click', function (e) { menu(e.currentTarget); });
-    page.querySelectorAll('[data-open]').forEach(function (b) { b.addEventListener('click', function () {
-      openFile(b.getAttribute('data-open')); }); });
-  }
-  function loadVersions() {
-    data.workspaceVersions(id).then(function (d) {
-      var el = page.querySelector('[data-versions]');
-      if (!el) return;
-      el.innerHTML = d.versions.map(function (v) {
-        return '<div class="wk-ver"><span><b>' + esc(v.note) + '</b><small>Version ' + v.n + ' · ' + esc(UI.rel(
-          v.created_at)) + '</small></span>' + (v.n === d.current ? '<span class="px-badge">Current</span>'
-          : '<button type="button" class="btn sm" data-restore="' + v.n + '">Restore</button>') + '</div>';
-      }).join('') || '<p class="px-empty">No history yet.</p>';
-      el.querySelectorAll('[data-restore]').forEach(function (b) { b.addEventListener('click', function () {
-        restore(Number(b.getAttribute('data-restore'))); }); });
-    }).catch(fail);
-  }
-  function restore(n) {
-    C.confirm({ title: 'Restore version ' + n + '?', body: 'Your files go back to how they were then. This is saved '
-      + 'as a new version, so you can undo it.', confirm: 'Restore' }).then(function (ok) {
-      if (ok) data.restoreWorkspace(id, n).then(function () { C.toast('Version ' + n + ' restored.', 'ok'); load(); })
-        .catch(fail);
-    });
-  }
-  function openFile(path) {
-    data.workspaceFile(id, path).then(function (f) {
-      var body = f.encoding === 'base64' && /^image\//.test(f.type) ? '<img class="wk-img" alt="' + esc(f.path)
-        + '" src="data:' + esc(f.type) + ';base64,' + f.content + '">' : f.encoding === 'base64'
-        ? '<p class="px-empty">' + esc(C.fmtBytes(f.size)) + ' font file.</p>' : '<pre class="wk-code"><code>'
-        + esc(f.content) + '</code></pre>';
-      C.sheet('<div class="px-sheet"><h2 class="h3">' + esc(f.path) + '</h2>' + body + '<div class="sheet-actions">'
-        + '<button type="button" class="btn ghost" data-close>Close</button></div></div>', function () {},
-      { label: f.path });
-    }).catch(fail);
+    if (st.tab === 'chat') {
+      cur = mountChat(pane, Object.assign(o, { onChanged: quiet, send: st.send }));
+      st.send = null;
+    } else if (st.tab === 'preview') {
+      cur = mountPreview(pane, Object.assign(o, { page: st.page, onPage: function (p) { st.page = p; },
+        onFix: function (text) { go('chat', { send: text }); } }));
+    } else if (st.tab === 'code') {
+      cur = mountCode(pane, Object.assign(o, { files: st.files, path: st.codePath, onSaved: quiet,
+        onPath: function (p) { st.codePath = p; } }));
+    } else if (st.tab === 'files') {
+      mountFiles(pane, Object.assign(o, { files: st.files, onChanged: function () { quiet().then(render); },
+        onEdit: function (p) { go('code', { codePath: p }); } }));
+    } else if (st.tab === 'term') {
+      cur = mountTerm(pane, Object.assign(o, { onChanged: quiet,
+        onOpen: function (p) { go('preview', { page: p }); } }));
+    }
   }
   function menu(anchor) {
     var w = st.workspace;

@@ -146,6 +146,13 @@ function RemoteChatData() {
     workspaceChat: function (id) { return api(wsp(id) + '/chat'); },   // v0.26.0 (step 2)
     sendWorkspaceChat: function (id, message) { return api(wsp(id) + '/chat', { method: 'POST',
       body: { message: message } }); },
+    // v0.27.0 (step 3): Preview (whole site), Code, Files and Terminal edits. Each write is a new version.
+    workspaceBundle: function (id) { return api(wsp(id) + '/bundle'); },
+    putWorkspaceFile: function (id, b) { return api(wsp(id) + '/file', { method: 'PUT', body: b }); },
+    moveWorkspaceFile: function (id, from, to) { return api(wsp(id) + '/file/move', { method: 'POST',
+      body: { from: from, to: to } }); },
+    deleteWorkspaceFile: function (id, path) { return api(wsp(id) + '/file?path=' + encodeURIComponent(path),
+      { method: 'DELETE' }); },
     // v0.24.0: a project's connected repository (components/project-context.js). A token goes up, never comes back.
     connectRepo: function (id, b) { return api(repo(id), { method: 'POST', body: b }); },
     syncRepo: function (id) { return api(repo(id) + '/sync', { method: 'POST' }); },

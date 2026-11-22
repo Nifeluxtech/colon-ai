@@ -2,7 +2,8 @@
    site; Colon writes or edits its files. POST /workspaces/:id/chat starts a reply in the background and GET polls it
    (every 2.5 s while "working"), so a long build never hangs a request. Each reply shows the files it changed and,
    while it is still the newest change, an Undo that restores the version from before it. mount(el, o) where
-   o = { id, data, onChanged }: onChanged() runs after the files change (the page refreshes its file list). */
+   o = { id, data, onChanged, send? }: onChanged() runs after the files change (the page refreshes its file list);
+   send (v0.27.0): a message to send as soon as the chat is free, e.g. the Preview tab's "Fix it". */
 import { Colon } from '../../../../packages/ui/js/colon.js';
 
 var C = Colon, icon = C.icon, esc = C.esc;
@@ -68,6 +69,7 @@ export function mount(el, o) {
       if (lastVersion !== null && h.version !== lastVersion && o.onChanged) o.onChanged();
       lastVersion = h.version;
       if (h.working) timer = setTimeout(load, POLL_MS);
+      if (o.send && !h.working) { input.value = o.send; o.send = null; grow(); form.requestSubmit(); }
     }).catch(function (e) {
       if (!el.isConnected) return;
       list.innerHTML = '<p class="px-empty">The chat didn’t load. ' + esc(e.message) + '</p>';

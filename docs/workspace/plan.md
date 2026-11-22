@@ -1,6 +1,6 @@
 # Colon Workspace — agreed 5-step plan
 
-Status: **Steps 1–2 shipped (v0.25.0, v0.26.0)** (Nov 22, 2026). Next: Step 3. Details per step: `step-N.md`. Source of truth for this feature.
+Status: **Steps 1–3 shipped (v0.25.0, v0.26.0, v0.27.0)** (Nov 22, 2026). Next: Step 4. Details per step: `step-N.md`. Source of truth for this feature.
 Origin: two ChatGPT "Design Colon Workspace" chats from the owner (chat-first builder + free tools list),
 summarised in `source-notes.md`. Where they differ from this file, **this file wins**.
 
@@ -55,6 +55,8 @@ chat is the default view.
   No server execution.
 - Code: Monaco editor on any file, save = new version. Files: tree, add/rename/delete, upload image.
 - Errors from the preview (window.onerror via postMessage) appear in chat with "Fix it" → sends to the model.
+- Added by the owner (Nov 22, 2026): a **Terminal** tab. File commands over the workspace API plus JavaScript
+  and Python (Pyodide) running on the user's phone in a sandboxed iframe's workers. Never a server shell.
 
 ### Step 4 — Publish to `apparatus.name.ng/<name>/`
 - No DNS, subdomain or SSL work: the main domain already has HTTPS. Find the main domain's document root
@@ -92,6 +94,6 @@ chat is the default view.
 ## Progress
 - [x] Step 1 — shell + storage (v0.25.0, see step-1.md)
 - [x] Step 2 — chat builds the site (v0.26.0, see step-2.md)
-- [ ] Step 3 — preview + code/files
+- [x] Step 3 — preview + code/files + terminal (v0.27.0)
 - [ ] Step 4 — publish to `apparatus.name.ng/<name>/`
 - [ ] Step 5 — polish, limits, release

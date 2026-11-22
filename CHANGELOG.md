@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.27.0 (2026-11-22) · Workspace, step 3: preview, code, files, terminal
+
+- **Preview tab**: the site as it will look once published, built on the phone from its files and shown in a
+  sandboxed iframe. Phone/desktop width, page picker, Refresh, links between pages. Page errors, broken links and
+  links starting with "/" are listed with **Fix it**, which sends them to the Chat tab.
+- **Code tab**: edit any text file in Monaco (plain text box if it can't load); Save makes a new version.
+- **Files tab**: New file, Upload (images and fonts up to 1 MB), Rename or move, Delete, tap to edit.
+- **Terminal tab** (new): `ls`, `cd`, `cat`, `echo > file`, `mv`, `cp`, `rm`, `grep`, `find`, `open`… over the
+  workspace's files, plus `node`/`js` and `python` (Pyodide 0.29.0, downloaded once, about 10 MB). Code runs on the
+  phone in workers inside a sandboxed iframe (no cookies or session), JS stops after 15 s, Python after 60 s, and
+  Stop ends a run. Nothing runs on the server. Details: `docs/workspace/step-3.md`.
+
 ## 0.26.1 (2026-11-22) · Workspace fix
 
 - Fix: opening a workspace failed in 0.26.0 (`quiet()` was declared in the list page instead of the workspace
