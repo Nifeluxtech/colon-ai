@@ -1,12 +1,14 @@
 /* Colon AI · Workspace (v0.25.0, Workspace step 1; plan: docs/workspace/plan.md): a chat-first website builder.
    The list (#/workspace: bar, search, rows, "New workspace" pill with a template sheet) and one workspace (#/w/:id)
    with five tabs: Chat (default), Preview, Code, Files and Publish. Step 1 ships the shell, storage, templates,
-   the Files tab (open any file, version history with restore) and the publish address; chat building (step 2),
+   the Files tab (open any file, version history with restore) and the publish address; chat building (step 2,
+   v0.26.0, components/workspace-chat.js),
    the live preview and editor (step 3) and publishing (step 4) fill the other tabs. Signed-in only. Reuses the
    Projects markup (components/project-ui.js) and its styles (chat-projects.css) plus chat-workspace.css. */
 import { Colon } from '../../../../packages/ui/js/colon.js';
 import * as UI from '../components/project-ui.js';
 import { CW } from '../core/cw.js';
+import { mount as mountChat } from '../components/workspace-chat.js';
 
 var C = Colon, icon = C.icon, esc = C.esc;
 CW.pages = CW.pages || {};
@@ -65,6 +67,9 @@ CW.pages.workspace = function (page) {
     + UI.skeletonHtml(3) + '</div>' + UI.fab('data-new', 'New workspace') + '</div>';
   var box = page.querySelector('.px-list'), q = page.querySelector('[data-q]');
   if (!data.listWorkspaces) { box.innerHTML = '<p class="px-empty">Log in to use Workspace.</p>'; return; }
+  function quiet() {   // the chat changed the files: refresh what the other tabs show, without redrawing the chat
+    data.getWorkspace(id).then(function (d) { st.workspace = d.workspace; st.files = d.files; }).catch(function () {});
+  }
   function render() {
     var term = q.value.trim().toLowerCase();
     var list = all.filter(function (w) { return !term || w.title.toLowerCase().indexOf(term) > -1; });
@@ -75,7 +80,9 @@ CW.pages.workspace = function (page) {
   page.querySelector('[data-new]').addEventListener('click', function () { newWorkspace(templates); });
   q.addEventListener('input', render);
   data.listWorkspaces().then(function (d) { all = d.workspaces || []; templates = d.templates || []; render(); })
-    .catch(function (e) { box.innerHTML = '<p class="px-empty">Workspaces didn’t load. ' + esc(e.message) + '</p>'; });
+    .catch(function (e) {
+      box.innerHTML = '<p class="px-empty">Workspaces didn’t load. ' + esc(e.message) + '</p>';
+    });
 };
 
 /* ---------- One workspace ---------- */
@@ -89,10 +96,7 @@ function fileRowHtml(f) {
     + '</small></span>' + icon('right') + '</button>';
 }
 var PANES = {
-  chat: function () {
-    return soon('sparkles', 'Chat building is next', 'Soon you’ll describe changes here (“add a pricing page”, '
-      + '“make the header blue”) and Colon will edit the files for you.');
-  },
+  chat: function () { return '<div data-chatpane></div>'; },   // v0.26.0: components/workspace-chat.js
   preview: function () {
     return soon('eye', 'Live preview is coming', 'Your site will show here, at phone and desktop widths, updating '
       + 'after every change.');
@@ -135,6 +139,7 @@ CW.pages.workspaceOne = function (page, ctx) {
       }).join('') + '</div><div class="wk-pane" role="tabpanel">' + PANES[st.tab](st) + '</div></div>';
     bind();
     if (st.tab === 'files') loadVersions();
+    if (st.tab === 'chat') mountChat(page.querySelector('[data-chatpane]'), { id: id, data: data, onChanged: quiet });
   }
   function bind() {
     page.querySelectorAll('[data-tab]').forEach(function (b) { b.addEventListener('click', function () {
