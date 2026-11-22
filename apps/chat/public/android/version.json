@@ -1,17 +1,17 @@
 {
-  "versionName": "0.27.0",
-  "versionCode": 2700,
-  "apkUrl": "https://github.com/Nifeluxtech/colon-ai/releases/download/v0.27.0/colon-ai-0.27.0.apk",
-  "releaseUrl": "https://github.com/Nifeluxtech/colon-ai/releases/tag/v0.27.0",
-  "notes": "Workspace now has a live preview, a code editor, full file editing and a Terminal that runs JavaScript and Python on your phone.",
+  "versionName": "0.27.1",
+  "versionCode": 2701,
+  "apkUrl": "https://github.com/Nifeluxtech/colon-ai/releases/download/v0.27.1/colon-ai-0.27.1.apk",
+  "releaseUrl": "https://github.com/Nifeluxtech/colon-ai/releases/tag/v0.27.1",
+  "notes": "Fixes the Workspace chat not showing Colon's reply.",
   "minSupportedVersionCode": 0,
   "publishedAt": "2026-11-22",
   "browser": {
-    "versionName": "0.27.0",
-    "versionCode": 2700,
-    "apkUrl": "https://github.com/Nifeluxtech/colon-ai/releases/download/v0.27.0/colon-browser-0.27.0.apk",
-    "releaseUrl": "https://github.com/Nifeluxtech/colon-ai/releases/tag/v0.27.0",
-    "notes": "Released alongside Colon AI 0.27.0 (no browser changes).",
+    "versionName": "0.27.1",
+    "versionCode": 2701,
+    "apkUrl": "https://github.com/Nifeluxtech/colon-ai/releases/download/v0.27.1/colon-browser-0.27.1.apk",
+    "releaseUrl": "https://github.com/Nifeluxtech/colon-ai/releases/tag/v0.27.1",
+    "notes": "Released alongside Colon AI 0.27.1 (no browser changes).",
     "minSupportedVersionCode": 0
   }
 }
