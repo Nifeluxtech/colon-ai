@@ -16,3 +16,10 @@ test('split takes NEEDS lines out of the note and parses them', () => {
   assert.equal(split('=== NEEDS: secret K1 as=header:X-Key').needs[0].as, 'header:X-Key');
   assert.equal(split('=== NEEDS: secret K1 as=weird').needs[0].as, 'bearer');
 });
+
+test('v0.30.0: a connection need is met once that service is connected', () => {
+  const n = split('Login pages ready.\n=== NEEDS: connection Supabase -- log in and register').needs[0];
+  assert.deepEqual(n, { kind: 'connection', name: 'supabase', why: 'log in and register' });
+  assert.equal(met(n, { connections: [] }), false);
+  assert.equal(met(n, { connections: [{ provider: 'supabase' }] }), true);
+});
