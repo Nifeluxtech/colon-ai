@@ -2,7 +2,7 @@
    The list (#/workspace: bar, search, rows, "New workspace" pill with a template sheet) and one workspace (#/w/:id)
    with six tabs: Chat (default; v0.26.0, components/workspace-chat.js), Preview, Code, Files and Terminal (v0.27.0,
    step 3: workspace-preview.js, workspace-code.js, workspace-files.js, workspace-term.js) and Publish (v0.28.0,
-   step 4: workspace-publish.js).
+   step 4: workspace-publish.js), with Data (v0.29.0, step 5: workspace-data.js) before Publish.
    Signed-in only. Reuses the Projects markup (components/project-ui.js) and its styles (chat-projects.css) plus
    chat-workspace.css. */
 import { Colon } from '../../../../packages/ui/js/colon.js';
@@ -14,11 +14,13 @@ import { mount as mountCode } from '../components/workspace-code.js';
 import { mount as mountFiles } from '../components/workspace-files.js';
 import { mount as mountTerm } from '../components/workspace-term.js';
 import { mount as mountPublish } from '../components/workspace-publish.js';
+import { mount as mountData } from '../components/workspace-data.js';
 
 var C = Colon, icon = C.icon, esc = C.esc;
 CW.pages = CW.pages || {};
 var TABS = [['chat', 'Chat', 'chat'], ['preview', 'Preview', 'eye'], ['code', 'Code', 'code'],
-  ['files', 'Files', 'folder'], ['term', 'Terminal', 'terminal'], ['publish', 'Publish', 'globe']];
+  ['files', 'Files', 'folder'], ['term', 'Terminal', 'terminal'], ['data', 'Data', 'database'],
+  ['publish', 'Publish', 'globe']];
 
 function fail(e) {
   C.toast(e.message, 'bad', e.code === 'quota' ? { label: 'See plans', fn: function () { C.go('/account/plan'); } }
@@ -149,6 +151,8 @@ CW.pages.workspaceOne = function (page, ctx) {
     } else if (st.tab === 'term') {
       cur = mountTerm(pane, Object.assign(o, { onChanged: quiet,
         onOpen: function (p) { go('preview', { page: p }); } }));
+    } else if (st.tab === 'data') {
+      cur = mountData(pane, o);
     } else if (st.tab === 'publish') {
       cur = mountPublish(pane, Object.assign(o, { workspace: w, files: st.files,
         onChanged: function () { quiet().then(render); } }));
