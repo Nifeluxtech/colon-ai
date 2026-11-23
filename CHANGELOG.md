@@ -1,5 +1,25 @@
 # Changelog
 
+## 0.29.0 (2026-11-23) · Workspace step 5: database and secret keys
+
+- Every workspace gets a **Data** tab (before Publish) with a small database and a safe key store, so a static
+  site can save orders, sign-ups or messages and call paid APIs without a key ever going into its files.
+- Database: tables of JSON records (8 KB each, 5000 per workspace, 20 tables). Each table says whether visitors
+  can read it and whether they can add to it; the owner sees, adds and deletes everything in Colon.
+- Secret keys: `NAME` = value, encrypted with AES-256-GCM (APP_SECRET), never shown again. Each key is tied to
+  one API host and sent as a Bearer token, a header or a URL parameter. A page calls the API through Colon's
+  proxy, which adds the key (https only, public addresses only, no redirects) and masks it in the answer.
+- Sites load `https://api.apparatus.name.ng/sites/<workspace>/colon.js` and use `Colon.data('orders').add({...})`,
+  `.list()` and `Colon.call('KEY', '/path')`. The Workspace chat knows the tables and key names (never values)
+  and, when a build needs one that doesn't exist, shows a card to create the table or add the key.
+- Preview no longer reports code inside scripts (`${esc(src)}`, `{{ x }}`, `' + href + '`) or an SVG's
+  `url(%23id)` as missing files.
+- New: migration 0024_workspace_data; owner routes `GET /workspaces/:id/data`, `PUT|DELETE
+  /workspaces/:id/secrets/:name`, `PUT|DELETE /workspaces/:id/tables/:name`, `GET|POST
+  /workspaces/:id/tables/:name/records`, `DELETE .../records/:rid`; public routes (any origin, no cookies, limited
+  per IP) `GET /sites/:key/colon.js`, `GET|POST /sites/:key/data/:name`, `POST /sites/:key/call/:name`. Details
+  and the device checklist: docs/workspace/step-5.md.
+
 ## 0.28.0 (2026-11-22) · Workspace step 4: Publish
 
 - The Publish tab puts a workspace live at `https://apparatus.name.ng/<name>/`: pick the name (checked as you
