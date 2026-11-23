@@ -7,6 +7,8 @@
    send (v0.27.0): a message to send as soon as the chat is free, e.g. the Preview tab's "Fix it". */
 import { Colon } from '../../../../packages/ui/js/colon.js';
 import { chipsHtml, openPlus, editInstructions, forget } from './workspace-plus.js';
+import { secretSheet, tableSheet } from './workspace-data-forms.js';
+import { split as splitNeeds, met } from '../lib/ws-needs.js';
 
 var C = Colon, icon = C.icon, esc = C.esc;
 var POLL_MS = 1500;
@@ -26,13 +28,25 @@ function changesHtml(m, undo) {
   }).join('') + '</ul>' + (undo ? '<button type="button" class="btn sm ghost" data-undo="' + m.version_before
     + '">' + icon('refresh') + 'Undo</button>' : '') + '</div>';
 }
-function msgHtml(m, current) {
+// v0.29.0 (step 5): a table or key the build needs shows as a card; done once the Data tab has it.
+function needsHtml(m, needs, dnow) {
+  return needs.map(function (n, i) {
+    var done = met(n, dnow), secret = n.kind === 'secret';
+    return '<div class="wk-need' + (done ? ' wk-need-ok' : '') + '">' + icon(secret ? 'key' : 'database')
+      + '<span><b>' + esc(secret ? 'Add the ' + n.name + ' key' : 'Create the “' + n.name + '” table') + '</b>'
+      + (n.why ? '<small>' + esc(n.why) + '</small>' : '') + '</span>' + (done ? '<em>' + icon('check') + 'Done</em>'
+      : '<button type="button" class="btn sm primary" data-need="' + m.id + ':' + i + '">' + (secret ? 'Add key'
+        : 'Create') + '</button>') + '</div>';
+  }).join('');
+}
+function msgHtml(m, current, dnow) {
   if (m.role === 'user') return '<div class="wk-msg wk-me">' + textHtml(m.content) + (m.kind === 'queued'
     ? '<span class="wk-q">' + icon('clock') + 'Queued: builds next</span>' : m.kind === 'dropped' || m.kind
     === 'stopped' ? '<span class="wk-q">' + icon('alert') + 'Stopped: not built</span>' : '') + '</div>';
-  var undo = !m.error && m.version_after != null && m.version_after === current;
+  var undo = !m.error && m.version_after != null && m.version_after === current, sp = splitNeeds(m.content);
   return '<div class="wk-msg wk-colon' + (m.error ? ' wk-err' : '') + '">' + (m.error ? icon('alert') : '')
-    + doneSteps(m) + '<p>' + textHtml(m.content) + '</p>' + changesHtml(m, undo) + '</div>';
+    + doneSteps(m) + '<p>' + textHtml(sp.text) + '</p>' + needsHtml(m, sp.needs, dnow) + changesHtml(m, undo)
+    + '</div>';
 }
 // v0.27.2: the steps Colon took (or is taking) for a reply, like other assistants show their tools.
 function secs(ms) { var n = Math.max(0, Math.round(ms / 1000)); return n < 60 ? n + 's' : Math.floor(n / 60) + 'm '
@@ -78,7 +92,8 @@ export function mount(el, o) {
     + 'aria-haspopup="menu" data-plus>' + icon('plus') + '</button><textarea rows="1" maxlength="4000" data-in '
     + 'aria-label="Message '
     + 'Colon" placeholder="Describe your site or a change…"></textarea><button type="submit" class="icon-btn '
-    + 'wk-send" aria-label="Send">' + icon('send') + '</button></div></form></div>';
+    + 'wk-send" aria-label="Send">' + icon('send') + '</button></div><button type="button" class="cw-jump btn sm" '
+    + 'data-jump hidden aria-label="Scroll to the latest message">' + icon('chevDown') + 'Latest</button></form></div>';
   var list = el.querySelector('.wk-msgs'), form = el.querySelector('form'), input = el.querySelector('[data-in]');
   var send = el.querySelector('.wk-send'), ctxs = el.querySelector('[data-ctxs]'), lastH = null, note = null;
   // v0.27.3: the + menu (clone / learn from a repository, instructions) and the chips for what is on
@@ -112,7 +127,7 @@ export function mount(el, o) {
     var tail = note ? '<div class="wk-msg wk-colon wk-working" role="status"><div class="wk-work-h"><span '
       + 'class="wk-dots"><i></i><i></i><i></i></span>' + esc(note) + '</div></div>' : h.working ? workingHtml(h, msgs)
       : msgs.length && msgs[msgs.length - 1].role === 'user' ? LOST : '';
-    list.innerHTML = msgs.length ? msgs.map(function (m) { return msgHtml(m, h.version); }).join('')
+    list.innerHTML = msgs.length ? msgs.map(function (m) { return msgHtml(m, h.version, dnow); }).join('')
       + tail : '<div class="wk-ideas"><p>What should we build? Describe it in your own '
       + 'words, or start with an idea:</p>' + IDEAS.map(function (t) {
         return '<button type="button" class="wk-idea" data-idea="' + esc(t) + '">' + icon('sparkles') + esc(t)
@@ -120,17 +135,47 @@ export function mount(el, o) {
       }).join('') + '</div>';
     list.querySelectorAll('[data-idea]').forEach(function (b) { b.addEventListener('click', function () {
       input.value = b.getAttribute('data-idea'); grow(); input.focus(); }); });
+    list.querySelectorAll('[data-need]').forEach(function (b) { b.addEventListener('click', function () {
+      var k = b.getAttribute('data-need').split(':');
+      var m = msgs.filter(function (x) { return String(x.id) === k[0]; })[0];
+      var n = m && splitNeeds(m.content).needs[Number(k[1])];
+      if (n) (n.kind === 'secret' ? secretSheet : tableSheet)({ id: id, data: data, onSaved: needData }, n);
+    }); });
     list.querySelectorAll('[data-undo]').forEach(function (b) { b.addEventListener('click', function () {
       undo(Number(b.getAttribute('data-undo'))); }); });
     list.querySelectorAll('details[data-mid]').forEach(function (d) {
       if (open[d.getAttribute('data-mid')]) d.open = true; });
     var sig = msgs.length + ':' + h.working + ':' + note;   // scroll only when something new arrives, not on every poll
+    var first = !seen;
     if (sig === seen) return;
     seen = sig;
-    list.scrollTop = list.scrollHeight;
-    var main = el.closest('.cw-screen');
-    if (main && msgs.length) main.scrollTop = main.scrollHeight;
+    if (first || stick) toEnd(); else jump.hidden = false;
   }
+  // v0.29.0: open on the newest message, follow new ones while at the bottom, ↓ button when scrolled up.
+  var jump = el.querySelector('[data-jump]'), stick = true, box = null;
+  function scroller() {
+    for (var n = el.parentElement; n && n !== document.body; n = n.parentElement) {
+      var y = getComputedStyle(n).overflowY;
+      if ((y === 'auto' || y === 'scroll') && n.scrollHeight > n.clientHeight) return n;
+    }
+    return document.scrollingElement || document.documentElement;
+  }
+  function gap() { box = box && box.isConnected ? box : scroller(); return box.scrollHeight - box.scrollTop
+    - box.clientHeight; }
+  function toEnd() {
+    var go = function () { box = scroller(); box.scrollTop = box.scrollHeight; stick = true; jump.hidden = true; };
+    go(); requestAnimationFrame(go); setTimeout(go, 350);
+  }
+  function onScroll() { if (!el.isConnected) return off(); stick = gap() < 120; if (stick) jump.hidden = true; }
+  function off() { window.removeEventListener('scroll', onScroll, true); }
+  window.addEventListener('scroll', onScroll, { capture: true, passive: true });
+  jump.addEventListener('click', toEnd);
+  var dnow = null;
+  function needData() {   // what the Data tab already has, so met needs show as Done
+    if (data.workspaceData) data.workspaceData(id).then(function (d) { dnow = d; if (lastH) render(lastH); })
+      .catch(function () {});
+  }
+  needData();
   function load() {
     clearTimeout(timer);
     if (!el.isConnected) return Promise.resolve();
