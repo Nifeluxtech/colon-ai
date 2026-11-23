@@ -15,6 +15,7 @@ const sideTalk = require('./side');
 const triage = require('./triage');
 const fast = require('./fast');
 const exporter = require('./exporter');
+const { tracker } = require('./steps');
 
 const MAX_MESSAGE = 4000;
 const HISTORY = 8;          // earlier messages the model sees
@@ -22,7 +23,8 @@ const STALE_MS = 5 * 60 * 1000;   // a reply not written by then is treated as l
 const QUEUE_STALE_MS = 15 * 60 * 1000;   // the same for a build that waited in the queue (v0.27.2)
 const SIDE_STALE_MS = 2 * 60 * 1000;     // ... and for a quick answer to a mid-build message
 // v0.27.3: a build gets 240 s; one with no progress for RUN_STALE_MS was lost (the process running it ended).
-const BUILD_MS = 240000, RUN_STALE_MS = 6 * 60 * 1000;
+// v0.31.4: a running build beats every BEAT_MS, so one silent for RUN_STALE_MS really was lost.
+const BUILD_MS = 240000, RUN_STALE_MS = 2 * 60 * 1000, BEAT_MS = 30000, HOLD_MS = 270000;
 const STOP = new RegExp('^\\s*(please\\s+)?(stop|cancel|abort|halt)'
   + '(\\s+(it|that|this|now|please|the build|building|everything))*[\\s.!]*$', 'i');
 const err = (status, code, message) => Object.assign(new Error(message), { status, code });
@@ -47,28 +49,6 @@ const alive = (m) => {
   return Date.now() - at < RUN_STALE_MS;
 };
 
-// v0.27.2: the live step list for one reply. Each change is saved on the user's message (any API process can then
-// answer the poll); writes are chained so they land in order, and a failed write never stops the reply.
-function tracker(save) {
-  const steps = [], t0 = Date.now();
-  let chain = Promise.resolve();
-  const flush = () => { const copy = steps.map((x) => ({ ...x })); chain = chain.then(() => save(copy)).catch(() => {});
-    return chain; };
-  const finish = (state, detail) => {
-    const cur = steps[steps.length - 1];
-    if (cur && cur.state === 'run') { cur.state = state; cur.ms = Date.now() - t0 - cur.start; }
-    if (cur && detail) cur.detail = String(detail).slice(0, 120);
-  };
-  return {
-    start(label, detail) { finish('done'); steps.push({ label, state: 'run', start: Date.now() - t0, at: Date.now(),
-      ...(detail ? { detail } : {}) }); return flush(); },
-    done(detail) { finish('done', detail); return flush(); },
-    fail(detail) { finish('fail', detail); return flush(); },
-    add(label, detail) { finish('done'); steps.push({ label, state: 'done', start: Date.now() - t0, ms: 0,
-      ...(detail ? { detail } : {}) }); },
-    list: () => steps.map((x) => ({ ...x })),
-  };
-}
 const kb = (n) => (n < 1024 ? `${n} B` : `${Math.round(n / 1024)} KB`);
 const VERB = { created: 'Created', edited: 'Edited', deleted: 'Deleted' };
 
@@ -114,6 +94,13 @@ function createChat({ engine, deps }) {
     if (running.has(w.id)) return false;
     let changed = false;
     for (const m of messages.filter((x) => x.role === 'user' && x.kind === 'running' && !alive(x))) {
+      // v0.31.4: the first time, the build starts again by itself (marked so it is never retried twice)
+      if (!m.steps.some((x) => x.retry) && (await store.claimKind(m.id, 'running', 'queued'))) {
+        changed = true;
+        await store.setSteps(m.id, [{ label: 'Starting again (the server restarted)', state: 'done', retry: true,
+          start: 0, ms: 0, at: Date.now() }]);
+        continue;
+      }
       if (!(await store.claimKind(m.id, 'running', 'lost'))) continue;
       changed = true;
       await store.setSteps(m.id, m.steps.map((x) => (x.state === 'run' ? { ...x, state: 'fail',
@@ -130,7 +117,7 @@ function createChat({ engine, deps }) {
     if (now.some((x) => x.role === 'user' && x.kind === 'running' && alive(x))) return null;
     const q = now.find((x) => x.role === 'user' && x.kind === 'queued' && young(x, QUEUE_STALE_MS));
     if (!q || !(await store.claimKind(q.id, 'queued', 'running'))) return null;
-    return drain(u, w, { id: q.id, content: q.content }, ctx);
+    return drain(u, w, { id: q.id, content: q.content, steps: q.steps }, ctx);
   }
 
   async function reply(u, w, m, ctx, t) {
@@ -200,30 +187,43 @@ function createChat({ engine, deps }) {
       version_after: applied.changes.length ? applied.version : null, steps: t.list() });
   }
 
-  // send(u, id, { message }) -> { message, working: true }; the reply lands in history() when it's ready.
+  // v0.31.4: { hold: true } keeps the request open while this process builds (up to HOLD_MS). The host stops API
+  // processes that look idle, which killed builds running after the reply; an open request keeps it working.
   async function send(u, id, body = {}, ctx = {}) {
+    const out = await start(u, id, body, ctx);
+    const job = body.hold && running.has(out.wsId) ? running.get(out.wsId).job : null;
+    delete out.wsId;
+    if (job) await Promise.race([job, new Promise((ok) => { const t = setTimeout(ok, HOLD_MS); job.then(() =>
+      clearTimeout(t), () => clearTimeout(t)); })]);
+    return out;
+  }
+  // start(u, id, { message }) -> { message, working: true }; the reply lands in history() when it's ready.
+  async function start(u, id, body = {}, ctx = {}) {
     const w = await engine.owned(u, id);
+    const tag = (out) => Object.assign(out, { wsId: w.id });
     const text = String(body.message == null ? '' : body.message).trim();
     if (!text) throw err(422, 'invalid', 'Tell Colon what to build or change.');
     if (text.length > MAX_MESSAGE) throw err(422, 'invalid', `Keep a message under ${MAX_MESSAGE} characters.`);
     const recent = (await store.messages(w.id, 30)).map(msgOut);
-    if (running.has(w.id) || pending(recent)) return side(u, w, text, recent, ctx);
+    if (running.has(w.id) || pending(recent)) return tag(await side(u, w, text, recent, ctx));
     // v0.31.2: commands and questions answer in seconds; only changes build (triage.js). deps.quick switches it on.
     if (deps.quick) {
       const t = STOP.test(text) ? { kind: 'answer', stop: true } : triage.classify(text);
-      if (t.kind === 'command') return command(w, text, t.action);
-      if (t.stop) return command(w, text, null, 'Nothing is building right now.');
-      if (t.kind === 'answer') return quick(u, w, text, recent, ctx);
+      if (t.kind === 'command') return tag(await command(w, text, t.action));
+      if (t.stop) return tag(await command(w, text, null, 'Nothing is building right now.'));
+      if (t.kind === 'answer') return tag(await quick(u, w, text, recent, ctx));
     }
     const mid = await store.addMessage(w.id, { role: 'user', content: text, kind: 'running' });
     const job = drain(u, w, { id: Number(mid), content: text }, ctx);
     if (ctx.wait) await job;   // tests
-    return { message: { id: Number(mid), role: 'user', content: text, kind: 'running' }, working: true };
+    return tag({ message: { id: Number(mid), role: 'user', content: text, kind: 'running' }, working: true });
   }
 
   const stopped = async (m) => (await store.kindOf(m.id).catch(() => 'running')) === 'stopped';
   async function build(u, w0, m, ctx0) {
-    const t = tracker((steps) => store.setSteps(m.id, steps));
+    const t = tracker((steps) => store.setSteps(m.id, steps), (m.steps || []).filter((x) => x.retry));
+    const beat = setInterval(() => t.beat(), BEAT_MS);   // v0.31.4: proof of life for other API processes
+    if (beat.unref) beat.unref();
     // each build gets its own time limit and stop switch, and the newest settings of the workspace
     const ctl = new AbortController();
     const limit = AbortSignal.timeout(BUILD_MS);
@@ -242,13 +242,15 @@ function createChat({ engine, deps }) {
         || 'Something went wrong while Colon was building. Nothing was changed; please try again.' })
         .catch(() => {});
     } finally {
+      clearInterval(beat);
       await store.claimKind(m.id, 'running', 'done').catch(() => {});
     }
   }
   // Builds m, then every request queued meanwhile, oldest first, in this process.
   function drain(u, w, first, ctx) {
-    running.set(w.id, { started: Date.now() });
-    return (async () => {
+    const slot = { started: Date.now() };
+    running.set(w.id, slot);
+    return (slot.job = (async () => {
       try {
         for (let m = first; m;) {
           await build(u, w, m, ctx);
@@ -259,7 +261,7 @@ function createChat({ engine, deps }) {
       } finally {
         running.delete(w.id);
       }
-    })();
+    })());
   }
 
   // A message sent mid-build: a quick answer from the live steps; a change request joins the queue.

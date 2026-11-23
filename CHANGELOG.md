@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.31.4 (2026-11-23) · Workspace builds survive the host stopping idle processes
+
+Builds kept ending with "This build stopped before it finished (the server restarted)". cPanel showed no crash in
+`stderr.log` and no memory, process or CPU faults; the host (LiteSpeed `lsnode`) stops API processes it sees as
+idle, and a build ran after its request had already been answered, so its process looked idle and was stopped.
+
+- **The build holds its request**: the chat sends `{ hold: true }` and the API keeps that request open while the
+  build (and anything queued behind it) runs in that process, up to 270 s. The composer is freed after 2 s as
+  before, and the poll shows progress (`chat.js` `send`, `workspace-chat.js`, `api-client.js`).
+- **Heartbeat**: a running build updates its current step every 30 s, so a build is treated as lost after 2 minutes
+  of silence instead of 6.
+- **One automatic restart**: a lost build is queued again once ("Starting again (the server restarted)") and only
+  reported as stopped if it is lost a second time.
+- `tracker` moved to `workspace/steps.js` (file size limit).
+
 ## 0.31.3 (2026-11-23) · Faster Workspace builds; send while building
 
 - **Send while building**: after a message was sent, the Workspace chat send button stayed disabled until the page

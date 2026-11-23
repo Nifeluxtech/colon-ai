@@ -176,8 +176,9 @@ function RemoteChatData() {
       + '/records' + (before ? '?before=' + encodeURIComponent(before) : '')); },
     deleteWorkspaceRecord: function (id, name, rid) { return api(wsp(id) + '/tables/' + encodeURIComponent(name)
       + '/records/' + encodeURIComponent(rid), { method: 'DELETE' }); },
+    // v0.31.4: hold keeps the request open while the build runs, so the host doesn't stop that API process
     sendWorkspaceChat: function (id, message) { return api(wsp(id) + '/chat', { method: 'POST',
-      body: { message: message } }); },
+      body: { message: message, hold: true } }); },
     // v0.27.0 (step 3): Preview (whole site), Code, Files and Terminal edits. Each write is a new version.
     workspaceBundle: function (id) { return api(wsp(id) + '/bundle'); },
     // v0.31.0: every file and folder as a .zip -> { blob, name, files } (owner only; the session cookie goes along)
