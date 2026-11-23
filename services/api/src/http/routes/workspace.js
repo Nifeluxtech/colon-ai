@@ -29,6 +29,10 @@ r.delete('/workspaces/:id/reference', requireUser, h.deleteReference);
 r.get('/workspaces/:id/publish/check', requireUser, perUser('workspace-read', 600, 3600), h.getPublishCheck);
 r.post('/workspaces/:id/publish', requireUser, perUser('workspace-publish', 60, 3600), h.postPublish);
 r.delete('/workspaces/:id/publish', requireUser, perUser('workspace-publish', 60, 3600), h.deletePublish);
+// v0.30.0: the user's publishing name, the first part of every site link (apparatus.name.ng/<username>/<site>/)
+r.get('/workspace-owner', requireUser, h.getOwner);
+r.get('/workspace-owner/check', requireUser, perUser('workspace-read', 600, 3600), h.getOwnerCheck);
+r.put('/workspace-owner', requireUser, perUser('workspace-publish', 60, 3600), h.putOwner);
 // v0.29.0 (step 5): secrets and the site's database (public side: routes/sites.js).
 r.get('/workspaces/:id/data', requireUser, perUser('workspace-read', 600, 3600), d.getData);
 r.put('/workspaces/:id/secrets/:name', requireUser, perUser('workspace-secret', 120, 3600), d.putSecret);
@@ -39,5 +43,9 @@ r.get('/workspaces/:id/tables/:name/records', requireUser, perUser('workspace-re
 r.post('/workspaces/:id/tables/:name/records', requireUser, perUser('workspace-write', 600, 3600), d.postRecord);
 r.delete('/workspaces/:id/tables/:name/records/:rid', requireUser, perUser('workspace-write', 600, 3600),
   d.deleteRecord);
+// v0.30.0: sign-in / database services the site connects to (Supabase, Firebase, Appwrite, PocketBase, Clerk)
+r.put('/workspaces/:id/connections/:provider', requireUser, perUser('workspace-secret', 120, 3600), d.putConnection);
+r.delete('/workspaces/:id/connections/:provider', requireUser, perUser('workspace-secret', 120, 3600),
+  d.deleteConnection);
 
 module.exports = r;
