@@ -3,6 +3,7 @@ const Router = require('../router');
 const { requireUser } = require('../../modules/auth').guards;
 const { perUser } = require('../middleware/ratelimit');
 const h = require('../../modules/workspace').handlers;
+const d = require('../../modules/workspace').dataHandlers;
 
 const BODY = { bodyLimit: 2 * 1024 * 1024 };   // a 1 MB image arrives base64-encoded (~1.4 MB)
 const r = new Router();
@@ -28,5 +29,15 @@ r.delete('/workspaces/:id/reference', requireUser, h.deleteReference);
 r.get('/workspaces/:id/publish/check', requireUser, perUser('workspace-read', 600, 3600), h.getPublishCheck);
 r.post('/workspaces/:id/publish', requireUser, perUser('workspace-publish', 60, 3600), h.postPublish);
 r.delete('/workspaces/:id/publish', requireUser, perUser('workspace-publish', 60, 3600), h.deletePublish);
+// v0.29.0 (step 5): secrets and the site's database (public side: routes/sites.js).
+r.get('/workspaces/:id/data', requireUser, perUser('workspace-read', 600, 3600), d.getData);
+r.put('/workspaces/:id/secrets/:name', requireUser, perUser('workspace-secret', 120, 3600), d.putSecret);
+r.delete('/workspaces/:id/secrets/:name', requireUser, perUser('workspace-secret', 120, 3600), d.deleteSecret);
+r.put('/workspaces/:id/tables/:name', requireUser, perUser('workspace-write', 600, 3600), d.putTable);
+r.delete('/workspaces/:id/tables/:name', requireUser, perUser('workspace-write', 600, 3600), d.deleteTable);
+r.get('/workspaces/:id/tables/:name/records', requireUser, perUser('workspace-read', 600, 3600), d.getRecords);
+r.post('/workspaces/:id/tables/:name/records', requireUser, perUser('workspace-write', 600, 3600), d.postRecord);
+r.delete('/workspaces/:id/tables/:name/records/:rid', requireUser, perUser('workspace-write', 600, 3600),
+  d.deleteRecord);
 
 module.exports = r;
