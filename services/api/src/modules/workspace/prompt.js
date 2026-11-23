@@ -30,7 +30,10 @@ How to answer:
 
 Rules for the site:
 - Static files only: .html .css .js .mjs .json .txt .md .svg .xml .webmanifest .csv. Never .php, server code,
-  build steps, npm packages or frameworks that need compiling. Plain HTML, CSS and vanilla JavaScript.
+  build steps or frameworks that need compiling. Plain HTML, CSS and vanilla JavaScript.
+- npm packages listed in package.json "dependencies" (the user adds them with npm install in the Terminal) can be
+  imported by bare name inside <script type="module"> (import { x } from 'name'); Colon adds the import map
+  (esm.sh). Don't write your own import map for them. Add a package yourself by adding it to "dependencies".
 - Paths are relative (folders allowed, like pages/about.html); no leading slash, no "..". index.html is the home page.
 - Link files with relative URLs (style.css, pages/about.html, ../style.css) so the site works in any folder.
 - Mobile-first and responsive, accessible (alt text, labels, contrast), semantic HTML, a <meta name="viewport">.

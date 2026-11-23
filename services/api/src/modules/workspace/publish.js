@@ -14,6 +14,7 @@
 const fs = require('fs');
 const nodePath = require('path');
 const crypto = require('crypto');
+const { importMap, withImportMap } = require('./pkgmap');
 
 const SITE = 'https://apparatus.name.ng/';
 const MARKER = '.colon-site';
@@ -125,6 +126,8 @@ function createPublisher({ store, root = defaultRoot(), fsx = fs } = {}) {
     const tmp = nodePath.join(base, '.colon-tmp-' + crypto.randomBytes(6).toString('hex'));
     const target = nodePath.join(base, name);
     await p.mkdir(tmp, { recursive: true });
+    const pkg = files.find((f) => f.path === 'package.json');
+    const map = importMap(pkg ? Buffer.from(pkg.content).toString('utf8') : '');
     try {
       for (const f of files) {
         if (f.path.split('/').some((s) => !s || s.startsWith('.') || s === '..')) continue;
@@ -132,7 +135,8 @@ function createPublisher({ store, root = defaultRoot(), fsx = fs } = {}) {
         if (!to.startsWith(tmp + nodePath.sep)) continue;
         await p.mkdir(nodePath.dirname(to), { recursive: true });
         const html = /\.html?$/i.test(f.path);
-        await p.writeFile(to, html ? withBadge(Buffer.from(f.content).toString('utf8'), where) : f.content);
+        const page = html && withImportMap(Buffer.from(f.content).toString('utf8'), map);
+        await p.writeFile(to, html ? withBadge(page, where) : f.content);
       }
       await p.writeFile(nodePath.join(tmp, '.htaccess'), HTACCESS);
       await p.writeFile(nodePath.join(tmp, MARKER), w.id + '\n');
