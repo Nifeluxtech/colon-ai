@@ -103,3 +103,30 @@ test('deleting the workspace hides its data; the sdk and prompt carry the key', 
   await engine.remove(ME, w.id);
   await assert.rejects(d.publicAdd(w.id, 'orders', { data: {} }), { status: 404 });
 });
+
+test('v0.30.0 connections: public settings saved, private keys refused, prompt gets the recipe', async () => {
+  const { d, w } = await setup();
+  const jwt = (role) => 'eyJhbGciOiJIUzI1NiJ9.' + Buffer.from(JSON.stringify({ role })).toString('base64url') + '.sig';
+  const sb = 'https://x.supabase.co';
+  await assert.rejects(d.putConnection(ME, w.id, 'supabase', { url: sb, anonKey: jwt('service_role') }),
+    (x) => x.code === 'private_key');
+  await assert.rejects(d.putConnection(ME, w.id, 'supabase', { url: 'http://x.supabase.co', anonKey: jwt('anon') }),
+    (x) => x.status === 422 && x.field === 'url');
+  await assert.rejects(d.putConnection(ME, w.id, 'clerk', { publishableKey: 'sk_live_abcdefghijkl' }),
+    (x) => x.status === 422);
+  await assert.rejects(d.putConnection(ME, w.id, 'myspace', {}), (x) => x.status === 404);
+  await assert.rejects(d.putConnection(OTHER, w.id, 'pocketbase', { url: 'https://pb.test' }), (x) => x.status === 404);
+  const out = await d.putConnection(ME, w.id, 'supabase', { url: 'https://x.supabase.co/', anonKey: jwt('anon') });
+  assert.equal(out.config.url, 'https://x.supabase.co');
+  await d.putConnection(ME, w.id, 'firebase', { apiKey: 'AIzaSyA1234567890abcdefghij', authDomain: 'p.firebaseapp.com',
+    projectId: 'proj-1', appId: '1:123:web:abc' });
+  const o = await d.overview(ME, w.id);
+  assert.deepEqual(o.connections.map((c) => c.provider), ['firebase', 'supabase']);
+  assert.ok(o.providers.some((p) => p.id === 'appwrite'));
+  const ctx = prompt.context({ files: [], data: { ...o, api: 'https://api.test' } });
+  assert.match(ctx, /createClient\('https:\/\/x\.supabase\.co'/);
+  assert.match(ctx, /firebase-auth\.js/);
+  assert.match(ctx, /NEEDS: connection/);
+  await d.deleteConnection(ME, w.id, 'firebase');
+  assert.equal((await d.overview(ME, w.id)).connections.length, 1);
+});

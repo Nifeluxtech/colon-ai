@@ -1,5 +1,5 @@
-// Unit tests for Workspace step 4 (modules/workspace/publish.js): name rules, writing a site to a temp document
-// root, the badge and .htaccess, republish under a new name, ownership of names, unpublish and delete.
+// Unit tests for Workspace publishing (modules/workspace/publish.js; v0.30.0 /<username>/<site>/ links): name
+// rules, per-user names, writing a site to a temp root, badge and .htaccess, legacy redirects, unpublish and delete.
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('fs');
@@ -17,54 +17,73 @@ function setup() {
 }
 const read = (root, p) => fs.readFileSync(path.join(root, p), 'utf8');
 
-test('names: format, reserved names and existing folders are refused', async () => {
+test('usernames: format, reserved names, existing folders and other users are refused', async () => {
   const { root, e } = setup();
-  const { workspace: w } = await e.add(ME, { title: 'Site', template: 'blank' });
-  for (const bad of ['ab', '-dash', 'dash-', 'a--b', 'x'.repeat(31), 'a_b', 'chat', 'api']) {
-    assert.equal((await e.checkName(ME, w.id, bad)).ok, false, bad);
+  for (const bad of ['ab', '-dash', 'dash-', 'a--b', 'x'.repeat(31), 'a_b', 'chat', 'api', 'cgi-bin', 'index.html']) {
+    assert.equal((await e.checkUsername(ME, bad)).ok, false, bad);
   }
-  assert.equal((await e.checkName(ME, w.id, 'cgi-bin')).ok, false);
-  assert.equal((await e.checkName(ME, w.id, 'index.html')).ok, false);
-  const ok = await e.checkName(ME, w.id, 'my-site');
-  assert.equal(ok.ok, true);
-  assert.equal(ok.url, 'https://apparatus.name.ng/my-site/');
+  assert.equal((await e.username(ME)).name, null);
+  assert.deepEqual(await e.setUsername(ME, 'Ada'), { name: 'ada' });
+  assert.equal((await e.checkUsername(OTHER, 'ada')).ok, false);
+  await assert.rejects(e.setUsername(OTHER, 'ada'), (x) => x.status === 422);
   fs.rmSync(root, { recursive: true, force: true });
 });
 
-test('publish writes the files, a badge, .htaccess and a marker; republish renames; unpublish removes', async () => {
+test('site names are per user: two users can both have "shop"', async () => {
   const { root, e } = setup();
+  const { workspace: a } = await e.add(ME, { title: 'A', template: 'portfolio' });
+  const { workspace: b } = await e.add(OTHER, { title: 'B', template: 'portfolio' });
+  await assert.rejects(e.publish(ME, a.id, { name: 'shop' }), (x) => x.code === 'no_username');
+  await e.setUsername(ME, 'ada');
+  await e.setUsername(OTHER, 'bola');
+  for (const bad of ['ab', 'a--b', 'a_b']) assert.equal((await e.checkName(ME, a.id, bad)).ok, false, bad);
+  assert.equal((await e.checkName(ME, a.id, 'shop')).url, 'https://apparatus.name.ng/ada/shop/');
+  const out = await e.publish(ME, a.id, { name: 'shop' });
+  assert.equal(out.url, 'https://apparatus.name.ng/ada/shop/');
+  assert.equal((await e.publish(OTHER, b.id, { name: 'shop' })).url, 'https://apparatus.name.ng/bola/shop/');
+  assert.equal((await e.get(ME, a.id)).workspace.published.url, 'https://apparatus.name.ng/ada/shop/');
+  const { workspace: a2 } = await e.add(ME, { title: 'A2', template: 'blank' });
+  assert.equal((await e.checkName(ME, a2.id, 'shop')).ok, false);
+  fs.rmSync(root, { recursive: true, force: true });
+});
+
+test('publish writes files, badge, .htaccess and markers; rename, username change, unpublish', async () => {
+  const { root, e } = setup();
+  await e.setUsername(ME, 'ada');
   const { workspace: w } = await e.add(ME, { title: 'Site', template: 'portfolio' });
-  const out = await e.publish(ME, w.id, { name: 'ada-site' });
-  assert.equal(out.url, 'https://apparatus.name.ng/ada-site/');
-  assert.match(read(root, 'ada-site/index.html'), /Made with Colon/);
-  assert.match(read(root, 'ada-site/.htaccess'), /php_flag engine off/);
-  assert.equal(read(root, 'ada-site/.colon-site').trim(), w.id);
-  assert.equal((await e.get(ME, w.id)).workspace.published.name, 'ada-site');
-  assert.equal(fs.readdirSync(root).filter((n) => n.startsWith('.colon-')).length, 0);
-
-  const { workspace: w2 } = await e.add(OTHER, { title: 'Other', template: 'blank' });
-  assert.equal((await e.checkName(OTHER, w2.id, 'ada-site')).ok, false);
-  await assert.rejects(e.publish(OTHER, w2.id, { name: 'ada-site' }), (x) => x.status === 422);
-
+  await e.publish(ME, w.id, { name: 'ada-site' });
+  assert.match(read(root, 'ada/ada-site/index.html'), /Made with Colon[\s\S]*ada%2Fada-site/);
+  assert.match(read(root, 'ada/ada-site/.htaccess'), /php_flag engine off/);
+  assert.equal(read(root, 'ada/ada-site/.colon-site').trim(), w.id);
+  assert.equal(read(root, 'ada/.colon-user').trim(), '1');
+  assert.equal(fs.readdirSync(path.join(root, 'ada')).filter((n) => n.startsWith('.colon-t')).length, 0);
   await e.publish(ME, w.id, { name: 'ada-two' });
-  assert.equal(fs.existsSync(path.join(root, 'ada-site')), false);
-  assert.ok(fs.existsSync(path.join(root, 'ada-two/index.html')));
-  await e.publish(ME, w.id, {});   // republish under the same name
-  assert.ok(fs.existsSync(path.join(root, 'ada-two/index.html')));
-
+  assert.equal(fs.existsSync(path.join(root, 'ada/ada-site')), false);
+  await e.setUsername(ME, 'adaeze');
+  assert.ok(fs.existsSync(path.join(root, 'adaeze/ada-two/index.html')));
+  assert.equal((await e.get(ME, w.id)).workspace.published.url, 'https://apparatus.name.ng/adaeze/ada-two/');
   await e.unpublish(ME, w.id);
-  assert.equal(fs.existsSync(path.join(root, 'ada-two')), false);
+  assert.equal(fs.existsSync(path.join(root, 'adaeze/ada-two')), false);
   assert.equal((await e.get(ME, w.id)).workspace.published, null);
   assert.equal(read(root, 'index.html'), 'main site');
   fs.rmSync(root, { recursive: true, force: true });
 });
 
-test('a site needs index.html; deleting a workspace takes its site down', async () => {
+test('a pre-v0.30.0 site at /<name>/ becomes a redirect on republish; delete removes everything', async () => {
   const { root, e } = setup();
-  const { workspace: w } = await e.add(ME, { title: 'Site', template: 'portfolio' });
-  await e.publish(ME, w.id, { name: 'gone-soon' });
+  const { workspace: w } = await e.add(ME, { title: 'Old', template: 'portfolio' });
+  fs.mkdirSync(path.join(root, 'tyyy'));
+  fs.writeFileSync(path.join(root, 'tyyy/.colon-site'), w.id + '\n');
+  fs.writeFileSync(path.join(root, 'tyyy/index.html'), 'old');
+  await e.store.update(ME.id, w.id, { slug: 'tyyy', published_version: 1, published_at: new Date() });
+  assert.equal((await e.get(ME, w.id)).workspace.published.url, 'https://apparatus.name.ng/tyyy/');
+  await e.setUsername(ME, 'ada');
+  await e.publish(ME, w.id, {});
+  assert.match(read(root, 'tyyy/.htaccess'), /RewriteRule \^\(\.\*\)\$ \/ada\/tyyy\/\$1 \[R=301,L\]/);
+  assert.ok(fs.existsSync(path.join(root, 'ada/tyyy/index.html')));
   await e.remove(ME, w.id);
-  assert.equal(fs.existsSync(path.join(root, 'gone-soon')), false);
+  assert.equal(fs.existsSync(path.join(root, 'tyyy')), false);
+  assert.equal(fs.existsSync(path.join(root, 'ada/tyyy')), false);
   const { workspace: b } = await e.add(ME, { title: 'Bare', template: 'blank' });
   await e.deleteFile(ME, b.id, 'index.html').catch(() => {});
   if (!(await e.get(ME, b.id)).files.some((f) => f.path === 'index.html')) {
