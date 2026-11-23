@@ -154,6 +154,14 @@ function RemoteChatData() {
     publishWorkspace: function (id, name) { return api(wsp(id) + '/publish', { method: 'POST',
       body: { name: name } }); },
     unpublishWorkspace: function (id) { return api(wsp(id) + '/publish', { method: 'DELETE' }); },
+    // v0.30.0: the publishing name (apparatus.name.ng/<username>/<site>/) and connected services
+    workspaceOwner: function () { return api('/workspace-owner'); },
+    checkWorkspaceOwner: function (name) { return api('/workspace-owner/check?name=' + encodeURIComponent(name)); },
+    setWorkspaceOwner: function (name) { return api('/workspace-owner', { method: 'PUT', body: { name: name } }); },
+    putWorkspaceConnection: function (id, p, b) { return api(wsp(id) + '/connections/' + encodeURIComponent(p),
+      { method: 'PUT', body: b }); },
+    deleteWorkspaceConnection: function (id, p) { return api(wsp(id) + '/connections/' + encodeURIComponent(p),
+      { method: 'DELETE' }); },
     // v0.29.0 (step 5): the site's database and secret keys (a key's value goes up, never comes back)
     workspaceData: function (id) { return api(wsp(id) + '/data'); },
     putWorkspaceSecret: function (id, name, b) { return api(wsp(id) + '/secrets/' + encodeURIComponent(name),
