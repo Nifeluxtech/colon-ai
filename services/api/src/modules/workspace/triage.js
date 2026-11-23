@@ -26,6 +26,12 @@ const SMALL = new RegExp('^\\s*(?:hi+|hey+|hello+|good\\s+(?:morning|afternoon|e
   + 'perfect|alright|yes|no|wow)\\b[\\s\\w,!.]{0,20}$', 'i');
 const ASK = new RegExp('^\\s*(?:what|what\'s|whats|how|why|where|when|who|which|is|are|does|do|did|was|were|explain|'
   + 'tell\\s+me|read|check|look\\s+at|summari[sz]e|review|visit)\\b', 'i');
+// v0.31.3: a plan, list or outline written in the chat ("list out the phases", "write out the 5 phase plan")
+const PLAN = new RegExp('(?:^|[\\n.!]\\s*)\\s*(?:please\\s+|just\\s+|can\\s+you\\s+|now\\s+)*(?:list|outline|plan|'
+  + 'suggest|brainstorm|summari[sz]e|describe|recommend|give\\s+me|write\\s+out|break\\s+down)\\b', 'i');
+// ... unless it also names a change to the site's files
+const EDIT = new RegExp('\\b(?:add|change|fix|remove|delete|replace|update|edit|move|rename|insert|redesign|resize|'
+  + 'build|create|make)\\b', 'i');
 // a question that asks for a change ("can you add a map?", "how about making it blue?") builds
 const CHANGE = new RegExp('\\b(?:add|make|change|create|build|fix|remove|delete|replace|update|edit|move|rename'
   + '|put|insert|turn|set|use|translate|redesign|style|resize|write|generate|connect|deploy|publish\\s+it)\\b', 'i');
@@ -42,6 +48,7 @@ function classify(text) {
   for (const [action, re] of COMMANDS) if (re.test(s)) return { kind: 'command', action };
   if (SMALL.test(s) && !CHANGE.test(s)) return { kind: 'answer' };
   if ((s.endsWith('?') || ASK.test(s)) && !CHANGE.test(s)) return { kind: 'answer' };
+  if (PLAN.test(s) && !EDIT.test(s)) return { kind: 'answer' };
   return { kind: 'build' };
 }
 
