@@ -130,6 +130,18 @@ const deletePublish = async (req) => {
   return [200, { ok: true }];
 };
 
+// ---------- v0.30.0: publishing name ----------
+// GET /workspace-owner -> { name|null }; GET /workspace-owner/check?name= -> { name, ok, reason? }
+const getOwner = async (req) => [200, await engine().username(req.user)];
+const getOwnerCheck = async (req) => [200, await engine().checkUsername(req.user, qp(req, 'name'))];
+// PUT /workspace-owner { name } -> { name }
+const putOwner = async (req) => {
+  const out = await engine().setUsername(req.user, (req.body || {}).name);
+  await audit(req, 'workspace.username_set', { actorId: req.user.id, targetType: 'user',
+    targetId: String(req.user.id), meta: { name: out.name } });
+  return [200, out];
+};
+
 module.exports = { getWorkspaces, postWorkspaces, getWorkspace, patchWorkspace, deleteWorkspace, getBundle, getFile,
   putFile, moveFile, deleteFile, getVersions, restoreVersion, getChat, postChat, setChatDeps, postRepo,
-  deleteReference, getPublishCheck, postPublish, deletePublish };
+  deleteReference, getPublishCheck, postPublish, deletePublish, getOwner, getOwnerCheck, putOwner };

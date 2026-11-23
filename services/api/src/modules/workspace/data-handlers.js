@@ -42,6 +42,15 @@ const getRecords = async (req) => [200, await data().records(req.user, p(req).id
 const postRecord = async (req) => [201, await data().addRecord(req.user, p(req).id, p(req).name, req.body || {})];
 const deleteRecord = async (req) => [200, await data().deleteRecord(req.user, p(req).id, p(req).name, p(req).rid)];
 
+// v0.30.0: PUT /workspaces/:id/connections/:provider { ...public settings } -> { provider, config }
+const putConnection = async (req) => {
+  const out = await data().putConnection(req.user, p(req).id, p(req).provider, req.body || {});
+  await audit(req, 'workspace.connected', { actorId: req.user.id, targetType: 'workspace',
+    targetId: String(p(req).id), meta: { provider: out.provider } });
+  return [200, out];
+};
+const deleteConnection = async (req) => [200, await data().deleteConnection(req.user, p(req).id, p(req).provider)];
+
 // ---- public: a page on the site ----
 // GET /sites/:key/colon.js -> the site script (sdk.js)
 const getScript = async (req, res) => {
@@ -53,5 +62,6 @@ const siteList = async (req) => [200, await data().publicList(p(req).key, p(req)
 const siteAdd = async (req) => [201, await data().publicAdd(p(req).key, p(req).name, req.body || {}), OPEN];
 const siteCall = async (req) => [200, await data().call(p(req).key, p(req).name, req.body || {}), OPEN];
 
-module.exports = { getData, putSecret, deleteSecret, putTable, deleteTable, getRecords, postRecord, deleteRecord,
+module.exports = { getData, putConnection, deleteConnection,
+  putSecret, deleteSecret, putTable, deleteTable, getRecords, postRecord, deleteRecord,
   getScript, siteList, siteAdd, siteCall, setDataDeps, info };

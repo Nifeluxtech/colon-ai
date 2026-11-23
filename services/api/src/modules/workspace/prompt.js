@@ -3,6 +3,8 @@
 // user names first, then the rest by size); the others are listed by path and size only. Images and fonts are
 // always listed, never sent. The reply format is parsed by edits.js.
 
+const { recipe } = require('./connect');
+
 const BUDGET = 60000;   // characters of file content per request (a 3-page site fits easily)
 
 const RULES = `You are Colon's website builder, working inside the user's Workspace: a small STATIC website (HTML, CSS,
@@ -90,7 +92,8 @@ function context({ files, message = '', title = '', instructions = '', reference
       + `otherwise):\n${String(instructions).slice(0, 4000)}` : '',
     reference ? 'Reference repository: follow its structure, conventions and visual style when building. Do not '
       + `copy it wholesale unless the user asks.\n${String(reference)}` : '',
-    data && data.key ? dataRules(data) : ''].filter(Boolean).join('\n\n');
+    data && data.key ? dataRules(data) : '',
+    data && data.key ? recipe(data.connections || []) : ''].filter(Boolean).join('\n\n');
 }
 
 module.exports = { context, RULES, BUDGET };

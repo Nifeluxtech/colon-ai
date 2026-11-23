@@ -51,6 +51,17 @@ function dataSqlStore(q) {
         AND id = ?`, [wsId, name, Number(id)]);
       return r.affectedRows > 0;
     },
+    // v0.30.0: connected services (connect.js), config as JSON
+    connections: (wsId) => q.query(`SELECT provider, config, updated_at FROM colon_workspace_connections
+      WHERE workspace_id = ? ORDER BY provider`, [wsId]),
+    putConnection: (wsId, provider, config) => q.query(`INSERT INTO colon_workspace_connections (workspace_id,
+      provider, config, updated_at) VALUES (?,?,?, UTC_TIMESTAMP(3)) ON DUPLICATE KEY UPDATE config = VALUES(config),
+      updated_at = VALUES(updated_at)`, [wsId, provider, config]),
+    async deleteConnection(wsId, provider) {
+      const r = await q.query('DELETE FROM colon_workspace_connections WHERE workspace_id = ? AND provider = ?',
+        [wsId, provider]);
+      return r.affectedRows > 0;
+    },
   };
 }
 
@@ -110,6 +121,18 @@ function dataMemoryStore(wsMemory) {
       const n = s.records.length;
       s.records = s.records.filter((r) => !(r.workspace_id === wsId && r.collection === name && r.id === Number(id)));
       return s.records.length < n;
+    },
+    async connections(wsId) {
+      return of(s.conns || [], wsId).sort((a, b) => (a.provider < b.provider ? -1 : 1));
+    },
+    async putConnection(wsId, provider, config) {
+      s.conns = (s.conns || []).filter((c) => !(c.workspace_id === wsId && c.provider === provider));
+      s.conns.push({ workspace_id: wsId, provider, config, updated_at: now() });
+    },
+    async deleteConnection(wsId, provider) {
+      const n = (s.conns || []).length;
+      s.conns = (s.conns || []).filter((c) => !(c.workspace_id === wsId && c.provider === provider));
+      return s.conns.length < n;
     },
   };
 }
