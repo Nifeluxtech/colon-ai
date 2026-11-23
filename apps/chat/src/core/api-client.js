@@ -154,6 +154,20 @@ function RemoteChatData() {
     publishWorkspace: function (id, name) { return api(wsp(id) + '/publish', { method: 'POST',
       body: { name: name } }); },
     unpublishWorkspace: function (id) { return api(wsp(id) + '/publish', { method: 'DELETE' }); },
+    // v0.29.0 (step 5): the site's database and secret keys (a key's value goes up, never comes back)
+    workspaceData: function (id) { return api(wsp(id) + '/data'); },
+    putWorkspaceSecret: function (id, name, b) { return api(wsp(id) + '/secrets/' + encodeURIComponent(name),
+      { method: 'PUT', body: b }); },
+    deleteWorkspaceSecret: function (id, name) { return api(wsp(id) + '/secrets/' + encodeURIComponent(name),
+      { method: 'DELETE' }); },
+    putWorkspaceTable: function (id, name, b) { return api(wsp(id) + '/tables/' + encodeURIComponent(name),
+      { method: 'PUT', body: b }); },
+    deleteWorkspaceTable: function (id, name) { return api(wsp(id) + '/tables/' + encodeURIComponent(name),
+      { method: 'DELETE' }); },
+    workspaceRecords: function (id, name, before) { return api(wsp(id) + '/tables/' + encodeURIComponent(name)
+      + '/records' + (before ? '?before=' + encodeURIComponent(before) : '')); },
+    deleteWorkspaceRecord: function (id, name, rid) { return api(wsp(id) + '/tables/' + encodeURIComponent(name)
+      + '/records/' + encodeURIComponent(rid), { method: 'DELETE' }); },
     sendWorkspaceChat: function (id, message) { return api(wsp(id) + '/chat', { method: 'POST',
       body: { message: message } }); },
     // v0.27.0 (step 3): Preview (whole site), Code, Files and Terminal edits. Each write is a new version.
