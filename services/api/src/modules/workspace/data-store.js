@@ -51,12 +51,17 @@ function dataSqlStore(q) {
         AND id = ?`, [wsId, name, Number(id)]);
       return r.affectedRows > 0;
     },
-    // v0.30.0: connected services (connect.js), config as JSON
-    connections: (wsId) => q.query(`SELECT provider, config, updated_at FROM colon_workspace_connections
-      WHERE workspace_id = ? ORDER BY provider`, [wsId]),
-    putConnection: (wsId, provider, config) => q.query(`INSERT INTO colon_workspace_connections (workspace_id,
-      provider, config, updated_at) VALUES (?,?,?, UTC_TIMESTAMP(3)) ON DUPLICATE KEY UPDATE config = VALUES(config),
-      updated_at = VALUES(updated_at)`, [wsId, provider, config]),
+    // v0.30.0: connected services (connect.js), config as JSON; v0.31.0 secret_enc (server access) and state
+    connections: (wsId) => q.query(`SELECT provider, config, secret_enc IS NOT NULL AS has_secret, state, updated_at
+      FROM colon_workspace_connections WHERE workspace_id = ? ORDER BY provider`, [wsId]),
+    connection: (wsId, provider) => q.one(`SELECT provider, config, secret_enc, state, updated_at
+      FROM colon_workspace_connections WHERE workspace_id = ? AND provider = ?`, [wsId, provider]),
+    putConnection: (wsId, provider, config, secretEnc = null) => q.query(`INSERT INTO colon_workspace_connections
+      (workspace_id, provider, config, secret_enc, updated_at) VALUES (?,?,?,?, UTC_TIMESTAMP(3))
+      ON DUPLICATE KEY UPDATE config = VALUES(config), secret_enc = VALUES(secret_enc),
+      updated_at = VALUES(updated_at)`, [wsId, provider, config, secretEnc]),
+    setConnectionState: (wsId, provider, state) => q.query(`UPDATE colon_workspace_connections SET state = ?
+      WHERE workspace_id = ? AND provider = ?`, [state, wsId, provider]),
     async deleteConnection(wsId, provider) {
       const r = await q.query('DELETE FROM colon_workspace_connections WHERE workspace_id = ? AND provider = ?',
         [wsId, provider]);
@@ -123,11 +128,22 @@ function dataMemoryStore(wsMemory) {
       return s.records.length < n;
     },
     async connections(wsId) {
-      return of(s.conns || [], wsId).sort((a, b) => (a.provider < b.provider ? -1 : 1));
+      return of(s.conns || [], wsId).sort((a, b) => (a.provider < b.provider ? -1 : 1))
+        .map((c) => ({ provider: c.provider, config: c.config, has_secret: c.secret_enc ? 1 : 0, state: c.state,
+          updated_at: c.updated_at }));
     },
-    async putConnection(wsId, provider, config) {
+    async connection(wsId, provider) {
+      return of(s.conns || [], wsId).find((c) => c.provider === provider) || null;
+    },
+    async putConnection(wsId, provider, config, secretEnc = null) {
+      const had = of(s.conns || [], wsId).find((c) => c.provider === provider);
       s.conns = (s.conns || []).filter((c) => !(c.workspace_id === wsId && c.provider === provider));
-      s.conns.push({ workspace_id: wsId, provider, config, updated_at: now() });
+      s.conns.push({ workspace_id: wsId, provider, config, secret_enc: secretEnc, state: had ? had.state : null,
+        updated_at: now() });
+    },
+    async setConnectionState(wsId, provider, state) {
+      const c = of(s.conns || [], wsId).find((x) => x.provider === provider);
+      if (c) c.state = state;
     },
     async deleteConnection(wsId, provider) {
       const n = (s.conns || []).length;

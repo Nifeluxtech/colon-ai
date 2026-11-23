@@ -87,6 +87,14 @@ chat is the default view.
 - Custom domains: NOT built. The cPanel plan allows 1 addon + 3 alias domains and has no shell; the user chose to
   skip domains for now (Nov 23, 2026). Revisit only after a hosting upgrade.
 
+### Step 5c — IDE tab, server access, Git (v0.31.0, Nov 23, 2026, user's request)
+- Files + Code + Terminal merged into one Code tab (components/workspace-ide*.js, lib/ws-tree.js): folder tree,
+  tabbed Monaco editor, Shell; phone layout = drawer + bottom panel. Folder move/delete endpoints (folders.js).
+- Connections get optional server access (encrypted `secret_enc`, migration 0026): remote/ adapters for Supabase,
+  Firebase, Appwrite, PocketBase; git/ for GitHub and Bitbucket (commit & push, PRs, merge). The chat uses them via
+  tool blocks with a ≤3-round read loop (tools.js). Preview "Please refresh" fixed in lib/ws-site.js. Details:
+  step-5c.md.
+
 ### Step 6 — Polish, limits, release
 - Quotas wired to billing plans; Admin Dashboard list of published sites with takedown.
 - Basic traffic count per site (Apache log or a tiny pixel hit endpoint), optional.
@@ -113,6 +121,7 @@ chat is the default view.
 - [x] Step 4 — publish to `apparatus.name.ng/<name>/` (v0.28.0, see step-4.md)
 - [x] Step 5 — database and secret keys (v0.29.0, see step-5.md)
 - [x] Step 5b — sign-in services, /<username>/<site>/ links (v0.30.0, see step-5b.md)
+- [x] Step 5c — IDE tab, database server access, GitHub/Bitbucket (v0.31.0, see step-5c.md)
 - [ ] Custom domains (skipped for now by the user; see Step 5b)
 - [ ] Step 6 — polish, limits, release
 

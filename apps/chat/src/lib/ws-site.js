@@ -7,6 +7,10 @@
    "nav" messages, because a srcdoc page can't follow relative links by itself.
    Paths resolve exactly as they will once published at apparatus.name.ng/<name>/: a link starting with "/" would
    point outside the site there, so it is reported as a warning instead of being followed.
+   v0.31.0: a srcdoc page resolves anything left relative or "/"-rooted against COLON's own address, so a reference
+   that isn't one of the site's files is now blanked (with its warning) instead of loading Colon's app files; JS
+   modules' relative imports (folders: import x from './lib/a.js') are inlined as data: modules; and a page that is a
+   copy of Colon's own app page (it showed "Please refresh") is replaced by a notice saying so.
    Pure and DOM-free: unit-tested in packages/ui/test/ws-site.test.js. */
 import { importMap, withImportMap } from './ws-pkg.js';
 
@@ -68,6 +72,28 @@ function cssUrls(css, from, files, warn) {
   });
 }
 
+// v0.31.0: relative imports in JS modules -> data: modules (recursively, so folders of modules work)
+var IMPORT = new RegExp('(\\bimport\\s*(?:[\\w$*{}\\s,]+?\\s*from\\s*)?|\\bexport\\s*[\\w$*{}\\s,]+?\\s*from\\s*|'
+  + '\\bimport\\s*\\(\\s*)([\'"])([^\'"\\n]+)\\2', 'g');
+function inlineImports(code, from, files, warn, seen) {
+  return String(code).replace(IMPORT, function (all, head, q, spec) {
+    if (!/^(\.{1,2}\/|\/)/.test(spec)) return all;   // bare names (import map) and URLs stay
+    var p = resolvePath(from, spec);
+    if (p === null) return all;
+    if (p === '' || !files[p]) { warn(from, spec, p === ''); return head + q + 'data:text/javascript,' + q; }
+    if ((seen || []).indexOf(p) > -1 || (seen || []).length > 8) return all;
+    var f = files[p], body = /\.m?js$/i.test(p) ? inlineImports(f.content, p, files, warn, (seen || []).concat(p))
+      : f.content;
+    return head + q + dataUrl({ type: /\.json$/i.test(p) ? 'application/json' : 'text/javascript', content: body,
+      encoding: f.encoding }) + q;
+  });
+}
+var COLON_PAGE = /\/v\d+\.\d+\.\d+\/apps\/(chat|browser|admin)\/|window\.colonKitReady\s*=/;
+var COLON_NOTE = '<!doctype html><meta name="viewport" content="width=device-width,initial-scale=1"><body style="'
+  + 'font:15px/1.5 system-ui,sans-serif;padding:24px;color:#0f172a"><h2 style="margin:0 0 8px">This page is a copy of '
+  + 'Colon AI’s own app</h2><p>It loads Colon’s app files, which can’t run inside your site (that is why it showed '
+  + '“Please refresh”). Replace this file with your own page, or ask Colon in Chat to build your home page.</p>';
+
 var ATTR = new RegExp('(<(?:img|source|audio|video|track|embed|input|link|script|iframe)\\b[^>]*?\\s)'
   + '(src|href|poster)=(["\'])([^"\']*)\\3', 'gi');
 
@@ -82,26 +108,35 @@ function buildPage(fileList, path, bridge) {
     if (warnings.indexOf(w) < 0) warnings.push(w);
   }
   var html = String(page.content);
+  if (COLON_PAGE.test(html)) {
+    warnings.push(path + ' is a copy of Colon AI’s own app page, not a page of your site. Replace it with your own.');
+    return { html: COLON_NOTE, warnings: warnings, colonCopy: true };
+  }
   // <link rel="stylesheet" href="local.css"> -> <style>
   html = html.replace(/<link\b[^>]*>/gi, function (tag) {
     if (!/rel=["']?stylesheet/i.test(tag)) return tag;
     var m = tag.match(/href=(["'])([^"']*)\1/i), p = m && resolvePath(path, m[2]);
     if (!m || p === null) return tag;
-    if (p === '' || !files[p]) { warn(path, m[2], p === ''); return tag; }
+    if (p === '' || !files[p]) { warn(path, m[2], p === ''); return tag.replace(m[0], 'href="about:blank"'); }
     return '<style data-from="' + p + '">' + cssUrls(String(files[p].content), p, files, warn) + '</style>';
   });
   // <script src="local.js"></script> -> inline
   html = html.replace(/<script\b([^>]*)\bsrc=(["'])([^"']*)\2([^>]*)>\s*<\/script>/gi, function (all, a, q, ref, b) {
     var p = resolvePath(path, ref);
     if (p === null) return all;
-    if (p === '' || !files[p]) { warn(path, ref, p === ''); return all; }
-    return '<script' + a + b + '>' + String(files[p].content).replace(/<\/script/gi, '<\\/script') + '\n</script>';
+    if (p === '' || !files[p]) { warn(path, ref, p === ''); return '<script' + a + b + ' data-missing></script>'; }
+    return '<script data-from="' + p + '"' + a + b + '>' + inlineImports(files[p].content, p, files, warn)
+      .replace(/<\/script/gi, '<\\/script') + '\n</script>';
   });
   html = html.replace(ATTR, function (all, head, attr, q, ref) {
     var p = resolvePath(path, ref);
     if (p === null || /^<link\b/i.test(head) && /stylesheet/i.test(head)) return all;
-    if (p === '' || !files[p]) { warn(path, ref, p === ''); return all; }
+    if (p === '' || !files[p]) { warn(path, ref, p === ''); return head + attr + '=' + q + 'about:blank' + q; }
     return head + attr + '=' + q + dataUrl(files[p]) + q;
+  });
+  var INLINE = /(<script\b(?![^>]*\b(?:src|data-from)=)[^>]*>)([\s\S]*?)(<\/script>)/gi;
+  html = html.replace(INLINE, function (all, a, js, b) {
+    return /type=["']?module/i.test(a) ? a + inlineImports(js, path, files, warn) + b : all;
   });
   html = html.replace(/(<style\b[^>]*>)([\s\S]*?)(<\/style>)/gi, function (all, a, css, b) {
     return /data-from=/.test(a) ? all : a + cssUrls(css, path, files, warn) + b;

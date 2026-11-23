@@ -72,3 +72,25 @@ test('v0.30.0: the preview bridge gives sign-in libraries in-memory storage when
   assert.equal(win.localStorage.length, 1);
   assert.equal(win.sessionStorage.real, true);
 });
+
+test('v0.31.0: nothing loads from Colon’s address; folder modules are inlined; a copy of Colon’s app is named', () => {
+  const t = (path, content) => ({ path, content, encoding: 'utf8', type: 'text/plain' });
+  const files = [t('index.html', '<html><head><script type="module">import { a } from "./js/app.js";'
+    + 'import z from "lib";</script><script src="/main.js"></script><link rel="stylesheet" href="gone.css">'
+    + '</head><body><img src="/logo.png"></body></html>'), t('js/app.js', 'import { b } from "./lib/b.js";'
+    + 'export const a = b;'), t('js/lib/b.js', 'export const b = 1;')];
+  const r = buildPage(files, 'index.html', '');
+  assert.doesNotMatch(r.html, /src="\/main\.js"|src="\/logo\.png"|href="gone\.css"/);
+  assert.match(r.html, /<script\s+data-missing><\/script>/);
+  assert.match(r.html, /src="about:blank"/);
+  assert.match(r.html, /from "data:text\/javascript;base64,/);
+  assert.match(r.html, /import z from "lib"/);
+  const inner = Buffer.from(/from "data:text\/javascript;base64,([^"]+)"/.exec(r.html)[1], 'base64').toString();
+  assert.match(inner, /from "data:text\/javascript;base64,/);
+  assert.equal(r.warnings.length, 3);
+  const copy = buildPage([t('index.html', '<script type="module" src="/v0.30.1/apps/chat/src/main.js"></script>')],
+    'index.html', '');
+  assert.equal(copy.colonCopy, true);
+  assert.match(copy.html, /copy of Colon AI’s own app/);
+  assert.doesNotMatch(copy.html, /v0\.30\.1/);
+});

@@ -21,6 +21,8 @@ const LIMITS = {
   versions: 20,            // newest snapshots kept
 };
 const SEGMENT = /^[A-Za-z0-9_][A-Za-z0-9._-]{0,63}$/;
+// v0.31.0: an empty folder is kept as <folder>/.gitkeep (the IDE's New folder; Git keeps it too)
+const KEEP = '.gitkeep';
 
 const bad = (message) => Object.assign(new Error(message), { status: 422, code: 'invalid', field: 'path' });
 
@@ -32,8 +34,9 @@ function cleanPath(v) {
   if (p.length > LIMITS.pathChars) throw bad(`File paths can be up to ${LIMITS.pathChars} characters.`);
   const parts = p.split('/');
   if (parts.length > LIMITS.depth) throw bad(`Folders can be up to ${LIMITS.depth - 1} levels deep.`);
-  for (const s of parts) {
+  for (const [i, s] of parts.entries()) {
     if (s === '..' || s === '.') throw bad('File paths can’t contain “..”.');
+    if (s === KEEP && i === parts.length - 1 && i > 0) continue;
     if (!SEGMENT.test(s)) {
       throw bad(`“${s}” isn’t allowed. Use letters, numbers, dots, dashes and underscores, not starting with a dot.`);
     }
@@ -47,6 +50,7 @@ function ext(p) { const m = /\.([A-Za-z0-9]+)$/.exec(String(p)); return m ? m[1]
 
 // -> { mime, text: bool } or null when the type isn't allowed.
 function typeOf(p) {
+  if (String(p).split('/').pop() === KEEP) return { mime: 'text/plain', text: true };
   const e = ext(p);
   if (TEXT[e]) return { mime: TEXT[e], text: true };
   if (BINARY[e]) return { mime: BINARY[e], text: false };
@@ -70,4 +74,4 @@ function contentBuffer(path, content, encoding) {
   return buf;
 }
 
-module.exports = { cleanPath, typeOf, contentBuffer, LIMITS, TEXT, BINARY };
+module.exports = { cleanPath, typeOf, contentBuffer, LIMITS, TEXT, BINARY, KEEP };

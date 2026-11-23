@@ -1,8 +1,8 @@
 /* Colon AI · Workspace (v0.25.0, Workspace step 1; plan: docs/workspace/plan.md): a chat-first website builder.
    The list (#/workspace: bar, search, rows, "New workspace" pill with a template sheet) and one workspace (#/w/:id)
-   with six tabs: Chat (default; v0.26.0, components/workspace-chat.js), Preview, Code, Files and Terminal (v0.27.0,
-   step 3: workspace-preview.js, workspace-code.js, workspace-files.js, workspace-term.js) and Publish (v0.28.0,
-   step 4: workspace-publish.js), with Data (v0.29.0, step 5: workspace-data.js) before Publish.
+   with five tabs: Chat (default; v0.26.0, components/workspace-chat.js), Preview (v0.27.0), Code (v0.31.0: Files,
+   editor and Terminal in one IDE screen, workspace-ide.js), Data (v0.29.0, workspace-data.js) and Publish
+   (v0.28.0, workspace-publish.js).
    Signed-in only. Reuses the Projects markup (components/project-ui.js) and its styles (chat-projects.css) plus
    chat-workspace.css. */
 import { Colon } from '../../../../packages/ui/js/colon.js';
@@ -10,17 +10,15 @@ import * as UI from '../components/project-ui.js';
 import { CW } from '../core/cw.js';
 import { mount as mountChat } from '../components/workspace-chat.js';
 import { mount as mountPreview } from '../components/workspace-preview.js';
-import { mount as mountCode } from '../components/workspace-code.js';
-import { mount as mountFiles } from '../components/workspace-files.js';
-import { mount as mountTerm } from '../components/workspace-term.js';
+import { mount as mountIde } from '../components/workspace-ide.js';
 import { mount as mountPublish } from '../components/workspace-publish.js';
 import { mount as mountData } from '../components/workspace-data.js';
 
 var C = Colon, icon = C.icon, esc = C.esc;
 CW.pages = CW.pages || {};
-var TABS = [['chat', 'Chat', 'chat'], ['preview', 'Preview', 'eye'], ['code', 'Code', 'code'],
-  ['files', 'Files', 'folder'], ['term', 'Terminal', 'terminal'], ['data', 'Data', 'database'],
-  ['publish', 'Publish', 'globe']];
+// v0.31.0: Files, Code and Terminal are one tab (Code: workspace-ide.js), laid out like a desktop IDE.
+var TABS = [['chat', 'Chat', 'chat'], ['preview', 'Preview', 'eye'], ['ide', 'Code', 'code'],
+  ['data', 'Data', 'database'], ['publish', 'Publish', 'globe']];
 
 function fail(e) {
   C.toast(e.message, 'bad', e.code === 'quota' ? { label: 'See plans', fn: function () { C.go('/account/plan'); } }
@@ -142,15 +140,9 @@ CW.pages.workspaceOne = function (page, ctx) {
     } else if (st.tab === 'preview') {
       cur = mountPreview(pane, Object.assign(o, { page: st.page, onPage: function (p) { st.page = p; },
         onFix: function (text) { go('chat', { send: text }); } }));
-    } else if (st.tab === 'code') {
-      cur = mountCode(pane, Object.assign(o, { files: st.files, path: st.codePath, onSaved: quiet,
-        onPath: function (p) { st.codePath = p; } }));
-    } else if (st.tab === 'files') {
-      mountFiles(pane, Object.assign(o, { files: st.files, onChanged: function () { quiet().then(render); },
-        onEdit: function (p) { go('code', { codePath: p }); } }));
-    } else if (st.tab === 'term') {
-      cur = mountTerm(pane, Object.assign(o, { onChanged: quiet,
-        onOpen: function (p) { go('preview', { page: p }); } }));
+    } else if (st.tab === 'ide') {
+      cur = mountIde(pane, Object.assign(o, { files: st.files, path: st.codePath, onChanged: quiet,
+        onPath: function (p) { st.codePath = p; }, onOpen: function (p) { go('preview', { page: p }); } }));
     } else if (st.tab === 'data') {
       cur = mountData(pane, o);
     } else if (st.tab === 'publish') {

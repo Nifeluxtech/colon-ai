@@ -1,5 +1,32 @@
 # Changelog
 
+## 0.31.0 (2026-11-23) · Workspace: one Code tab, real databases and Git
+
+- **Code tab**: Files, Code and Terminal are now one IDE screen. A file tree with real folders (open and close,
+  New file / New folder / Upload anywhere, Rename, Move, Delete; moving or deleting a folder is one version), a
+  tabbed editor (several files open, unsaved dots, Save / Ctrl+S) and the Shell. On wide screens the three sit
+  side by side; on phones the tree is a drawer and the Shell a bottom panel, each one tap away. **Run** opens the
+  current page in Preview. Empty folders are kept as `<folder>/.gitkeep`, so they publish and push too.
+- **Server access for connections**: Supabase (service_role or secret key, plus an optional personal access token
+  for creating and changing tables with SQL), Firebase (service account), Appwrite (API key) and PocketBase
+  (superuser login). Colon's chat can then read and change the database itself: list tables, select, insert,
+  update, delete, create tables and add columns. The Data tab shows each connected database's tables and rows.
+  Dropping or emptying a table, and an update or delete with no filter, are refused unless your message asks.
+- **GitHub and Bitbucket**: connect a repository (with a folder in it if you like) and a token. Push commits every
+  workspace file in one commit (files you deleted are deleted there too), PR opens a pull request, Merge merges a
+  branch or a pull request; open pull requests are listed with a Merge button. Ask in Chat too: “commit and push”,
+  “open a PR from colon-update”, “merge PR 7”. Bitbucket uses an Atlassian API token with your email, or a
+  repository / workspace access token.
+- The Workspace chat gets a small tool loop: when it needs to look at the database first it asks, gets the results
+  and answers again (at most three extra rounds per message, no extra charge). Every database or Git step shows in
+  the build steps, and its outcome is added to Colon's reply.
+- Credentials are encrypted with APP_SECRET in the new `secret_enc` column, never returned and never reachable from
+  a published site. Connections stay per workspace.
+- Preview: a page copied from Colon's own app no longer shows “Please refresh”; it says what the file is.
+  References that aren't site files are blanked instead of loading from Colon's address, and JS modules in folders
+  (`import x from './lib/a.js'`) now work in Preview.
+- Migration 0026: `colon_workspace_connections.secret_enc` and `.state`.
+
 ## 0.30.1 (2026-11-23) · Workspace Terminal: npm install and pip install
 
 - `npm install <pkg>` (also `npm i`, `yarn add`, `npm uninstall`, `npm ls`) looks the package up on the npm

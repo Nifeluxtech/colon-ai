@@ -183,6 +183,17 @@ function RemoteChatData() {
     putWorkspaceFile: function (id, b) { return api(wsp(id) + '/file', { method: 'PUT', body: b }); },
     moveWorkspaceFile: function (id, from, to) { return api(wsp(id) + '/file/move', { method: 'POST',
       body: { from: from, to: to } }); },
+    // v0.31.0: folders (move or delete everything in one, as one version), Git and server databases
+    moveWorkspaceFolder: function (id, from, to) { return api(wsp(id) + '/folder/move', { method: 'POST',
+      body: { from: from, to: to } }); },
+    deleteWorkspaceFolder: function (id, path) { return api(wsp(id) + '/folder?path=' + encodeURIComponent(path),
+      { method: 'DELETE' }); },
+    workspaceGit: function (id, p, action, b) { return api(wsp(id) + '/git/' + encodeURIComponent(p) + '/' + action,
+      { method: 'POST', body: b || {} }); },
+    workspaceGitPulls: function (id, p) { return api(wsp(id) + '/git/' + encodeURIComponent(p) + '/pulls'); },
+    workspaceRemoteTables: function (id, p) { return api(wsp(id) + '/remote/' + encodeURIComponent(p) + '/tables'); },
+    workspaceRemoteRows: function (id, p, t) { return api(wsp(id) + '/remote/' + encodeURIComponent(p) + '/rows?table='
+      + encodeURIComponent(t)); },
     deleteWorkspaceFile: function (id, path) { return api(wsp(id) + '/file?path=' + encodeURIComponent(path),
       { method: 'DELETE' }); },
     // v0.24.0: a project's connected repository (components/project-context.js). A token goes up, never comes back.

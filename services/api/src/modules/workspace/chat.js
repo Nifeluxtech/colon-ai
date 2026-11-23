@@ -135,28 +135,34 @@ function createChat({ engine, deps }) {
       && x.kind !== 'side' && x.kind !== 'queued' && x.kind !== 'running').slice(-HISTORY);
     const messages = earlier.map(asHistory);
     messages.push({ role: 'user', content: text });
+    const ref = w.ref_url ? await store.reference(w.id).catch(() => null) : null;
+    const data = deps.dataInfo ? await deps.dataInfo(u, w.id).catch(() => null) : null;   // v0.29.0
+    // v0.31.0: server access to a connected database / repository -> tool blocks and a short tool loop (tools.js)
+    const kit = deps.tools && data ? await deps.tools(u, w.id, text, data).catch(() => null) : null;
+    const context = prompt.context({ files, message: text, title: w.title, instructions: w.instructions,
+      reference: ref, data: kit ? { ...data, tools: kit.prompt } : data });
+    const gen = (extra) => {   // a hard limit too, in case a provider ignores the abort signal
+      let timer;
+      return Promise.race([deps.generate({ mode: 'developer', language: 'en', messages: messages.concat(extra),
+        taskText: text, context, routing: ctx.routing, signal: ctx.signal }),
+      new Promise((_, no) => { timer = setTimeout(() => no(err(504, 'timeout', FRIENDLY.timeout)), BUILD_MS + 10000);
+        if (timer.unref) timer.unref(); })]).finally(() => clearTimeout(timer))
+        .then((res) => { if (ctx.record) Promise.resolve(ctx.record(res)).catch(() => {}); return res; });
+    };
     await t.start('Thinking and writing the code');
     let r;
     try {
-      const ref = w.ref_url ? await store.reference(w.id) : null;
-      const data = deps.dataInfo ? await deps.dataInfo(u, w.id).catch(() => null) : null;   // v0.29.0
-      // a hard limit too, in case a provider ignores the abort signal
-      let timer;
-      r = await Promise.race([deps.generate({ mode: 'developer', language: 'en', messages, taskText: text,
-        context: prompt.context({ files, message: text, title: w.title, instructions: w.instructions,
-          reference: ref, data }), routing: ctx.routing, signal: ctx.signal }),
-      new Promise((_, no) => { timer = setTimeout(() => no(err(504, 'timeout', FRIENDLY.timeout)), BUILD_MS + 10000);
-        if (timer.unref) timer.unref(); })]).finally(() => clearTimeout(timer));
+      r = await gen([]);
+      if (kit) r = await kit.loop(r, gen, t);
     } catch (e) {
       if (await stopped(m)) throw err(499, 'stopped', 'stopped');
       await t.fail(e.code === 'timeout' ? 'Took too long' : 'The AI provider didn’t answer'); throw e;
     }
     if (await stopped(m)) throw err(499, 'stopped', 'stopped');   // "stop" was sent while Colon was thinking
-    if (ctx.record) await Promise.resolve(ctx.record(r)).catch(() => {});
     const ok = (r.attempts || []).filter((a) => a.ok).pop();
     await t.done(ok && ok.model ? `${ok.model}` : '');
     await t.start('Checking the changes');
-    const parsed = edits.parse(r.text);
+    const parsed = edits.parse(kit ? kit.strip(r.text) : r.text);
     if (!parsed.ops.length && !parsed.note) { await t.fail('No changes in the reply'); throw err(502, 'empty',
       FRIENDLY.empty); }
     await t.done(`${parsed.ops.length} change${parsed.ops.length === 1 ? '' : 's'} planned`);
@@ -166,7 +172,9 @@ function createChat({ engine, deps }) {
     } catch (e) { await t.start('Applying the changes'); await t.fail(e.message); throw e; }
     for (const c of applied.changes) t.add(`${VERB[c.op] || 'Edited'} ${c.path}`);
     if (applied.changes.length) t.add(`Saved version ${applied.version}`);
-    const note = parsed.note || (applied.changes.length ? 'Done.' : '');
+    const did = kit ? await kit.after(r.text, t) : [];   // v0.31.0: database changes, commit, pull request, merge
+    if (did.length) await t.done();
+    const note = [parsed.note || (applied.changes.length ? 'Done.' : ''), ...did].filter(Boolean).join('\n\n');
     await store.addMessage(w.id, { role: 'assistant', content: note || FRIENDLY.empty, changes: applied.changes,
       version_before: applied.changes.length ? applied.before : null,
       version_after: applied.changes.length ? applied.version : null, steps: t.list() });

@@ -1,0 +1,138 @@
+/* Colon AI · Workspace IDE tab (v0.31.0: components/workspace-ide*.js) and the Git / server-database parts of the
+   Data tab (workspace-git.js, workspace-remote.js). Phones from 360px: toolbar + editor, Files as a left drawer,
+   Shell as a bottom panel. From 900px: Files | editor | Shell side by side. */
+.wk-one.wk-on-ide{max-width:none;padding-bottom:0}
+.wk-on-ide .wk-top{margin-bottom:6px}
+.ide{--ide-h:calc(100dvh - 72px - var(--kb,0px));display:flex;flex-direction:column;height:var(--ide-h);
+  min-height:420px;border:1px solid var(--line);border-radius:14px;overflow:hidden;background:var(--elev-1)}
+.ide-bar{display:flex;align-items:center;gap:4px;padding:4px;border-bottom:1px solid var(--line);background:var(--bg)}
+.ide-tb{display:flex;align-items:center;gap:5px;flex:none;height:34px;padding:0 9px;border:0;border-radius:9px;
+  background:transparent;color:var(--text-2);font:inherit;font-size:13px;font-weight:600;cursor:pointer}
+.ide-tb svg{width:16px;height:16px}
+.ide-tb[aria-pressed="true"]{background:var(--primary-soft);color:var(--text)}
+.ide-tb:disabled{opacity:.45;cursor:default}
+.ide-run{background:var(--ok-bg);color:var(--ok)}
+.ide-path{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font:12px var(--mono);
+  color:var(--muted);padding:0 4px}
+.ide-body{position:relative;flex:1;min-height:0;display:flex;flex-direction:column}
+.ide-main{flex:1;min-height:0;display:flex;flex-direction:column;background:var(--code-bg)}
+.ide-tabs{display:flex;overflow-x:auto;scrollbar-width:none;background:var(--bg);border-bottom:1px solid var(--line);
+  min-height:36px;flex:none}
+.ide-tabs::-webkit-scrollbar{display:none}
+.ide-tab{display:flex;align-items:center;flex:none;max-width:170px;border-right:1px solid var(--line);
+  color:var(--muted);font-size:12.5px}
+.ide-tab.on{background:var(--code-bg);color:var(--text);box-shadow:inset 0 2px 0 var(--primary)}
+.ide-tab > button{border:0;background:transparent;color:inherit;font:inherit;cursor:pointer}
+.ide-tab > button:first-child{display:flex;align-items:center;gap:6px;min-width:0;height:36px;padding:0 4px 0 10px;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ide-x{display:grid;place-items:center;width:26px;height:36px;opacity:.7}
+.ide-x svg{width:13px;height:13px}
+.ide-dot{width:7px;height:7px;border-radius:50%;background:var(--warn);flex:none}
+.ide-ed{flex:1;min-height:0;position:relative}
+.ide-ed .px-empty,.ide-ed .wk-ed-msg{margin:16px;color:var(--muted)}
+.ide-ed .wk-ta{height:100%;background:var(--code-bg);color:var(--text)}
+.ide-img{display:grid;place-items:center;height:100%;padding:12px;overflow:auto}
+.ide-img img{max-width:100%;max-height:100%;border-radius:8px;background:#fff}
+
+/* Files drawer */
+.ide-files{position:absolute;z-index:4;top:0;bottom:0;left:0;width:min(82%,300px);display:flex;flex-direction:column;
+  background:var(--bg);border-right:1px solid var(--line);transform:translateX(-102%);
+  transition:transform var(--dur-3) var(--ease-out);box-shadow:var(--sh-lg)}
+.ide.tree-on .ide-files{transform:none}
+.ide-scrim{position:absolute;z-index:3;inset:0;background:var(--overlay);opacity:0;pointer-events:none;
+  transition:opacity var(--dur-3)}
+.ide.tree-on .ide-scrim{opacity:1;pointer-events:auto}
+.ide-fhead{display:flex;align-items:center;justify-content:space-between;gap:6px;padding:6px 6px 6px 12px;
+  border-bottom:1px solid var(--line)}
+.ide-fhead b{font-size:13px;letter-spacing:.02em}
+.ide-fhead span{display:flex;gap:2px}
+.ide-ib{display:grid;place-items:center;width:32px;height:32px;border:0;border-radius:8px;background:transparent;
+  color:var(--muted);cursor:pointer}
+.ide-ib svg{width:16px;height:16px}
+.ide-ib:hover,.ide-tb:hover,.ide-more:hover{background:var(--primary-soft);color:var(--text)}
+.ide-tree{flex:1;overflow:auto;padding:4px 0 12px}
+.ide-row{display:flex;align-items:center;padding-left:calc(6px + var(--d,0) * 14px)}
+.ide-row.on{background:var(--primary-soft)}
+.ide-item{display:flex;align-items:center;gap:7px;flex:1;min-width:0;height:34px;padding:0 4px;border:0;
+  background:transparent;color:var(--text);font:inherit;font-size:13.5px;text-align:left;cursor:pointer}
+.ide-item > svg{width:16px;height:16px;flex:none;color:var(--cyan)}
+.ide-chev{display:grid;place-items:center;width:14px;flex:none;color:var(--muted)}
+.ide-chev svg{width:12px;height:12px}
+.ide-name{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ide-ext{flex:none;width:30px;margin-left:14px;padding:1px 0;border-radius:4px;background:var(--elev-2);
+  color:var(--muted);font:600 9.5px var(--mono);text-align:center;text-transform:uppercase}
+.ide-x-html,.ide-x-htm{color:#F97316}.ide-x-css{color:#38BDF8}.ide-x-js,.ide-x-mjs{color:#FACC15}
+.ide-x-json{color:#A3E635}.ide-x-md{color:#C4B5FD}.ide-x-png,.ide-x-jpg,.ide-x-svg,.ide-x-webp{color:#F472B6}
+.ide-more{display:grid;place-items:center;width:30px;height:30px;margin-right:4px;flex:none;border:0;
+  border-radius:8px;background:transparent;color:var(--muted);cursor:pointer}
+.ide-more svg{width:15px;height:15px}
+
+/* Shell panel */
+.ide-con{display:none;flex:none;height:42%;min-height:180px;flex-direction:column;border-top:1px solid var(--line);
+  background:#0d1117}
+.ide.shell-on .ide-con{display:flex}
+.ide-con-head{display:flex;align-items:center;gap:8px;padding:4px 4px 4px 12px;background:#161b22;
+  border-bottom:1px solid #1c2430;color:#c9d1d9}
+.ide-con-head b{display:flex;align-items:center;gap:6px;font-size:12.5px}
+.ide-con-head b svg{width:14px;height:14px}
+.ide-con-head small{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#8b949e;
+  font-size:11px}
+.ide-con-head .ide-ib{color:#8b949e}
+.ide-con-body{flex:1;min-height:0;display:flex}
+.ide-con .wk-term{flex:1;height:auto;min-height:0;border-radius:0;border:0}
+
+@media (min-width:900px){
+  .ide-body{display:grid;grid-template-columns:0 1fr 0;grid-template-rows:1fr}
+  .ide.tree-on .ide-body{grid-template-columns:240px 1fr 0}
+  .ide.shell-on .ide-body{grid-template-columns:0 1fr minmax(320px,36%)}
+  .ide.tree-on.shell-on .ide-body{grid-template-columns:240px 1fr minmax(320px,36%)}
+  .ide-files{position:static;width:auto;transform:none;box-shadow:none;overflow:hidden;transition:none}
+  .ide:not(.tree-on) .ide-files{display:none}
+  .ide-scrim{display:none}
+  .ide-main{grid-column:2}
+  .ide-con{grid-column:3;height:auto;border-top:0;border-left:1px solid var(--line)}
+}
+
+/* ---------- Data tab: Git repositories and server database access (v0.31.0) ---------- */
+.wk-git{display:flex;flex-direction:column;gap:10px;padding:14px;border-radius:16px;background:var(--elev-1);
+  border:1px solid var(--line)}
+.wk-git-h{display:flex;align-items:center;gap:10px;min-width:0}
+.wk-git-h > svg{width:22px;height:22px;flex:none}
+.wk-git-h span{display:flex;flex-direction:column;min-width:0;flex:1}
+.wk-git-h b{font-size:15px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.wk-git-h small{color:var(--muted);font-size:12.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.wk-git-last{display:flex;gap:8px;align-items:baseline;padding:8px 10px;border-radius:10px;background:var(--bg);
+  font-size:12.5px;min-width:0}
+.wk-git-last code{color:var(--primary);flex:none}
+.wk-git-last span{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.wk-git-last small{color:var(--muted);flex:none}
+.wk-git-acts{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px}
+.wk-git-acts .btn{justify-content:center;padding:0 6px;min-width:0}
+.wk-git-acts .btn svg{width:15px;height:15px;margin-right:4px}
+.wk-pr{display:flex;align-items:center;gap:8px;padding:8px 0;border-top:1px solid var(--hairline);font-size:13px}
+.wk-pr span{flex:1;min-width:0;display:flex;flex-direction:column}
+.wk-pr b{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:600}
+.wk-pr small{color:var(--muted);font-size:11.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.wk-on{display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:999px;background:var(--ok-bg);
+  color:var(--ok);font-size:11.5px;font-weight:600;flex:none}
+.wk-on svg{width:12px;height:12px}
+.wk-rdb{display:flex;flex-direction:column;gap:2px}
+.wk-rdb-t{display:flex;align-items:center;gap:10px;padding:9px 10px;border-radius:10px;border:0;background:var(--bg);
+  color:var(--text);font:inherit;font-size:13.5px;text-align:left;cursor:pointer;margin-top:4px}
+.wk-rdb-t svg{width:15px;height:15px;color:var(--muted);flex:none}
+.wk-rdb-t b{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:600}
+.wk-rdb-t small{color:var(--muted);font-size:12px;flex:none}
+.wk-grid{overflow:auto;max-height:52vh;border:1px solid var(--line);border-radius:10px;margin:var(--sp-3) 0}
+.wk-grid table{border-collapse:collapse;font-size:12px;min-width:100%}
+.wk-grid th,.wk-grid td{padding:7px 6px;border-bottom:1px solid var(--hairline);text-align:left;white-space:nowrap;
+  max-width:200px;overflow:hidden;text-overflow:ellipsis}
+.wk-grid th{position:sticky;top:0;background:var(--elev-2);font-weight:600;color:var(--text-2)}
+.wk-note{margin:0;font-size:12.5px;color:var(--muted);line-height:1.45}
+.wk-dsheet .wk-f-h{margin:var(--sp-2) 0 var(--sp-2);font-size:14px}
+@media (max-width:420px){.ide-path{visibility:hidden;padding:0}.ide-tb{padding:0 8px}}
+.ide-con .wk-term-keys{gap:4px;padding:4px 6px}
+.ide-con .wk-term-keys button{min-width:34px;height:30px;padding:0 8px}
+.ide-con .wk-term-in{padding:4px 12px 6px}
+/* a <button class="px-row"> (Data tab tables) looked like a grey browser button */
+button.px-row{width:100%;border:0;border-bottom:1px solid var(--hairline);border-radius:0;background:transparent;
+  color:inherit;font:inherit;text-align:left;cursor:pointer}
