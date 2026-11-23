@@ -1,5 +1,25 @@
 # Changelog
 
+## 0.31.2 (2026-11-23) · Workspace chat answers fast and reads links
+
+Every Workspace chat message used to run a whole build (read all files, ask the code model, wait for the full
+answer), so "Open browser" or "hi" sat behind "Thinking and writing the code" for close to a minute.
+
+- **Triage** (`services/api/src/modules/workspace/triage.js`): rules first, no model call. Tab commands answer at
+  once; greetings and questions get a quick answer; everything else builds as before. Any doubt means build, so a
+  change request is never lost.
+- **Tab commands**: "open browser", "open the preview", "show the code", "open terminal", "go to the database",
+  "open publish". The reply comes back with an `action` and the app switches tab; "open browser" opens the live site
+  when it is published, otherwise the preview. Commands cost no credit.
+- **Quick answers**: a short answer from the file list, small file contents and the last few messages (20 s limit).
+  When the model answers `BUILD:` (it was a change after all), fails or is slow, the message builds normally. Quick
+  messages stay out of the build history.
+- **Links**: http(s) links in a message (up to two) are read on the server with the safe page reader
+  (`search/reader.readPage`: SSRF-checked, 8 s, readable text only) and given to the quick answer or the build, so
+  "make my menu like https://..." or "read this site and tell me what they sell" work. A build shows a "Reading the
+  link" step; a page that will not open is reported to the model, not fatal.
+- Tests: `services/api/tests/unit/workspace-triage.test.js`.
+
 ## 0.31.1 (2026-11-23) · Light mode for the Code tab and the 0.31.0 Data cards
 
 0.31.0's IDE, Shell, Git and database cards were designed in dark mode only. In light mode the active file tab was a

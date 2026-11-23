@@ -4,7 +4,8 @@
    shows the files it changed and, while it is still the newest change, an Undo that restores the version from
    before it. mount(el, o) where
    o = { id, data, onChanged, send? }: onChanged() runs after the files change (the page refreshes its file list);
-   send (v0.27.0): a message to send as soon as the chat is free, e.g. the Preview tab's "Fix it". */
+   send (v0.27.0): a message to send as soon as the chat is free, e.g. the Preview tab's "Fix it";
+   onAction (v0.31.2): a tab command from the chat, such as 'open_preview' or 'open_site'. */
 import { Colon } from '../../../../packages/ui/js/colon.js';
 import { chipsHtml, openPlus, editInstructions, forget } from './workspace-plus.js';
 import { secretSheet, tableSheet } from './workspace-data-forms.js';
@@ -216,7 +217,12 @@ export function mount(el, o) {
     var text = input.value.trim();
     if (!text || busy) return;
     setBusy(true);
-    data.sendWorkspaceChat(id, text).then(function () { input.value = ''; grow(); load(); })
+    data.sendWorkspaceChat(id, text).then(function (r) {
+      input.value = ''; grow();
+      // v0.31.2: a tab command ("open browser", "show the code") answers at once; the page switches tab
+      if (r && r.action && o.onAction) { load().then(function () { o.onAction(r.action); }); return; }
+      load();
+    })
       .catch(function (err) {
         setBusy(false);
         C.toast(err.message, 'bad', err.code === 'quota' || err.status === 429 ? { label: 'See plans',

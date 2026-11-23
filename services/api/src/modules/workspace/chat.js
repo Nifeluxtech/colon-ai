@@ -12,6 +12,7 @@
 const edits = require('./edits');
 const prompt = require('./prompt');
 const sideTalk = require('./side');
+const triage = require('./triage');
 const exporter = require('./exporter');
 
 const MAX_MESSAGE = 4000;
@@ -19,6 +20,7 @@ const HISTORY = 8;          // earlier messages the model sees
 const STALE_MS = 5 * 60 * 1000;   // a reply not written by then is treated as lost (the process died)
 const QUEUE_STALE_MS = 15 * 60 * 1000;   // the same for a build that waited in the queue (v0.27.2)
 const SIDE_STALE_MS = 2 * 60 * 1000;     // ... and for a quick answer to a mid-build message
+const QUICK_MS = 20000;   // v0.31.2: a quick answer gets this long, then the message builds instead
 // v0.27.3: a build gets 240 s; one with no progress for RUN_STALE_MS was lost (the process running it ended).
 const BUILD_MS = 240000, RUN_STALE_MS = 6 * 60 * 1000;
 const STOP = new RegExp('^\\s*(please\\s+)?(stop|cancel|abort|halt)'
@@ -80,6 +82,15 @@ const asHistory = (m) => {
 
 function createChat({ engine, deps }) {
   const store = engine.store;
+  // v0.31.2: read the pages linked in a message (deps.readLink; tests pass a fake). Failures are reported, not fatal.
+  async function readLinks(text, signal) {
+    const urls = deps.readLink ? triage.links(text) : [];
+    return Promise.all(urls.map((url) => deps.readLink(url, { query: text, signal })
+      .then((p) => ({ url: p.url || url, title: p.title || '', text: String(p.text || '').slice(0, 6000) }))
+      .catch((e) => ({ url, error: e.code === 'blocked_url' ? 'that address isn’t allowed'
+        : e.code === 'timeout' ? 'it took too long' : e.code === 'empty' ? 'no readable text'
+          : 'the page didn’t open' }))));
+  }
   const running = new Map();   // workspace id -> { started }
 
   // v0.28.0: "working" also comes from the database (the newest message is the user's and under STALE_MS old),
@@ -91,7 +102,8 @@ function createChat({ engine, deps }) {
     if (msgs.some((m) => m.role === 'user' && ((m.kind === 'running' && alive(m))
       || (m.kind === 'queued' && young(m, QUEUE_STALE_MS))))) return true;
     if (!last || last.role !== 'user') return false;
-    return last.kind === 'side' ? young(last, SIDE_STALE_MS) : !last.kind && young(last, STALE_MS);
+    return last.kind === 'side' || last.kind === 'quick' ? young(last, SIDE_STALE_MS)
+      : !last.kind && young(last, STALE_MS);
   };
   async function history(u, id) {
     const w = await engine.owned(u, id);
@@ -137,15 +149,24 @@ function createChat({ engine, deps }) {
       + (Number(f.size) || 0), 0))}`);
     // The build conversation only: no mid-build chatter, no other queued requests, this message last.
     const earlier = (await store.messages(w.id, HISTORY * 3)).map(msgOut).filter((x) => !x.error && x.id !== m.id
-      && x.kind !== 'side' && x.kind !== 'queued' && x.kind !== 'running').slice(-HISTORY);
+      && x.kind !== 'side' && x.kind !== 'quick' && x.kind !== 'queued' && x.kind !== 'running').slice(-HISTORY);
     const messages = earlier.map(asHistory);
     messages.push({ role: 'user', content: text });
+    let links = [];
+    if (deps.readLink && triage.links(text).length) {   // v0.31.2
+      await t.start('Reading the link' + (triage.links(text).length > 1 ? 's' : ''));
+      links = await readLinks(text, ctx.signal);
+      const okN = links.filter((l) => !l.error).length;
+      if (okN) await t.done(links.filter((l) => !l.error).map((l) => { try { return new URL(l.url).hostname; }
+        catch (e) { return l.url; } }).join(', '));
+      else await t.fail(links[0].error);
+    }
     const ref = w.ref_url ? await store.reference(w.id).catch(() => null) : null;
     const data = deps.dataInfo ? await deps.dataInfo(u, w.id).catch(() => null) : null;   // v0.29.0
     // v0.31.0: server access to a connected database / repository -> tool blocks and a short tool loop (tools.js)
     const kit = deps.tools && data ? await deps.tools(u, w.id, text, data).catch(() => null) : null;
     const context = prompt.context({ files, message: text, title: w.title, instructions: w.instructions,
-      reference: ref, data: kit ? { ...data, tools: kit.prompt } : data });
+      reference: ref, data: kit ? { ...data, tools: kit.prompt } : data, links });
     const gen = (extra) => {   // a hard limit too, in case a provider ignores the abort signal
       let timer;
       return Promise.race([deps.generate({ mode: 'developer', language: 'en', messages: messages.concat(extra),
@@ -201,6 +222,13 @@ function createChat({ engine, deps }) {
     if (text.length > MAX_MESSAGE) throw err(422, 'invalid', `Keep a message under ${MAX_MESSAGE} characters.`);
     const recent = (await store.messages(w.id, 30)).map(msgOut);
     if (running.has(w.id) || pending(recent)) return side(u, w, text, recent, ctx);
+    // v0.31.2: commands and questions answer in seconds; only changes build (triage.js). deps.quick switches it on.
+    if (deps.quick) {
+      const t = STOP.test(text) ? { kind: 'answer', stop: true } : triage.classify(text);
+      if (t.kind === 'command') return command(w, text, t.action);
+      if (t.stop) return command(w, text, null, 'Nothing is building right now.');
+      if (t.kind === 'answer') return quick(u, w, text, recent, ctx);
+    }
     const mid = await store.addMessage(w.id, { role: 'user', content: text, kind: 'running' });
     const job = drain(u, w, { id: Number(mid), content: text }, ctx);
     if (ctx.wait) await job;   // tests
@@ -273,6 +301,56 @@ function createChat({ engine, deps }) {
     })().catch((e) => { if (deps.log) deps.log.error('workspace_side_failed', { err: e.message }); });
     if (ctx.wait) await job;
     return { message: { id: mid, role: 'user', content: text, kind: 'side' }, working: true };
+  }
+
+  // v0.31.2: a tab command: saved with its one-line answer, no model call; the app switches to the tab (action).
+  async function command(w, text, action, line) {
+    const out = action ? triage.commandLine(action, Boolean(w.slug)) : { text: line };
+    const mid = Number(await store.addMessage(w.id, { role: 'user', content: text, kind: 'quick' }));
+    await store.addMessage(w.id, { role: 'assistant', content: out.text, kind: 'quick' });
+    return { message: { id: mid, role: 'user', content: text, kind: 'quick' }, working: false, free: true,
+      ...(out.action ? { action: out.action } : {}) };
+  }
+
+  // v0.31.2: a greeting or a question: a short answer from the file list and recent messages. When the model says
+  // "BUILD:" (it was a change after all), or it fails or is slow, the message builds as before; nothing is lost.
+  async function quick(u, w, text, recent, ctx) {
+    const mid = Number(await store.addMessage(w.id, { role: 'user', content: text, kind: 'quick' }));
+    const job = (async () => {
+      let ans = { build: true };
+      try {
+        const bundle = await engine.bundle(u, w.id);
+        const files = bundle.files.map((f) => ({ path: f.path, size: f.size, text: f.encoding === 'utf8',
+          content: f.encoding === 'utf8' ? f.content : undefined }));
+        const links = await readLinks(text, ctx.signal);
+        const ctl = new AbortController();
+        const timer = setTimeout(() => ctl.abort(), QUICK_MS);
+        if (timer.unref) timer.unref();
+        const signal = ctx.signal && typeof AbortSignal.any === 'function' ? AbortSignal.any([ctx.signal, ctl.signal])
+          : ctl.signal;
+        try {
+          const r = await Promise.race([deps.generate({ mode: 'general', language: 'en', category: 'everyday',
+            messages: [{ role: 'user', content: text }], taskText: text, routing: ctx.routing, signal,
+            timeouts: { maxTokens: 400 }, context: triage.context({ title: w.title, instructions: w.instructions,
+              files, links, recent: recent.filter((x) => !x.error).slice(-4) }) }),
+          new Promise((_, no) => { const t2 = setTimeout(() => no(err(504, 'timeout', 'slow')), QUICK_MS + 2000);
+            if (t2.unref) t2.unref(); })]);
+          if (ctx.record) Promise.resolve(ctx.record(r)).catch(() => {});
+          ans = triage.parse(r.text);
+        } finally { clearTimeout(timer); }
+      } catch (e) {
+        if (deps.log && deps.log.warn) deps.log.warn('workspace_quick_failed', { err: e.message });
+      }
+      if (!ans.build) {
+        await store.addMessage(w.id, { role: 'assistant', content: ans.text, kind: 'quick' });
+        return;
+      }
+      if (!(await store.claimKind(mid, 'quick', 'running'))) return;
+      if (running.has(w.id)) { await store.setKind(mid, 'queued'); return; }
+      await drain(u, w, { id: mid, content: text }, ctx);
+    })().catch((e) => { if (deps.log) deps.log.error('workspace_quick_failed', { err: e.message }); });
+    if (ctx.wait) await job;
+    return { message: { id: mid, role: 'user', content: text, kind: 'quick' }, working: true };
   }
 
   // v0.27.3: "stop" ends the running build (in this process at once; in another one before it saves anything)

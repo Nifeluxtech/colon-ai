@@ -74,7 +74,9 @@ function liveDeps() {
   return { generate: ai.generate, loadRouting: () => ai.dynamic.load(), isConfigured: ai.isConfigured,
     resolveCounters: (req) => ai.limits.resolveCounters(req, 'developer'), consumeAll: (c) => ai.limits.consumeAll(c),
     refundAll: (c) => ai.limits.refundAll(c), checkInput: require('../safety').checkInput,
-    record: (info) => ai.calls.record(info), log: require('../../shared/logger'),
+    record: (info) => ai.calls.record(info), log: require('../../shared/logger'), quick: true,   // v0.31.2: fast answers, and linked pages read
+    readLink: (url, o) => require('../search').reader.readPage(url, { query: o.query, signal: o.signal, maxChars: 6000,
+      timeoutMs: 8000 }),
     dataInfo: (u, id) => require('./data-handlers').info(u, id),
     // v0.31.0: tool blocks for connected databases and repositories with server access
     tools: (u, id, text, info) => require('./tools').createTools(require('./conn-handlers').kit())
@@ -110,8 +112,10 @@ const postChat = async (req) => {
   const record = (r) => d.record({ mode: 'developer', route: 'workspace', userId: req.user.id,
     attempts: r.attempts || [] });
   try {
-    return [202, await c.send(req.user, req.params.id, req.body || {}, { routing, signal, record,
-      onFail: () => d.refundAll(counters) })];
+    const out = await c.send(req.user, req.params.id, req.body || {}, { routing, signal, record,
+      onFail: () => d.refundAll(counters) });
+    if (out && out.free) { await d.refundAll(counters); delete out.free; }   // v0.31.2: a tab command costs nothing
+    return [202, out];
   } catch (e) { await d.refundAll(counters); throw e; }
 };
 

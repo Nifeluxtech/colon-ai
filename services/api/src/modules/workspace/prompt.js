@@ -76,8 +76,16 @@ function tree(files) {
   return files.map((f) => `- ${f.path} (${f.size} bytes${f.text ? '' : ', binary'})`).join('\n');
 }
 
+// v0.31.2: the readable text of pages the user linked ("make mine like https://...", "use the menu on this page").
+function linksBlock(links) {
+  return 'Pages the user linked in this message (read just now; text only, layout and images are not included). '
+    + 'Use their content, structure and tone as the user asks; do not copy them wholesale unless asked:\n'
+    + links.map((l) => (l.error ? `--- ${l.url} ---\n(Could not be read: ${l.error})`
+      : `--- ${l.url}${l.title ? ` (${String(l.title).slice(0, 120)})` : ''} ---\n${l.text}`)).join('\n\n');
+}
+
 // context({ files: [{ path, size, text: bool, content? }], message }) -> system context string
-function context({ files, message = '', title = '', instructions = '', reference = '', data = null }) {
+function context({ files, message = '', title = '', instructions = '', reference = '', data = null, links = [] }) {
   const asked = String(message).toLowerCase();
   const textFiles = files.filter((f) => f.text);
   const rank = (f) => (f.path === 'index.html' ? 0 : asked.includes(f.path.toLowerCase())
@@ -100,9 +108,10 @@ function context({ files, message = '', title = '', instructions = '', reference
       + `otherwise):\n${String(instructions).slice(0, 4000)}` : '',
     reference ? 'Reference repository: follow its structure, conventions and visual style when building. Do not '
       + `copy it wholesale unless the user asks.\n${String(reference)}` : '',
+    links.length ? linksBlock(links) : '',   // v0.31.2: pages the user linked in this message
     data && data.key ? dataRules(data) : '',
     data && data.key ? recipe(data.connections || []) : '',
     data && data.tools ? data.tools : ''].filter(Boolean).join('\n\n');   // v0.31.0: tools.js
 }
 
-module.exports = { context, RULES, BUDGET };
+module.exports = { context, linksBlock, RULES, BUDGET };
