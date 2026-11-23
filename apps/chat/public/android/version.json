@@ -1,17 +1,17 @@
 {
-  "versionName": "0.31.2",
-  "versionCode": 3102,
-  "apkUrl": "https://github.com/Nifeluxtech/colon-ai/releases/download/v0.31.2/colon-ai-0.31.2.apk",
-  "releaseUrl": "https://github.com/Nifeluxtech/colon-ai/releases/tag/v0.31.2",
-  "notes": "Workspace chat answers questions and tab commands (“open browser”, “show the code”) in seconds, and reads links you send; only real changes run a build.",
+  "versionName": "0.31.3",
+  "versionCode": 3103,
+  "apkUrl": "https://github.com/Nifeluxtech/colon-ai/releases/download/v0.31.3/colon-ai-0.31.3.apk",
+  "releaseUrl": "https://github.com/Nifeluxtech/colon-ai/releases/tag/v0.31.3",
+  "notes": "You can send more messages in Workspace chat while Colon is building (the send button stayed greyed out after the first message).",
   "minSupportedVersionCode": 0,
   "publishedAt": "2026-11-23",
   "browser": {
-    "versionName": "0.31.2",
-    "versionCode": 3102,
-    "apkUrl": "https://github.com/Nifeluxtech/colon-ai/releases/download/v0.31.2/colon-browser-0.31.2.apk",
-    "releaseUrl": "https://github.com/Nifeluxtech/colon-ai/releases/tag/v0.31.2",
-    "notes": "Released alongside Colon AI 0.31.2 (no browser changes).",
+    "versionName": "0.31.3",
+    "versionCode": 3103,
+    "apkUrl": "https://github.com/Nifeluxtech/colon-ai/releases/download/v0.31.3/colon-browser-0.31.3.apk",
+    "releaseUrl": "https://github.com/Nifeluxtech/colon-ai/releases/tag/v0.31.3",
+    "notes": "Released alongside Colon AI 0.31.3 (no browser changes).",
     "minSupportedVersionCode": 0
   }
 }

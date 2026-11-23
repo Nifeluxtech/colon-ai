@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.31.3 (2026-11-23) · Send while Workspace is building
+
+- **Workspace chat composer**: after a message was sent, the send button stayed disabled until the page was reopened,
+  so you could not ask a question or queue a change while a build ran (the server has accepted mid-build messages
+  since 0.27.2). The composer is freed as soon as the message is saved (`workspace-chat.js`).
+
 ## 0.31.2 (2026-11-23) · Workspace chat answers fast and reads links
 
 Every Workspace chat message used to run a whole build (read all files, ask the code model, wait for the full

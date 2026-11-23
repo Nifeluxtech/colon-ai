@@ -218,6 +218,8 @@ export function mount(el, o) {
     if (!text || busy) return;
     setBusy(true);
     data.sendWorkspaceChat(id, text).then(function (r) {
+      // v0.31.3: free the composer once the message is saved; the build runs on and more messages may follow
+      setBusy(false);
       input.value = ''; grow();
       // v0.31.2: a tab command ("open browser", "show the code") answers at once; the page switches tab
       if (r && r.action && o.onAction) { load().then(function () { o.onAction(r.action); }); return; }
