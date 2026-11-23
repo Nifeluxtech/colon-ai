@@ -217,15 +217,21 @@ export function mount(el, o) {
     var text = input.value.trim();
     if (!text || busy) return;
     setBusy(true);
+    // v0.31.4: the request stays open while a build runs (hold), so after 2 s the composer frees and the poll
+    // shows the build; the reply ending the request just reloads. A late network drop is not an error.
+    var freed = false, early = setTimeout(function () {
+      freed = true; setBusy(false); input.value = ''; grow(); load();
+    }, 2000);
     data.sendWorkspaceChat(id, text).then(function (r) {
-      // v0.31.3: free the composer once the message is saved; the build runs on and more messages may follow
-      setBusy(false);
-      input.value = ''; grow();
+      clearTimeout(early);
+      if (!freed) { setBusy(false); input.value = ''; grow(); }
       // v0.31.2: a tab command ("open browser", "show the code") answers at once; the page switches tab
       if (r && r.action && o.onAction) { load().then(function () { o.onAction(r.action); }); return; }
       load();
     })
       .catch(function (err) {
+        clearTimeout(early);
+        if (freed && !(err.status >= 400 && err.status < 500)) { load(); return; }
         setBusy(false);
         C.toast(err.message, 'bad', err.code === 'quota' || err.status === 429 ? { label: 'See plans',
           fn: function () { C.go('/account/plan'); } } : undefined);

@@ -186,10 +186,11 @@ test('chat: "stop" ends the build and drops the queue; a lost build is reported 
   assert.equal(h.messages[h.messages.length - 1].content, 'Stopped. Nothing was changed.');
   assert.ok(!h.messages.some((m) => m.error));
   assert.equal((await e.get(ME, w.id)).workspace.version, 1);
-  // a build whose process ended: no progress for over 6 minutes
-  const old = new Date(Date.now() - 7 * 60 * 1000).toISOString();
+  // a build whose process ended again after its one automatic restart (v0.31.4): no heartbeat for over 2 minutes
+  const old = new Date(Date.now() - 3 * 60 * 1000).toISOString();
   const id = await store.addMessage(w.id, { role: 'user', content: 'add a footer', kind: 'running' });
-  await store.setSteps(id, [{ label: 'Thinking and writing the code', state: 'run', start: 5, at: Date.parse(old) }]);
+  await store.setSteps(id, [{ label: 'Starting again (the server restarted)', state: 'done', retry: true },
+    { label: 'Thinking and writing the code', state: 'run', start: 5, at: Date.parse(old) }]);
   (await store.messages(w.id, 100)).find((m) => m.id === id).created_at = old;
   h = await chat.history(ME, w.id);
   assert.equal(h.working, false);
@@ -197,4 +198,47 @@ test('chat: "stop" ends the build and drops the queue; a lost build is reported 
   assert.match(h.messages[h.messages.length - 1].content, /stopped before it finished/);
   h = await chat.history(ME, w.id);
   assert.equal(h.messages.filter((m) => m.error).length, 1);
+});
+
+test('chat: a build whose process ended starts again by itself, once (v0.31.4)', async () => {
+  const store = ws.memoryStore();
+  const e = ws.create({ store });
+  const { workspace: w } = await e.add(ME, { title: 'Cafe', template: 'blank' });
+  let builds = 0;
+  const generate = async () => {
+    builds += 1;
+    return { text: 'Added a footer.\n=== FILE: footer.html\n<footer>Hi</footer>\n=== END' };
+  };
+  const chat = createChat({ engine: e, deps: { generate } });
+  const old = new Date(Date.now() - 3 * 60 * 1000).toISOString();
+  const id = await store.addMessage(w.id, { role: 'user', content: 'add a footer', kind: 'running' });
+  await store.setSteps(id, [{ label: 'Thinking and writing the code', state: 'run', start: 5, at: Date.parse(old) }]);
+  (await store.messages(w.id, 100)).find((m) => m.id === id).created_at = old;
+  await chat.history(ME, w.id);
+  for (let i = 0; i < 50 && builds === 0; i += 1) await new Promise((r) => setTimeout(r, 10));
+  for (let i = 0; i < 50; i += 1) {
+    if ((await store.kindOf(id)) === 'done') break;
+    await new Promise((r) => setTimeout(r, 10));
+  }
+  const h = await chat.history(ME, w.id);
+  const m = h.messages.find((x) => x.id === id);
+  assert.equal(builds, 1);
+  assert.equal(m.kind, 'done');
+  assert.equal(m.steps[0].label, 'Starting again (the server restarted)');
+  assert.ok(!h.messages.some((x) => x.error));
+  assert.ok((await e.bundle(ME, w.id)).files.some((f) => f.path === 'footer.html'));
+});
+
+test('chat: { hold: true } keeps the request open until this process finishes the build (v0.31.4)', async () => {
+  const store = ws.memoryStore();
+  const e = ws.create({ store });
+  const { workspace: w } = await e.add(ME, { title: 'Cafe', template: 'blank' });
+  const generate = () => new Promise((ok) => setTimeout(() => ok({ text: 'Added it.\n=== FILE: a.html\n<p>A</p>\n'
+    + '=== END' }), 30));
+  const chat = createChat({ engine: e, deps: { generate } });
+  const r = await chat.send(ME, w.id, { message: 'add a page', hold: true });
+  assert.equal(r.working, true);
+  assert.equal(r.wsId, undefined);
+  assert.equal(await store.kindOf(r.message.id), 'done');
+  assert.ok((await e.bundle(ME, w.id)).files.some((f) => f.path === 'a.html'));
 });
