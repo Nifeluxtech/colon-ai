@@ -242,3 +242,4 @@
 .wk-need em{display:flex;align-items:center;gap:4px;font-style:normal;font-size:13px;color:var(--muted)}
 .wk-need em svg{width:14px;height:14px}
 .wk-need-ok{background:var(--elev-1)}
+.wk-pub-user{align-self:flex-start;margin-top:-6px}

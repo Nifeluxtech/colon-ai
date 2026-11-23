@@ -2,10 +2,11 @@
    database table or a secret key the site doesn't have yet, the model adds a line to its note (prompt.js):
      === NEEDS: table orders read=owner add=public -- orders from the checkout
      === NEEDS: secret PAYSTACK_KEY host=api.paystack.co as=bearer -- take card payments
+     === NEEDS: connection supabase -- log in and register (v0.30.0)
    split() takes them out of the text the user reads; the chat shows each as a card that opens the Data tab's form.
    Pure and DOM-free. */
 
-var LINE = /^\s*===\s*NEEDS\s*:\s*(table|database|secret|key)\s+([A-Za-z][A-Za-z0-9_-]*)(.*)$/i;
+var LINE = /^\s*===\s*NEEDS\s*:\s*(table|database|secret|key|connection|connect)\s+([A-Za-z][A-Za-z0-9_-]*)(.*)$/i;
 
 function opts(rest) {
   var why = '', m = rest.split(/\s+--\s+|\s+—\s+/);
@@ -15,21 +16,22 @@ function opts(rest) {
   return o;
 }
 
-/** text -> { text, needs: [{ kind: 'table'|'secret', name, read?, add?, host?, as?, why }] } */
+/** text -> { text, needs: [{ kind: 'table'|'secret'|'connection', name, read?, add?, host?, as?, why }] } */
 function split(text) {
   var keep = [], needs = [], seen = {};
   String(text || '').split('\n').forEach(function (line) {
     var m = LINE.exec(line);
     if (!m) { keep.push(line); return; }
-    var kind = /^(table|database)$/i.test(m[1]) ? 'table' : 'secret', o = opts(m[3] || '');
-    var name = kind === 'table' ? m[2].toLowerCase() : m[2].toUpperCase().replace(/-/g, '_');
+    var kind = /^(table|database)$/i.test(m[1]) ? 'table' : /^conn/i.test(m[1]) ? 'connection' : 'secret';
+    var o = opts(m[3] || '');
+    var name = kind === 'secret' ? m[2].toUpperCase().replace(/-/g, '_') : m[2].toLowerCase();
     if (seen[kind + name]) return;
     seen[kind + name] = 1;
     var n = { kind: kind, name: name, why: o.why };
     if (kind === 'table') {
       n.read = o.read === 'public' ? 'public' : 'owner';
       n.add = o.add === 'public' ? 'public' : 'owner';
-    } else {
+    } else if (kind === 'secret') {
       n.host = o.host ? String(o.host).replace(/^https?:\/\//i, '').replace(/\/.*$/, '').toLowerCase() : '';
       n.as = /^(bearer|header:[A-Za-z0-9-]+|query:[A-Za-z0-9_.-]+)$/.test(o.as || '') ? o.as : 'bearer';
     }
@@ -41,6 +43,9 @@ function split(text) {
 /** Is this need already met by the workspace's data ({ secrets[], collections[] })? */
 function met(n, d) {
   if (!d) return false;
+  if (n.kind === 'connection') {
+    return (d.connections || []).some(function (x) { return x.provider === n.name; });
+  }
   var list = n.kind === 'table' ? d.collections || [] : d.secrets || [];
   return list.some(function (x) { return x.name === n.name; });
 }

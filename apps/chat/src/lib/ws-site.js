@@ -134,7 +134,14 @@ function bridgeScript(page) {
     + 'document.addEventListener("click",function(e){var a=e.target.closest&&e.target.closest("a[href]");if(!a)return;'
     + 'var h=a.getAttribute("href");if(!h||h.charAt(0)==="#")return;e.preventDefault();'
     + 'if(/^(mailto:|tel:)/i.test(h))return;send({type:"nav",href:h,from:P})},true);'
-    + 'document.addEventListener("submit",function(e){e.preventDefault();send({type:"form"})},true)})();';
+    + 'document.addEventListener("submit",function(e){e.preventDefault();send({type:"form"})},true);'
+    // v0.30.0: the sandboxed preview has no storage, so sign-in libraries (Supabase, Appwrite...) get an in-memory
+    // one; a session then lasts until the preview reloads.
+    + 'function mem(){var d={};return{getItem:function(k){return k in d?d[k]:null},setItem:function(k,v){d[k]='
+    + 'String(v)},removeItem:function(k){delete d[k]},clear:function(){d={}},key:function(i){return Object.keys(d)[i]'
+    + '||null},get length(){return Object.keys(d).length}}}["localStorage","sessionStorage"].forEach(function(n){'
+    + 'try{window[n].getItem("x")}catch(e){try{Object.defineProperty(window,n,{value:mem(),configurable:true})}'
+    + 'catch(x){}}})})();';
 }
 
 export { buildPage, bridgeScript, dataUrl, pagePath, resolvePath };

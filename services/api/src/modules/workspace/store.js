@@ -9,7 +9,8 @@ const WS = 'id, user_id, title, template, version, slug, published_version, publ
 const FIELDS = ['title', 'version', 'instructions', 'ref_url', 'ref_text', 'ref_files', 'slug', 'published_version',
   'published_at'];
 const COUNTS = `(SELECT COUNT(*) FROM colon_workspace_files f WHERE f.workspace_id = w.id) AS files,
-  (SELECT COALESCE(SUM(f.size), 0) FROM colon_workspace_files f WHERE f.workspace_id = w.id) AS bytes`;
+  (SELECT COALESCE(SUM(f.size), 0) FROM colon_workspace_files f WHERE f.workspace_id = w.id) AS bytes,
+  (SELECT o.username FROM colon_site_owners o WHERE o.user_id = w.user_id) AS owner_name`;
 
 function sqlStore(q) {
   q = q || require('../../db');
@@ -37,7 +38,16 @@ function sqlStore(q) {
       const r = await q.query('DELETE FROM colon_workspaces WHERE id = ? AND user_id = ?', [String(id), userId]);
       return r.affectedRows > 0;
     },
-    bySlug: (slug) => q.one('SELECT id, user_id FROM colon_workspaces WHERE slug = ?', [slug]),
+    // v0.30.0: a site name is unique per user; the user's publishing name is the first part of every link.
+    bySlug: (userId, slug) => q.one('SELECT id, user_id FROM colon_workspaces WHERE user_id = ? AND slug = ?',
+      [userId, slug]),
+    async ownerName(userId) {
+      const r = await q.one('SELECT username FROM colon_site_owners WHERE user_id = ?', [userId]);
+      return r ? r.username : null;
+    },
+    ownerByName: (name) => q.one('SELECT user_id FROM colon_site_owners WHERE username = ?', [name]),
+    setOwnerName: (userId, name) => q.query(`INSERT INTO colon_site_owners (user_id, username, created_at)
+      VALUES (?,?, UTC_TIMESTAMP(3)) ON DUPLICATE KEY UPDATE username = VALUES(username)`, [userId, name]),
     files: (wsId) => q.query(`SELECT path, mime, size, updated_at FROM colon_workspace_files WHERE workspace_id = ?
       ORDER BY path`, [wsId]),
     file: (wsId, p) => q.one(`SELECT path, mime, size, content, updated_at FROM colon_workspace_files
@@ -95,7 +105,7 @@ function memoryStore() {
   const find = (userId, id) => s.ws.find((w) => w.id === String(id) && w.user_id === userId);
   const filesOf = (wsId) => s.files.filter((f) => f.workspace_id === wsId).sort((a, b) => (a.path < b.path ? -1 : 1));
   const withCounts = (w) => ({ ...w, files: filesOf(w.id).length, bytes: filesOf(w.id).reduce((n, f) => n + f.size,
-    0) });
+    0), owner_name: (s.owners || {})[w.user_id] || null });
   const now = () => new Date();
   return {
     _s: s,
@@ -120,9 +130,20 @@ function memoryStore() {
       s.messages = s.messages.filter((m) => m.workspace_id !== w.id);
       return true;
     },
-    async bySlug(slug) {
-      const w = s.ws.find((x) => x.slug === slug);
+    async bySlug(userId, slug) {
+      const w = s.ws.find((x) => x.user_id === userId && x.slug === slug);
       return w ? { id: w.id, user_id: w.user_id } : null;
+    },
+    async ownerName(userId) { return (s.owners || {})[userId] || null; },
+    async ownerByName(name) {
+      const k = Object.keys(s.owners || {}).find((u) => s.owners[u] === name);
+      return k == null ? null : { user_id: isNaN(k) ? k : Number(k) };
+    },
+    async setOwnerName(userId, name) {
+      s.owners = s.owners || {};
+      const other = Object.keys(s.owners).find((u) => s.owners[u] === name && String(u) !== String(userId));
+      if (other != null) throw Object.assign(new Error('dup'), { code: 'ER_DUP_ENTRY' });
+      s.owners[userId] = name;
     },
     async files(wsId) { return filesOf(wsId).map(({ path, mime, size, updated_at }) => ({ path, mime, size,
       updated_at })); },

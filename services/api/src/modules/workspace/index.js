@@ -13,7 +13,7 @@ const { sqlStore, memoryStore } = require('./store');
 const paths = require('./paths');
 const templates = require('./templates');
 const edits = require('./edits');
-const { createPublisher } = require('./publish');
+const { createPublisher, siteUrl } = require('./publish');
 
 const { LIMITS } = paths;
 const MAX_TITLE = 80;
@@ -25,7 +25,8 @@ const newId = () => crypto.randomBytes(12).toString('base64url');
 const wsOut = (w) => ({ id: w.id, title: w.title, template: w.template, version: Number(w.version) || 0,
   files: Number(w.files) || 0, bytes: Number(w.bytes) || 0, instructions: w.instructions || '',
   reference: w.ref_url ? { url: w.ref_url, files: Number(w.ref_files) || 0 } : null, published: w.slug ? { name: w.slug,
-    version: w.published_version, at: w.published_at } : null, created_at: w.created_at, updated_at: w.updated_at });
+    url: siteUrl(w.owner_name, w.slug), version: w.published_version, at: w.published_at } : null,
+  created_at: w.created_at, updated_at: w.updated_at });
 const fileOut = (f) => ({ path: f.path, type: f.mime, size: Number(f.size), updated_at: f.updated_at });
 const isText = (p) => { const t = paths.typeOf(p); return Boolean(t && t.text); };
 const contentOut = (f) => ({ ...fileOut(f), encoding: isText(f.path) ? 'utf8' : 'base64',
@@ -121,6 +122,10 @@ function create({ store = sqlStore(), publishRoot } = {}) {
   const checkName = async (u, id, name) => pub.check(await owned(u, id), name);
   const publish = async (u, id, b = {}) => pub.publish(u, await owned(u, id), b.name);
   const unpublish = async (u, id) => pub.unpublish(u, await owned(u, id));
+  // v0.30.0: the user's publishing name (apparatus.name.ng/<username>/<site>/)
+  const username = async (u) => ({ name: await store.ownerName(uid(u)) });
+  const checkUsername = async (u, name) => pub.checkUser({ id: uid(u) }, name);
+  const setUsername = async (u, name) => pub.setUser({ id: uid(u) }, name);
 
   async function readFile(u, id, p) {
     const w = await owned(u, id);
@@ -253,7 +258,7 @@ function create({ store = sqlStore(), publishRoot } = {}) {
   }
 
   return { list, add, get, edit, remove, readFile, bundle, writeFile, moveFile, deleteFile, versions, restore,
-    applyOps, importFiles, owned, store, checkName, publish, unpublish };
+    applyOps, importFiles, owned, store, checkName, publish, unpublish, username, checkUsername, setUsername };
 }
 
 let shared = null;

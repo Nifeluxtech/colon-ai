@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.30.0 (2026-11-23) · Workspace: sign-in services and per-user site links
+
+- Site links are now `apparatus.name.ng/<username>/<site>/`, so two people can both have a site called `shop`.
+  You pick your publishing name once on the Publish tab (you can change it later; every site link follows). Sites
+  published before 0.30.0 at `/<site>/` forward to their new link the next time they are republished.
+- Data tab: **Sign-in & services** connects Supabase, Firebase, Appwrite, PocketBase or Clerk with their public
+  client settings (private keys are refused and belong in Secret keys). The builder then writes login, register,
+  log out and account pages with the connected service, and asks for a connection with a card when a site needs
+  sign-in and none is connected.
+- Preview gives sign-in libraries in-memory storage, so you can try login inside Preview (the session lasts until
+  the preview reloads).
+- Migration 0025: `colon_site_owners`, `colon_workspace_connections`, site names unique per user.
+
 ## 0.29.0 (2026-11-23) · Workspace step 5: database and secret keys
 
 - Workspace chat opens on the newest message, follows new replies while you are at the bottom, and shows a

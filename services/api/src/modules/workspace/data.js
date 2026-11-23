@@ -11,6 +11,7 @@
 const dns = require('dns').promises;
 const net = require('net');
 const { dataSqlStore } = require('./data-store');
+const connect = require('./connect');
 
 const LIMITS = { secrets: 30, collections: 20, records: 5000, recordBytes: 8192, valueChars: 4000,
   answerBytes: 1048576, timeoutMs: 15000 };
@@ -37,6 +38,7 @@ function privateIp(ip) {
 const parse = (d) => { try { return JSON.parse(d); } catch { return null; } };
 const recOut = (r) => ({ id: Number(r.id), data: parse(r.data), created_at: r.created_at });
 const secOut = (s) => ({ name: s.name, host: s.host || null, as: s.send_as, updated_at: s.updated_at });
+const connOut = (c) => ({ provider: c.provider, config: parse(c.config) || {}, updated_at: c.updated_at });
 const colOut = (c) => ({ name: c.name, read: c.read_rule, add: c.add_rule, records: Number(c.records) || 0 });
 
 function createData({ engine, store = dataSqlStore(), box = require('../../shared/crypto'), fetchImpl = fetch,
@@ -57,7 +59,20 @@ function createData({ engine, store = dataSqlStore(), box = require('../../share
   async function overview(u, id) {
     const w = await ws(u, id);
     return { key: w, secrets: (await store.secrets(w)).map(secOut),
-      collections: (await store.collections(w)).map(colOut), limits: LIMITS };
+      collections: (await store.collections(w)).map(colOut), limits: LIMITS,
+      connections: (await store.connections(w)).map(connOut), providers: connect.providersOut() };
+  }
+  // v0.30.0: a sign-in / database service the site connects to (connect.js)
+  async function putConnection(u, id, provider, b = {}) {
+    const w = await ws(u, id), config = connect.clean(String(provider), b);
+    await store.putConnection(w, String(provider), JSON.stringify(config));
+    return { provider: String(provider), config };
+  }
+  async function deleteConnection(u, id, provider) {
+    if (!(await store.deleteConnection(await ws(u, id), String(provider)))) {
+      throw err(404, 'not_found', 'That service isn’t connected.');
+    }
+    return { ok: true };
   }
   async function putSecret(u, id, name, b = {}) {
     const w = await ws(u, id), n = cleanName(SECRET, name, 'secret');
@@ -188,7 +203,8 @@ function createData({ engine, store = dataSqlStore(), box = require('../../share
     return { status: r.status, ok: r.ok, data };
   }
 
-  return { overview, putSecret, deleteSecret, putCollection, deleteCollection, records, addRecord, deleteRecord,
+  return { overview, putConnection, deleteConnection,
+    putSecret, deleteSecret, putCollection, deleteCollection, records, addRecord, deleteRecord,
     publicList, publicAdd, call, LIMITS };
 }
 

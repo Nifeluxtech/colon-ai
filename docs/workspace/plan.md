@@ -78,6 +78,15 @@ chat is the default view.
 - The chat knows table and key names and shows "needs" cards (=== NEEDS: lines) to create what a build needs.
 - Still static-only: no user code runs on the server. Details: step-5.md.
 
+### Step 5b — Sign-in services and per-user links (v0.30.0, Nov 23, 2026, user's request)
+- Links are `apparatus.name.ng/<username>/<site>/` (colon_site_owners; slug unique per user). Pre-0.30 sites at
+  `/<site>/` become 301 redirects on republish. Username picked on the Publish tab.
+- Connections (modules/workspace/connect.js, apps/chat components/workspace-connect.js): Supabase, Firebase,
+  Appwrite, PocketBase, Clerk public client settings; prompt recipe; `=== NEEDS: connection <provider>` card.
+- Preview injects in-memory localStorage/sessionStorage. Details and checklist: step-5b.md.
+- Custom domains: NOT built. The cPanel plan allows 1 addon + 3 alias domains and has no shell; waiting on the
+  user's decision (owner-approved with that cap via a cPanel API token, or a hosting upgrade).
+
 ### Step 6 — Polish, limits, release
 - Quotas wired to billing plans; Admin Dashboard list of published sites with takedown.
 - Basic traffic count per site (Apache log or a tiny pixel hit endpoint), optional.
@@ -103,4 +112,6 @@ chat is the default view.
 - [x] Step 3 — preview + code/files + terminal (v0.27.0)
 - [x] Step 4 — publish to `apparatus.name.ng/<name>/` (v0.28.0, see step-4.md)
 - [x] Step 5 — database and secret keys (v0.29.0, see step-5.md)
+- [x] Step 5b — sign-in services, /<username>/<site>/ links (v0.30.0, see step-5b.md)
+- [ ] Custom domains (waiting on the user; see Step 5b)
 - [ ] Step 6 — polish, limits, release

@@ -1,7 +1,7 @@
 // Unit tests for apps/chat/src/lib/ws-site.js (v0.27.0, Workspace step 3): the preview page builder.
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { buildPage, pagePath, resolvePath } = require('../../../apps/chat/src/lib/ws-site.js');
+const { buildPage, pagePath, resolvePath, bridgeScript } = require('../../../apps/chat/src/lib/ws-site.js');
 
 const t = (path, content, type) => ({ path, content, encoding: 'utf8', type: type || 'text/plain' });
 const FILES = [
@@ -58,4 +58,17 @@ test('v0.29.0: code inside scripts and encoded SVG ids are not reported as missi
   assert.deepEqual(out.warnings, []);
   assert.equal(resolvePath('index.html', '%23noise'), null);
   assert.equal(resolvePath('index.html', 'img/a.png'), 'img/a.png');
+});
+
+test('v0.30.0: the preview bridge gives sign-in libraries in-memory storage when the sandbox has none', () => {
+  const win = {};
+  Object.defineProperty(win, 'localStorage', { configurable: true, get() { throw new Error('SecurityError'); } });
+  win.sessionStorage = { getItem: () => null, real: true };
+  const doc = { addEventListener() {} };
+  new Function('window', 'document', 'addEventListener', 'parent', 'console', bridgeScript('index.html'))(
+    win, doc, () => {}, { postMessage() {} }, { error() {} });
+  win.localStorage.setItem('sb', 1);
+  assert.equal(win.localStorage.getItem('sb'), '1');
+  assert.equal(win.localStorage.length, 1);
+  assert.equal(win.sessionStorage.real, true);
 });

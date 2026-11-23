@@ -1,10 +1,12 @@
 /* Colon AI · Workspace Data tab (v0.29.0, Workspace step 5; plan: docs/workspace/plan.md). The site's database
    (tables of JSON records, with who can read and add) and its secret keys (names only; values never come back).
-   Records open in a sheet, newest first, with Delete. The forms live in workspace-data-forms.js.
+   Records open in a sheet, newest first, with Delete. The forms live in workspace-data-forms.js; v0.30.0 adds
+   sign-in services (workspace-connect.js) at the top.
    mount(el, o) where o = { id, data }. */
 import { Colon } from '../../../../packages/ui/js/colon.js';
 import * as UI from './project-ui.js';
 import { secretSheet, tableSheet } from './workspace-data-forms.js';
+import { connectionsHtml, pickProvider, connectionMenu } from './workspace-connect.js';
 
 var C = Colon, icon = C.icon, esc = C.esc;
 
@@ -65,7 +67,8 @@ function mount(el, o) {
   }
   function render() {
     var script = '<script src="' + st.api + '/sites/' + st.key + '/colon.js"></script>';
-    box.innerHTML = '<section class="wk-dsec"><div class="wk-dhead"><h3>' + icon('database') + 'Database</h3>'
+    box.innerHTML = connectionsHtml(st) + '<section class="wk-dsec"><div class="wk-dhead"><h3>' + icon('database')
+      + 'Database</h3>'
       + '<button type="button" class="btn sm" data-newt>' + icon('plus') + 'Table</button></div>'
       + (st.collections.length ? st.collections.map(function (t, i) {
         return '<div class="wk-row"><button type="button" class="px-row" data-open="' + i + '"><b>' + esc(t.name)
@@ -85,6 +88,10 @@ function mount(el, o) {
       + 'adds this for you when a build needs it.</p><code>' + esc(script) + '</code><button type="button" '
       + 'class="btn sm" data-copy>' + icon('copy') + 'Copy</button></section>';
     box.querySelector('[data-newt]').addEventListener('click', function () { tableSheet(fo); });
+    box.querySelector('[data-conn-add]').addEventListener('click', function (e) {   // v0.30.0
+      pickProvider(e.currentTarget, fo, st); });
+    box.querySelectorAll('[data-conn]').forEach(function (b) { b.addEventListener('click', function () {
+      connectionMenu(b, fo, st, b.getAttribute('data-conn')); }); });
     box.querySelector('[data-news]').addEventListener('click', function () { secretSheet(fo); });
     box.querySelector('[data-copy]').addEventListener('click', function () {
       C.copyText(script).then(function () { C.toast('Copied.', 'ok'); }); });
