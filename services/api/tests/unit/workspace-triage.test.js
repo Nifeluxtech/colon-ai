@@ -89,7 +89,7 @@ test('links: http(s) addresses in a message, trailing punctuation dropped, at mo
   assert.equal(triage.classify('make my menu like https://bakery.ng/menu').kind, 'build');
 });
 
-test('chat: a linked page is read for a quick answer and for a build; a failed read is reported, not fatal', async () => {
+test('chat: a linked page is read for a quick answer and a build; a failed read is reported', async () => {
   const read = [];
   const e = ws.create({ store: ws.memoryStore() });
   const { workspace: w } = await e.add(ME, { title: 'Cafe', template: 'blank' });
@@ -97,7 +97,10 @@ test('chat: a linked page is read for a quick answer and for a build; a failed r
   const chat = createChat({ engine: e, deps: { quick: true,
     readLink: async (url) => { read.push(url); if (url.includes('bad')) throw Object.assign(new Error('x'),
       { code: 'timeout' }); return { url, title: 'Bakery', text: 'Fresh bread daily. Agege bread 500 naira.' }; },
-    generate: async (o) => { calls.push(o); return { text: o.mode === 'general' ? 'They sell bread.' : 'Done.' }; } } });
+    generate: async (o) => {
+      calls.push(o);
+      return { text: o.mode === 'general' ? 'They sell bread.' : 'Done.' };
+    } } });
   await chat.send(ME, w.id, { message: 'read https://bakery.ng and tell me what they sell' }, { wait: true });
   assert.match(calls[0].context, /--- https:\/\/bakery\.ng \(Bakery\) ---\nFresh bread daily/);
   await chat.send(ME, w.id, { message: 'make my menu like https://bakery.ng/menu and https://bad.ng' }, { wait: true });

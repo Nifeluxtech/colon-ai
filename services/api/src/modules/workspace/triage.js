@@ -9,20 +9,26 @@ const clip = (s, n) => (String(s || '').length > n ? `${String(s).slice(0, n)}â€
 
 const POLITE = '(?:please\\s+|pls\\s+|can\\s+you\\s+|could\\s+you\\s+|kindly\\s+)?';
 const TARGETS = [
-  ['open_site', 'browser|live\\s+site|published\\s+site|site\\s+in\\s+(?:the\\s+)?browser|website\\s+in\\s+(?:the\\s+)?browser'],
+  ['open_site', 'browser|live\\s+site|published\\s+site|site\\s+in\\s+(?:the\\s+)?browser'
+    + '|website\\s+in\\s+(?:the\\s+)?browser'],
   ['open_preview', 'preview|site|website|page'],
   ['open_code', 'code|files?|editor|ide|terminal|shell|console'],
   ['open_data', 'data|database|db|tables?|secrets?|keys'],
   ['open_publish', 'publish(?:ing)?|domains?|links?'],
   ['open_chat', 'chat'],
 ];
-const COMMANDS = TARGETS.map(([action, words]) => [action, new RegExp(`^\\s*${POLITE}(?:open|show|go\\s+to|switch\\s+to|`
+const COMMANDS = TARGETS.map(([action, words]) => [action, new RegExp(
+  `^\\s*${POLITE}(?:open|show|go\\s+to|switch\\s+to|`
   + `view|take\\s+me\\s+to|launch)\\s+(?:me\\s+)?(?:the\\s+|my\\s+)?(?:${words})(?:\\s+(?:tab|page|view|panel))?`
   + '(?:\\s+(?:please|now))?\\s*[.!?]*\\s*$', 'i')]);
-const SMALL = /^\s*(?:hi+|hey+|hello+|good\s+(?:morning|afternoon|evening)|thanks?(?:\s+you)?|thank\s+you|ok(?:ay)?|ohkay|cool|nice|great|awesome|perfect|alright|yes|no|wow)\b[\s\w,!.]{0,20}$/i;
-const ASK = /^\s*(?:what|what's|whats|how|why|where|when|who|which|is|are|does|do|did|was|were|explain|tell\s+me|read|check|look\s+at|summari[sz]e|review|visit)\b/i;
+const SMALL = new RegExp('^\\s*(?:hi+|hey+|hello+|good\\s+(?:morning|afternoon|evening)|'
+  + 'thanks?(?:\\s+you)?|thank\\s+you|ok(?:ay)?|ohkay|cool|nice|great|awesome|'
+  + 'perfect|alright|yes|no|wow)\\b[\\s\\w,!.]{0,20}$', 'i');
+const ASK = new RegExp('^\\s*(?:what|what\'s|whats|how|why|where|when|who|which|is|are|does|do|did|was|were|explain|'
+  + 'tell\\s+me|read|check|look\\s+at|summari[sz]e|review|visit)\\b', 'i');
 // a question that asks for a change ("can you add a map?", "how about making it blue?") builds
-const CHANGE = /\b(?:add|make|change|create|build|fix|remove|delete|replace|update|edit|move|rename|put|insert|turn|set|use|translate|redesign|style|resize|write|generate|connect|deploy|publish\s+it)\b/i;
+const CHANGE = new RegExp('\\b(?:add|make|change|create|build|fix|remove|delete|replace|update|edit|move|rename'
+  + '|put|insert|turn|set|use|translate|redesign|style|resize|write|generate|connect|deploy|publish\\s+it)\\b', 'i');
 
 const LINES = {
   open_site: 'Opening your site.', open_preview: 'Opening the preview.', open_code: 'Opening the code.',

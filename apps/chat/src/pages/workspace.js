@@ -122,7 +122,8 @@ CW.pages.workspaceOne = function (page, ctx) {
     ask.then(function (ok) { if (!ok) return; Object.assign(st, extra || {}); st.tab = tab; render(); });
   }
   // v0.31.2: tab commands typed in the chat ("open browser", "show the code", "open the database")
-  var ACT = { open_preview: 'preview', open_code: 'ide', open_data: 'data', open_publish: 'publish', open_chat: 'chat' };
+  var ACT = { open_preview: 'preview', open_code: 'ide', open_data: 'data', open_publish: 'publish',
+    open_chat: 'chat' };
   function act(a) {
     var pub = st.workspace && st.workspace.published;
     if (a === 'open_site' && pub && pub.url) { window.open(pub.url, '_blank', 'noopener'); return; }

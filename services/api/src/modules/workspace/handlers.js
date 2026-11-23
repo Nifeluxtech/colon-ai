@@ -74,7 +74,8 @@ function liveDeps() {
   return { generate: ai.generate, loadRouting: () => ai.dynamic.load(), isConfigured: ai.isConfigured,
     resolveCounters: (req) => ai.limits.resolveCounters(req, 'developer'), consumeAll: (c) => ai.limits.consumeAll(c),
     refundAll: (c) => ai.limits.refundAll(c), checkInput: require('../safety').checkInput,
-    record: (info) => ai.calls.record(info), log: require('../../shared/logger'), quick: true,   // v0.31.2: fast answers, and linked pages read
+    record: (info) => ai.calls.record(info), log: require('../../shared/logger'), quick: true,
+    // v0.31.2: fast answers, and linked pages read
     readLink: (url, o) => require('../search').reader.readPage(url, { query: o.query, signal: o.signal, maxChars: 6000,
       timeoutMs: 8000 }),
     dataInfo: (u, id) => require('./data-handlers').info(u, id),
