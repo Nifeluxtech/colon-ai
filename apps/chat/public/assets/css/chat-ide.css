@@ -3,6 +3,21 @@
    Shell as a bottom panel. From 900px: Files | editor | Shell side by side. */
 .wk-one.wk-on-ide{max-width:none;padding-bottom:0}
 .wk-on-ide .wk-top{margin-bottom:6px}
+/* v0.31.1: the IDE, Shell and Data-tab surfaces as theme variables. Dark keeps 0.31.0's colours exactly; light
+   (0.31.0 was only designed dark: a navy active tab with dark text, a dark Shell) uses the light tokens, with text
+   on tinted surfaces at WCAG AA (4.5:1) or better. The Shell's .wk-term colours (chat-workspace.css) use --term-*. */
+:root,[data-theme="dark"]{--ide-ed:var(--code-bg);--ide-tabs:var(--bg);--ide-tab-fg:var(--muted);
+  --ide-folder:var(--cyan);--ide-ok:var(--ok);--ide-chip:var(--bg);--ide-chip-fg:var(--muted);--ide-sha:var(--primary);
+  --ide-raised:var(--elev-2);
+  --term-bg:#0d1117;--term-head:#161b22;--term-line:#1c2430;--term-border:#263041;--term-fg:#d6deeb;--term-in:#fff;
+  --term-head-fg:#c9d1d9;--term-head-dim:#8b949e;--term-dim:#8b949e;--term-ok:#7ee787;--term-err:#ff7b72;
+  --term-key:#21262d;--term-key-line:#30363d}
+[data-theme="light"]{--ide-ed:var(--bg);--ide-tabs:var(--bg-2);--ide-tab-fg:var(--text-2);--ide-folder:#0284C7;
+  --ide-ok:#166534;--ide-chip:var(--bg-2);--ide-chip-fg:var(--text-2);--ide-sha:var(--primary-hover);
+  --ide-raised:var(--bg-2);
+  --term-bg:var(--bg);--term-head:var(--bg-2);--term-line:var(--line);--term-border:var(--line);--term-fg:var(--text);
+  --term-in:var(--text);--term-head-fg:var(--text);--term-head-dim:var(--text-2);--term-dim:var(--muted);
+  --term-ok:#15803D;--term-err:var(--bad);--term-key:var(--bg);--term-key-line:var(--line-2)}
 .ide{--ide-h:calc(100dvh - 72px - var(--kb,0px));display:flex;flex-direction:column;height:var(--ide-h);
   min-height:420px;border:1px solid var(--line);border-radius:14px;overflow:hidden;background:var(--elev-1)}
 .ide-bar{display:flex;align-items:center;gap:4px;padding:4px;border-bottom:1px solid var(--line);background:var(--bg)}
@@ -11,17 +26,17 @@
 .ide-tb svg{width:16px;height:16px}
 .ide-tb[aria-pressed="true"]{background:var(--primary-soft);color:var(--text)}
 .ide-tb:disabled{opacity:.45;cursor:default}
-.ide-run{background:var(--ok-bg);color:var(--ok)}
+.ide-run{background:var(--ok-bg);color:var(--ide-ok)}
 .ide-path{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font:12px var(--mono);
   color:var(--muted);padding:0 4px}
 .ide-body{position:relative;flex:1;min-height:0;display:flex;flex-direction:column}
-.ide-main{flex:1;min-height:0;display:flex;flex-direction:column;background:var(--code-bg)}
-.ide-tabs{display:flex;overflow-x:auto;scrollbar-width:none;background:var(--bg);border-bottom:1px solid var(--line);
-  min-height:36px;flex:none}
+.ide-main{flex:1;min-height:0;display:flex;flex-direction:column;background:var(--ide-ed)}
+.ide-tabs{display:flex;overflow-x:auto;scrollbar-width:none;background:var(--ide-tabs);
+  border-bottom:1px solid var(--line);min-height:36px;flex:none}
 .ide-tabs::-webkit-scrollbar{display:none}
 .ide-tab{display:flex;align-items:center;flex:none;max-width:170px;border-right:1px solid var(--line);
-  color:var(--muted);font-size:12.5px}
-.ide-tab.on{background:var(--code-bg);color:var(--text);box-shadow:inset 0 2px 0 var(--primary)}
+  color:var(--ide-tab-fg);font-size:12.5px}
+.ide-tab.on{background:var(--ide-ed);color:var(--text);box-shadow:inset 0 2px 0 var(--primary)}
 .ide-tab > button{border:0;background:transparent;color:inherit;font:inherit;cursor:pointer}
 .ide-tab > button:first-child{display:flex;align-items:center;gap:6px;min-width:0;height:36px;padding:0 4px 0 10px;
   overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
@@ -30,7 +45,7 @@
 .ide-dot{width:7px;height:7px;border-radius:50%;background:var(--warn);flex:none}
 .ide-ed{flex:1;min-height:0;position:relative}
 .ide-ed .px-empty,.ide-ed .wk-ed-msg{margin:16px;color:var(--muted)}
-.ide-ed .wk-ta{height:100%;background:var(--code-bg);color:var(--text)}
+.ide-ed .wk-ta{height:100%;background:var(--ide-ed);color:var(--text)}
 .ide-img{display:grid;place-items:center;height:100%;padding:12px;overflow:auto}
 .ide-img img{max-width:100%;max-height:100%;border-radius:8px;background:#fff}
 
@@ -56,11 +71,11 @@
 .ide-row.on{background:var(--primary-soft)}
 .ide-item{display:flex;align-items:center;gap:7px;flex:1;min-width:0;height:34px;padding:0 4px;border:0;
   background:transparent;color:var(--text);font:inherit;font-size:13.5px;text-align:left;cursor:pointer}
-.ide-item > svg{width:16px;height:16px;flex:none;color:var(--cyan)}
+.ide-item > svg{width:16px;height:16px;flex:none;color:var(--ide-folder)}
 .ide-chev{display:grid;place-items:center;width:14px;flex:none;color:var(--muted)}
 .ide-chev svg{width:12px;height:12px}
 .ide-name{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.ide-ext{flex:none;width:30px;margin-left:14px;padding:1px 0;border-radius:4px;background:var(--elev-2);
+.ide-ext{flex:none;width:30px;margin-left:14px;padding:1px 0;border-radius:4px;background:var(--ide-raised);
   color:var(--muted);font:600 9.5px var(--mono);text-align:center;text-transform:uppercase}
 .ide-x-html,.ide-x-htm{color:#F97316}.ide-x-css{color:#38BDF8}.ide-x-js,.ide-x-mjs{color:#FACC15}
 .ide-x-json{color:#A3E635}.ide-x-md{color:#C4B5FD}.ide-x-png,.ide-x-jpg,.ide-x-svg,.ide-x-webp{color:#F472B6}
@@ -70,15 +85,15 @@
 
 /* Shell panel */
 .ide-con{display:none;flex:none;height:42%;min-height:180px;flex-direction:column;border-top:1px solid var(--line);
-  background:#0d1117}
+  background:var(--term-bg)}
 .ide.shell-on .ide-con{display:flex}
-.ide-con-head{display:flex;align-items:center;gap:8px;padding:4px 4px 4px 12px;background:#161b22;
-  border-bottom:1px solid #1c2430;color:#c9d1d9}
+.ide-con-head{display:flex;align-items:center;gap:8px;padding:4px 4px 4px 12px;background:var(--term-head);
+  border-bottom:1px solid var(--term-line);color:var(--term-head-fg)}
 .ide-con-head b{display:flex;align-items:center;gap:6px;font-size:12.5px}
 .ide-con-head b svg{width:14px;height:14px}
-.ide-con-head small{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#8b949e;
-  font-size:11px}
-.ide-con-head .ide-ib{color:#8b949e}
+.ide-con-head small{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+  color:var(--term-head-dim);font-size:11px}
+.ide-con-head .ide-ib{color:var(--term-head-dim)}
 .ide-con-body{flex:1;min-height:0;display:flex}
 .ide-con .wk-term{flex:1;height:auto;min-height:0;border-radius:0;border:0}
 
@@ -102,11 +117,11 @@
 .wk-git-h span{display:flex;flex-direction:column;min-width:0;flex:1}
 .wk-git-h b{font-size:15px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .wk-git-h small{color:var(--muted);font-size:12.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.wk-git-last{display:flex;gap:8px;align-items:baseline;padding:8px 10px;border-radius:10px;background:var(--bg);
+.wk-git-last{display:flex;gap:8px;align-items:baseline;padding:8px 10px;border-radius:10px;background:var(--ide-chip);
   font-size:12.5px;min-width:0}
-.wk-git-last code{color:var(--primary);flex:none}
+.wk-git-last code{color:var(--ide-sha);flex:none}
 .wk-git-last span{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.wk-git-last small{color:var(--muted);flex:none}
+.wk-git-last small{color:var(--ide-chip-fg);flex:none}
 .wk-git-acts{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px}
 .wk-git-acts .btn{justify-content:center;padding:0 6px;min-width:0}
 .wk-git-acts .btn svg{width:15px;height:15px;margin-right:4px}
@@ -115,19 +130,20 @@
 .wk-pr b{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:600}
 .wk-pr small{color:var(--muted);font-size:11.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .wk-on{display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:999px;background:var(--ok-bg);
-  color:var(--ok);font-size:11.5px;font-weight:600;flex:none}
+  color:var(--ide-ok);font-size:11.5px;font-weight:600;flex:none}
 .wk-on svg{width:12px;height:12px}
 .wk-rdb{display:flex;flex-direction:column;gap:2px}
-.wk-rdb-t{display:flex;align-items:center;gap:10px;padding:9px 10px;border-radius:10px;border:0;background:var(--bg);
-  color:var(--text);font:inherit;font-size:13.5px;text-align:left;cursor:pointer;margin-top:4px}
+.wk-rdb-t{display:flex;align-items:center;gap:10px;padding:9px 10px;border-radius:10px;border:0;
+  background:var(--ide-chip);color:var(--text);font:inherit;font-size:13.5px;text-align:left;cursor:pointer;
+  margin-top:4px}
 .wk-rdb-t svg{width:15px;height:15px;color:var(--muted);flex:none}
 .wk-rdb-t b{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:600}
-.wk-rdb-t small{color:var(--muted);font-size:12px;flex:none}
+.wk-rdb-t small{color:var(--ide-chip-fg);font-size:12px;flex:none}
 .wk-grid{overflow:auto;max-height:52vh;border:1px solid var(--line);border-radius:10px;margin:var(--sp-3) 0}
 .wk-grid table{border-collapse:collapse;font-size:12px;min-width:100%}
 .wk-grid th,.wk-grid td{padding:7px 6px;border-bottom:1px solid var(--hairline);text-align:left;white-space:nowrap;
   max-width:200px;overflow:hidden;text-overflow:ellipsis}
-.wk-grid th{position:sticky;top:0;background:var(--elev-2);font-weight:600;color:var(--text-2)}
+.wk-grid th{position:sticky;top:0;background:var(--ide-raised);font-weight:600;color:var(--text-2)}
 .wk-note{margin:0;font-size:12.5px;color:var(--muted);line-height:1.45}
 .wk-dsheet .wk-f-h{margin:var(--sp-2) 0 var(--sp-2);font-size:14px}
 @media (max-width:420px){.ide-path{visibility:hidden;padding:0}.ide-tb{padding:0 8px}}
@@ -137,3 +153,20 @@
 /* a <button class="px-row"> (Data tab tables) looked like a grey browser button */
 button.px-row{width:100%;border:0;border-bottom:1px solid var(--hairline);border-radius:0;background:transparent;
   color:inherit;font:inherit;text-align:left;cursor:pointer}
+
+/* v0.31.1 light mode: file-type badges in darker shades (the dark-mode yellow and cyan were ~1.5:1 on white), the
+   cards lifted off the page like the other light cards, the ZIP card's note readable on its blue tint */
+[data-theme="light"] .ide-x-html,[data-theme="light"] .ide-x-htm{color:#C2410C}
+[data-theme="light"] .ide-x-css{color:#0369A1}
+[data-theme="light"] .ide-x-js,[data-theme="light"] .ide-x-mjs{color:#A16207}
+[data-theme="light"] .ide-x-json{color:#4D7C0F}
+[data-theme="light"] .ide-x-md{color:#6D28D9}
+[data-theme="light"] .ide-x-png,[data-theme="light"] .ide-x-jpg,[data-theme="light"] .ide-x-svg,
+[data-theme="light"] .ide-x-webp{color:#BE185D}
+[data-theme="light"] .ide-row.on .ide-ext{background:var(--bg)}
+[data-theme="light"] .wk-git{box-shadow:var(--sh-xs)}
+[data-theme="light"] .wk-need small{color:var(--text-2)}
+/* the closed Files drawer's shadow showed as a grey band down the editor's left edge on white */
+[data-theme="light"] .ide:not(.tree-on) .ide-files{box-shadow:none}
+/* "Saved. Type to replace" is a placeholder that carries information: readable (4.7:1) in light mode */
+[data-theme="light"] .wk-dsheet .input::placeholder{color:var(--muted);opacity:1}
