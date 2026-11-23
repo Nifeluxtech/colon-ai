@@ -7,8 +7,16 @@
   tabbed editor (several files open, unsaved dots, Save / Ctrl+S) and the Shell. On wide screens the three sit
   side by side; on phones the tree is a drawer and the Shell a bottom panel, each one tap away. **Run** opens the
   current page in Preview. Empty folders are kept as `<folder>/.gitkeep`, so they publish and push too.
+- **Download as ZIP**: the Files panel's Download button saves every file and folder of the workspace as one
+  `.zip` (`<site>-v<version>.zip`, everything inside a `<site>/` folder; empty folders kept). It's built on Colon's
+  server with a tiny built-in zip writer (no new dependency), only for the workspace's owner (another account gets
+  404), and holds no secrets: secret keys, server keys and tokens live in their own encrypted tables, never in the
+  files. In the Android app it goes to Downloads. Ask in Chat too (“export my files as zip”): Colon packs the files
+  after any changes it made and puts a **Download ZIP** card in the thread. `GET /workspaces/:id/export`.
 - **Server access for connections**: Supabase (service_role or secret key, plus an optional personal access token
-  for creating and changing tables with SQL), Firebase (service account), Appwrite (API key) and PocketBase
+  (`sbp_…`) for creating tables and adding columns through Supabase's Management API; the form warns that this
+  token controls the whole Supabase account, keeps it encrypted, never puts it in the site, and shows whether it is
+  saved), Firebase (service account), Appwrite (API key) and PocketBase
   (superuser login). Colon's chat can then read and change the database itself: list tables, select, insert,
   update, delete, create tables and add columns. The Data tab shows each connected database's tables and rows.
   Dropping or emptying a table, and an update or delete with no filter, are refused unless your message asks.

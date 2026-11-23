@@ -21,13 +21,19 @@ const GIT_TOKEN = /^[\x21-\x7e]{8,512}$/;
 const gitFields = (hint) => [field('repo', 'Repository', REPO, hint),
   field('branch', 'Branch', BRANCH, 'main'), field('folder', 'Folder in the repository (optional)', FOLDER, 'site')];
 
+// v0.31.0: the Supabase personal access token (sbp_) is an ACCOUNT token, not a project key: say so where it's pasted
+const SBP_WARN = 'Careful: a personal access token controls your whole Supabase account (every project and '
+  + 'organization you can reach), not just this database. Colon keeps it encrypted on its server, never puts it in '
+  + 'your site, and uses it only for schema changes in this project (create a table, add a column) when you ask in '
+  + 'Chat. Leave it empty if you’d rather create tables yourself in Supabase’s SQL editor. Create or revoke it at '
+  + 'supabase.com/dashboard/account/tokens.';
 const PROVIDERS = {
   supabase: { label: 'Supabase', kind: 'db', fields: [
     field('url', 'Project URL', URL_RE, 'https://xyz.supabase.co'),
     field('anonKey', 'Anon (public) key', TOKEN, 'eyJ… or sb_publishable_…')],
   server: [secret('serviceKey', 'service_role or secret key', /^(eyJ[\w-]+\.[\w-]+\.[\w-]+|sb_secret_[\w-]{10,200})$/,
     'eyJ… (service_role) or sb_secret_…'), secret('accessToken', 'Personal access token (optional: lets Colon '
-    + 'create and change tables)', /^sbp_[\w]{20,200}$/, 'sbp_…', { optional: true })] },
+    + 'create and change tables)', /^sbp_[\w]{20,200}$/, 'sbp_…', { optional: true, warn: SBP_WARN })] },
   firebase: { label: 'Firebase', fields: [
     field('apiKey', 'API key', /^[\w-]{20,60}$/, 'AIza…'),
     field('authDomain', 'Auth domain', /^[a-z0-9.-]+$/i, 'project.firebaseapp.com'),
@@ -116,8 +122,9 @@ function cleanServer(provider, b = {}, saved = null) {
 const providersOut = () => Object.keys(PROVIDERS).map((id) => ({ id, label: PROVIDERS[id].label,
   kind: PROVIDERS[id].kind || 'db',
   fields: PROVIDERS[id].fields.map(({ name, label, hint }) => ({ name, label, hint })),
-  server: (PROVIDERS[id].server || []).map(({ name, label, hint, multiline, secret: s, optional }) => ({ name, label,
-    hint, multiline: Boolean(multiline), secret: s !== false, optional: Boolean(optional) })) }));
+  server: (PROVIDERS[id].server || []).map(({ name, label, hint, multiline, secret: s, optional, warn }) => ({ name,
+    label, hint, multiline: Boolean(multiline), secret: s !== false, optional: Boolean(optional),
+    ...(warn ? { warn } : {}) })) }));
 
 const HOW = {
   supabase: (c) => `Supabase (${c.url}): import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';

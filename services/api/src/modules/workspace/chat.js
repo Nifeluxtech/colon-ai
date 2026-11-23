@@ -12,6 +12,7 @@
 const edits = require('./edits');
 const prompt = require('./prompt');
 const sideTalk = require('./side');
+const exporter = require('./exporter');
 
 const MAX_MESSAGE = 4000;
 const HISTORY = 8;          // earlier messages the model sees
@@ -70,8 +71,12 @@ const kb = (n) => (n < 1024 ? `${n} B` : `${Math.round(n / 1024)} KB`);
 const VERB = { created: 'Created', edited: 'Edited', deleted: 'Deleted' };
 
 // What an earlier assistant message looked like to the model: its note plus the files it touched.
-const asHistory = (m) => ({ role: m.role, content: m.role === 'assistant' && m.changes.length
-  ? `${m.content}\n(Changed: ${m.changes.map((c) => `${c.op} ${c.path}`).join(', ')})` : m.content });
+const asHistory = (m) => {
+  const ex = m.role === 'assistant' ? exporter.stripMark(m.content) : { text: m.content };
+  const text = ex.marked ? `${ex.text}\n(Gave the user a ZIP download of the files.)` : ex.text;
+  return { role: m.role, content: m.role === 'assistant' && m.changes.length
+    ? `${text}\n(Changed: ${m.changes.map((c) => `${c.op} ${c.path}`).join(', ')})` : text };
+};
 
 function createChat({ engine, deps }) {
   const store = engine.store;
@@ -174,7 +179,15 @@ function createChat({ engine, deps }) {
     if (applied.changes.length) t.add(`Saved version ${applied.version}`);
     const did = kit ? await kit.after(r.text, t) : [];   // v0.31.0: database changes, commit, pull request, merge
     if (did.length) await t.done();
-    const note = [parsed.note || (applied.changes.length ? 'Done.' : ''), ...did].filter(Boolean).join('\n\n');
+    const ex = exporter.stripMark(parsed.note);   // v0.31.0: "export my files as zip" -> a Download ZIP card
+    if (ex.marked || exporter.wants(text)) {
+      await t.start('Packing your files as a ZIP');
+      const z = await engine.exportZip(u, w.id);
+      await t.done(`${z.files} file${z.files === 1 ? '' : 's'}, ${kb(z.bytes)}`);
+      did.push(exporter.line(z));
+    }
+    const note = [ex.text || (applied.changes.length || did.length ? 'Done.' : ''), ...did].filter(Boolean)
+      .join('\n\n');
     await store.addMessage(w.id, { role: 'assistant', content: note || FRIENDLY.empty, changes: applied.changes,
       version_before: applied.changes.length ? applied.before : null,
       version_after: applied.changes.length ? applied.version : null, steps: t.list() });

@@ -72,6 +72,10 @@ function createData({ engine, store = dataSqlStore(), box = require('../../share
     const saved = had && had.secret_enc ? JSON.parse(box.decrypt(had.secret_enc)) : null;
     const server = connect.cleanServer(name, b.server, saved);   // v0.31.0
     await store.putConnection(w, name, JSON.stringify(config), server ? box.encrypt(JSON.stringify(server)) : null);
+    if (name === 'supabase') {   // v0.31.0: whether the optional sbp_ token is saved (schema changes), never the token
+      const st = { ...(parse(had && had.state) || {}), sql: Boolean(server && server.accessToken) };
+      await store.setConnectionState(w, name, JSON.stringify(st)).catch(() => {});
+    }
     return { provider: name, config, server: Boolean(server) };
   }
   // v0.31.0, server side only (remote/, git/): the connection with its decrypted credentials, and its state

@@ -20,6 +20,7 @@ r.delete('/workspaces/:id/file', requireUser, perUser('workspace-write', 600, 36
 r.post('/workspaces/:id/file/move', requireUser, perUser('workspace-write', 600, 3600), h.moveFile);
 r.post('/workspaces/:id/folder/move', requireUser, perUser('workspace-write', 600, 3600), h.moveFolder);   // v0.31.0
 r.delete('/workspaces/:id/folder', requireUser, perUser('workspace-write', 600, 3600), h.deleteFolder);
+r.get('/workspaces/:id/export', requireUser, perUser('workspace-export', 60, 3600), h.getExport);   // v0.31.0 zip
 r.get('/workspaces/:id/versions', requireUser, h.getVersions);
 r.post('/workspaces/:id/versions/:n/restore', requireUser, perUser('workspace-write', 600, 3600), h.restoreVersion);
 // v0.26.0 (step 2): the Workspace chat. Each message is one Developer-mode reply against the daily limits.

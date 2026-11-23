@@ -23,3 +23,11 @@ test('v0.30.0: a connection need is met once that service is connected', () => {
   assert.equal(met(n, { connections: [] }), false);
   assert.equal(met(n, { connections: [{ provider: 'supabase' }] }), true);
 });
+
+test('v0.31.0: an "=== EXPORT: zip" line becomes one Download ZIP card, never met', () => {
+  const r = split('Here are your files.\n\n=== EXPORT: zip -- 12 files, 40 KB\n=== EXPORT: zip');
+  assert.equal(r.text, 'Here are your files.');
+  assert.deepEqual(r.needs, [{ kind: 'export', name: 'zip', why: '12 files, 40 KB' }]);
+  assert.equal(met(r.needs[0], { collections: [], secrets: [], connections: [] }), false);
+  assert.equal(met(r.needs[0], null), false);
+});

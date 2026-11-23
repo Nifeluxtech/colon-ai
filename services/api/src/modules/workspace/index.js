@@ -15,6 +15,7 @@ const templates = require('./templates');
 const edits = require('./edits');
 const { createPublisher, siteUrl } = require('./publish');
 const { createFolders } = require('./folders');
+const { createExporter } = require('./exporter');
 
 const { LIMITS } = paths;
 const MAX_TITLE = 80;
@@ -259,9 +260,10 @@ function create({ store = sqlStore(), publishRoot } = {}) {
   }
 
   const { moveFolder, deleteFolder } = createFolders({ store, owned, commit });   // v0.31.0
+  const { exportZip } = createExporter({ store, owned });   // v0.31.0: Download as ZIP
   return { list, add, get, edit, remove, readFile, bundle, writeFile, moveFile, deleteFile, versions, restore,
     applyOps, importFiles, owned, store, checkName, publish, unpublish, username, checkUsername, setUsername,
-    moveFolder, deleteFolder };
+    moveFolder, deleteFolder, exportZip };
 }
 
 let shared = null;

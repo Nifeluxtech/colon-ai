@@ -49,6 +49,7 @@
 .ide-ib{display:grid;place-items:center;width:32px;height:32px;border:0;border-radius:8px;background:transparent;
   color:var(--muted);cursor:pointer}
 .ide-ib svg{width:16px;height:16px}
+.ide-ib:disabled{opacity:.4;cursor:default}
 .ide-ib:hover,.ide-tb:hover,.ide-more:hover{background:var(--primary-soft);color:var(--text)}
 .ide-tree{flex:1;overflow:auto;padding:4px 0 12px}
 .ide-row{display:flex;align-items:center;padding-left:calc(6px + var(--d,0) * 14px)}

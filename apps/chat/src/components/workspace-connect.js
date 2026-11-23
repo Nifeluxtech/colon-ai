@@ -13,7 +13,7 @@ var C = Colon, icon = C.icon, esc = C.esc;
 var HOST = 'apparatus.name.ng';
 var TIPS = {
   supabase: 'Supabase → Project Settings → API. Then in Authentication → URL Configuration, add your site link '
-    + 'as a Redirect URL.',
+    + 'as a Redirect URL. A personal access token (optional) is under Account → Access Tokens.',
   firebase: 'Firebase → Project settings → Your apps → Web app (you can paste the whole firebaseConfig). Then add '
     + HOST + ' under Authentication → Settings → Authorized domains.',
   appwrite: 'Appwrite → Settings for the endpoint and project ID. Add a Web platform with hostname ' + HOST + '.',
@@ -113,13 +113,15 @@ function serverFields(p, cur) {
   var git = p.kind === 'git';
   return '<h3 class="wk-f-h">' + (git ? 'Access' : 'Let Colon work in this database (optional)') + '</h3>'
     + list.map(function (f) {
-      var saved = cur && cur.server;
+      // the optional sbp_ token shows as saved only when it is (state.sql); the other fields with server access
+      var saved = cur && cur.server && (f.name !== 'accessToken' || (cur.state || {}).sql === true);
       return '<label class="wk-f"><span>' + esc(f.label) + '</span>' + (f.multiline ? '<textarea class="input" '
         + 'rows="3" '
         + 'data-s="' + esc(f.name) + '" spellcheck="false" placeholder="' + esc(saved ? 'Saved. Paste to replace'
           : f.hint || '') + '"></textarea>' : '<input class="input" type="' + (f.secret === false ? 'text' : 'password')
         + '" data-s="' + esc(f.name) + '" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="'
-        + esc(saved ? 'Saved. Type to replace' : f.hint || '') + '">') + '</label>';
+        + esc(saved ? 'Saved. Type to replace' : f.hint || '') + '">') + (f.warn ? '<small class="wk-warn" role="note">'
+        + icon('alert') + '<span>' + esc(f.warn) + '</span></small>' : '') + '</label>';
     }).join('') + '<p class="small muted">' + (git ? 'Kept encrypted on Colon’s server and never shown again. Colon '
     + 'uses it to commit, push and merge for this workspace only.' : 'Kept encrypted on Colon’s server, never in your '
     + 'site’s files. Colon uses it to read and change this database when you ask in Chat.') + '</p>';

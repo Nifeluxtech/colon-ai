@@ -180,6 +180,17 @@ function RemoteChatData() {
       body: { message: message } }); },
     // v0.27.0 (step 3): Preview (whole site), Code, Files and Terminal edits. Each write is a new version.
     workspaceBundle: function (id) { return api(wsp(id) + '/bundle'); },
+    // v0.31.0: every file and folder as a .zip -> { blob, name, files } (owner only; the session cookie goes along)
+    workspaceZip: function (id) {
+      return fetch(C.API + wsp(id) + '/export', { credentials: 'include' }).then(function (r) {
+        if (!r.ok) return r.json().catch(function () { return {}; }).then(function (d) {
+          throw Object.assign(new Error(d.message || 'The ZIP couldn’t be made.'), { status: r.status }); });
+        var cd = r.headers.get('content-disposition') || '', m = /filename="([^"]+)"/.exec(cd);
+        return r.blob().then(function (b) { return { blob: b, name: m ? m[1] : 'site.zip',
+          files: Number(r.headers.get('x-colon-files')) || null }; });
+      }, function () { throw Object.assign(new Error('Can’t reach Colon right now. Check your connection.'),
+        { code: 'offline' }); });
+    },
     putWorkspaceFile: function (id, b) { return api(wsp(id) + '/file', { method: 'PUT', body: b }); },
     moveWorkspaceFile: function (id, from, to) { return api(wsp(id) + '/file/move', { method: 'POST',
       body: { from: from, to: to } }); },

@@ -1,13 +1,15 @@
 /* Colon AI · Workspace IDE: the Files panel (v0.31.0; was the Files tab). A real folder tree: tap a folder to open
-   or close it, tap a file to open it in the editor. Header: New file, New folder, Upload, History. Each row's ⋯
-   menu: New file / New folder here (folders), Rename, Move, Delete. A folder rename or move moves everything in
-   it as ONE version (POST /workspaces/:id/folder/move); deleting a folder removes all of it (one version too).
+   or close it, tap a file to open it in the editor. Header: New file, New folder, Upload, History, Download as ZIP
+   (every file and folder, workspace-export.js). Each row's ⋯ menu: New file / New folder here (folders), Rename,
+   Move, Delete. A folder rename or move moves everything in it as ONE version (POST /workspaces/:id/folder/move);
+   deleting a folder removes all of it (one version too).
    Empty folders are kept as <folder>/.gitkeep (lib/ws-tree.js), so they exist in storage and in Git.
    mountTree(el, { id, data, files, active, onOpen(path), onChanged(), onMoved(from, to), onGone(prefix) })
      -> { update(files, active) } */
 import { Colon } from '../../../../packages/ui/js/colon.js';
 import * as UI from './project-ui.js';
 import { KEEP, baseName, buildTree, join, parentOf } from '../lib/ws-tree.js';
+import { downloadZip } from './workspace-export.js';
 
 var C = Colon, icon = C.icon, esc = C.esc;
 var TEXT = /\.(html?|css|m?js|json|txt|md|svg|xml|webmanifest|csv)$/i;
@@ -57,7 +59,9 @@ function mountTree(el, o) {
       + 'data-act="folder" aria-label="New folder" title="New folder">' + icon('folder') + '</button><button '
       + 'type="button" class="ide-ib" data-act="up" aria-label="Upload" title="Upload">' + icon('upload')
       + '</button><button type="button" class="ide-ib" data-act="hist" aria-label="History" title="History">'
-      + icon('history') + '</button></span><input type="file" data-pick hidden multiple></div><div class="ide-tree" '
+      + icon('history') + '</button><button type="button" class="ide-ib" data-act="zip" aria-label="Download as ZIP" '
+      + 'title="Download as ZIP"' + (files.length ? '' : ' disabled') + '>' + icon('download')
+      + '</button></span><input type="file" data-pick hidden multiple></div><div class="ide-tree" '
       + 'role="tree">' + (files.length ? t.dirs.map(function (d) { return rowDir(d, 0); }).join('')
         + t.files.map(function (p) { return rowFile(p, 0); }).join('') : '<p class="px-empty">No files yet.</p>')
       + '</div>';
@@ -150,7 +154,8 @@ function mountTree(el, o) {
     el.querySelectorAll('[data-act]').forEach(function (b) { b.addEventListener('click', function () {
       var a = b.getAttribute('data-act');
       if (a === 'file') newFile(''); else if (a === 'folder') newFolder('');
-      else if (a === 'up') { upFolder = ''; pick.click(); } else history();
+      else if (a === 'up') { upFolder = ''; pick.click(); } else if (a === 'zip') downloadZip(data, id, b);
+      else history();
     }); });
     el.querySelectorAll('[data-dir]').forEach(function (b) { b.addEventListener('click', function () {
       var f = b.getAttribute('data-dir'); openSet[f] = !openSet[f]; render(); }); });
