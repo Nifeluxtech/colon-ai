@@ -139,11 +139,12 @@ function createChat({ engine, deps }) {
     let r;
     try {
       const ref = w.ref_url ? await store.reference(w.id) : null;
+      const data = deps.dataInfo ? await deps.dataInfo(u, w.id).catch(() => null) : null;   // v0.29.0
       // a hard limit too, in case a provider ignores the abort signal
       let timer;
       r = await Promise.race([deps.generate({ mode: 'developer', language: 'en', messages, taskText: text,
         context: prompt.context({ files, message: text, title: w.title, instructions: w.instructions,
-          reference: ref }), routing: ctx.routing, signal: ctx.signal }),
+          reference: ref, data }), routing: ctx.routing, signal: ctx.signal }),
       new Promise((_, no) => { timer = setTimeout(() => no(err(504, 'timeout', FRIENDLY.timeout)), BUILD_MS + 10000);
         if (timer.unref) timer.unref(); })]).finally(() => clearTimeout(timer));
     } catch (e) {
