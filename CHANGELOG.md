@@ -2,6 +2,8 @@
 
 ## 0.29.0 (2026-11-23) · Workspace step 5: database and secret keys
 
+- Workspace chat opens on the newest message, follows new replies while you are at the bottom, and shows a
+  **Latest** button to jump down when you have scrolled up.
 - Every workspace gets a **Data** tab (before Publish) with a small database and a safe key store, so a static
   site can save orders, sign-ups or messages and call paid APIs without a key ever going into its files.
 - Database: tables of JSON records (8 KB each, 5000 per workspace, 20 tables). Each table says whether visitors
