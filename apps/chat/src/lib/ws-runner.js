@@ -41,6 +41,7 @@ var PY_WORKER = [
   'try{fs.mkdirTree("/site")}catch(x){}Object.keys(d.files||{}).forEach(function(k){var i=k.lastIndexOf("/");',
   'if(i>0)fs.mkdirTree("/site/"+k.slice(0,i));fs.writeFile("/site/"+k,d.files[k])});',
   'try{fs.chdir("/site/"+(d.cwd||""))}catch(x){fs.chdir("/site")}',
+  'try{await p.loadPackagesFromImports(d.code)}catch(x){}',
   'var r=await p.runPythonAsync(d.code);if(d.repl&&r!==undefined&&r!==null){',
   'postMessage({type:"out",text:r&&r.toString?r.toString():String(r)})}if(r&&r.destroy)r.destroy();',
   'postMessage({type:"done",ok:true})}catch(x){var m=String(x&&x.message||x);',
