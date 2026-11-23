@@ -29,7 +29,12 @@ async function maintenance(req, path) {
 
 function cors(req, res) {
   const origin = req.headers.origin;
-  if (origin && config.allowedOrigins.includes(origin)) {
+  if (/^\/sites\//.test(req.url || '')) {   // v0.29.0: public site data, called by published pages (no cookies)
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+    res.setHeader('Access-Control-Max-Age', '600');
+  } else if (origin && config.allowedOrigins.includes(origin)) {
     res.setHeader('Access-Control-Allow-Origin', origin);
     res.setHeader('Vary', 'Origin');
     res.setHeader('Access-Control-Allow-Credentials', 'true');
@@ -77,7 +82,8 @@ async function handle(req, res) {
     req.params = match.params;
     req.cookies = parseCookies(req.headers.cookie);
     req.body = match.opts.body === 'raw' ? {} : await readJson(req, match.opts.bodyLimit);
-    req.user = path === '/health' || path === '/' ? null : await sessions.load(req).catch(() => null);
+    const open = path === '/health' || path === '/' || path.startsWith('/sites/');   // never read a session
+    req.user = open ? null : await sessions.load(req).catch(() => null);
     const down = await maintenance(req, path);
     if (down) return send(res, 503, down, { 'Retry-After': '300' });
     let result;
