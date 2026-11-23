@@ -121,6 +121,15 @@ CW.pages.workspaceOne = function (page, ctx) {
     var ask = cur && cur.ask ? cur.ask() : Promise.resolve(true);
     ask.then(function (ok) { if (!ok) return; Object.assign(st, extra || {}); st.tab = tab; render(); });
   }
+  // v0.31.2: tab commands typed in the chat ("open browser", "show the code", "open the database")
+  var ACT = { open_preview: 'preview', open_code: 'ide', open_data: 'data', open_publish: 'publish',
+    open_chat: 'chat' };
+  function act(a) {
+    var pub = st.workspace && st.workspace.published;
+    if (a === 'open_site' && pub && pub.url) { window.open(pub.url, '_blank', 'noopener'); return; }
+    var tab = ACT[a] || (a === 'open_site' ? 'preview' : null);
+    if (tab && tab !== st.tab) go(tab);
+  }
   function render() {
     var w = st.workspace;
     if (cur && cur.dispose) cur.dispose();
@@ -135,7 +144,7 @@ CW.pages.workspaceOne = function (page, ctx) {
     page.querySelectorAll('[data-tab]').forEach(function (b) { b.addEventListener('click', function () {
       if (b.getAttribute('data-tab') !== st.tab) go(b.getAttribute('data-tab')); }); });
     if (st.tab === 'chat') {
-      cur = mountChat(pane, Object.assign(o, { onChanged: quiet, send: st.send }));
+      cur = mountChat(pane, Object.assign(o, { onChanged: quiet, send: st.send, onAction: act }));
       st.send = null;
     } else if (st.tab === 'preview') {
       cur = mountPreview(pane, Object.assign(o, { page: st.page, onPage: function (p) { st.page = p; },

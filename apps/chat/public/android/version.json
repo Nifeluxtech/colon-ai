@@ -1,17 +1,17 @@
 {
-  "versionName": "0.31.1",
-  "versionCode": 3101,
-  "apkUrl": "https://github.com/Nifeluxtech/colon-ai/releases/download/v0.31.1/colon-ai-0.31.1.apk",
-  "releaseUrl": "https://github.com/Nifeluxtech/colon-ai/releases/tag/v0.31.1",
-  "notes": "Light mode for the Workspace Code tab (readable file tabs, a light code theme, a light Shell), the Files drawer, the Data tab’s Git and database cards, Connect sheets and the Download ZIP card.",
+  "versionName": "0.31.2",
+  "versionCode": 3102,
+  "apkUrl": "https://github.com/Nifeluxtech/colon-ai/releases/download/v0.31.2/colon-ai-0.31.2.apk",
+  "releaseUrl": "https://github.com/Nifeluxtech/colon-ai/releases/tag/v0.31.2",
+  "notes": "Workspace chat answers questions and tab commands (“open browser”, “show the code”) in seconds, and reads links you send; only real changes run a build.",
   "minSupportedVersionCode": 0,
   "publishedAt": "2026-11-23",
   "browser": {
-    "versionName": "0.31.1",
-    "versionCode": 3101,
-    "apkUrl": "https://github.com/Nifeluxtech/colon-ai/releases/download/v0.31.1/colon-browser-0.31.1.apk",
-    "releaseUrl": "https://github.com/Nifeluxtech/colon-ai/releases/tag/v0.31.1",
-    "notes": "Released alongside Colon AI 0.31.1 (no browser changes).",
+    "versionName": "0.31.2",
+    "versionCode": 3102,
+    "apkUrl": "https://github.com/Nifeluxtech/colon-ai/releases/download/v0.31.2/colon-browser-0.31.2.apk",
+    "releaseUrl": "https://github.com/Nifeluxtech/colon-ai/releases/tag/v0.31.2",
+    "notes": "Released alongside Colon AI 0.31.2 (no browser changes).",
     "minSupportedVersionCode": 0
   }
 }

@@ -12,6 +12,8 @@
 const edits = require('./edits');
 const prompt = require('./prompt');
 const sideTalk = require('./side');
+const triage = require('./triage');
+const fast = require('./fast');
 const exporter = require('./exporter');
 
 const MAX_MESSAGE = 4000;
@@ -81,6 +83,9 @@ const asHistory = (m) => {
 function createChat({ engine, deps }) {
   const store = engine.store;
   const running = new Map();   // workspace id -> { started }
+  // v0.31.2: tab commands, quick answers, link reading and "stop" live in fast.js (size limit)
+  const { readLinks, command, quick, stop } = fast.create({ engine, deps, store, running,
+    drain: (...a) => drain(...a) });
 
   // v0.28.0: "working" also comes from the database (the newest message is the user's and under STALE_MS old),
   // because cPanel's Passenger runs several API processes: the poll can reach a process other than the one
@@ -91,7 +96,8 @@ function createChat({ engine, deps }) {
     if (msgs.some((m) => m.role === 'user' && ((m.kind === 'running' && alive(m))
       || (m.kind === 'queued' && young(m, QUEUE_STALE_MS))))) return true;
     if (!last || last.role !== 'user') return false;
-    return last.kind === 'side' ? young(last, SIDE_STALE_MS) : !last.kind && young(last, STALE_MS);
+    return last.kind === 'side' || last.kind === 'quick' ? young(last, SIDE_STALE_MS)
+      : !last.kind && young(last, STALE_MS);
   };
   async function history(u, id) {
     const w = await engine.owned(u, id);
@@ -137,15 +143,16 @@ function createChat({ engine, deps }) {
       + (Number(f.size) || 0), 0))}`);
     // The build conversation only: no mid-build chatter, no other queued requests, this message last.
     const earlier = (await store.messages(w.id, HISTORY * 3)).map(msgOut).filter((x) => !x.error && x.id !== m.id
-      && x.kind !== 'side' && x.kind !== 'queued' && x.kind !== 'running').slice(-HISTORY);
+      && x.kind !== 'side' && x.kind !== 'quick' && x.kind !== 'queued' && x.kind !== 'running').slice(-HISTORY);
     const messages = earlier.map(asHistory);
     messages.push({ role: 'user', content: text });
+    const links = await fast.linkStep(t, text, ctx.signal, readLinks, deps);   // v0.31.2
     const ref = w.ref_url ? await store.reference(w.id).catch(() => null) : null;
     const data = deps.dataInfo ? await deps.dataInfo(u, w.id).catch(() => null) : null;   // v0.29.0
     // v0.31.0: server access to a connected database / repository -> tool blocks and a short tool loop (tools.js)
     const kit = deps.tools && data ? await deps.tools(u, w.id, text, data).catch(() => null) : null;
     const context = prompt.context({ files, message: text, title: w.title, instructions: w.instructions,
-      reference: ref, data: kit ? { ...data, tools: kit.prompt } : data });
+      reference: ref, data: kit ? { ...data, tools: kit.prompt } : data, links });
     const gen = (extra) => {   // a hard limit too, in case a provider ignores the abort signal
       let timer;
       return Promise.race([deps.generate({ mode: 'developer', language: 'en', messages: messages.concat(extra),
@@ -201,6 +208,13 @@ function createChat({ engine, deps }) {
     if (text.length > MAX_MESSAGE) throw err(422, 'invalid', `Keep a message under ${MAX_MESSAGE} characters.`);
     const recent = (await store.messages(w.id, 30)).map(msgOut);
     if (running.has(w.id) || pending(recent)) return side(u, w, text, recent, ctx);
+    // v0.31.2: commands and questions answer in seconds; only changes build (triage.js). deps.quick switches it on.
+    if (deps.quick) {
+      const t = STOP.test(text) ? { kind: 'answer', stop: true } : triage.classify(text);
+      if (t.kind === 'command') return command(w, text, t.action);
+      if (t.stop) return command(w, text, null, 'Nothing is building right now.');
+      if (t.kind === 'answer') return quick(u, w, text, recent, ctx);
+    }
     const mid = await store.addMessage(w.id, { role: 'user', content: text, kind: 'running' });
     const job = drain(u, w, { id: Number(mid), content: text }, ctx);
     if (ctx.wait) await job;   // tests
@@ -275,21 +289,6 @@ function createChat({ engine, deps }) {
     return { message: { id: mid, role: 'user', content: text, kind: 'side' }, working: true };
   }
 
-  // v0.27.3: "stop" ends the running build (in this process at once; in another one before it saves anything)
-  // and drops the queue. Nothing is changed.
-  async function stop(w, mid, text, users) {
-    for (const x of users.filter((y) => y.kind === 'queued')) await store.claimKind(x.id, 'queued', 'dropped');
-    const cur = users.filter((y) => y.kind === 'running').pop();
-    if (cur && (await store.claimKind(cur.id, 'running', 'stopped'))) {
-      await store.setSteps(cur.id, cur.steps.map((x) => (x.state === 'run' ? { ...x, state: 'fail',
-        detail: 'Stopped' } : x)));
-    }
-    const r = running.get(w.id);
-    if (r && r.ctl) r.ctl.abort();
-    await store.addMessage(w.id, { role: 'assistant', kind: 'side', content: cur
-      ? 'Stopped. Nothing was changed.' : 'Nothing is building right now.' });
-    return { message: { id: mid, role: 'user', content: text, kind: 'side' }, working: false };
-  }
 
   return { send, history, _running: running };
 }
