@@ -1,0 +1,117 @@
+/* Colon AI · Workspace connections (v0.30.0). Sign-in and database services a site talks to from the browser:
+   Supabase, Firebase, Appwrite, PocketBase, Clerk. Only their PUBLIC client settings are saved (the server refuses
+   private keys); Colon's builder then writes login, register and data code with them.
+     connectionsHtml(st)              the Data tab's section (st = GET /workspaces/:id/data)
+     connectSheet(o, st, provider)    the form; o = { id, data, onSaved() }
+     pickProvider(anchor, o, st)      the "Connect" menu */
+import { Colon } from '../../../../packages/ui/js/colon.js';
+
+var C = Colon, icon = C.icon, esc = C.esc;
+var HOST = 'apparatus.name.ng';
+var TIPS = {
+  supabase: 'Supabase → Project Settings → API. Then in Authentication → URL Configuration, add your site link '
+    + 'as a Redirect URL.',
+  firebase: 'Firebase → Project settings → Your apps → Web app (you can paste the whole firebaseConfig). Then add '
+    + HOST + ' under Authentication → Settings → Authorized domains.',
+  appwrite: 'Appwrite → Settings for the endpoint and project ID. Add a Web platform with hostname ' + HOST + '.',
+  pocketbase: 'The address of your PocketBase server. Allow ' + HOST + ' in its CORS settings if you set any.',
+  clerk: 'Clerk → API keys → Publishable key (starts with pk_). Add your site link to the allowed origins.',
+};
+
+function provider(st, id) {
+  return (st.providers || []).filter(function (p) { return p.id === id; })[0] || null;
+}
+function connected(st, id) {
+  return (st.connections || []).filter(function (c) { return c.provider === id; })[0] || null;
+}
+function summary(c) {
+  var v = c.config || {};
+  return v.url || v.endpoint || v.authDomain || v.projectId || (v.publishableKey ? v.publishableKey.slice(0, 12)
+    + '…' : '');
+}
+
+function connectionsHtml(st) {
+  var list = st.connections || [];
+  return '<section class="wk-dsec"><div class="wk-dhead"><h3>' + icon('users') + 'Sign-in &amp; services</h3>'
+    + '<button type="button" class="btn sm" data-conn-add>' + icon('plus') + 'Connect</button></div>'
+    + (list.length ? list.map(function (c) {
+      var p = provider(st, c.provider);
+      return '<div class="wk-row"><div class="px-row"><b>' + esc(p ? p.label : c.provider) + '</b><small>'
+        + esc(summary(c)) + '</small></div><button class="icon-btn" type="button" data-conn="' + esc(c.provider)
+        + '" aria-label="Options for ' + esc(p ? p.label : c.provider) + '">' + icon('more') + '</button></div>';
+    }).join('') : '<p class="px-empty">Connect Supabase, Firebase or another service and Colon can build login, '
+      + 'register and accounts for your site.</p>') + '</section>';
+}
+
+// "apiKey: 'AIza…', authDomain: …" pasted from a firebaseConfig -> { apiKey, authDomain, … }
+function parseConfig(text) {
+  var out = {};
+  String(text || '').replace(/["']?(\w+)["']?\s*:\s*["']([^"']+)["']/g, function (all, k, v) {
+    out[k] = v; return all;
+  });
+  return out;
+}
+
+function connectSheet(o, st, id) {
+  var p = provider(st, id);
+  if (!p) return;
+  var cur = connected(st, id), v = (cur && cur.config) || {};
+  C.sheet('<form class="px-sheet wk-dsheet" novalidate><h2 class="h3">' + (cur ? 'Edit ' : 'Connect ')
+    + esc(p.label) + '</h2><p class="small muted">' + esc(TIPS[id] || '') + '</p>'
+    + (id === 'firebase' ? '<label class="wk-f"><span>Paste firebaseConfig (optional)</span><textarea class="input" '
+      + 'rows="3" data-paste spellcheck="false" placeholder="{ apiKey: …, authDomain: … }"></textarea></label>' : '')
+    + p.fields.map(function (f) {
+      return '<label class="wk-f"><span>' + esc(f.label) + '</span><input class="input" data-f="' + esc(f.name)
+        + '" autocapitalize="off" autocomplete="off" spellcheck="false" placeholder="' + esc(f.hint || '')
+        + '" value="' + esc(v[f.name] || '') + '"></label>';
+    }).join('')
+    + '<p class="small muted">Only public settings go here; they end up in your site’s files. Private keys go in '
+    + 'Secret keys.</p><small class="wk-bad" data-err aria-live="polite"></small><div class="sheet-actions">'
+    + '<button type="button" class="btn ghost" data-close>Cancel</button><button type="submit" class="btn primary">'
+    + (cur ? 'Save' : 'Connect') + '</button></div></form>', function (el, close) {
+    var paste = el.querySelector('[data-paste]');
+    if (paste) {
+      paste.addEventListener('input', function () {
+        var got = parseConfig(paste.value);
+        el.querySelectorAll('[data-f]').forEach(function (i) {
+          var k = i.getAttribute('data-f');
+          if (got[k]) i.value = got[k];
+        });
+      });
+    }
+    el.querySelector('form').addEventListener('submit', function (e) {
+      e.preventDefault();
+      var body = {};
+      el.querySelectorAll('[data-f]').forEach(function (i) { body[i.getAttribute('data-f')] = i.value.trim(); });
+      o.data.putWorkspaceConnection(o.id, id, body).then(function () {
+        close(); C.toast(p.label + ' connected.', 'ok'); if (o.onSaved) o.onSaved();
+      }).catch(function (err) {
+        el.querySelector('[data-err]').textContent = err.message;
+        var bad = err.field && el.querySelector('[data-f="' + err.field + '"]');
+        if (bad) bad.focus();
+      });
+    });
+  }, { label: 'Connect ' + p.label });
+}
+
+function pickProvider(anchor, o, st) {
+  C.menu(anchor, (st.providers || []).map(function (p) {
+    return { label: p.label + (connected(st, p.id) ? ' (connected)' : ''), icon: 'plus',
+      onClick: function () { connectSheet(o, st, p.id); } };
+  }), { align: 'right', label: 'Connect a service' });
+}
+
+function connectionMenu(anchor, o, st, id) {
+  var p = provider(st, id);
+  C.menu(anchor, [{ label: 'Edit', icon: 'edit', onClick: function () { connectSheet(o, st, id); } }, '-',
+    { label: 'Disconnect', icon: 'trash', danger: true, onClick: function () {
+      C.confirm({ title: 'Disconnect ' + (p ? p.label : id) + '?', body: 'Your site’s files keep the settings '
+        + 'they were built with; Colon stops using them for new builds.', confirm: 'Disconnect', danger: true })
+        .then(function (yes) {
+          if (yes) o.data.deleteWorkspaceConnection(o.id, id).then(o.onSaved).catch(function (e) {
+            C.toast(e.message, 'bad'); });
+        });
+    } }], { align: 'right', label: 'Service options' });
+}
+
+export { connectionsHtml, connectSheet, pickProvider, connectionMenu, parseConfig };
