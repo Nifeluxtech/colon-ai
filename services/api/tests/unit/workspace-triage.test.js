@@ -110,3 +110,17 @@ test('chat: a linked page is read for a quick answer and a build; a failed read 
   assert.ok(steps.some((x) => x.label === 'Reading the links' && x.state === 'done' && x.detail === 'bakery.ng'));
   assert.deepEqual(read, ['https://bakery.ng', 'https://bakery.ng/menu', 'https://bad.ng']);
 });
+
+test('triage: plans and lists answer in the chat; a change to the site still builds (v0.31.3)', () => {
+  for (const m of ['Retry\nJust list out', 'Write out the 5 phase to production', 'list the steps to launch',
+    'give me ideas for the hero']) assert.equal(triage.classify(m).kind, 'answer', m);
+  for (const m of ['add a list of products', 'make a plan page', 'list the prices and add them to the menu'])
+    assert.equal(triage.classify(m).kind, 'build', m);
+});
+
+test('prompt: a linked repository is cut to 12 KB per build (v0.31.3)', () => {
+  const p = require('../../src/modules/workspace/prompt');
+  const out = p.context({ files: [], reference: 'x'.repeat(30000) });
+  assert.ok(out.includes('… (cut)'));
+  assert.ok(out.length < 12000 + 8000);
+});

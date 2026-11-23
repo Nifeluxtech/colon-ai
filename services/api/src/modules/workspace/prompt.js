@@ -5,6 +5,7 @@
 
 const { recipe } = require('./connect');
 
+const REF_BUDGET = 12000;   // v0.31.3: characters of a linked repository per build (was all 40 KB)
 const BUDGET = 60000;   // characters of file content per request (a 3-page site fits easily)
 
 const RULES = `You are Colon's website builder, working inside the user's Workspace: a small STATIC website (HTML, CSS,
@@ -76,6 +77,9 @@ function tree(files) {
   return files.map((f) => `- ${f.path} (${f.size} bytes${f.text ? '' : ', binary'})`).join('\n');
 }
 
+const refText = (r) => (String(r).length > REF_BUDGET ? `${String(r).slice(0, REF_BUDGET)}\n… (cut)`
+  : String(r));
+
 // v0.31.2: the readable text of pages the user linked ("make mine like https://...", "use the menu on this page").
 function linksBlock(links) {
   return 'Pages the user linked in this message (read just now; text only, layout and images are not included). '
@@ -107,7 +111,7 @@ function context({ files, message = '', title = '', instructions = '', reference
     instructions ? `The user's standing instructions for this site (follow them unless this message says `
       + `otherwise):\n${String(instructions).slice(0, 4000)}` : '',
     reference ? 'Reference repository: follow its structure, conventions and visual style when building. Do not '
-      + `copy it wholesale unless the user asks.\n${String(reference)}` : '',
+      + `copy it wholesale unless the user asks.\n${refText(reference)}` : '',
     links.length ? linksBlock(links) : '',   // v0.31.2: pages the user linked in this message
     data && data.key ? dataRules(data) : '',
     data && data.key ? recipe(data.connections || []) : '',

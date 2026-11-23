@@ -71,7 +71,7 @@ const restoreVersion = async (req) => [200, await engine().restore(req.user, req
 let chatDeps = null, chatShared = null;
 function liveDeps() {
   const ai = require('../ai');
-  return { generate: ai.generate, loadRouting: () => ai.dynamic.load(), isConfigured: ai.isConfigured,
+  return { generate: require('./model').live(), loadRouting: () => ai.dynamic.load(), isConfigured: ai.isConfigured,
     resolveCounters: (req) => ai.limits.resolveCounters(req, 'developer'), consumeAll: (c) => ai.limits.consumeAll(c),
     refundAll: (c) => ai.limits.refundAll(c), checkInput: require('../safety').checkInput,
     record: (info) => ai.calls.record(info), log: require('../../shared/logger'), quick: true,

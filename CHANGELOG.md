@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.31.3 (2026-11-23) · Faster Workspace builds; send while building
+
+- **Send while building**: after a message was sent, the Workspace chat send button stayed disabled until the page
+  was reopened, so you could not ask a question or queue a change mid-build (the server has accepted mid-build
+  messages since 0.27.2). The composer is freed as soon as the message is saved (`workspace-chat.js`).
+- **Faster model first**: Workspace builds and quick answers try `WORKSPACE_MODEL` (default `gemini-3.5-flash-lite`
+  on Google AI Studio) before the normal chain (Gemma 4 26B first, which took minutes on long code answers). Any
+  failure, rate limit or empty answer goes to the chain as before; a stop is never retried
+  (`services/api/src/modules/workspace/model.js`). `WORKSPACE_MODEL=off` restores 0.31.2 behaviour.
+- **Smaller repository context**: a linked repository ("Learning from ...") adds at most 12 KB to a build, down from
+  up to 40 KB, so the model starts writing sooner.
+- **Plans and lists answer in the chat**: "list out the phases", "write out the 5 phase plan", "give me ideas" get
+  a quick answer (up to about 1,500 tokens, 30 s) instead of a build, unless the message also asks to change the
+  site ("add a list of products").
+
 ## 0.31.2 (2026-11-23) · Workspace chat answers fast and reads links
 
 Every Workspace chat message used to run a whole build (read all files, ask the code model, wait for the full

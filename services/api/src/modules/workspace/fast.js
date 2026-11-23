@@ -3,7 +3,7 @@
 // Split out of chat.js (size limit); chat.js passes its store, running map and drain().
 const triage = require('./triage');
 
-const QUICK_MS = 20000;   // a quick answer gets this long, then the message builds instead
+const QUICK_MS = 30000;   // a quick answer gets this long, then the message builds instead
 const err = (status, code, message) => Object.assign(new Error(message), { status, code });
 const host = (u) => { try { return new URL(u).hostname; } catch (e) { return u; } };
 
@@ -58,7 +58,7 @@ function create({ engine, deps, store, running, drain }) {
         try {
           const r = await Promise.race([deps.generate({ mode: 'general', language: 'en', category: 'everyday',
             messages: [{ role: 'user', content: text }], taskText: text, routing: ctx.routing, signal,
-            timeouts: { maxTokens: 400 }, context: triage.context({ title: w.title, instructions: w.instructions,
+            timeouts: { maxTokens: 1500 }, context: triage.context({ title: w.title, instructions: w.instructions,
               files, links, recent: recent.filter((x) => !x.error).slice(-4) }) }),
           new Promise((_, no) => { const t2 = setTimeout(() => no(err(504, 'timeout', 'slow')), QUICK_MS + 2000);
             if (t2.unref) t2.unref(); })]);

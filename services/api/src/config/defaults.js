@@ -110,6 +110,7 @@ const SCHEMA = [
   oneOf('CHAT_BROWSER_TOOLS', ['on', 'off'], 'on',
     'on = the chat model gets the browser tools (browse, read_page, stop_browsing); off = keyword routing only'),
   str('CHAT_TOOL_MODEL', 'gemini-3.5-flash-lite', 'chat / tool model on Google AI Studio (needs GEMINI_API_KEY)'),
+  str('WORKSPACE_MODEL', 'gemini-3.5-flash-lite', 'Workspace builds and quick answers try this first; off = chain'),
   str('CHAT_TOOL_FALLBACK_MODEL', 'gemma-4-26b-a4b-it', 'tool model when the first fails ("off" to skip)'),
   num('CHAT_TOOL_TIMEOUT_MS', 15000, 'a tool model that has not started answering by then hands over to the next'),
   str('AI_SUPPORT_MODELS', '', 'support models after Gemma 4, "provider:model, ..." in order; off = none; empty = '
