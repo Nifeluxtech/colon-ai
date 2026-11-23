@@ -1,0 +1,48 @@
+/* Colon AI · Workspace "needs" lines (v0.29.0, Workspace step 5; plan: docs/workspace/plan.md). When a build needs a
+   database table or a secret key the site doesn't have yet, the model adds a line to its note (prompt.js):
+     === NEEDS: table orders read=owner add=public -- orders from the checkout
+     === NEEDS: secret PAYSTACK_KEY host=api.paystack.co as=bearer -- take card payments
+   split() takes them out of the text the user reads; the chat shows each as a card that opens the Data tab's form.
+   Pure and DOM-free. */
+
+var LINE = /^\s*===\s*NEEDS\s*:\s*(table|database|secret|key)\s+([A-Za-z][A-Za-z0-9_-]*)(.*)$/i;
+
+function opts(rest) {
+  var why = '', m = rest.split(/\s+--\s+|\s+—\s+/);
+  if (m.length > 1) why = m.slice(1).join(' - ').trim();
+  var o = { why: why };
+  m[0].replace(/(\w+)=(\S+)/g, function (all, k, v) { o[k.toLowerCase()] = v; return all; });
+  return o;
+}
+
+/** text -> { text, needs: [{ kind: 'table'|'secret', name, read?, add?, host?, as?, why }] } */
+function split(text) {
+  var keep = [], needs = [], seen = {};
+  String(text || '').split('\n').forEach(function (line) {
+    var m = LINE.exec(line);
+    if (!m) { keep.push(line); return; }
+    var kind = /^(table|database)$/i.test(m[1]) ? 'table' : 'secret', o = opts(m[3] || '');
+    var name = kind === 'table' ? m[2].toLowerCase() : m[2].toUpperCase().replace(/-/g, '_');
+    if (seen[kind + name]) return;
+    seen[kind + name] = 1;
+    var n = { kind: kind, name: name, why: o.why };
+    if (kind === 'table') {
+      n.read = o.read === 'public' ? 'public' : 'owner';
+      n.add = o.add === 'public' ? 'public' : 'owner';
+    } else {
+      n.host = o.host ? String(o.host).replace(/^https?:\/\//i, '').replace(/\/.*$/, '').toLowerCase() : '';
+      n.as = /^(bearer|header:[A-Za-z0-9-]+|query:[A-Za-z0-9_.-]+)$/.test(o.as || '') ? o.as : 'bearer';
+    }
+    needs.push(n);
+  });
+  return { text: keep.join('\n').replace(/\n{3,}/g, '\n\n').trim(), needs: needs };
+}
+
+/** Is this need already met by the workspace's data ({ secrets[], collections[] })? */
+function met(n, d) {
+  if (!d) return false;
+  var list = n.kind === 'table' ? d.collections || [] : d.secrets || [];
+  return list.some(function (x) { return x.name === n.name; });
+}
+
+export { split, met };

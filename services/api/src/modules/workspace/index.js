@@ -260,4 +260,4 @@ let shared = null;
 const instance = () => (shared || (shared = create()));
 
 module.exports = { create, instance, memoryStore, LIMITS, TEMPLATES: templates.TEMPLATES,
-  handlers: require('./handlers') };
+  handlers: require('./handlers'), dataHandlers: require('./data-handlers') };

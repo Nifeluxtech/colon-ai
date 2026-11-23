@@ -1,6 +1,6 @@
 # Colon Workspace — agreed 5-step plan
 
-Status: **Steps 1–4 shipped (v0.25.0, v0.26.0, v0.27.0, v0.28.0)** (Nov 22, 2026). Next: Step 5. Details per step: `step-N.md`. Source of truth for this feature.
+Status: **Steps 1–5 shipped (v0.25.0, v0.26.0, v0.27.0, v0.28.0, v0.29.0)** (Nov 23, 2026). Next: Step 6. Details per step: `step-N.md`. Source of truth for this feature.
 Origin: two ChatGPT "Design Colon Workspace" chats from the owner (chat-first builder + free tools list),
 summarised in `source-notes.md`. Where they differ from this file, **this file wins**.
 
@@ -72,7 +72,13 @@ chat is the default view.
   (versions), visibility Public. Custom domains = later.
 - Abuse: report link in a tiny footer badge "Made with Colon", admin can take a site down (Admin Dashboard).
 
-### Step 5 — Polish, limits, release
+### Step 5 — Database and secret keys (added Nov 23, 2026 at the user's request)
+- Data tab: per-workspace tables of JSON records with visitor read/add rules, and encrypted secret keys tied to
+  one API host. Sites use them through `/sites/<key>/colon.js` (Colon.data, Colon.call); keys never enter files.
+- The chat knows table and key names and shows "needs" cards (=== NEEDS: lines) to create what a build needs.
+- Still static-only: no user code runs on the server. Details: step-5.md.
+
+### Step 6 — Polish, limits, release
 - Quotas wired to billing plans; Admin Dashboard list of published sites with takedown.
 - Basic traffic count per site (Apache log or a tiny pixel hit endpoint), optional.
 - Tests for path validation, slug rules, publish/unpublish; keep check.js rules (files ≤300 lines,
@@ -96,4 +102,5 @@ chat is the default view.
 - [x] Step 2 — chat builds the site (v0.26.0, see step-2.md)
 - [x] Step 3 — preview + code/files + terminal (v0.27.0)
 - [x] Step 4 — publish to `apparatus.name.ng/<name>/` (v0.28.0, see step-4.md)
-- [ ] Step 5 — polish, limits, release
+- [x] Step 5 — database and secret keys (v0.29.0, see step-5.md)
+- [ ] Step 6 — polish, limits, release

@@ -59,7 +59,8 @@ function liveDeps() {
   return { generate: ai.generate, loadRouting: () => ai.dynamic.load(), isConfigured: ai.isConfigured,
     resolveCounters: (req) => ai.limits.resolveCounters(req, 'developer'), consumeAll: (c) => ai.limits.consumeAll(c),
     refundAll: (c) => ai.limits.refundAll(c), checkInput: require('../safety').checkInput,
-    record: (info) => ai.calls.record(info), log: require('../../shared/logger') };
+    record: (info) => ai.calls.record(info), log: require('../../shared/logger'),
+    dataInfo: (u, id) => require('./data-handlers').info(u, id) };
 }
 function chat() {
   if (!chatShared) {

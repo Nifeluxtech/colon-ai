@@ -1,17 +1,17 @@
 {
-  "versionName": "0.28.0",
-  "versionCode": 2800,
-  "apkUrl": "https://github.com/Nifeluxtech/colon-ai/releases/download/v0.28.0/colon-ai-0.28.0.apk",
-  "releaseUrl": "https://github.com/Nifeluxtech/colon-ai/releases/tag/v0.28.0",
-  "notes": "Workspace can now publish your site live at apparatus.name.ng/<name>/, with Republish and Take down.",
+  "versionName": "0.29.0",
+  "versionCode": 2900,
+  "apkUrl": "https://github.com/Nifeluxtech/colon-ai/releases/download/v0.29.0/colon-ai-0.29.0.apk",
+  "releaseUrl": "https://github.com/Nifeluxtech/colon-ai/releases/tag/v0.29.0",
+  "notes": "Workspace sites get a database and secret keys: a Data tab, and Colon asks for a table or key when a build needs one.",
   "minSupportedVersionCode": 0,
-  "publishedAt": "2026-11-22",
+  "publishedAt": "2026-11-23",
   "browser": {
-    "versionName": "0.28.0",
-    "versionCode": 2800,
-    "apkUrl": "https://github.com/Nifeluxtech/colon-ai/releases/download/v0.28.0/colon-browser-0.28.0.apk",
-    "releaseUrl": "https://github.com/Nifeluxtech/colon-ai/releases/tag/v0.28.0",
-    "notes": "Released alongside Colon AI 0.28.0 (no browser changes).",
+    "versionName": "0.29.0",
+    "versionCode": 2900,
+    "apkUrl": "https://github.com/Nifeluxtech/colon-ai/releases/download/v0.29.0/colon-browser-0.29.0.apk",
+    "releaseUrl": "https://github.com/Nifeluxtech/colon-ai/releases/tag/v0.29.0",
+    "notes": "Released alongside Colon AI 0.29.0 (no browser changes).",
     "minSupportedVersionCode": 0
   }
 }

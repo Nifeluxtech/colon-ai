@@ -10,11 +10,14 @@
    Pure and DOM-free: unit-tested in packages/ui/test/ws-site.test.js. */
 
 var REF = /^(?:[a-z][a-z0-9+.-]*:|\/\/|#|data:|blob:)/i;   // absolute URLs, anchors: left alone
+// v0.29.0: code, not a file: template placeholders (${x}, {{x}}, <%= x %>), "+" concatenation, an encoded "#" (an
+// SVG's url(%23id) inside a data: URL)
+var CODE = /\$\{|\{\{|<%|^\s*\+|\+\s*$|^%23/;
 
 /** "css/site.css" + "../img/a.png" -> "img/a.png"; "" when it climbs out of the site; null for external refs. */
 function resolvePath(from, ref) {
   var r = String(ref || '').trim();
-  if (!r || REF.test(r)) return null;
+  if (!r || REF.test(r) || CODE.test(r)) return null;
   r = r.split('#')[0].split('?')[0];
   if (!r) return null;
   if (r.charAt(0) === '/') return '';

@@ -49,3 +49,13 @@ test('buildPage inlines css and scripts, turns assets into data URLs, injects th
 test('buildPage on a missing page', () => {
   assert.deepEqual(buildPage(FILES, 'nope.html', '').warnings, ['Missing page: nope.html']);
 });
+
+test('v0.29.0: code inside scripts and encoded SVG ids are not reported as missing files', () => {
+  const html = '<head></head><script>el.innerHTML = `<img src="${esc(src)}"><a href="${href}">x</a>`;'
+    + "var t = '<a href=\"' + back + '\">';</script><img src=\"{{ logo }}\"><div style=\"background:url("
+    + "'data:image/svg+xml,%3Csvg filter=%22url(%23noise)%22/%3E')\"></div>";
+  const out = buildPage([{ path: 'index.html', type: 'text/html', encoding: 'utf8', content: html }], 'index.html', '');
+  assert.deepEqual(out.warnings, []);
+  assert.equal(resolvePath('index.html', '%23noise'), null);
+  assert.equal(resolvePath('index.html', 'img/a.png'), 'img/a.png');
+});

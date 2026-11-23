@@ -36,14 +36,38 @@ Rules for the site:
   https://picsum.photos/seed/<word>/<w>/<h> or inline SVG; never invent other image URLs.
 - Write real, specific content for the user's purpose (no lorem ipsum unless asked). Keep files complete: never
   write "rest unchanged" or "..." inside a FILE block.
-- Keep the existing design and content unless the user asks to change them.`;
+- Keep the existing design and content unless the user asks to change them.
+- To save data (orders, sign-ups, messages) or use an API key, use Colon's database and keys (described below).`;
+
+// v0.29.0 (step 5): the site's database and keys, and how to ask the user for one it doesn't have yet.
+function dataRules(d) {
+  const script = `${d.api}/sites/${d.key}/colon.js`;
+  const tables = d.collections.length ? d.collections.map((c) => `- ${c.name} (visitors can read: ${
+    c.read === 'public' ? 'yes' : 'no'}, visitors can add: ${c.add === 'public' ? 'yes' : 'no'}, ${c.records} records)`)
+    .join('\n') : '(none yet)';
+  const keys = d.secrets.length ? d.secrets.map((s) => `- ${s.name}${s.host ? ` for ${s.host}` : ' (no API host set)'}`)
+    .join('\n') : '(none yet)';
+  return `Database and secret keys (Colon keeps them on its server; the site stays static):
+- Load <script src="${script}"></script> before your own scripts on any page that needs them.
+- await Colon.data('table').add({...}) saves one object (8 KB max); await Colon.data('table').list({ limit: 20 })
+  returns [{ id, data, created_at }], newest first. Visitors can only read or add where the table allows it; the
+  owner sees, edits and deletes everything in Colon's Data tab.
+- await Colon.call('KEY_NAME', '/path?x=1', { method: 'POST', body: {...} }) calls the key's API host with the key
+  added by Colon and returns the answer. NEVER put an API key, token or password in the site's files.
+- Show friendly loading, empty and error states (Colon.* calls can fail).
+Tables now:\n${tables}\nKeys now (values are hidden from you):\n${keys}
+If the site needs a table or a key that isn't listed, still write the code, and add a line to your note for each:
+=== NEEDS: table <name> read=<public|owner> add=<public|owner> -- <why, a few words>
+=== NEEDS: secret <NAME> host=<api.example.com> as=<bearer|header:Header-Name|query:param> -- <why>
+(table names lowercase like orders; key names uppercase like OPENAI_KEY). Colon shows the user a card to create it.`;
+}
 
 function tree(files) {
   return files.map((f) => `- ${f.path} (${f.size} bytes${f.text ? '' : ', binary'})`).join('\n');
 }
 
 // context({ files: [{ path, size, text: bool, content? }], message }) -> system context string
-function context({ files, message = '', title = '', instructions = '', reference = '' }) {
+function context({ files, message = '', title = '', instructions = '', reference = '', data = null }) {
   const asked = String(message).toLowerCase();
   const textFiles = files.filter((f) => f.text);
   const rank = (f) => (f.path === 'index.html' ? 0 : asked.includes(f.path.toLowerCase())
@@ -65,7 +89,8 @@ function context({ files, message = '', title = '', instructions = '', reference
     instructions ? `The user's standing instructions for this site (follow them unless this message says `
       + `otherwise):\n${String(instructions).slice(0, 4000)}` : '',
     reference ? 'Reference repository: follow its structure, conventions and visual style when building. Do not '
-      + `copy it wholesale unless the user asks.\n${String(reference)}` : ''].filter(Boolean).join('\n\n');
+      + `copy it wholesale unless the user asks.\n${String(reference)}` : '',
+    data && data.key ? dataRules(data) : ''].filter(Boolean).join('\n\n');
 }
 
 module.exports = { context, RULES, BUDGET };
