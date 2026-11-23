@@ -212,3 +212,33 @@
 .wk-pub-warn svg{width:16px;height:16px;flex:none}
 .wk-pub-go,.wk-pub-down{width:100%;justify-content:center}
 .wk-pub-note{margin:0;font-size:12.5px;color:var(--muted);line-height:1.5}
+
+/* ---------- Data tab and "needs" cards (v0.29.0, step 5: workspace-data.js, workspace-data-forms.js) ---------- */
+.wk-data{display:flex;flex-direction:column;gap:var(--sp-4)}
+.wk-dsec{display:flex;flex-direction:column;gap:6px}
+.wk-dhead{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.wk-dsec h3{display:flex;align-items:center;gap:8px;margin:0;font-size:16px}
+.wk-dsec h3 svg{width:18px;height:18px;color:var(--primary)}
+.wk-duse{padding:14px;border-radius:16px;background:var(--elev-1);border:1px solid var(--line)}
+.wk-duse code{display:block;padding:10px;border-radius:10px;background:var(--bg);font-size:12.5px;word-break:break-all}
+.wk-duse .btn{align-self:flex-start}
+.wk-dsheet .wk-f{display:flex;flex-direction:column;gap:4px;margin:0 0 var(--sp-3)}
+.wk-dsheet .wk-f > span{font-size:13px;font-weight:600}
+.wk-dsheet .wk-f small{font-size:12px}
+.wk-dsheet .wk-bad,.wk-need .wk-bad{display:block;min-height:1em;color:var(--danger,#e5484d);font-size:13px}
+.wk-tog{display:flex;align-items:center;gap:10px;margin:0 0 var(--sp-3);font-size:14px}
+.wk-tog input{width:20px;height:20px;accent-color:var(--primary);flex:none}
+.wk-rec-list{display:flex;flex-direction:column;gap:6px;max-height:55vh;overflow:auto;margin:var(--sp-3) 0}
+.wk-rec{display:grid;grid-template-columns:1fr auto;gap:2px 8px;padding:10px;border-radius:12px;
+  background:var(--elev-1);border:1px solid var(--line)}
+.wk-rec code{font-size:12.5px;word-break:break-all}
+.wk-rec small{grid-column:1;color:var(--muted);font-size:11.5px}
+.wk-rec .icon-btn{grid-column:2;grid-row:1 / span 2;align-self:center}
+.wk-need{display:flex;align-items:center;gap:10px;margin:8px 0 0;padding:10px 12px;border-radius:12px;
+  background:var(--primary-soft);border:1px solid var(--line)}
+.wk-need > svg{width:20px;height:20px;color:var(--primary);flex:none}
+.wk-need > span{flex:1;min-width:0;display:flex;flex-direction:column}
+.wk-need small{color:var(--muted);font-size:12.5px}
+.wk-need em{display:flex;align-items:center;gap:4px;font-style:normal;font-size:13px;color:var(--muted)}
+.wk-need em svg{width:14px;height:14px}
+.wk-need-ok{background:var(--elev-1)}
