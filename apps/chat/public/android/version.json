@@ -1,17 +1,17 @@
 {
-  "versionName": "0.29.0",
-  "versionCode": 2900,
-  "apkUrl": "https://github.com/Nifeluxtech/colon-ai/releases/download/v0.29.0/colon-ai-0.29.0.apk",
-  "releaseUrl": "https://github.com/Nifeluxtech/colon-ai/releases/tag/v0.29.0",
-  "notes": "Workspace sites get a database and secret keys: a Data tab, and Colon asks for a table or key when a build needs one.",
+  "versionName": "0.30.0",
+  "versionCode": 3000,
+  "apkUrl": "https://github.com/Nifeluxtech/colon-ai/releases/download/v0.30.0/colon-ai-0.30.0.apk",
+  "releaseUrl": "https://github.com/Nifeluxtech/colon-ai/releases/tag/v0.30.0",
+  "notes": "Sites can connect Supabase, Firebase, Appwrite, PocketBase or Clerk for login and register, and links are now apparatus.name.ng/username/site.",
   "minSupportedVersionCode": 0,
   "publishedAt": "2026-11-23",
   "browser": {
-    "versionName": "0.29.0",
-    "versionCode": 2900,
-    "apkUrl": "https://github.com/Nifeluxtech/colon-ai/releases/download/v0.29.0/colon-browser-0.29.0.apk",
-    "releaseUrl": "https://github.com/Nifeluxtech/colon-ai/releases/tag/v0.29.0",
-    "notes": "Released alongside Colon AI 0.29.0 (no browser changes).",
+    "versionName": "0.30.0",
+    "versionCode": 3000,
+    "apkUrl": "https://github.com/Nifeluxtech/colon-ai/releases/download/v0.30.0/colon-browser-0.30.0.apk",
+    "releaseUrl": "https://github.com/Nifeluxtech/colon-ai/releases/tag/v0.30.0",
+    "notes": "Released alongside Colon AI 0.30.0 (no browser changes).",
     "minSupportedVersionCode": 0
   }
 }
