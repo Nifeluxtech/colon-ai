@@ -4,6 +4,7 @@ const { requireUser } = require('../../modules/auth').guards;
 const { perUser } = require('../middleware/ratelimit');
 const h = require('../../modules/workspace').handlers;
 const d = require('../../modules/workspace').dataHandlers;
+const g = require('../../modules/workspace').connHandlers;
 
 const BODY = { bodyLimit: 2 * 1024 * 1024 };   // a 1 MB image arrives base64-encoded (~1.4 MB)
 const r = new Router();
@@ -17,6 +18,9 @@ r.get('/workspaces/:id/file', requireUser, perUser('workspace-read', 600, 3600),
 r.put('/workspaces/:id/file', BODY, requireUser, perUser('workspace-write', 600, 3600), h.putFile);
 r.delete('/workspaces/:id/file', requireUser, perUser('workspace-write', 600, 3600), h.deleteFile);
 r.post('/workspaces/:id/file/move', requireUser, perUser('workspace-write', 600, 3600), h.moveFile);
+r.post('/workspaces/:id/folder/move', requireUser, perUser('workspace-write', 600, 3600), h.moveFolder);   // v0.31.0
+r.delete('/workspaces/:id/folder', requireUser, perUser('workspace-write', 600, 3600), h.deleteFolder);
+r.get('/workspaces/:id/export', requireUser, perUser('workspace-export', 60, 3600), h.getExport);   // v0.31.0 zip
 r.get('/workspaces/:id/versions', requireUser, h.getVersions);
 r.post('/workspaces/:id/versions/:n/restore', requireUser, perUser('workspace-write', 600, 3600), h.restoreVersion);
 // v0.26.0 (step 2): the Workspace chat. Each message is one Developer-mode reply against the daily limits.
@@ -47,5 +51,10 @@ r.delete('/workspaces/:id/tables/:name/records/:rid', requireUser, perUser('work
 r.put('/workspaces/:id/connections/:provider', requireUser, perUser('workspace-secret', 120, 3600), d.putConnection);
 r.delete('/workspaces/:id/connections/:provider', requireUser, perUser('workspace-secret', 120, 3600),
   d.deleteConnection);
+// v0.31.0: server access to a connected database, and Git (commit & push, pull requests, merge)
+r.get('/workspaces/:id/remote/:provider/tables', requireUser, perUser('workspace-read', 600, 3600), g.getTables);
+r.get('/workspaces/:id/remote/:provider/rows', requireUser, perUser('workspace-read', 600, 3600), g.getRows);
+r.get('/workspaces/:id/git/:provider/pulls', requireUser, perUser('workspace-read', 600, 3600), g.getPulls);
+r.post('/workspaces/:id/git/:provider/:action', requireUser, perUser('workspace-git', 120, 3600), g.postGit);
 
 module.exports = r;

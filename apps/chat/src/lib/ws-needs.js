@@ -4,8 +4,11 @@
      === NEEDS: secret PAYSTACK_KEY host=api.paystack.co as=bearer -- take card payments
      === NEEDS: connection supabase -- log in and register (v0.30.0)
    split() takes them out of the text the user reads; the chat shows each as a card that opens the Data tab's form.
+   v0.31.0: "=== EXPORT: zip -- 12 files, 40 KB" (added by Colon's server when the user asks for their files as a
+   zip) becomes { kind: 'export', name: 'zip', why: '12 files, 40 KB' }: a Download ZIP card.
    Pure and DOM-free. */
 
+var EXPORT = /^\s*===\s*EXPORT\s*:\s*zip\b(.*)$/i;
 var LINE = /^\s*===\s*NEEDS\s*:\s*(table|database|secret|key|connection|connect)\s+([A-Za-z][A-Za-z0-9_-]*)(.*)$/i;
 
 function opts(rest) {
@@ -16,10 +19,16 @@ function opts(rest) {
   return o;
 }
 
-/** text -> { text, needs: [{ kind: 'table'|'secret'|'connection', name, read?, add?, host?, as?, why }] } */
+/** text -> { text, needs: [{ kind: 'table'|'secret'|'connection'|'export', name, read?, add?, host?, as?, why }] } */
 function split(text) {
   var keep = [], needs = [], seen = {};
   String(text || '').split('\n').forEach(function (line) {
+    var x = EXPORT.exec(line);
+    if (x) {
+      if (!seen.export) needs.push({ kind: 'export', name: 'zip', why: opts(x[1] || '').why });
+      seen.export = 1;
+      return;
+    }
     var m = LINE.exec(line);
     if (!m) { keep.push(line); return; }
     var kind = /^(table|database)$/i.test(m[1]) ? 'table' : /^conn/i.test(m[1]) ? 'connection' : 'secret';
@@ -42,7 +51,7 @@ function split(text) {
 
 /** Is this need already met by the workspace's data ({ secrets[], collections[] })? */
 function met(n, d) {
-  if (!d) return false;
+  if (!d || n.kind === 'export') return false;
   if (n.kind === 'connection') {
     return (d.connections || []).some(function (x) { return x.provider === n.name; });
   }

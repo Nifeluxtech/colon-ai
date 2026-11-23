@@ -10,7 +10,8 @@ Everything in this step runs on the user's phone. No user code runs on the serve
   form posts. Page picker, phone/desktop toggle (desktop = 1280 px scaled), Refresh. Broken links and links that
   start with `/` (they'd break at `apparatus.name.ng/<name>/`) are listed with the page's errors; **Fix it** sends
   them to the Chat tab (`workspace-chat.js` `send` option).
-- **Code** (`components/workspace-code.js`): file picker + Monaco (`loadMonaco` from `code-edit.js`; plain textarea
+- (v0.31.0: Code, Files and Terminal are now one Code tab, `components/workspace-ide*.js`; see step-5c.md.)
+- **Code** (`components/workspace-code.js`, removed in 0.31.0): file picker + Monaco (`loadMonaco` from `code-edit.js`; plain textarea
   if the CDN fails). Save (and Ctrl/Cmd+S) → `PUT /file` → new version. Asks before leaving with unsaved edits.
 - **Files** (`components/workspace-files.js`): New file (HTML starter), Upload (images → `images/`, fonts →
   `fonts/`, ≤1 MB each), per-file menu Edit / Rename or move / Delete, tap a text file to edit it, History + Restore.

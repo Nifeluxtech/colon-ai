@@ -38,7 +38,10 @@ function privateIp(ip) {
 const parse = (d) => { try { return JSON.parse(d); } catch { return null; } };
 const recOut = (r) => ({ id: Number(r.id), data: parse(r.data), created_at: r.created_at });
 const secOut = (s) => ({ name: s.name, host: s.host || null, as: s.send_as, updated_at: s.updated_at });
-const connOut = (c) => ({ provider: c.provider, config: parse(c.config) || {}, updated_at: c.updated_at });
+// v0.31.0: server = has server access (the credentials themselves never leave the server); state = Git's last commit
+const stateOut = (st) => { const v = parse(st) || {}; return { last: v.last || null, sql: v.sql }; };
+const connOut = (c) => ({ provider: c.provider, config: parse(c.config) || {}, server: Boolean(Number(c.has_secret)
+  || c.secret_enc), state: stateOut(c.state), updated_at: c.updated_at });
 const colOut = (c) => ({ name: c.name, read: c.read_rule, add: c.add_rule, records: Number(c.records) || 0 });
 
 function createData({ engine, store = dataSqlStore(), box = require('../../shared/crypto'), fetchImpl = fetch,
@@ -64,9 +67,29 @@ function createData({ engine, store = dataSqlStore(), box = require('../../share
   }
   // v0.30.0: a sign-in / database service the site connects to (connect.js)
   async function putConnection(u, id, provider, b = {}) {
-    const w = await ws(u, id), config = connect.clean(String(provider), b);
-    await store.putConnection(w, String(provider), JSON.stringify(config));
-    return { provider: String(provider), config };
+    const w = await ws(u, id), name = String(provider), config = connect.clean(name, b);
+    const had = await store.connection(w, name);
+    const saved = had && had.secret_enc ? JSON.parse(box.decrypt(had.secret_enc)) : null;
+    const server = connect.cleanServer(name, b.server, saved);   // v0.31.0
+    await store.putConnection(w, name, JSON.stringify(config), server ? box.encrypt(JSON.stringify(server)) : null);
+    if (name === 'supabase') {   // v0.31.0: whether the optional sbp_ token is saved (schema changes), never the token
+      const st = { ...(parse(had && had.state) || {}), sql: Boolean(server && server.accessToken) };
+      await store.setConnectionState(w, name, JSON.stringify(st)).catch(() => {});
+    }
+    return { provider: name, config, server: Boolean(server) };
+  }
+  // v0.31.0, server side only (remote/, git/): the connection with its decrypted credentials, and its state
+  async function credentials(u, id, provider) {
+    const w = await ws(u, id), c = await store.connection(w, String(provider));
+    if (!c) throw err(404, 'not_found', 'That service isn’t connected.');
+    if (!c.secret_enc) {
+      throw err(409, 'no_access', 'Colon has no server access to this service yet. Add it in Data → Connect.');
+    }
+    return { workspace: w, provider: c.provider, config: parse(c.config) || {},
+      secret: JSON.parse(box.decrypt(c.secret_enc)), state: parse(c.state) || {} };
+  }
+  async function setState(u, id, provider, state) {
+    await store.setConnectionState(await ws(u, id), String(provider), JSON.stringify(state || {}));
   }
   async function deleteConnection(u, id, provider) {
     if (!(await store.deleteConnection(await ws(u, id), String(provider)))) {
@@ -203,7 +226,7 @@ function createData({ engine, store = dataSqlStore(), box = require('../../share
     return { status: r.status, ok: r.ok, data };
   }
 
-  return { overview, putConnection, deleteConnection,
+  return { overview, putConnection, deleteConnection, credentials, setState,
     putSecret, deleteSecret, putCollection, deleteCollection, records, addRecord, deleteRecord,
     publicList, publicAdd, call, LIMITS };
 }

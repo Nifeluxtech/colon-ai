@@ -1,17 +1,17 @@
 {
-  "versionName": "0.30.1",
-  "versionCode": 3001,
-  "apkUrl": "https://github.com/Nifeluxtech/colon-ai/releases/download/v0.30.1/colon-ai-0.30.1.apk",
-  "releaseUrl": "https://github.com/Nifeluxtech/colon-ai/releases/tag/v0.30.1",
-  "notes": "Workspace Terminal: npm install (packages load from esm.sh in Preview and published sites) and pip install (Python packages, saved in requirements.txt).",
+  "versionName": "0.31.0",
+  "versionCode": 3100,
+  "apkUrl": "https://github.com/Nifeluxtech/colon-ai/releases/download/v0.31.0/colon-ai-0.31.0.apk",
+  "releaseUrl": "https://github.com/Nifeluxtech/colon-ai/releases/tag/v0.31.0",
+  "notes": "Workspace: one Code tab with folders, tabbed editor and shell; Colon works in your connected database and commits, pushes and merges to GitHub or Bitbucket; Preview no longer shows \"Please refresh\".",
   "minSupportedVersionCode": 0,
   "publishedAt": "2026-11-23",
   "browser": {
-    "versionName": "0.30.1",
-    "versionCode": 3001,
-    "apkUrl": "https://github.com/Nifeluxtech/colon-ai/releases/download/v0.30.1/colon-browser-0.30.1.apk",
-    "releaseUrl": "https://github.com/Nifeluxtech/colon-ai/releases/tag/v0.30.1",
-    "notes": "Released alongside Colon AI 0.30.1 (no browser changes).",
+    "versionName": "0.31.0",
+    "versionCode": 3100,
+    "apkUrl": "https://github.com/Nifeluxtech/colon-ai/releases/download/v0.31.0/colon-browser-0.31.0.apk",
+    "releaseUrl": "https://github.com/Nifeluxtech/colon-ai/releases/tag/v0.31.0",
+    "notes": "Released alongside Colon AI 0.31.0 (no browser changes).",
     "minSupportedVersionCode": 0
   }
 }

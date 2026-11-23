@@ -225,6 +225,9 @@
 .wk-dsheet .wk-f{display:flex;flex-direction:column;gap:4px;margin:0 0 var(--sp-3)}
 .wk-dsheet .wk-f > span{font-size:13px;font-weight:600}
 .wk-dsheet .wk-f small{font-size:12px}
+.wk-dsheet .wk-f small.wk-warn{display:flex;gap:6px;align-items:flex-start;padding:8px 10px;border-radius:10px;
+  background:color-mix(in srgb,var(--warn,#f5a524) 12%,transparent);color:var(--text);line-height:1.4}
+.wk-warn svg{width:14px;height:14px;flex:none;margin-top:2px;color:var(--warn,#f5a524)}
 .wk-dsheet .wk-bad,.wk-need .wk-bad{display:block;min-height:1em;color:var(--danger,#e5484d);font-size:13px}
 .wk-tog{display:flex;align-items:center;gap:10px;margin:0 0 var(--sp-3);font-size:14px}
 .wk-tog input{width:20px;height:20px;accent-color:var(--primary);flex:none}

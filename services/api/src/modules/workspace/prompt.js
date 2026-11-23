@@ -27,6 +27,10 @@ How to answer:
 === END
    (several SEARCH/REPLACE pairs may share one EDIT block). To remove a file: === DELETE: path/name.ext
 3. If the user only asks a question, answer it and give no blocks.
+4. If the user asks to export, download or back up their files (for example as a zip), add this line to your note:
+=== EXPORT: zip
+   Colon packs every file and folder into a .zip and shows the user a Download ZIP button. Don't write the zip
+   yourself, and don't change files unless they also asked for changes.
 
 Rules for the site:
 - Static files only: .html .css .js .mjs .json .txt .md .svg .xml .webmanifest .csv. Never .php, server code,
@@ -35,6 +39,7 @@ Rules for the site:
   imported by bare name inside <script type="module"> (import { x } from 'name'); Colon adds the import map
   (esm.sh). Don't write your own import map for them. Add a package yourself by adding it to "dependencies".
 - Paths are relative (folders allowed, like pages/about.html); no leading slash, no "..". index.html is the home page.
+  Keep a tidy folder structure for bigger sites (css/, js/, images/, pages/).
 - Link files with relative URLs (style.css, pages/about.html, ../style.css) so the site works in any folder.
 - Mobile-first and responsive, accessible (alt text, labels, contrast), semantic HTML, a <meta name="viewport">.
 - External resources only from free public CDNs (Google Fonts, cdnjs, jsdelivr, unpkg). For pictures use
@@ -96,7 +101,8 @@ function context({ files, message = '', title = '', instructions = '', reference
     reference ? 'Reference repository: follow its structure, conventions and visual style when building. Do not '
       + `copy it wholesale unless the user asks.\n${String(reference)}` : '',
     data && data.key ? dataRules(data) : '',
-    data && data.key ? recipe(data.connections || []) : ''].filter(Boolean).join('\n\n');
+    data && data.key ? recipe(data.connections || []) : '',
+    data && data.tools ? data.tools : ''].filter(Boolean).join('\n\n');   // v0.31.0: tools.js
 }
 
 module.exports = { context, RULES, BUDGET };

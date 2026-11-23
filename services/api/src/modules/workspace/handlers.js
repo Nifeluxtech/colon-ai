@@ -2,6 +2,7 @@
 // every call acts on req.user's own workspaces (another user's workspace id answers 404).
 const audit = (...a) => require('../../shared/audit')(...a);   // lazy: tests load this without mysql2
 const engine = () => require('./index').instance();
+const headers = () => require('../../shared/security-headers').SECURITY_HEADERS;
 const qp = (req, k) => (req.query && req.query.get ? req.query.get(k) : null);
 
 // GET /workspaces -> { workspaces[], templates[], limits }
@@ -45,6 +46,20 @@ const moveFile = async (req) => [200, await engine().moveFile(req.user, req.para
 // DELETE /workspaces/:id/file?path=… -> { version }
 const deleteFile = async (req) => [200, await engine().deleteFile(req.user, req.params.id, qp(req, 'path'))];
 
+// v0.31.0: POST /workspaces/:id/folder/move { from, to } -> { version, moved }; DELETE /workspaces/:id/folder?path=
+const moveFolder = async (req) => [200, await engine().moveFolder(req.user, req.params.id, req.body || {})];
+const deleteFolder = async (req) => [200, await engine().deleteFolder(req.user, req.params.id, qp(req, 'path'))];
+
+// v0.31.0: GET /workspaces/:id/export -> the workspace's files as a .zip download (owner only; others get 404)
+const getExport = async (req, res) => {
+  const z = await engine().exportZip(req.user, req.params.id);
+  res.writeHead(200, { ...headers(), 'Content-Type': 'application/zip', 'Content-Length': z.buffer.length,
+    'Content-Disposition': `attachment; filename="${z.name}"; filename*=UTF-8''${encodeURIComponent(z.name)}`,
+    'Cache-Control': 'private, no-store', 'X-Colon-Files': String(z.files),
+    'Access-Control-Expose-Headers': 'Content-Disposition, X-Colon-Files' });
+  res.end(z.buffer);
+};
+
 // GET /workspaces/:id/versions -> { current, versions[] }
 const getVersions = async (req) => [200, await engine().versions(req.user, req.params.id)];
 
@@ -60,7 +75,10 @@ function liveDeps() {
     resolveCounters: (req) => ai.limits.resolveCounters(req, 'developer'), consumeAll: (c) => ai.limits.consumeAll(c),
     refundAll: (c) => ai.limits.refundAll(c), checkInput: require('../safety').checkInput,
     record: (info) => ai.calls.record(info), log: require('../../shared/logger'),
-    dataInfo: (u, id) => require('./data-handlers').info(u, id) };
+    dataInfo: (u, id) => require('./data-handlers').info(u, id),
+    // v0.31.0: tool blocks for connected databases and repositories with server access
+    tools: (u, id, text, info) => require('./tools').createTools(require('./conn-handlers').kit())
+      .prepare(u, id, text, info) };
 }
 function chat() {
   if (!chatShared) {
@@ -143,5 +161,6 @@ const putOwner = async (req) => {
 };
 
 module.exports = { getWorkspaces, postWorkspaces, getWorkspace, patchWorkspace, deleteWorkspace, getBundle, getFile,
-  putFile, moveFile, deleteFile, getVersions, restoreVersion, getChat, postChat, setChatDeps, postRepo,
+  putFile, moveFile, deleteFile, moveFolder, deleteFolder, getExport, getVersions, restoreVersion, getChat, postChat,
+  setChatDeps, postRepo,
   deleteReference, getPublishCheck, postPublish, deletePublish, getOwner, getOwnerCheck, putOwner };

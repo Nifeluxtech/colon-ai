@@ -180,9 +180,31 @@ function RemoteChatData() {
       body: { message: message } }); },
     // v0.27.0 (step 3): Preview (whole site), Code, Files and Terminal edits. Each write is a new version.
     workspaceBundle: function (id) { return api(wsp(id) + '/bundle'); },
+    // v0.31.0: every file and folder as a .zip -> { blob, name, files } (owner only; the session cookie goes along)
+    workspaceZip: function (id) {
+      return fetch(C.API + wsp(id) + '/export', { credentials: 'include' }).then(function (r) {
+        if (!r.ok) return r.json().catch(function () { return {}; }).then(function (d) {
+          throw Object.assign(new Error(d.message || 'The ZIP couldn’t be made.'), { status: r.status }); });
+        var cd = r.headers.get('content-disposition') || '', m = /filename="([^"]+)"/.exec(cd);
+        return r.blob().then(function (b) { return { blob: b, name: m ? m[1] : 'site.zip',
+          files: Number(r.headers.get('x-colon-files')) || null }; });
+      }, function () { throw Object.assign(new Error('Can’t reach Colon right now. Check your connection.'),
+        { code: 'offline' }); });
+    },
     putWorkspaceFile: function (id, b) { return api(wsp(id) + '/file', { method: 'PUT', body: b }); },
     moveWorkspaceFile: function (id, from, to) { return api(wsp(id) + '/file/move', { method: 'POST',
       body: { from: from, to: to } }); },
+    // v0.31.0: folders (move or delete everything in one, as one version), Git and server databases
+    moveWorkspaceFolder: function (id, from, to) { return api(wsp(id) + '/folder/move', { method: 'POST',
+      body: { from: from, to: to } }); },
+    deleteWorkspaceFolder: function (id, path) { return api(wsp(id) + '/folder?path=' + encodeURIComponent(path),
+      { method: 'DELETE' }); },
+    workspaceGit: function (id, p, action, b) { return api(wsp(id) + '/git/' + encodeURIComponent(p) + '/' + action,
+      { method: 'POST', body: b || {} }); },
+    workspaceGitPulls: function (id, p) { return api(wsp(id) + '/git/' + encodeURIComponent(p) + '/pulls'); },
+    workspaceRemoteTables: function (id, p) { return api(wsp(id) + '/remote/' + encodeURIComponent(p) + '/tables'); },
+    workspaceRemoteRows: function (id, p, t) { return api(wsp(id) + '/remote/' + encodeURIComponent(p) + '/rows?table='
+      + encodeURIComponent(t)); },
     deleteWorkspaceFile: function (id, path) { return api(wsp(id) + '/file?path=' + encodeURIComponent(path),
       { method: 'DELETE' }); },
     // v0.24.0: a project's connected repository (components/project-context.js). A token goes up, never comes back.

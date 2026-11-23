@@ -64,4 +64,4 @@ const siteCall = async (req) => [200, await data().call(p(req).key, p(req).name,
 
 module.exports = { getData, putConnection, deleteConnection,
   putSecret, deleteSecret, putTable, deleteTable, getRecords, postRecord, deleteRecord,
-  getScript, siteList, siteAdd, siteCall, setDataDeps, info };
+  getScript, siteList, siteAdd, siteCall, setDataDeps, info, data };

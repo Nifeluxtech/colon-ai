@@ -14,6 +14,8 @@ const paths = require('./paths');
 const templates = require('./templates');
 const edits = require('./edits');
 const { createPublisher, siteUrl } = require('./publish');
+const { createFolders } = require('./folders');
+const { createExporter } = require('./exporter');
 
 const { LIMITS } = paths;
 const MAX_TITLE = 80;
@@ -257,12 +259,16 @@ function create({ store = sqlStore(), publishRoot } = {}) {
     return { version: await commit(u, w, cleanNote(note, 'Imported files')), before: Number(w.version), changes };
   }
 
+  const { moveFolder, deleteFolder } = createFolders({ store, owned, commit });   // v0.31.0
+  const { exportZip } = createExporter({ store, owned });   // v0.31.0: Download as ZIP
   return { list, add, get, edit, remove, readFile, bundle, writeFile, moveFile, deleteFile, versions, restore,
-    applyOps, importFiles, owned, store, checkName, publish, unpublish, username, checkUsername, setUsername };
+    applyOps, importFiles, owned, store, checkName, publish, unpublish, username, checkUsername, setUsername,
+    moveFolder, deleteFolder, exportZip };
 }
 
 let shared = null;
 const instance = () => (shared || (shared = create()));
 
 module.exports = { create, instance, memoryStore, LIMITS, TEMPLATES: templates.TEMPLATES,
-  handlers: require('./handlers'), dataHandlers: require('./data-handlers') };
+  handlers: require('./handlers'), dataHandlers: require('./data-handlers'),
+  connHandlers: require('./conn-handlers') };

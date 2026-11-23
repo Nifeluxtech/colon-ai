@@ -9,6 +9,7 @@ import { Colon } from '../../../../packages/ui/js/colon.js';
 import { chipsHtml, openPlus, editInstructions, forget } from './workspace-plus.js';
 import { secretSheet, tableSheet } from './workspace-data-forms.js';
 import { connectSheet } from './workspace-connect.js';
+import { downloadZip } from './workspace-export.js';
 import { split as splitNeeds, met } from '../lib/ws-needs.js';
 
 var C = Colon, icon = C.icon, esc = C.esc;
@@ -31,11 +32,13 @@ function changesHtml(m, undo) {
 }
 var NEED = { secret: ['key', function (x) { return 'Add the ' + x + ' key'; }, 'Add key'],
   table: ['database', function (x) { return 'Create the “' + x + '” table'; }, 'Create'],
-  connection: ['users', function (x) { return 'Connect ' + x.charAt(0).toUpperCase() + x.slice(1); }, 'Connect'] };
+  connection: ['users', function (x) { return 'Connect ' + x.charAt(0).toUpperCase() + x.slice(1); }, 'Connect'],
+  // v0.31.0: Colon's "=== EXPORT: zip" line (the user asked for their files as a zip)
+  zip: ['download', function () { return 'Your files as a ZIP'; }, 'Download ZIP'] };
 // v0.29.0 (step 5): a table or key the build needs shows as a card; done once the Data tab has it.
 function needsHtml(m, needs, dnow) {
   return needs.map(function (n, i) {
-    var done = met(n, dnow), k = NEED[n.kind] || NEED.table;
+    var done = met(n, dnow), k = NEED[n.kind === 'export' ? 'zip' : n.kind] || NEED.table;
     return '<div class="wk-need' + (done ? ' wk-need-ok' : '') + '">' + icon(k[0])
       + '<span><b>' + esc(k[1](n.name)) + '</b>'
       + (n.why ? '<small>' + esc(n.why) + '</small>' : '') + '</span>' + (done ? '<em>' + icon('check') + 'Done</em>'
@@ -144,7 +147,8 @@ export function mount(el, o) {
       var m = msgs.filter(function (x) { return String(x.id) === k[0]; })[0];
       var n = m && splitNeeds(m.content).needs[Number(k[1])];
       var fo = { id: id, data: data, onSaved: needData };
-      if (n && n.kind === 'connection') { if (dnow) connectSheet(fo, dnow, n.name); }
+      if (n && n.kind === 'export') downloadZip(data, id, b);
+      else if (n && n.kind === 'connection') { if (dnow) connectSheet(fo, dnow, n.name); }
       else if (n) (n.kind === 'secret' ? secretSheet : tableSheet)(fo, n);
     }); });
     list.querySelectorAll('[data-undo]').forEach(function (b) { b.addEventListener('click', function () {
