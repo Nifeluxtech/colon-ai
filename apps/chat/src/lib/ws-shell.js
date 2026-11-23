@@ -8,6 +8,8 @@
           move(a, b) }, run(lang, code, {repl, cwd, onOut}) -> Promise, files() -> Promise<{path: text}>,
           print(kind, text) kind: out | err | info | cmd, clear(), open(path) } */
 
+import { addPkgCommands, importMap, rewriteImports, reqLines, pyInstallCode } from './ws-pkg.js';
+
 var HELP = [
   'Files:   ls [dir]  tree  cd <dir>  pwd  cat <file>  head [-n N] <file>  wc <file>',
   '         touch <file>  echo <text> > <file>  echo <text> >> <file>  mv <from> <to>  cp <from> <to>  rm <file>',
@@ -15,6 +17,8 @@ var HELP = [
   'Code:    node / js           start a JavaScript prompt (exit to leave)',
   '         node <file.js>      run a script        js <code>       run one line',
   '         python / py         start a Python prompt   python -c "<code>"   run one line',
+  'Install: npm install <pkg>  npm uninstall <pkg>  npm ls      (saved in package.json, loads from esm.sh)',
+  '         pip install <pkg>  pip uninstall <pkg>  pip list    (saved in requirements.txt)',
   'Other:   clear  history  help',
   'Code runs on your phone, not on a server. Python loads once (about 10 MB). File changes are saved as versions.',
 ].join('\n');
@@ -88,10 +92,16 @@ function createShell(io) {
       return String(f.content);
     });
   }
+  function onOut(k, t) { io.print(k === 'info' ? 'info' : k, t); }
   function runCode(lang, code, isRepl) {
     return io.files().then(function (files) {
-      return io.run(lang, code, { repl: isRepl, cwd: cwd, files: files,
-        onOut: function (k, t) { io.print(k === 'info' ? 'info' : k, t); } });
+      var opts = { repl: isRepl, cwd: cwd, files: files, onOut: onOut }, req = reqLines(files['requirements.txt']);
+      if (lang === 'js') return io.run(lang, rewriteImports(code, importMap(files['package.json'])), opts);
+      if (!req.length) return io.run(lang, code, opts);
+      // v0.30.1: requirements.txt installs once per Python session, before the code runs.
+      return io.run('py', pyInstallCode(req, false), { files: files, cwd: cwd, onOut: onOut }).then(function (r) {
+        return r && r.ok === false ? r : io.run(lang, code, opts);
+      });
     });
   }
 
@@ -232,6 +242,10 @@ function createShell(io) {
       return runCode('py', raw, true);
     },
   };
+  addPkgCommands(CMDS, { out: out, err: err, info: function (t) { io.print('info', t); }, readText: readText,
+    write: function (p, t, note) { return io.fs.write(p, t, note); },
+    runPy: function (code) { return io.files().then(function (f) {
+      return io.run('py', code, { files: f, cwd: cwd, onOut: onOut }); }); } });
   CMDS.py = CMDS.python; CMDS.python3 = CMDS.python; CMDS.dir = CMDS.ls; CMDS.cls = CMDS.clear; CMDS.type = CMDS.cat;
 
   function replLine(line) {

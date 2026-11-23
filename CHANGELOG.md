@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.30.1 (2026-11-23) · Workspace Terminal: npm install and pip install
+
+- `npm install <pkg>` (also `npm i`, `yarn add`, `npm uninstall`, `npm ls`) looks the package up on the npm
+  registry and saves it in the site's package.json. Preview and published pages get an import map that loads it
+  from esm.sh, so `import { createClient } from '@supabase/supabase-js'` works in `<script type="module">`; in
+  `node`, use `await import('name')`. `npm install supabase` installs the browser client `@supabase/supabase-js`.
+- `pip install <pkg>` (also `pip install -r requirements.txt`, `pip uninstall`, `pip list`) installs into the
+  phone's Python (Pyodide micropip) and saves it in requirements.txt, which installs again whenever Python
+  starts. `import numpy` and other Pyodide packages now load on their own.
+- The site builder knows packages in package.json can be imported by name.
+- Limits: everything runs in the browser, so packages that need Node built-ins, a server or native code can't run.
+
 ## 0.30.0 (2026-11-23) · Workspace: sign-in services and per-user site links
 
 - Site links are now `apparatus.name.ng/<username>/<site>/`, so two people can both have a site called `shop`.

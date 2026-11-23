@@ -8,6 +8,7 @@
    Paths resolve exactly as they will once published at apparatus.name.ng/<name>/: a link starting with "/" would
    point outside the site there, so it is reported as a warning instead of being followed.
    Pure and DOM-free: unit-tested in packages/ui/test/ws-site.test.js. */
+import { importMap, withImportMap } from './ws-pkg.js';
 
 var REF = /^(?:[a-z][a-z0-9+.-]*:|\/\/|#|data:|blob:)/i;   // absolute URLs, anchors: left alone
 // v0.29.0: code, not a file: template placeholders (${x}, {{x}}, <%= x %>), "+" concatenation, an encoded "#" (an
@@ -115,6 +116,8 @@ function buildPage(fileList, path, bridge) {
     else if (p !== null && !pagePath(files, p) && !files[p]) warn(path, ref, false);
     return all;
   });
+  // v0.30.1: packages from `npm install` (package.json) load from esm.sh through an import map.
+  html = withImportMap(html, importMap(files['package.json'] && String(files['package.json'].content)));
   var inject = '<script>' + String(bridge || '') + '\n</script>';
   html = /<head\b[^>]*>/i.test(html) ? html.replace(/<head\b[^>]*>/i, function (h) { return h + inject; })
     : inject + html;
