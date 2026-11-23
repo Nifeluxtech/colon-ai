@@ -7,6 +7,7 @@ import { Colon } from '../../../../packages/ui/js/colon.js';
 import { $, mode } from '../core/state.js';
 import { MONACO_BASE, MONACO_TIMEOUT_MS, monacoLanguage, monacoWorkerUrl, withTimeout } from '../lib/chat-tools.js';
 import { autoGrow, syncComposer } from './composer.js';
+import { defineThemes, themeName } from '../lib/ide-theme.js';
 
 var C = Colon, icon = C.icon, esc = C.esc;
 var monaco = null;   // Promise<window.monaco>, once per page (a failure is cleared so a later tap can retry)
@@ -70,7 +71,7 @@ function openCodeEditor(btn) {
       box.innerHTML = '';
       editor = m.editor.create(box, { value: code, language: monacoLanguage(label), automaticLayout: true,
         minimap: { enabled: false }, fontSize: 13, scrollBeyondLastLine: false, wordWrap: 'on',
-        theme: document.documentElement.getAttribute('data-theme') === 'light' ? 'vs' : 'vs-dark' });
+        theme: (defineThemes(m), themeName(C.theme.current())) }); // same theme as the Code tab (Monaco's is global)
       editor.focus();
     }, function () { fallback(true); });
     el.querySelector('[data-ed=copy]').addEventListener('click', function () {

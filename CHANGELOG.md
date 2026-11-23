@@ -1,5 +1,33 @@
 # Changelog
 
+## 0.31.1 (2026-11-23) · Light mode for the Code tab and the 0.31.0 Data cards
+
+0.31.0's IDE, Shell, Git and database cards were designed in dark mode only. In light mode the active file tab was a
+solid navy block with dark (unreadable) text, the editor sat in Monaco's stock "vs" theme (plain red and blue, a navy
+strip around it), the Shell stayed dark and several labels fell under WCAG AA.
+
+- **File tabs**: the tab bar is the light grey surface and the active tab is white with the blue top line, so every
+  file name reads (the active tab used the chat code-block navy, `--code-bg`, which stays dark in light mode).
+- **Code theme**: a new `colon-light` Monaco theme (`apps/chat/src/lib/ide-theme.js`) built from Colon's palette:
+  ink text on white, royal-blue keywords and tags, cyan-700 attributes and JSON keys, green strings, amber numbers,
+  slate italic comments, violet types, matching bracket colours, a soft current-line highlight and slate line
+  numbers. Every token colour is at least 4.5:1 on the editor and on the current line (unit-tested). It also follows
+  a theme switch while the editor is open, and the Developer-mode Edit sheet uses it too (Monaco's theme is global).
+  Dark mode keeps `vs-dark`.
+- **Shell panel and key row**: light in light mode (white output, grey header and key row, green prompt, red errors,
+  readable dim lines). Its colours are now `--term-*` variables; dark mode keeps 0.31.0's exact colours.
+- **Files drawer**: file-type badges in darker shades (the dark-mode yellow and cyan were about 1.5:1 on white) on a
+  grey chip, folder icons in sky-600, and the closed drawer no longer casts a grey band down the editor's edge.
+- **Run** button, **Colon can edit** badge: dark green on the green tint (was 3:1).
+- **Data tab**: the Git repository card (last commit, Push / PR / Merge, open pull requests) and connected database
+  cards are lifted off the page, the last-commit line and table rows sit on the grey surface (they were white on
+  white) with readable secondary text, and the row viewer's sticky header is grey. Connect sheets: "Saved. Type to
+  replace" placeholders are readable (4.7:1).
+- **Download ZIP card** in the chat: its note is readable on the blue tint.
+- New `--ide-*` / `--term-*` theme variables in `chat-ide.css` (both themes), tested in
+  `packages/ui/test/ide-light-css.test.js` (every light text/surface pair at 4.5:1 or more, no hard-coded Shell
+  colours left). Dark mode screenshots are pixel-identical to 0.31.0.
+
 ## 0.31.0 (2026-11-23) · Workspace: one Code tab, real databases and Git
 
 - **Code tab**: Files, Code and Terminal are now one IDE screen. A file tree with real folders (open and close,

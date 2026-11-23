@@ -8,6 +8,7 @@ import { Colon } from '../../../../packages/ui/js/colon.js';
 import { loadMonaco } from './code-edit.js';
 import { monacoLanguage } from '../lib/chat-tools.js';
 import { baseName } from '../lib/ws-tree.js';
+import { defineThemes, themeName } from '../lib/ide-theme.js';
 
 var C = Colon, icon = C.icon, esc = C.esc;
 var TEXT = /\.(html?|css|m?js|json|txt|md|svg|xml|webmanifest|csv)$/i;
@@ -17,6 +18,9 @@ function mountEditor(el, o) {
   el.innerHTML = '<div class="ide-tabs" role="tablist" data-tabs></div><div class="ide-ed" data-ed><p class="px-empty">'
     + 'Open a file from Files.</p></div>';
   var bar = el.querySelector('[data-tabs]'), box = el.querySelector('[data-ed]');
+  // v0.31.1: Colon's light syntax theme in light mode (lib/ide-theme.js); follows a theme switch while open
+  function theme() { defineThemes(monaco); return themeName(C.theme.current()); }
+  C.theme.on(function () { if (monaco && editor && el.isConnected) monaco.editor.setTheme(theme()); });
   function find(p) { return tabs.filter(function (t) { return t.path === p; })[0] || null; }
   function value(t) { return t.model ? t.model.getValue() : t.text; }
   function isDirty(t) { return t.text !== undefined && !t.image && value(t) !== t.saved; }
@@ -59,7 +63,7 @@ function mountEditor(el, o) {
       box.innerHTML = ''; if (editor) editor.dispose();
       editor = monaco.editor.create(box, { value: '', automaticLayout: true, fontSize: 13, minimap: { enabled: false },
         scrollBeyondLastLine: false, wordWrap: 'on', tabSize: 2, lineNumbersMinChars: 3, folding: false,
-        theme: document.documentElement.getAttribute('data-theme') === 'light' ? 'vs' : 'vs-dark' });
+        theme: theme() });
       editor.onDidChangeModelContent(changed);
       editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS, save);
     }

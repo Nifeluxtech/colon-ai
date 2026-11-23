@@ -119,23 +119,26 @@
 .wk-file-open b{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 
 .wk-term{height:calc(100dvh - 210px);min-height:340px;gap:0;border-radius:16px;overflow:hidden;
-  background:#0d1117;color:#d6deeb;border:1px solid #263041;
+  background:var(--term-bg);color:var(--term-fg);border:1px solid var(--term-border);
   font:13px/1.45 ui-monospace,SFMono-Regular,Menlo,Consolas,"Liberation Mono",monospace}
 .wk-term-out{flex:1;margin:0;padding:12px 12px 4px;overflow:auto;white-space:pre-wrap;word-break:break-word;
   font:inherit;background:transparent;color:inherit}
-.wk-t-cmd{color:#7ee787}
-.wk-t-err{color:#ff7b72}
-.wk-t-info{color:#8b949e}
-.wk-term-in{display:flex;align-items:center;gap:4px;padding:6px 12px 8px;border-top:1px solid #1c2430}
-.wk-term-ps{color:#7ee787;white-space:nowrap}
-.wk-term-in input{flex:1;min-width:0;height:34px;border:0;outline:0;background:transparent;color:#fff;font:inherit;
-  font-size:16px;caret-color:#7ee787}
+.wk-t-cmd{color:var(--term-ok)}
+.wk-t-err{color:var(--term-err)}
+.wk-t-info{color:var(--term-dim)}
+.wk-term-in{display:flex;align-items:center;gap:4px;padding:6px 12px 8px;border-top:1px solid var(--term-line)}
+.wk-term-ps{color:var(--term-ok);white-space:nowrap}
+.wk-term-in input{flex:1;min-width:0;height:34px;border:0;outline:0;background:transparent;color:var(--term-in);
+  font:inherit;font-size:16px;caret-color:var(--term-ok)}
 .wk-term.busy .wk-term-in input{opacity:.5}
-.wk-term-keys{display:flex;gap:6px;padding:6px 8px;overflow-x:auto;background:#161b22;border-top:1px solid #1c2430}
+.wk-term-keys{display:flex;gap:6px;padding:6px 8px;overflow-x:auto;background:var(--term-head);
+  border-top:1px solid var(--term-line)}
 .wk-term-keys button{flex:none;display:flex;align-items:center;gap:4px;min-width:40px;height:32px;padding:0 10px;
-  border:1px solid #30363d;border-radius:8px;background:#21262d;color:#d6deeb;font:inherit;cursor:pointer}
+  border:1px solid var(--term-key-line);border-radius:8px;background:var(--term-key);color:var(--term-fg);
+  font:inherit;cursor:pointer}
 .wk-term-keys button svg{width:14px;height:14px}
-.wk-term-keys .wk-term-stop{margin-left:auto;color:#ff7b72}
+.wk-term-keys .wk-term-stop{margin-left:auto;color:var(--term-err)}
+/* v0.31.1: --term-* (dark = 0.31.0's colours, light = theme tokens) are set in chat-ide.css */
 
 /* v0.27.2: live steps in the Workspace chat */
 .wk-working{flex-direction:column;align-items:stretch;gap:8px}
