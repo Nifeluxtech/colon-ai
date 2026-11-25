@@ -11,6 +11,8 @@ const config = () => ({
   thinkingLevel: env('GEMINI_THINKING', 'minimal') === 'off' ? '' : env('GEMINI_THINKING', 'minimal'),
   // v0.32.0: GEMINI_SHOW_THOUGHTS=off stops asking Gemini models for their thought summaries
   showThoughts: env('GEMINI_SHOW_THOUGHTS', 'on') !== 'off',
+  // v0.32.1: "minimal" thinks too little to show anything, so a reply that shows its thoughts thinks at this level
+  thoughtLevel: env('GEMINI_THOUGHT_LEVEL', 'low'),
 });
 
 /* ---------- Google AI Studio native API (Gemma models are not served on its OpenAI endpoint) ---------- */
@@ -55,6 +57,9 @@ function geminiBody(o) {
   // v0.32.0: Gemini models send a summary of their reasoning when asked (Gemma is left as it was)
   if (o.onThought && /gemini-/i.test(o.model || '') && o.provider.showThoughts !== false) {
     gen.thinkingConfig = { ...(gen.thinkingConfig || {}), includeThoughts: true };
+    const lvl = o.provider.thoughtLevel;
+    const minimal = gen.thinkingConfig.thinkingLevel === 'minimal';
+    if (!own && minimal && lvl && lvl !== 'off') gen.thinkingConfig.thinkingLevel = lvl;
   }
   return {
     contents,

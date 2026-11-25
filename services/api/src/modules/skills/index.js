@@ -11,6 +11,10 @@ const { SKILLS, SOURCES } = require('./catalog');
 const DIR = path.join(__dirname, 'vendor');
 const CAP = 6000;          // characters of one skill's guidance in a prompt
 const cache = new Map();
+// v0.32.1: lines written for coding agents (announce the skill, call a sub-skill, save files, git worktrees) are
+// dropped, so a chat reply never copies them.
+const AGENT_ONLY = new RegExp('announce at start|required sub-skill|for agentic workers|superpowers:'
+  + '|save (plans|specs?) to|worktree', 'i');
 
 function read(s) {
   if (cache.has(s.id)) return cache.get(s.id);
@@ -18,7 +22,8 @@ function read(s) {
   try { raw = fs.readFileSync(path.join(DIR, s.pack, s.id, 'SKILL.md'), 'utf8'); } catch { raw = ''; }
   const fm = /^---\n([\s\S]*?)\n---\n?/.exec(raw);
   const desc = fm ? ((/^description:\s*(.*)$/m.exec(fm[1]) || [])[1] || '').replace(/^["']|["']$/g, '') : '';
-  const out = { description: desc.trim(), body: (fm ? raw.slice(fm[0].length) : raw).trim() };
+  const body = (fm ? raw.slice(fm[0].length) : raw).split('\n').filter((l) => !AGENT_ONLY.test(l)).join('\n');
+  const out = { description: desc.trim(), body: body.trim() };
   cache.set(s.id, out);
   return out;
 }
@@ -52,9 +57,11 @@ function block(picked) {
     return `--- Skill: ${s.title} (${SOURCES[s.pack].url}, ${SOURCES[s.pack].license}) ---\n${text}`;
   }).filter(Boolean);
   if (!parts.length) return '';
-  return ['Skills for this request. Follow their method where it helps the user, in your own words, inside the '
-    + 'format you were given. You cannot run their scripts, open their files or call other agents: do that part '
-    + 'yourself or tell the user. Never mention "skills" unless asked.', ...parts].join('\n\n');
+  return ['Guidance for this request. Use its method quietly where it helps the user, in your own words, inside '
+    + 'the format you were given. Never announce or name it, never copy its templates, headers or checklists '
+    + 'word for word, and fit it to what the user actually asked (a business plan is not a code plan). Keep the '
+    + 'reply as long as a chat answer should be. You cannot run its scripts, open its files or call other agents: '
+    + 'do that part yourself or tell the user.', ...parts].join('\n\n');
 }
 
 function list() {

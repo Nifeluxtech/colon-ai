@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.32.1 (2026-11-25) · Skills stay quiet, thoughts show
+
+- Skills no longer leak coding-agent text into chat replies ("I'm using the writing-plans skill", "For agentic
+  workers: REQUIRED SUB-SKILL…"): those lines are dropped when a skill is read, and the guidance tells the model to
+  use a skill quietly, fit it to the actual question and keep a chat-length reply.
+- Writing plans and Systematic debugging now apply in Developer and Workspace only, so a General question such as a
+  business launch plan gets a normal answer (and no longer runs past the 4,096-token reply cap).
+- The thought process now has content on Gemini: with thoughts shown, `minimal` thinking moves to
+  `GEMINI_THOUGHT_LEVEL` (default `low`; `off` keeps minimal).
+
 ## 0.32.0 (2026-11-25) · Thought process and bundled skills
 
 - **Thought process**: Saga chat replies show a "Thought process" block above the answer, open and pulsing

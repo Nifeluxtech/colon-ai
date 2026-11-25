@@ -151,6 +151,7 @@ const SCHEMA = [
   str('GEMINI_FALLBACK_MODEL', 'gemma-4-31b-it', 'second Google model ("off" to skip)'),
   str('GEMINI_THINKING', 'minimal', 'minimal, high or off'), str('GEMINI_VISION', '1', '1 if Gemma reads images'),
   str('GEMINI_SHOW_THOUGHTS', 'on', 'on or off: show Gemini thought summaries'),
+  str('GEMINI_THOUGHT_LEVEL', 'low', 'thinkingLevel used instead of minimal when thoughts are shown (off keeps it)'),
   secret('NVIDIA_API_KEY', 'NVIDIA build key'),
   url('NVIDIA_BASE_URL', 'https://integrate.api.nvidia.com/v1', 'NVIDIA base URL'),
   str('NVIDIA_DEEPSEEK_MODEL', 'deepseek-ai/deepseek-v4.1-flash', 'NVIDIA DeepSeek id'),
