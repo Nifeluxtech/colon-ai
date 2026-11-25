@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Colon JetX: the betting site's status dot (tinted in code: green open, amber loading, red error). -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="oval">
+    <solid android:color="@color/jetx_muted"/>
+    <size android:width="10dp" android:height="10dp"/>
+</shape>

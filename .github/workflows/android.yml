@@ -1,10 +1,10 @@
-# Colon AI and Colon Browser for Android (Phases 7-8): builds both APKs in the cloud, so no Android Studio or PC is
-# needed. One Gradle project, two product flavors: colonai (ng.nifelux.colonai) and colonbrowser
-# (ng.nifelux.colonbrowser).
-#   push to main (Android files) -> test and lint both apps, build both APKs, keep them as a downloadable artifact
+# Colon AI, Colon Browser and Colon JetX for Android (Phases 7-8; JetX 0.34.0): builds all three APKs in the cloud,
+# so no Android Studio or PC is needed. One Gradle project, three product flavors: colonai (ng.nifelux.colonai),
+# colonbrowser (ng.nifelux.colonbrowser) and colonjetx (ng.nifelux.colonjetx).
+#   push to main (Android files) -> test and lint all three apps, build the APKs, keep them as a downloadable artifact
 #   tag v*, or "Run workflow" with "Publish a release" ticked
-#                                -> the same, plus a GitHub Release v<version> with both APKs (the apps' updates use it)
-# Signing: with the four ANDROID_* repository secrets both APKs are signed with the same release key
+#                                -> the same, plus a GitHub Release v<version> with the APKs (the apps' updates use it)
+# Signing: with the four ANDROID_* repository secrets every APK is signed with the same release key
 # (apps/android/README.md). Without them they are signed with a throwaway debug key: fine for testing, but each build
 # then needs an uninstall before the next one installs, and the release notes say so.
 name: Android
@@ -19,7 +19,7 @@ on:
   workflow_dispatch:
     inputs:
       release:
-        description: Publish a GitHub Release v<package.json version> with both APKs
+        description: Publish a GitHub Release v<package.json version> with the three APKs
         type: boolean
         default: false
 
@@ -75,7 +75,7 @@ jobs:
             printf '%s' "$KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/colon-release.jks"
             echo "ANDROID_KEYSTORE_FILE=$RUNNER_TEMP/colon-release.jks" >> "$GITHUB_ENV"
             echo "signed=release" >> "$GITHUB_OUTPUT"
-            echo "Release key found: both APKs will be signed with it."
+            echo "Release key found: every APK will be signed with it."
           else
             echo "signed=debug" >> "$GITHUB_OUTPUT"
             echo "::warning::No signing secrets set, so the APKs are debug-signed (see apps/android/README.md)."
@@ -104,24 +104,26 @@ jobs:
           done
           ls -l app/libs app/src/colonai/assets/kws
 
-      - name: Unit tests (both apps)
-        run: chmod +x gradlew && ./gradlew --no-daemon testColonaiDebugUnitTest testColonbrowserDebugUnitTest
+      - name: Unit tests (all three apps)
+        run: |
+          chmod +x gradlew
+          ./gradlew --no-daemon testColonaiDebugUnitTest testColonbrowserDebugUnitTest testColonjetxDebugUnitTest
 
-      - name: Lint (both apps)
-        run: ./gradlew --no-daemon lintColonaiDebug lintColonbrowserDebug
+      - name: Lint (all three apps)
+        run: ./gradlew --no-daemon lintColonaiDebug lintColonbrowserDebug lintColonjetxDebug
 
       - name: Build the APKs
         env:
           ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
           ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
           ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
-        run: ./gradlew --no-daemon assembleColonaiRelease assembleColonbrowserRelease
+        run: ./gradlew --no-daemon assembleColonaiRelease assembleColonbrowserRelease assembleColonjetxRelease
 
-      # colon-ai-<version>.apk / colon-browser-<version>.apk, the same files under fixed names, and checksums.
+      # colon-ai / colon-browser / colon-jetx-<version>.apk, the same files under fixed names, and checksums.
       - name: Name the APKs
         run: |
           mkdir -p "$RUNNER_TEMP/out"
-          for app in colonai:colon-ai colonbrowser:colon-browser; do
+          for app in colonai:colon-ai colonbrowser:colon-browser colonjetx:colon-jetx; do
             flavor="${app%%:*}"; name="${app##*:}"
             apk="app/build/outputs/apk/$flavor/release/app-$flavor-release.apk"
             test -f "$apk" || { echo "::error::$apk was not built"; exit 1; }
@@ -165,13 +167,14 @@ jobs:
       - name: Release notes
         run: |
           {
-            echo "Colon $VERSION for Android (Android 7 or newer). Two apps, install either or both:"
+            echo "Colon $VERSION for Android (Android 7 or newer). Three apps, install any of them:"
             echo ""
             echo "- **Colon AI**: \`colon-ai-$VERSION.apk\` (chat, voice, and a real browser panel beside the chat)"
             echo "- **Colon Browser**: \`colon-browser-$VERSION.apk\` (the full browser: tabs, private tabs, downloads)"
+            echo "- **Colon JetX**: \`colon-jetx-$VERSION.apk\` (your betting site and the JetX predictor, split)"
             echo ""
-            echo "\`colon-ai.apk\` and \`colon-browser.apk\` are the same files under fixed names; \`.sha256\` files"
-            echo "hold their checksums. What changed: CHANGELOG.md."
+            echo "\`colon-ai.apk\`, \`colon-browser.apk\` and \`colon-jetx.apk\` are the same files under fixed names;"
+            echo "\`.sha256\` files hold their checksums. What changed: CHANGELOG.md."
             if [ "$SIGNED" != "release" ]; then
               echo ""
               echo "**Testing build:** signed with a temporary debug key. Uninstall the old app before installing."
@@ -194,3 +197,7 @@ jobs:
             out/colon-browser-${{ needs.build.outputs.version }}.apk.sha256
             out/colon-browser.apk
             out/colon-browser.apk.sha256
+            out/colon-jetx-${{ needs.build.outputs.version }}.apk
+            out/colon-jetx-${{ needs.build.outputs.version }}.apk.sha256
+            out/colon-jetx.apk
+            out/colon-jetx.apk.sha256

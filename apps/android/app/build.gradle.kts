@@ -61,8 +61,10 @@ android {
         buildConfigField("int", "CHAT_PROFILES_MAX", chatProfilesMax.toString())
     }
 
-    // Two apps from one project (Phase 8): Colon AI (chat with the in-chat browser panel) and Colon Browser (the
-    // standalone browser). Code lives in src/main; each flavor has its own manifest (activities), name and icon.
+    // Three apps from one project: Colon AI (chat with the in-chat browser panel), Colon Browser (the standalone
+    // browser, Phase 8) and Colon JetX (0.34.0: the betting site and the crash predictor in one split screen on the
+    // same WebView engine, docs/crash-predictor/HANDOFF.md). Code lives in src/main; each flavor has its own
+    // manifest (activities), name and icon.
     flavorDimensions += "app"
     productFlavors {
         create("colonai") {
@@ -72,6 +74,7 @@ android {
             buildConfigField("String", "APK_NAME", "\"colon-ai\"")
             buildConfigField("String", "PARTNER_PACKAGE", "\"ng.nifelux.colonbrowser\"")
             buildConfigField("boolean", "IS_BROWSER_APP", "false")
+            buildConfigField("boolean", "IS_JETX_APP", "false")
             // The wake word's native library: phones only (the x86 copies would add about 50 MB).
             if (hasKws) ndk { abiFilters += setOf("arm64-v8a", "armeabi-v7a") }
         }
@@ -82,12 +85,24 @@ android {
             buildConfigField("String", "APK_NAME", "\"colon-browser\"")
             buildConfigField("String", "PARTNER_PACKAGE", "\"ng.nifelux.colonai\"")
             buildConfigField("boolean", "IS_BROWSER_APP", "true")
+            buildConfigField("boolean", "IS_JETX_APP", "false")
+        }
+        create("colonjetx") {
+            dimension = "app"
+            applicationId = "ng.nifelux.colonjetx"
+            buildConfigField("String", "APP_KEY", "\"colonjetx\"")
+            buildConfigField("String", "APK_NAME", "\"colon-jetx\"")
+            // Never picked as the Custom Tab browser for Google / bank sign-in (SignInTabs), like the other apps.
+            buildConfigField("String", "PARTNER_PACKAGE", "\"ng.nifelux.colonbrowser\"")
+            buildConfigField("boolean", "IS_BROWSER_APP", "false")
+            buildConfigField("boolean", "IS_JETX_APP", "true")
         }
     }
 
     sourceSets {
         getByName("colonai") { java.srcDir(if (hasKws) "src/wake-sherpa/kotlin" else "src/wake-none/kotlin") }
         getByName("colonbrowser") { java.srcDir("src/wake-none/kotlin") }
+        getByName("colonjetx") { java.srcDir("src/wake-none/kotlin") }
     }
 
     signingConfigs {

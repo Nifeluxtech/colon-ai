@@ -1,0 +1,168 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Colon JetX (0.34.0, Crash Predictor step 2): the betting site on top (address bar, back, reload, status), the
+     mode banner, the game pane, the divider bar (control mode, drag handle, layout) and the predictor pane. The two
+     WebViews are added in code (JetxActivity); layouts only change visibility and weights, so nothing reloads. -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:id="@+id/jetx_root"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/jetx_bg"
+    android:orientation="vertical">
+
+    <LinearLayout
+        android:id="@+id/jetx_top"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:background="@color/jetx_surface"
+        android:gravity="center_vertical"
+        android:minHeight="52dp"
+        android:orientation="horizontal"
+        android:paddingStart="2dp"
+        android:paddingEnd="8dp">
+
+        <ImageButton
+            android:id="@+id/jetx_back"
+            android:layout_width="44dp"
+            android:layout_height="48dp"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:contentDescription="@string/back"
+            android:src="@drawable/ic_back"
+            app:tint="@color/jetx_text" />
+
+        <EditText
+            android:id="@+id/jetx_address"
+            android:layout_width="0dp"
+            android:layout_height="40dp"
+            android:layout_weight="1"
+            android:background="@drawable/bg_jetx_field"
+            android:hint="@string/jetx_address_hint"
+            android:imeOptions="actionGo"
+            android:importantForAutofill="no"
+            android:inputType="textUri"
+            android:paddingHorizontal="14dp"
+            android:selectAllOnFocus="true"
+            android:singleLine="true"
+            android:textColor="@color/jetx_text"
+            android:textColorHint="@color/jetx_muted"
+            android:textSize="14sp" />
+
+        <ImageButton
+            android:id="@+id/jetx_reload"
+            android:layout_width="44dp"
+            android:layout_height="48dp"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:contentDescription="@string/jetx_reload"
+            android:src="@drawable/ic_refresh"
+            app:tint="@color/jetx_text" />
+
+        <LinearLayout
+            android:id="@+id/jetx_status"
+            android:layout_width="wrap_content"
+            android:layout_height="48dp"
+            android:gravity="center_vertical"
+            android:orientation="horizontal">
+
+            <View
+                android:id="@+id/jetx_dot"
+                android:layout_width="10dp"
+                android:layout_height="10dp"
+                android:background="@drawable/bg_jetx_dot" />
+
+            <TextView
+                android:id="@+id/jetx_status_text"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="6dp"
+                android:ellipsize="end"
+                android:maxWidth="84dp"
+                android:singleLine="true"
+                android:text="@string/jetx_site_none"
+                android:textColor="@color/jetx_muted"
+                android:textSize="12sp" />
+        </LinearLayout>
+    </LinearLayout>
+
+    <ProgressBar
+        android:id="@+id/jetx_progress"
+        style="?android:attr/progressBarStyleHorizontal"
+        android:layout_width="match_parent"
+        android:layout_height="2dp"
+        android:max="100"
+        android:progressBackgroundTint="@android:color/transparent"
+        android:progressTint="@color/jetx_green"
+        android:visibility="gone" />
+
+    <TextView
+        android:id="@+id/jetx_banner"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:background="@color/jetx_warn_bg"
+        android:paddingHorizontal="14dp"
+        android:paddingVertical="8dp"
+        android:textColor="@color/jetx_warn"
+        android:textSize="12sp"
+        android:visibility="gone" />
+
+    <FrameLayout
+        android:id="@+id/jetx_game"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="0.55">
+
+        <TextView
+            android:id="@+id/jetx_game_empty"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:gravity="center"
+            android:padding="28dp"
+            android:text="@string/jetx_game_empty"
+            android:textColor="@color/jetx_muted"
+            android:textSize="14sp"
+            android:visibility="gone" />
+    </FrameLayout>
+
+    <LinearLayout
+        android:id="@+id/jetx_divider"
+        android:layout_width="match_parent"
+        android:layout_height="44dp"
+        android:background="@color/jetx_surface"
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
+        android:paddingHorizontal="8dp">
+
+        <TextView android:id="@+id/jetx_mode_manual" style="@style/Colon.JetxChip"
+            android:text="@string/jetx_mode_manual" />
+
+        <TextView android:id="@+id/jetx_mode_ai" style="@style/Colon.JetxChip"
+            android:text="@string/jetx_mode_ai" />
+
+        <TextView android:id="@+id/jetx_mode_shared" style="@style/Colon.JetxChip"
+            android:text="@string/jetx_mode_shared" />
+
+        <FrameLayout
+            android:id="@+id/jetx_handle"
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="1"
+            android:contentDescription="@string/jetx_divider">
+
+            <View
+                android:layout_width="36dp"
+                android:layout_height="4dp"
+                android:layout_gravity="center"
+                android:background="@drawable/bg_divider_handle"
+                android:backgroundTint="@color/jetx_green" />
+        </FrameLayout>
+
+        <TextView android:id="@+id/jetx_layout" style="@style/Colon.JetxChip"
+            android:layout_marginEnd="0dp"
+            android:text="@string/jetx_layout_split" />
+    </LinearLayout>
+
+    <FrameLayout
+        android:id="@+id/jetx_predictor"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="0.45" />
+</LinearLayout>

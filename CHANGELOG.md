@@ -1,5 +1,22 @@
 # Changelog
 
+## 0.34.0 (2026-11-25) · Colon JetX: Crash Predictor step 2 (the inbuilt browser, Android)
+
+- **New Android app Colon JetX** (`apps/android` flavor `colonjetx`, `ng.nifelux.colonjetx`, `BuildConfig.IS_JETX_APP`)
+  on the Colon Browser WebView engine: the user's own betting site on top (address bar, back, reload and a status
+  dot) and the predictor (`https://crash.apparatus.name.ng`) below. Draggable divider, or Game / Predictor full
+  screen; switching never reloads a pane. Always dark with green highlights; green launcher icon and splash.
+- The site's address comes from the predictor's Settings (`GET /crash/settings` → `site_url`, with the Colon session
+  the predictor signed in with) or is typed in the address bar. The user signs in to the site themselves: the app
+  never reads or keeps its passwords, cookies or tokens, and injects nothing into it.
+- **Control mode** Manual (default), AI or Shared, remembered on the phone. In this step AI and Shared only show a
+  banner; nothing is clicked for the user (auto-bet is step 5, with demo mode and every guardrail).
+- **Bridge stub** `window.ColonJetX`, only in the predictor's own origin: `status`, `openSite`, `setLayout`, and
+  `session` / `mode` / `layout` events (the site's host and load state only; no game data until step 3). The
+  dashboard uses it in the app: the site's status, the control mode, and "Show my betting site" opens it on top.
+- CI builds, tests and lints all three Android apps and publishes `colon-jetx-<version>.apk` / `colon-jetx.apk` with
+  the release. Colon JetX has no in-app update entry in `version.json` yet.
+
 ## 0.33.0 (2026-11-25) · Colon JetX: Crash Predictor step 1 (accounts and dashboard)
 
 - **New web app `apps/crash`** (crash.apparatus.name.ng): a JetX companion for signed-in Colon users (the shared

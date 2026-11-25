@@ -208,7 +208,11 @@ class FlavorUpdateTest {
         assertEquals(listOf("ng.nifelux.colonai"), Handoff.candidates("ng.nifelux.colonai", false))
         assertTrue(Handoff.apkUrl("colonbrowser").endsWith("/releases/latest/download/colon-browser.apk"))
         assertTrue(Handoff.apkUrl("colonai").endsWith("/releases/latest/download/colon-ai.apk"))
-        val self = if (BuildConfig.IS_BROWSER_APP) "colonbrowser" else "colonai"
+        val self = when {
+            BuildConfig.IS_JETX_APP -> "colonjetx"
+            BuildConfig.IS_BROWSER_APP -> "colonbrowser"
+            else -> "colonai"
+        }
         assertEquals(self, BuildConfig.APP_KEY)
         assertFalse(Handoff.partnerKey() == self)
     }
