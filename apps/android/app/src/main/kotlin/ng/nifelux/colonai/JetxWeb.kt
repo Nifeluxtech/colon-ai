@@ -24,8 +24,9 @@ import androidx.core.content.ContextCompat
  * browser tabs (ShellWeb.secureDefaults: no file access, no mixed content, Safe Browsing; TabWebView; the
  * ColonAndroid user agent; Google and bank sign-in in a Custom Tab; bad certificates refused).
  *
- * Game pane: the user's betting site, an ordinary web page. It never gets a bridge or an injected script, and the
- * app never reads its pages, cookies, passwords or tokens (the user signs in there themselves).
+ * Game pane: the user's betting site, an ordinary web page. It never gets the predictor's bridge; since 0.35.0 it
+ * gets the read-only round collector (JetxCollector: finished JetX multipliers only, while the collector is on).
+ * The app never reads its cookies, passwords, tokens or forms (the user signs in there themselves).
  * Predictor pane: https://crash.apparatus.name.ng with window.ColonJetX (JetxBridge). Colon's own pages stay in
  * it; other web links open in the game pane.
  */

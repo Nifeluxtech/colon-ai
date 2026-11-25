@@ -39,9 +39,9 @@ Automated clicking on an operator's site may breach its terms; the app warns the
 ## 4. Five-step plan and status
 | Step | What | Status |
 |---|---|---|
-| 1 | Accounts and dashboard: `apps/crash` web app, `crash` API module, MySQL tables (rounds, sessions, bets, settings, audit), routes | **Done (v0.33.0, merged to `main`; not yet deployed)** |
-| 2 | Inbuilt browser: new Android flavor `colonjetx` on the Colon Browser WebView engine, split screen (game top, predictor bottom), manual / AI / shared control | **Done (v0.34.0, branch `feat/crash-predictor-step2`; not yet deployed or released)** |
-| 3 | Round collector: injected script in the WebView (pattern: `apps/android/app/src/main/assets/saga/`) reads finished multipliers, posts them with time and round id, dedupes; CSV import | Not started |
+| 1 | Accounts and dashboard: `apps/crash` web app, `crash` API module, MySQL tables (rounds, sessions, bets, settings, audit), routes | **Done and deployed (v0.33.0, merged to `main` as 8b29fed)** |
+| 2 | Inbuilt browser: new Android flavor `colonjetx` on the Colon Browser WebView engine, split screen (game top, predictor bottom), manual / AI / shared control | **Done, released and deployed (v0.34.0, merged to `main` as 5a9d766 via PR #68; release v0.34.0 with `colon-jetx.apk`)** |
+| 3 | Round collector: injected script in the WebView (pattern: `apps/android/app/src/main/assets/saga/`) reads finished multipliers, posts them with time and round id, dedupes; CSV import | **Done (v0.35.0, branch `feat/crash-predictor-step3`, draft PR; not merged, released or deployed). Collector heuristics not yet checked on a live JetX page** |
 | 4 | Analysis engine: hit rate vs baseline, streaks, distribution, confidence ranges, out-of-sample model tests, BET / WAIT / STOP with reason | Not started |
 | 5 | Auto-bet: sets auto cash-out + stake, presses Bet on BET, all guardrails, demo default, audit log; Android build via CI, web via cPanel | Not started |
 
@@ -92,6 +92,38 @@ Automated clicking on an operator's site may breach its terms; the app warns the
 - Step 3 hooks onto the game pane in `JetxWeb.game` (an injected collector, pattern `assets/saga/`); step 5's clicks
   must check `JetxPrefs.mode` and the guardrails. AI / Shared currently change state and the banner only.
 
+### Step 3 files (round collector, v0.35.0)
+- API: `services/api/src/modules/crash/rounds.js` (pure: multiplier 1.00..1,000,000 with ≤ 2 decimals, times, stable
+  ids, the 2-second collector window, CSV parsing), `collect.js` (storing, dedupe, sessions, the dashboard's collector
+  status), `store.js` (`insertRounds` with INSERT IGNORE, `roundsNear`, `lastRound`, `startSession`, `endSession`;
+  `roundStats.collected`). No migration: 0028's unique `(user_id, game, round_id)` and `crash_sessions` suffice.
+- Routes (`routes/crash.js`, all `requireUser`): `POST /crash/rounds` `{ rounds: [{ multiplier, ended_at? | seen_at?,
+  round_id? }], source: collector | csv | manual }` (≤ 100; 1,500/h), `POST /crash/rounds/import` `{ csv }` (≤ 5,000
+  rows, 400 KB; 30/h), `POST /crash/sessions` `{ action: start | stop, reason? }` (120/h). Rounds and import answer
+  `{ inserted, duplicates, rejected, errors[≤20] }`. Dedupe: given round id; else `~t<ms>x<cents>` from time and
+  multiplier; CSV rows with no time and no id get `~c<sha1 of the file's timeless multipliers>:<n>` (re-import safe)
+  and the import time (first row oldest, 1 ms apart); collector rows with no id also count as duplicates when the
+  same multiplier is already stored within 2 s. The collector's first stored round opens a session implicitly.
+  `/crash/dashboard` gains `collector { status: live (a round in the last 2 min) | idle (session open) | off,
+  rounds_today, last_multiplier, last_round_at }`. Audit events: `rounds.imported`, `rounds.manual`,
+  `session.started`, `session.stopped`.
+- Tests: `services/api/tests/unit/crash-rounds.test.js` (API, in-memory store) and `jetx-collector.test.js` (the
+  injected script's pure parts plus a static read-only check).
+- Android: `src/colonjetx/assets/jetx/collector.js` (injected at document start into every frame of the game pane,
+  origin rule `*`; read-only; finds the history strip = an element with 5..200 children that are all
+  `^\d+([.,]\d{1,2})?\s*[x×]$`, ignoring buttons, links and forms; first look sends nothing; then diffs the strip,
+  newest first or last, by data-round-id style attributes when present; several new rounds at once are stamped 3 s
+  apart). `JetxCollector.kt` (the `ColonJetXRounds` web message listener, never replies; queue ≤ 500, batches of
+  50 every 5 s, backoff to 5 min, stop session on close / switch off), `JetxRoundRules.kt` (pure, `JetxRoundRulesTest`),
+  `JetxApi.post` (cookie only to the Colon API host), `JetxPrefs.collector` (default on). Bridge: command
+  `setCollector {on}`, event `collector {on, status: off|waiting|live|signed_out|error|unsupported, rounds_today,
+  last_multiplier}`, and `status.collector`.
+- Web: dashboard Round collector card and the app's on / off switch; History "Add a round" and "Import a CSV"
+  (`apps/crash/src/components/importer.js`).
+- Open: the strip heuristics are unverified against the user's real JetX page (SmartSoft may render the history in
+  a canvas, without an "x", or in a closed shadow root; then nothing is collected and the selectors need adjusting
+  from a saved copy of that page). The live "big multiplier" on crash is not read, only the history strip.
+
 ### Deploy notes
 - Subdomain **crash.apparatus.name.ng**, docroot `/home/apparatu/crash.apparatus.name.ng`.
 - `https://crash.apparatus.name.ng` is in the default `ALLOWED_ORIGINS` (`config/defaults.js`, `api.env.example`),
@@ -112,3 +144,10 @@ The owner's two ChatGPT conversations ("JetX AI Crash Predictor — Complete Tec
   stub, the dashboard's app line, CI for the third APK and `JetxRulesTest`. Gradle was not run in the authoring
   sandbox (no ARM64 aapt2); the new Kotlin was compiled with kotlinc against android.jar 36 and AndroidX, and
   `JetxRulesTest` passed there. First CI run on the PR is the real Android build, lint and test.
+- 2026-11-25: Step 2 merged to `main` (5a9d766, PR #68), released as v0.34.0 with `colon-jetx.apk`; steps 1 and 2
+  deployed.
+- 2026-11-25: Step 3 done on branch `feat/crash-predictor-step3` (v0.35.0, draft PR): `POST /crash/rounds`,
+  `/crash/rounds/import`, `/crash/sessions`, dedupe, collector status on the dashboard, CSV import and manual entry
+  in History, the read-only collector in the Colon JetX game pane (`JetxCollector`, `collector.js`) with an on / off
+  switch. No migration. Gradle and kotlinc were not run in the authoring sandbox (no JDK); CI is the real Android
+  build. Next: verify the collector on the user's JetX page, then step 4 (analysis engine).

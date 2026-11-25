@@ -1,5 +1,34 @@
 # Changelog
 
+## 0.35.0 (2026-11-25) · Colon JetX: Crash Predictor step 3 (the round collector)
+
+- **API**: `POST /crash/rounds` takes up to 100 rounds `{ multiplier, ended_at? | seen_at?, round_id? }` with
+  `source` `collector`, `csv` or `manual`; `POST /crash/rounds/import` takes CSV text (`multiplier[,time][,round_id]`,
+  or any order under a header row; comma, semicolon or tab; up to 5,000 rows). Multipliers are 1.00x to
+  1,000,000x with at most 2 decimals. Both answer `{ inserted, duplicates, rejected, errors[] }`. Dedupe per user +
+  game + round id: a round with no id gets a stable one from its time and multiplier, CSV rows with no time get one
+  from the file's own rows (importing the same file twice stores it once), and the same multiplier from the
+  collector within 2 seconds counts once (two frames showing one history strip). `POST /crash/sessions`
+  `{ action: start | stop }`; the collector's first saved round opens the session implicitly. Rate limits: rounds
+  1,500 an hour, imports 30 an hour, sessions 120 an hour. Every import, manual entry and session start or stop is
+  written to `crash_audit`. No schema change (migration 0028 already has what this needs).
+- **Dashboard**: a Round collector card (live, waiting for rounds or not collecting; rounds collected today; the last
+  round), the session line now says sessions start when the app collects a round, and in the Colon JetX app the
+  phone's own collector status with an on / off switch, refreshed as rounds arrive.
+- **History**: add a round by hand, or import a CSV (paste it or choose a file), with what was added, already there
+  or refused. The verdict stays WAIT: the analysis engine is step 4.
+- **Android (Colon JetX)**: `JetxCollector` injects `assets/jetx/collector.js` into every frame of the game pane
+  (JetX runs in the provider's iframe). The script is read-only: it finds JetX's round-history strip (5+ items, each
+  "1.53x"-shaped), sends nothing on its first look, then posts `{ multiplier, seen_at, round_id? }` for each new
+  round on `window.ColonJetXRounds`, a channel that never answers. It never clicks, types or reads forms, passwords,
+  cookies or storage. The app checks every message (`JetxRoundRules`: https frames, those three keys, sane values,
+  20 a minute at most), batches them to `POST /crash/rounds` with the Colon session cookie (Colon API host only),
+  retries with backoff, and stops the session when the app closes or the collector is turned off. New bridge
+  command `setCollector { on }` and event `collector { on, status, rounds_today, last_multiplier }`; the switch is
+  remembered in `JetxPrefs` (on by default). Tests: `JetxRoundRulesTest`, `jetx-collector.test.js` (the script's
+  parsing and diffing, and a read-only check), `crash-rounds.test.js`.
+- The collector's page heuristics are not yet verified against a live JetX page; see the handoff.
+
 ## 0.34.0 (2026-11-25) · Colon JetX: Crash Predictor step 2 (the inbuilt browser, Android)
 
 - **New Android app Colon JetX** (`apps/android` flavor `colonjetx`, `ng.nifelux.colonjetx`, `BuildConfig.IS_JETX_APP`)

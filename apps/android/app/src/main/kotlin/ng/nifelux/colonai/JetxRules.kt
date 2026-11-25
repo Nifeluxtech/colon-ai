@@ -112,8 +112,9 @@ object JetxRules {
         Mode.SHARED -> "shared"
     }
 
-    /** Commands the predictor may send over window.ColonJetX (JetxBridge). Anything else is refused. */
-    val COMMANDS: Set<String> = setOf("ready", "status", "openSite", "setLayout")
+    /** Commands the predictor may send over window.ColonJetX (JetxBridge). Anything else is refused.
+     *  setCollector {on} (0.35.0) turns the round collector on or off. */
+    val COMMANDS: Set<String> = setOf("ready", "status", "openSite", "setLayout", "setCollector")
 
     /** The status the predictor reads: app, version, mode, layout and the site's host and state. */
     fun status(version: String, mode: Mode, layout: Layout, site: Site, siteUrl: String?): JSONObject =

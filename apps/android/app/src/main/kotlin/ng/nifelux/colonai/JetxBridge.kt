@@ -16,10 +16,13 @@ import org.json.JSONObject
  * Shim: assets/jetx/bridge.js. Messages are JSON: page -> app {id, cmd, args}; app -> page {id, ok, result | error}
  * or {event, data}.
  *
- * Commands (JetxRules.COMMANDS): ready and status -> the status (mode, layout, the betting site's host and state);
- * openSite {url?} -> opens that site (or the saved one) in the game pane; setLayout {layout}.
- * Events: session {status, host}, mode {mode}, layout {layout}.
- * Step 2 reads nothing from the betting site: no game data (step 3), and never its cookies, passwords or tokens.
+ * Commands (JetxRules.COMMANDS): ready and status -> the status (mode, layout, the betting site's host and state,
+ * the collector); openSite {url?} -> opens that site (or the saved one) in the game pane; setLayout {layout};
+ * setCollector {on} (0.35.0) -> the collector's status.
+ * Events: session {status, host}, mode {mode}, layout {layout}, collector {on, status, rounds_today,
+ * last_multiplier} (0.35.0).
+ * The only game data the predictor gets is the collector's count and last multiplier (JetxCollector); never the
+ * betting site's cookies, passwords or tokens.
  */
 class JetxBridge(private val host: Host, private val webView: WebView?) {
     interface Host {
@@ -27,6 +30,8 @@ class JetxBridge(private val host: Host, private val webView: WebView?) {
         /** Opens [url] (already cleaned) or, when null, the saved site. Returns the opened URL or null (none). */
         fun bridgeOpenSite(url: String?): String?
         fun bridgeSetLayout(layout: JetxRules.Layout)
+        /** Turns the round collector on or off (0.35.0); returns its status. */
+        fun bridgeSetCollector(on: Boolean): JSONObject
     }
 
     private var proxy: JavaScriptReplyProxy? = null
@@ -83,6 +88,10 @@ class JetxBridge(private val host: Host, private val webView: WebView?) {
                 val l = JetxRules.Layout.from(args.optString("layout"))
                 if (l == null) reply(id, null, "bad_layout")
                 else { host.bridgeSetLayout(l); reply(id, JSONObject().put("layout", l.wire), null) }
+            }
+            "setCollector" -> {
+                val on = args.opt("on")
+                if (on !is Boolean) reply(id, null, "bad_value") else reply(id, host.bridgeSetCollector(on), null)
             }
         }
     }

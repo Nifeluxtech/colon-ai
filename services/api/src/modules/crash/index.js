@@ -2,10 +2,15 @@
 // Step 1 holds the account's settings (target cash-out, stake, demo mode, guardrails, betting site), the dashboard
 // summary and the round and bet lists. Rounds arrive from the collector in step 3; the analysis engine (step 4)
 // does not exist yet, so the verdict is always WAIT (or STOP when a guardrail has tripped). Never a prediction.
-//   create({ store }) -> { getSettings, updateSettings, dashboard, rounds, bets }; other layers import only this file.
+// Step 3 (v0.35.0) stores rounds from the Colon JetX collector, CSV imports and manual entries (collect.js,
+// rounds.js) and opens the collector's session; the dashboard shows the collector's status.
+//   create({ store }) -> { getSettings, updateSettings, dashboard, rounds, bets, addRounds, importCsv,
+//   startSession, stopSession }; other layers import only this file.
 const { sqlStore, memoryStore } = require('./store');
 const S = require('./settings');
 const M = require('./math');
+const R = require('./rounds');
+const { collector } = require('./collect');
 
 const GAME = 'jetx';
 const err = (status, code, message) => Object.assign(new Error(message), { status, code });
@@ -35,6 +40,7 @@ function verdictFor(rails) {
 
 function create({ store = sqlStore(), clock = () => new Date() } = {}) {
   const uid = (u) => { if (!u || !u.id) throw err(401, 'unauthenticated', 'Please sign in.'); return u.id; };
+  const col = collector({ store, clock, settingsOf: async (id) => S.fromRow(await store.getSettings(id)) });
 
   async function getSettings(u) { return S.fromRow(await store.getSettings(uid(u))); }
 
@@ -66,8 +72,8 @@ function create({ store = sqlStore(), clock = () => new Date() } = {}) {
     const sess = session ? await store.betStats(id, GAME, { sessionId: session.id }) : { n: 0, profit: 0 };
     const rails = S.guardrails(settings, { sessionBets: sess.n, sessionProfit: sess.profit,
       todayProfit: today.profit });
-    const [recentRounds, recentBets] = await Promise.all([store.listRounds(id, GAME, 10),
-      store.listBets(id, GAME, 10)]);
+    const [recentRounds, recentBets, coll] = await Promise.all([store.listRounds(id, GAME, 10),
+      store.listBets(id, GAME, 10), col.status(id, { collectedToday: rs.collected || 0, session })]);
     return {
       game: GAME,
       account: { name: u.name || '', email: u.email || '', email_verified: Boolean(u.email_verified),
@@ -79,6 +85,7 @@ function create({ store = sqlStore(), clock = () => new Date() } = {}) {
         wins: today.wins, losses: today.losses, staked: money(today.staked), profit: money(today.profit) },
       session: session ? { id: String(session.id), demo: Boolean(Number(session.demo)),
         started_at: iso(session.started_at), bets: sess.n, profit: money(sess.profit) } : null,
+      collector: coll,
       guardrails: rails,
       verdict: verdictFor(rails),
       recent_rounds: recentRounds.map(roundOut),
@@ -89,7 +96,13 @@ function create({ store = sqlStore(), clock = () => new Date() } = {}) {
   const rounds = async (u, { limit } = {}) => (await store.listRounds(uid(u), GAME, limitOf(limit, 50))).map(roundOut);
   const bets = async (u, { limit } = {}) => (await store.listBets(uid(u), GAME, limitOf(limit, 50))).map(betOut);
 
-  return { getSettings, updateSettings, dashboard, rounds, bets, store };
+  const addRounds = async (u, body, o) => col.addRounds(uid(u), body, o);
+  const importCsv = async (u, body, o) => col.importCsv(uid(u), body, o);
+  const startSession = async (u, o) => col.startSession(uid(u), o);
+  const stopSession = async (u, o) => col.stopSession(uid(u), o);
+
+  return { getSettings, updateSettings, dashboard, rounds, bets, addRounds, importCsv, startSession, stopSession,
+    store };
 }
 
 let shared = null;
@@ -109,7 +122,19 @@ const handlers = {
   // GET /crash/rounds?limit= and GET /crash/bets?limit= (newest first, at most 100)
   getRounds: async (req) => [200, { rounds: await instance().rounds(req.user, { limit: req.query.get('limit') }) }],
   getBets: async (req) => [200, { bets: await instance().bets(req.user, { limit: req.query.get('limit') }) }],
+  // POST /crash/rounds { rounds: [{ multiplier, ended_at?, round_id? }], source } -> { inserted, duplicates,
+  // rejected, errors[] } (source: collector | csv | manual; at most 100 rounds)
+  postRounds: async (req) => [200, await instance().addRounds(req.user, req.body, { ip: req.ip })],
+  // POST /crash/rounds/import { csv } -> the same counts plus rows (multiplier[,time][,round_id], 5000 rows at most)
+  importRounds: async (req) => [200, await instance().importCsv(req.user, req.body, { ip: req.ip })],
+  // POST /crash/sessions { action: 'start' | 'stop', reason? } -> { session, started | stopped }
+  postSession: async (req) => {
+    const b = req.body || {};
+    if (b.action === 'start') return [200, await instance().startSession(req.user, { ip: req.ip })];
+    if (b.action === 'stop') return [200, await instance().stopSession(req.user, { ip: req.ip, reason: b.reason })];
+    throw err(422, 'invalid', 'Send action start or stop.');
+  },
 };
 
 module.exports = { create, instance, memoryStore, handlers, dayStart, verdictFor, GAME,
-  math: M, settings: S };
+  math: M, settings: S, rounds: R };

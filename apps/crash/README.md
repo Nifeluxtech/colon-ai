@@ -6,6 +6,9 @@ Step 1 (v0.33.0): dashboard, settings and history on the `crash` API module (`/c
 Step 2 (v0.34.0): the Colon JetX Android app (`apps/android`, flavor `colonjetx`) shows this app in its bottom pane,
 under the user's betting site, and gives it `window.ColonJetX`; `src/core/native.js` wraps it (open the site in the
 top pane, the site's status and the control mode). In a normal browser there is no bridge and nothing changes.
+Step 3 (v0.35.0): the dashboard's Round collector card (`collector` from `/crash/dashboard`, and in the app the
+phone's collector status and on / off switch over the bridge); History adds a round by hand or imports a CSV
+(`src/components/importer.js`, `POST /crash/rounds` and `/crash/rounds/import`).
 
 | Path | Purpose |
 |---|---|
@@ -13,7 +16,7 @@ top pane, the site's status and the control mode). In a normal browser there is 
 | `src/main.js` | Boot only |
 | `src/core/` | `state.js` (`window.ColonCrash`, number formats), `api.js` (the `/crash/*` calls), `router.js` (routes) |
 | `src/core/native.js` | The Colon JetX Android app's bridge (`window.ColonJetX`); absent in a normal browser |
-| `src/components/` | `cards.js`: header, stats, verdict, baseline, round chips, bet rows |
+| `src/components/` | `cards.js`: header, stats, verdict, baseline, collector, round chips, bet rows; `importer.js`: add a round, CSV import |
 | `src/pages/` | `dashboard.js`, `settings.js`, `history.js` |
 
 Sign-in, profile, 2FA and devices are the shared Colon account screens (`#/login`, `#/account`). The verdict is
