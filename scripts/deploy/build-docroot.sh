@@ -1,7 +1,7 @@
 #!/bin/sh
 # Builds one app's web document root exactly as the cPanel deploy does (.cpanel.yml runs this script).
 #
-#   sh scripts/deploy/build-docroot.sh <repo dir> <app: chat|browser|admin> <docroot dir>
+#   sh scripts/deploy/build-docroot.sh <repo dir> <app: chat|browser|admin|crash> <docroot dir>
 #
 # Layout it produces (version read from the root package.json, the one place it is set):
 #   <docroot>/index.html, assets/...          apps/<app>/public/.   (the page and its own CSS/config)
@@ -20,7 +20,7 @@ REPO=${1:?usage: build-docroot.sh <repo dir> <app> <docroot dir>}
 APP=${2:?usage: build-docroot.sh <repo dir> <app> <docroot dir>}
 DOC=${3:?usage: build-docroot.sh <repo dir> <app> <docroot dir>}
 
-case "$APP" in chat|browser|admin) ;; *) echo "build-docroot: unknown app '$APP'" >&2; exit 1 ;; esac
+case "$APP" in chat|browser|admin|crash) ;; *) echo "build-docroot: unknown app '$APP'" >&2; exit 1 ;; esac
 
 VERSION=$(sed -n 's/^  "version": *"\([^"]*\)".*/\1/p' "$REPO/package.json" | head -n 1)
 case "$VERSION" in

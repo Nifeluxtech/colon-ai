@@ -32,7 +32,7 @@ function checkModule(doc, file, seen, missing) {
   }
 }
 
-for (const app of ['chat', 'browser', 'admin']) {
+for (const app of ['chat', 'browser', 'admin', 'crash']) {
   test(`${app}: every asset the page loads exists in the built docroot`, () => {
     const doc = fs.mkdtempSync(path.join(os.tmpdir(), `docroot-${app}-`));
     build(app, doc);
