@@ -6,7 +6,7 @@
 .cw-thought>summary svg{width:15px;height:15px;flex:none}
 .cw-thought>summary svg:last-child{transition:transform .15s;transform:rotate(-90deg)}
 .cw-thought[open]>summary svg:last-child{transform:none}
-.cw-thought-body{white-space:pre-wrap;color:var(--muted);font-size:13.5px;line-height:1.55;margin-top:4px;
+.cw-thought-body,.cw-thought-body.md{color:var(--muted);font-size:13.5px;line-height:1.55;margin-top:4px;
   max-height:320px;overflow:auto}
 @media (prefers-reduced-motion:no-preference){
   .cw-thought.live>summary span{animation:cw-pulse 1.6s ease-in-out infinite}
@@ -14,3 +14,5 @@
 @keyframes cw-pulse{50%{opacity:.45}}
 .wk-thought{margin:6px 0 0;padding-left:10px}
 .wk-thought .cw-thought-body{font-size:12.5px;max-height:220px}
+.cw-thought-body.md p,.cw-thought-body.md ul,.cw-thought-body.md ol{margin:0 0 6px}
+.cw-thought-body.md strong{color:inherit;font-weight:600}

@@ -62,8 +62,8 @@ function secs(ms) { var n = Math.max(0, Math.round(ms / 1000)); return n < 60 ? 
 // v0.32.0: the model's reasoning on a step, open while it runs (styles in chat-thoughts.css)
 function thoughtHtml(x) {
   return x.thought ? '<details class="cw-thought wk-thought' + (x.state === 'run' ? ' live" open' : '"')
-    + '><summary><span>Thought process</span>' + icon('chevDown') + '</summary><div class="cw-thought-body">'
-    + esc(x.thought) + '</div></details>' : '';
+    + '><summary><span>Thought process</span>' + icon('chevDown') + '</summary><div class="cw-thought-body md">'
+    + (window.ColonMarkdown ? window.ColonMarkdown.render(x.thought) : esc(x.thought)) + '</div></details>' : '';
 }
 function stepsHtml(steps, live) {
   return '<ol class="wk-steps">' + steps.map(function (x) {

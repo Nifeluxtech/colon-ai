@@ -103,7 +103,7 @@ function thoughtsHtml(m, streaming) {
   var live = streaming && !m.content, mine = (S.thoughtOpen || {})[m.id];
   return '<details class="cw-thought' + (live ? ' live' : '') + '"' + ((mine == null ? live : mine) ? ' open' : '')
     + ' data-tid="' + esc(m.id) + '"><summary>' + icon('sparkles') + '<span>' + (live ? 'Thinking…'
-    : 'Thought process') + '</span>' + icon('chevDown') + '</summary><div class="cw-thought-body">' + esc(t)
+    : 'Thought process') + '</span>' + icon('chevDown') + '</summary><div class="cw-thought-body md">' + MD.render(t)
     + '</div></details>';
 }
 document.addEventListener('click', function (e) {
