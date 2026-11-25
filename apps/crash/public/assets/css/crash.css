@@ -1,0 +1,58 @@
+/* Colon JetX (Crash Predictor step 1): dark background with premium green highlights on the shared design system.
+   Mobile first. Only tokens and a few app blocks are set here; everything else is packages/ui. */
+:root,[data-theme="dark"]{
+  --primary:#22C55E; --primary-hover:#16A34A; --accent:#22C55E;
+  --accent-grad:linear-gradient(180deg,#34D97A 0%,#22C55E 55%,#15A34A 100%);
+  --brand-grad:linear-gradient(135deg,#22C55E,#A3E635);
+  --bg:#050B08; --bg-2:#08120D; --surface:#0C1A12; --surface-2:#11241990; --surface-3:#163021;
+  --surface-solid:#0D1C14; --glass:rgba(12,26,18,.66); --glass-2:rgba(17,36,25,.58);
+  --line:rgba(74,222,128,.14); --line-2:rgba(74,222,128,.26);
+  --primary-soft:rgba(34,197,94,.16); --primary-line:rgba(74,222,128,.5);
+  --sh-glow:0 8px 28px -10px rgba(34,197,94,.6);
+  --page-bg:radial-gradient(1100px 620px at 12% -12%,rgba(34,197,94,.22),transparent 62%),
+    radial-gradient(900px 520px at 105% 108%,rgba(163,230,53,.08),transparent 60%),#050B08;
+}
+[data-theme="light"]{
+  --primary:#15A34A; --primary-hover:#128A3F; --accent:#15A34A;
+  --accent-grad:linear-gradient(180deg,#22C55E 0%,#15A34A 55%,#128A3F 100%);
+  --primary-soft:#E7F8EE; --primary-line:rgba(21,163,74,.45);
+}
+[data-theme="dark"] .set-row .ico{color:#6EE7A0}
+
+.cx-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px}
+#cx-body,#cx-set,#cx-hist{display:flex;flex-direction:column;gap:14px;margin-top:6px}
+#cx-body .card,#cx-set .card,#cx-hist .card{padding:16px}
+.cx-sec{display:flex;align-items:baseline;justify-content:space-between;gap:8px}
+.cx-hl b{color:var(--primary)}
+.cx-up{color:var(--ok)} .cx-down{color:var(--bad)}
+
+.cx-account{display:flex;align-items:center;gap:12px}
+.cx-account .avatar{width:44px;height:44px;border-radius:50%;display:grid;place-items:center;flex:none;
+  background:var(--primary-soft);color:var(--primary);font-weight:700;border:1px solid var(--primary-line)}
+.cx-account .body{flex:1;min-width:0}
+.cx-account .title{font-weight:650}
+.cx-account .sub{color:var(--muted);font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+.cx-verdict{text-align:center;border-width:1px}
+.cx-verdict-k{font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+.cx-verdict-a{font-size:44px;font-weight:800;letter-spacing:.04em;line-height:1.1;margin:4px 0 6px}
+.cx-wait .cx-verdict-a{color:var(--warn)}
+.cx-stop{border-color:rgba(248,113,113,.45)} .cx-stop .cx-verdict-a{color:var(--bad)}
+.cx-bet{border-color:var(--primary-line);box-shadow:0 0 0 3px var(--primary-soft)}
+.cx-bet .cx-verdict-a{color:var(--primary)}
+
+.cx-chips{display:flex;flex-wrap:wrap;gap:6px}
+.cx-chip{padding:4px 10px;border-radius:999px;font:600 13px var(--mono);background:var(--bad-bg);color:var(--bad);
+  border:1px solid rgba(248,113,113,.25)}
+.cx-chip.hit{background:var(--ok-bg);color:var(--ok);border-color:rgba(52,209,122,.3)}
+.cx-rails{display:flex;align-items:center;gap:8px;margin-top:10px}
+
+.cx-actions{display:grid;gap:10px;grid-template-columns:1fr}
+.cx-kill{display:flex;align-items:center;gap:12px}
+.cx-kill .body{flex:1;min-width:0}
+.cx-kill .title{font-weight:650}
+.cx-kill .sub{color:var(--muted);font-size:13px}
+.cx-kill.on{border-color:rgba(248,113,113,.5);background:var(--bad-bg)}
+.cx-kill .btn{flex:none}
+.cx-form{display:flex;flex-direction:column;gap:14px}
+@media (min-width:640px){ .cx-actions{grid-template-columns:1fr 1fr} }
