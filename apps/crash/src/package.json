@@ -1,0 +1,4 @@
+{
+  "//": "ES modules loaded directly by browsers (no build step); this marks them as ESM for Node unit tests too.",
+  "type": "module"
+}
