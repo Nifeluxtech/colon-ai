@@ -1,7 +1,8 @@
 /* Colon JetX · Dashboard: account, session status, today's stats, the honest baseline at the target, the verdict
    (WAIT until the analysis engine exists), guardrails, the round collector and the recent rounds and bets. In the
    Colon JetX Android app (v0.34.0) it also shows the betting site's status and the control mode, and opens the site
-   in the top pane; since v0.35.0 it shows the app's collector live and can turn it on or off. */
+   in the top pane; since v0.35.0 it shows the app's collector live and can turn it on or off, and since v0.35.1
+   its diagnostics (game frames seen, history strip found) right under the app's line. */
 
 import { Colon } from '../../../../packages/ui/js/colon.js';
 import { baselineCard, betRows, collectorCard, fail, head, roundChips, skel, stat, tone, verdictCard }
@@ -56,7 +57,8 @@ function collectorLine(c) {
   if (!c) return '';
   var d = app.describeCollector(c);
   return '<p class="small cx-rails"><span class="status-dot' + (d.tone ? ' ' + d.tone : '') + '"></span> This phone: '
-    + esc(d.text) + '</p><button class="btn block" type="button" data-coll="' + (d.on ? 'off' : 'on') + '">'
+    + esc(d.text) + '</p>' + (d.detail ? '<p class="tiny muted">' + esc(d.detail) + '</p>' : '')
+    + '<button class="btn block" type="button" data-coll="' + (d.on ? 'off' : 'on') + '">'
     + icon(d.on ? 'stop' : 'play') + (d.on ? 'Turn the collector off' : 'Turn the collector on') + '</button>';
 }
 
@@ -66,9 +68,11 @@ function render(view, d, paintApp) {
     + 'Show my betting site</button>' : s.site_url ? '<a class="btn block" href="' + esc(s.site_url)
     + '" target="_blank" rel="noopener noreferrer">' + icon('external') + 'Open my betting site</a>'
     : '<a class="btn block" href="#/settings">' + icon('link') + 'Add your betting site</a>';
+  // In the app the collector card sits right under the app's line, so its status is seen without scrolling.
+  var coll = collectorCard(d.collector, s.target_cashout);
   $('#cx-body', view).innerHTML = (inApp ? '<section class="card"><div class="section-title">Colon JetX app</div>'
-    + '<p class="small" id="cx-app"></p></section>' : '') + accountCard(d) + verdictCard(d.verdict)
-    + baselineCard(d.baseline, d.today.hit_rate) + collectorCard(d.collector, s.target_cashout)
+    + '<p class="small" id="cx-app"></p></section>' + coll : '') + accountCard(d) + verdictCard(d.verdict)
+    + baselineCard(d.baseline, d.today.hit_rate) + (inApp ? '' : coll)
     + todayCard(d) + sessionCard(d)
     + '<section class="card"><div class="cx-sec"><div class="section-title">Recent rounds</div><a class="small" '
     + 'href="#/history">See all</a></div>' + roundChips(d.recent_rounds, s.target_cashout)
@@ -101,10 +105,14 @@ function dashboard(view) {
     app.appStatus().then(function (s) { st = s; paintApp(); }).catch(function () {});
     offs.push(app.on('session', function (x) { st = st || {}; st.session = x; paintApp(); }));
     offs.push(app.on('mode', function (x) { st = st || {}; st.mode = x.mode; paintApp(); }));
-    // A new round: the line at once, the saved counts a few seconds later (after the app has sent it).
+    // A new round: the line at once, the saved counts a few seconds later (after the app has sent it). A
+    // diagnostic only (frames, strip) repaints the line without reloading.
     offs.push(app.on('collector', function (x) {
+      var was = (st && st.collector) || {};
       st = st || {}; st.collector = x; paintApp();
-      if (!soon) soon = setTimeout(function () { soon = null; if (!stop) load(); }, 8000);
+      var moved = x.rounds_today !== was.rounds_today || x.last_multiplier !== was.last_multiplier
+        || x.rounds_sent !== was.rounds_sent;
+      if (moved && !soon) soon = setTimeout(function () { soon = null; if (!stop) load(); }, 8000);
     }));
   }
   var load = function () {

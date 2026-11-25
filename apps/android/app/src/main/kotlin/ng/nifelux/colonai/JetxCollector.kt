@@ -21,6 +21,9 @@ import okhttp3.OkHttpClient
  * Rounds are batched and sent to POST /crash/rounds with the Colon session cookie, to the Colon API host only
  * (JetxApi.post). The API dedupes them and opens the collector's session; closing the app or turning the
  * collector off stops it (POST /crash/sessions). The predictor hears a 'collector' event after each change.
+ * Since 0.35.1 the script also sends a diagnostic per frame (host and counts only, JetxRoundRules.parseDiag); the
+ * latest per frame is kept and summed up in the event (frames_seen, strip_found, strip_items), with rounds_sent and
+ * last_error, so the predictor can say whether the history strip was found.
  * On WebViews without document-start scripts or web message listeners there is no collector (status unsupported).
  */
 class JetxCollector(private val host: Host, private val http: OkHttpClient, private val prefs: JetxPrefs) {
@@ -40,6 +43,10 @@ class JetxCollector(private val host: Host, private val http: OkHttpClient, priv
     private var roundsToday = 0
     private var day = JetxRoundRules.dayOf(System.currentTimeMillis())
     private var last: Double? = null
+    private var roundsSent = 0
+    private var lastError: String? = null
+    private val diags = LinkedHashMap<String, Pair<JetxRoundRules.Diag, Long>>()
+    private var lastSummary: JetxRoundRules.DiagSummary? = null
     private val flushNow = Runnable { scheduled = false; flush() }
 
     /** Adds the script and the channel to the game pane's WebView (each new one, as after a renderer crash). */
@@ -64,7 +71,7 @@ class JetxCollector(private val host: Host, private val http: OkHttpClient, priv
 
     fun status(): org.json.JSONObject {
         rollDay()
-        return JetxRoundRules.status(prefs.collector, state, roundsToday, last)
+        return JetxRoundRules.status(prefs.collector, state, roundsToday, last, summary(), roundsSent, lastError)
     }
 
     /** The collector toggle (the predictor's switch). Off: pending rounds are dropped and the session stops. */
@@ -91,7 +98,8 @@ class JetxCollector(private val host: Host, private val http: OkHttpClient, priv
     private fun onMessage(raw: String?, origin: String) {
         if (!prefs.collector) return
         val now = System.currentTimeMillis()
-        val round = JetxRoundRules.parse(raw, origin, now) ?: return
+        val round = JetxRoundRules.parse(raw, origin, now)
+        if (round == null) { JetxRoundRules.parseDiag(raw, origin)?.let { onDiag(it, now) }; return }
         while (recent.isNotEmpty() && recent.first() <= now - 60_000L) recent.removeFirst()
         if (!JetxRoundRules.underLimit(recent.toList(), now)) return
         recent.addLast(now)
@@ -101,6 +109,18 @@ class JetxCollector(private val host: Host, private val http: OkHttpClient, priv
         host.onCollector(status())
         schedule(if (queue.size >= JetxRoundRules.BATCH) 0L else JetxRoundRules.FLUSH_MS)
     }
+
+    /** Keeps each frame's latest diagnostic (at most MAX_FRAMES frames); tells the predictor when the sum changes. */
+    private fun onDiag(d: JetxRoundRules.Diag, now: Long) {
+        diags.remove(d.host)
+        if (diags.size >= JetxRoundRules.MAX_FRAMES) diags.remove(diags.keys.first())
+        diags[d.host] = d to now
+        val sum = summary()
+        if (sum != lastSummary) { lastSummary = sum; host.onCollector(status()) }
+    }
+
+    private fun summary(): JetxRoundRules.DiagSummary =
+        JetxRoundRules.summarize(diags.values, System.currentTimeMillis())
 
     private fun schedule(delay: Long) {
         if (scheduled) return
@@ -115,6 +135,7 @@ class JetxCollector(private val host: Host, private val http: OkHttpClient, priv
         JetxApi.post(http, "/crash/rounds", JetxRoundRules.batchJson(batch)) { code, body ->
             sending = false
             val outcome = if (code == -1) JetxRoundRules.Outcome.SIGNED_OUT else JetxRoundRules.outcome(code)
+            lastError = if (code == -1) "signed_out" else JetxRoundRules.errorOf(code)
             when (outcome) {
                 JetxRoundRules.Outcome.SENT -> {
                     drop(batch)
@@ -122,6 +143,7 @@ class JetxCollector(private val host: Host, private val http: OkHttpClient, priv
                     sessionOpen = true
                     rollDay()
                     roundsToday += JetxRoundRules.inserted(body) ?: 0
+                    roundsSent += batch.size
                     setState(JetxRoundRules.State.LIVE)
                 }
                 JetxRoundRules.Outcome.DROP -> { drop(batch); setState(JetxRoundRules.State.ERROR) }
@@ -146,7 +168,7 @@ class JetxCollector(private val host: Host, private val http: OkHttpClient, priv
 
     private fun rollDay() {
         val today = JetxRoundRules.dayOf(System.currentTimeMillis())
-        if (today != day) { day = today; roundsToday = 0 }
+        if (today != day) { day = today; roundsToday = 0; roundsSent = 0 }
     }
 
     private fun setState(s: JetxRoundRules.State) {

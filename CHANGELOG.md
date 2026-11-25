@@ -1,5 +1,26 @@
 # Changelog
 
+## 0.35.1 (2026-11-25) · Colon JetX: the round collector reads SportyBet's JetX history strip, with diagnostics
+
+- **Android (Colon JetX)**: `collector.js` finds the history strip tolerantly. A container counts when at least 5 of
+  its children are multiplier chips and they make up at least 70% of them; other children (the strip's dropdown
+  chevron button, icons, empty or half-visible "1.2…" chips) are skipped instead of ruling the strip out. A chip's
+  text is its own trimmed text (also when split over nested spans) or its one descendant leaf holding a multiplier;
+  chips may be buttons or links (only read). The search walks nested wrappers and open shadow roots and picks the
+  container with the most chips; it re-checks every 2 s as well as on DOM changes. Diffing is unchanged (first look
+  sends nothing, then only new rounds, newest-first or newest-last). Still read-only.
+- **Diagnostics**: at most every 10 s per frame the script also posts `{ diag: { frame_host, strip_found, items } }`
+  (host and counts only, no page text) on the same channel. `JetxRoundRules.parseDiag` checks it (https, those keys,
+  items 0..200; the host is taken from the frame's origin) and `JetxCollector` keeps the latest per frame (20 at
+  most). The bridge's `collector` event adds `frames_seen` (frames heard from in the last minute), `strip_found`,
+  `strip_items`, `rounds_sent` (today) and `last_error`.
+- **Dashboard**: in the app the Round collector card sits right under the app's line and shows e.g. "Game frames
+  seen: 2 · History strip: found (12 items) · Sent today: 5" or "History strip: not found yet". A diagnostic alone
+  repaints the line without reloading the dashboard.
+- Tests: `jetx-collector.test.js` (a SportyBet-style strip with nested spans, a truncated chip and a trailing
+  chevron button; open shadow roots; the diagnostic and first-look behaviour of `install`), `JetxRoundRulesTest`
+  (diagnostic parsing and the summed-up status).
+
 ## 0.35.0 (2026-11-25) · Colon JetX: Crash Predictor step 3 (the round collector)
 
 - **API**: `POST /crash/rounds` takes up to 100 rounds `{ multiplier, ended_at? | seen_at?, round_id? }` with

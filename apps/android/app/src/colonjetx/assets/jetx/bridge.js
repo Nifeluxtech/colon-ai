@@ -4,7 +4,8 @@
      ColonJetX.call(cmd, args) -> Promise   commands: ready, status, openSite { url? }, setLayout { layout },
                                             setCollector { on }
      ColonJetX.on(event, fn) -> off()       events: session { status, host }, mode { mode }, layout { layout },
-                                            collector { on, status, rounds_today, last_multiplier }
+                                            collector { on, status, rounds_today, last_multiplier,
+                                            frames_seen, strip_found, strip_items, rounds_sent, last_error }
    The page also hears a 'colonjetx' DOM event on window once the bridge is ready (detail: the status). */
 (function () {
   'use strict';

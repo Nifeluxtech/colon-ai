@@ -1,4 +1,4 @@
-/* Colon JetX · the Android app's bridge (v0.34.0, Crash Predictor step 2; collector v0.35.0).
+/* Colon JetX · the Android app's bridge (v0.34.0, Crash Predictor step 2; collector v0.35.0, diagnostics v0.35.1).
    In the Colon JetX app this page runs in the bottom pane, under the user's own betting site, and the app gives it
    window.ColonJetX (apps/android: JetxBridge.kt, assets/jetx/bridge.js). It can ask the app to open the betting site
    in the top pane and hears the site's status: its host and whether it loaded, nothing more. The app never reads
@@ -40,11 +40,21 @@ var COLLECTOR = { live: 'Collecting rounds', waiting: 'Waiting for JetX to finis
   signed_out: 'Sign in to Colon here to save rounds', error: "Can't save rounds right now; retrying",
   unsupported: 'This phone’s WebView is too old to collect rounds', off: 'Off' };
 
-// The app's collector line: { tone, text, on }.
+// The collector's diagnostics (v0.35.1) as one plain line: frames heard from, whether the history strip was found,
+// and rounds sent today. '' when the app is older or the collector is off.
+function collectorDetail(c) {
+  if (!c || !c.on || c.frames_seen == null) return '';
+  var strip = c.strip_found ? 'found (' + (c.strip_items || 0) + ' items)' : 'not found yet';
+  var line = 'Game frames seen: ' + (c.frames_seen || 0) + ' · History strip: ' + strip + ' · Sent today: '
+    + (c.rounds_sent || 0);
+  return c.last_error ? line + ' · Last error: ' + c.last_error : line;
+}
+
+// The app's collector line: { tone, text, on, detail }.
 function describeCollector(c) {
   var st = (c && c.status) || 'off';
-  return { on: !!(c && c.on), text: COLLECTOR[st] || st,
+  return { on: !!(c && c.on), text: COLLECTOR[st] || st, detail: collectorDetail(c),
     tone: st === 'live' ? '' : st === 'waiting' ? 'warn' : 'bad' };
 }
 
-export { appStatus, describe, describeCollector, inApp, on, openSite, setCollector };
+export { appStatus, collectorDetail, describe, describeCollector, inApp, on, openSite, setCollector };
