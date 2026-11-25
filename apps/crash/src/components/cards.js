@@ -1,5 +1,5 @@
-/* Colon JetX · building blocks: page header, stats, the verdict, the honest baseline, the round collector (v0.35.0),
-   round chips and bet rows. */
+/* Colon JetX · building blocks: page header, stats, the verdict (the analysis engine's, v0.36.0), the honest
+   baseline, the round collector (v0.35.0), round chips and bet rows. */
 
 import { Colon } from '../../../../packages/ui/js/colon.js';
 import { money, mult, pct, signed } from '../core/state.js';
@@ -23,13 +23,22 @@ function stat(value, label, cls) {
 }
 var tone = function (n) { return Number(n) > 0 ? 'cx-up' : Number(n) < 0 ? 'cx-down' : ''; };
 
-// verdict: { action: 'BET'|'WAIT'|'STOP', reason, engine }
-function verdictCard(v) {
-  var a = (v && v.action) || 'WAIT';
+// verdict (v0.36.0, step 4): { action|verdict: 'BET'|'WAIT'|'STOP', reason, strategy?, numbers, engine, note }
+function verdictCard(v, opts) {
+  v = v || {};
+  var a = v.verdict || v.action || 'WAIT', n = v.numbers || {}, s = v.strategy;
+  var nums = [];
+  if (n.rounds != null) nums.push(stat(String(n.rounds), 'Rounds analysed'));
+  if (n.break_even != null) nums.push(stat(pct(n.break_even), 'Break-even at ' + mult(n.target)));
+  if (n.corrected_low != null) nums.push(stat(pct(n.corrected_low), 'Rule’s cautious low (unseen)'));
+  else if (n.hit_rate != null) nums.push(stat(pct(n.hit_rate), 'Measured hit rate'));
   return '<section class="card cx-verdict cx-' + a.toLowerCase() + '" aria-live="polite"><div class="cx-verdict-k">'
-    + 'Verdict</div><div class="cx-verdict-a">' + esc(a) + '</div><p class="small">' + esc(v && v.reason || '')
-    + '</p><p class="tiny muted">Not a prediction. No pattern beats a fair crash game; Colon only says BET when a '
-    + 'tested model shows an edge on rounds it has not seen.</p></section>';
+    + 'Verdict</div><div class="cx-verdict-a">' + esc(a) + '</div><p class="small">' + esc(v.reason || '') + '</p>'
+    + (s ? '<p class="tiny"><b>' + esc(s.name) + '</b> · ' + esc(s.rule) + '</p>' : '')
+    + (nums.length ? '<div class="grid cols-' + nums.length + ' cx-vnums">' + nums.join('') + '</div>' : '')
+    + (opts && opts.link ? '<p class="small"><a href="#/analysis">' + icon('target') + ' See the analysis</a></p>' : '')
+    + '<p class="tiny muted">' + esc(v.note || 'Not a prediction or a guarantee. Colon only says BET when a rule has '
+      + 'beaten break-even on rounds it had not seen.') + '</p></section>';
 }
 
 // b: dashboard.baseline, h: today.hit_rate

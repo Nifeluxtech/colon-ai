@@ -125,7 +125,7 @@ test('settings: saved per user, every change audited, real money is its own audi
   await assert.rejects(e.getSettings(null), (x) => x.status === 401);
 });
 
-test('dashboard: today\'s rounds vs baseline, P/L, guardrails, and WAIT until the engine exists', async () => {
+test('dashboard: today\'s rounds vs baseline, P/L, guardrails, and WAIT with too few rounds', async () => {
   const now = new Date('2026-11-25T12:00:00Z');
   const at = (h) => new Date(`2026-11-25T${String(h).padStart(2, '0')}:00:00Z`);
   const rounds = [1.0, 1.2, 1.3, 2.5, 5].map((m, i) => ({ id: i + 1, user_id: 1, game: 'jetx', round_id: `r${i}`,

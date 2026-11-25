@@ -1,9 +1,8 @@
 /* Colon JetX · Dashboard: account, session status, today's stats, the honest baseline at the target, the verdict
-   (WAIT until the analysis engine exists), guardrails, the round collector and the recent rounds and bets. In the
-   Colon JetX Android app (v0.34.0) it also shows the betting site's status and the control mode, and opens the site
-   in the top pane; since v0.35.0 it shows the app's collector live and can turn it on or off, and since v0.35.1
-   its diagnostics (game frames seen, history strip found; v0.35.2 multipliers, canvases, a sample) right under
-   the app's line. */
+   (BET / WAIT / STOP from the analysis engine since v0.36.0, with its reason), guardrails, the round collector and
+   the recent rounds and bets. In the Colon JetX Android app (v0.34.0) it also shows the betting site's status and
+   the control mode, and opens the site in the top pane; since v0.35.0 it shows the app's collector live and can turn
+   it on or off, and since v0.35.1 its diagnostics (v0.35.2 multipliers, canvases, a sample) under the app's line. */
 
 import { Colon } from '../../../../packages/ui/js/colon.js';
 import { baselineCard, betRows, collectorCard, fail, head, roundChips, skel, stat, tone, verdictCard }
@@ -72,8 +71,8 @@ function render(view, d, paintApp) {
   // In the app the collector card sits right under the app's line, so its status is seen without scrolling.
   var coll = collectorCard(d.collector, s.target_cashout);
   $('#cx-body', view).innerHTML = (inApp ? '<section class="card"><div class="section-title">Colon JetX app</div>'
-    + '<p class="small" id="cx-app"></p></section>' + coll : '') + accountCard(d) + verdictCard(d.verdict)
-    + baselineCard(d.baseline, d.today.hit_rate) + (inApp ? '' : coll)
+    + '<p class="small" id="cx-app"></p></section>' + coll : '') + accountCard(d)
+    + verdictCard(d.verdict, { link: true }) + baselineCard(d.baseline, d.today.hit_rate) + (inApp ? '' : coll)
     + todayCard(d) + sessionCard(d)
     + '<section class="card"><div class="cx-sec"><div class="section-title">Recent rounds</div><a class="small" '
     + 'href="#/history">See all</a></div>' + roundChips(d.recent_rounds, s.target_cashout)

@@ -1,5 +1,31 @@
 # Changelog
 
+## 0.36.0 (2026-11-25) · Colon JetX: Crash Predictor step 4 (the analysis engine)
+
+- **Engine** (`services/api/src/modules/crash/`: `engine.js`, `stats.js`, `strategies.js`, `dist.js`, `analysis.js`;
+  pure JS, no migration). Over the user's newest rounds (up to 5,000, oldest first): count, hit rate at the target
+  with a Wilson 95% range next to the 0.97 / target baseline and the 1 / target break-even (76.9% at 1.30x; the
+  baseline below it means negative expectation), current and longest streaks with the typical longest for that many
+  rounds, six buckets (<1.2, 1.2–1.5, 1.5–2, 2–5, 5–10, 10x+) against the shares the 0.97 / m model expects with a
+  chi-square fit test, the median, the last 50 and 200 rounds against the whole, and a runs test for independence.
+- **Rules tested out of sample**: every round; after 1, 2, 3 or 4 rounds below the target; after 3 above; after a
+  5x+ round; after a crash below 1.10x; a cold or hot last 20. Rounds are split in time: the earlier half chooses a
+  rule (best 95% lower bound, 30+ bets), the later half tests every rule: bets, hits, hit rate, Wilson range,
+  Bonferroni-corrected lower bound (alpha 0.05 over the 10 rules), ROI per unit at the target, beats break-even.
+- **Verdict**: STOP when a guardrail trips; WAIT with fewer than 300 rounds, when the rounds do not fit the published
+  odds (fit p < 0.001 or fewer than 10 different multipliers: missed or misread rounds), when the chosen rule has
+  fewer than 100 unseen bets, when its corrected lower bound is not above break-even, or when its condition is false
+  for the next round; BET only otherwise. Each verdict has a plain reason, the strategy and the numbers, and is never
+  called a prediction.
+- **API**: `/crash/dashboard` `verdict` is now `{ action, verdict, reason, strategy, numbers, engine: true, note }`;
+  new `GET /crash/analysis?limit=` (100–5,000, default 5,000; signed in; 600 an hour). Results are cached per user
+  until a round arrives, the target changes, or 5 minutes pass.
+- **Web**: a new Analysis page (hit rate vs baseline vs break-even, streaks, distribution table, independence, the
+  out-of-sample rule table) and the dashboard's verdict card with the engine's reason, rule and numbers.
+- Tests: `crash-engine.test.js` (fair i.i.d. rounds from a seeded RNG never get a BET across 40 seeds and three
+  sizes; a planted dependence gives BET, and WAIT once its condition is false; data that does not fit gives WAIT;
+  guardrails give STOP; no rounds, few rounds, identical rounds).
+
 ## 0.35.2 (2026-11-25) · Colon JetX: the collector finds SportyBet's JetX history chips, richer diagnostics
 
 - **Android (Colon JetX)**: the strip finding moved to `assets/jetx/collector-find.js`, injected together with
