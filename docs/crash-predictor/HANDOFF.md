@@ -110,8 +110,9 @@ Automated clicking on an operator's site may breach its terms; the app warns the
 - Tests: `services/api/tests/unit/crash-rounds.test.js` (API, in-memory store) and `jetx-collector.test.js` (the
   injected script's pure parts plus a static read-only check).
 - Android: `src/colonjetx/assets/jetx/collector.js` (injected at document start into every frame of the game pane,
-  origin rule `*`; read-only; finds the history strip = an element with 5..200 children that are all
-  `^\d+([.,]\d{1,2})?\s*[x×]$`, ignoring buttons, links and forms; first look sends nothing; then diffs the strip,
+  origin rule `*`; read-only; finds the history strip = an element with 5..200 children of which ≥ 5 and ≥ 70% are
+  `^\d+([.,]\d{1,2})?\s*[x×]$` (0.35.1: others skipped; nested spans, single leaf, open shadow roots), never
+  inside buttons, links or forms; a text-free `diag` message every 10 s; first look sends nothing; then diffs the strip,
   newest first or last, by data-round-id style attributes when present; several new rounds at once are stamped 3 s
   apart). `JetxCollector.kt` (the `ColonJetXRounds` web message listener, never replies; queue ≤ 500, batches of
   50 every 5 s, backoff to 5 min, stop session on close / switch off), `JetxRoundRules.kt` (pure, `JetxRoundRulesTest`),
@@ -151,3 +152,9 @@ The owner's two ChatGPT conversations ("JetX AI Crash Predictor — Complete Tec
   in History, the read-only collector in the Colon JetX game pane (`JetxCollector`, `collector.js`) with an on / off
   switch. No migration. Gradle and kotlinc were not run in the authoring sandbox (no JDK); CI is the real Android
   build. Next: verify the collector on the user's JetX page, then step 4 (analysis engine).
+- 2026-11-25: Hotfix 0.35.1 on branch `fix-jetx-collector` (draft PR): the collector found nothing on SportyBet's
+  JetX (SmartSoft) page, whose history strip ends in a dropdown chevron button and a half-visible chip. `collector.js`
+  now takes a container with ≥ 5 multiplier chips forming ≥ 70% of its children, skips the rest, reads nested spans
+  or a single leaf, searches open shadow roots, and posts a text-free diagnostic `{diag: {frame_host, strip_found,
+  items}}` every 10 s; the dashboard's collector card (top of the page in the app) shows frames seen, whether the
+  strip was found and rounds sent today. Still to verify on the phone.

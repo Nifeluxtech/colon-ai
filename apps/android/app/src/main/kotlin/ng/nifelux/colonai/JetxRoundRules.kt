@@ -12,9 +12,17 @@ import java.util.TimeZone
  * finished JetX round. Any page in the game pane could post on that channel, so every message is treated as
  * untrusted: it must be small, come from an https frame, carry only those three keys with sane values, and the
  * page may not send more than [MAX_PER_MINUTE] rounds a minute. Nothing else from the page is ever accepted.
+ * Since 0.35.1 the script also sends a diagnostic `{diag: {frame_host, strip_found, items}}` (two counts, no page
+ * text) at most every 10 s per frame; [parseDiag] checks it and the frame's host comes from the origin, not the page.
  */
 object JetxRoundRules {
     data class Round(val multiplier: Double, val seenAt: Long, val roundId: String?)
+
+    /** One frame's latest diagnostic: its host (from the message's origin), whether it sees the strip, how many. */
+    data class Diag(val host: String, val stripFound: Boolean, val items: Int)
+
+    /** All frames' diagnostics in one line for the predictor. */
+    data class DiagSummary(val framesSeen: Int, val stripFound: Boolean, val items: Int)
 
     /** What the collector is doing, as the predictor's 'collector' event says it. */
     enum class State(val wire: String) {
@@ -31,6 +39,10 @@ object JetxRoundRules {
     private const val PAST_MS = 10 * 60_000L
     private const val FUTURE_MS = 60_000L
     private val KEYS = setOf("multiplier", "seen_at", "round_id")
+    private val DIAG_KEYS = setOf("frame_host", "strip_found", "items")
+    const val MAX_FRAMES = 20
+    const val DIAG_FRESH_MS = 60_000L
+    const val MAX_ITEMS = 200
     private val ID = Regex("^[A-Za-z0-9_.:-]{1,64}$")
 
     /** One message from the game pane -> a round, or null when anything about it is off. */
@@ -46,6 +58,38 @@ object JetxRoundRules {
         val id = if (o.isNull("round_id")) null else o.optString("round_id").trim().takeIf { ID.matches(it) }
         if (!o.isNull("round_id") && id == null) return null
         return Round(m, seen, id)
+    }
+
+    /** A diagnostic from the game pane -> the frame's [Diag], or null when it isn't exactly one. */
+    fun parseDiag(raw: String?, origin: String?): Diag? {
+        if (raw == null || raw.length > MAX_MESSAGE) return null
+        if (origin == null || !origin.lowercase().startsWith("https://")) return null
+        val host = try { java.net.URI(origin).host } catch (_: Exception) { null }
+        if (host.isNullOrBlank() || host.length > 253) return null
+        val o = try { JSONObject(raw) } catch (_: Exception) { return null }
+        if (o.length() != 1) return null
+        val d = o.optJSONObject("diag") ?: return null
+        if (d.keys().asSequence().any { it !in DIAG_KEYS }) return null
+        val found = d.opt("strip_found") as? Boolean ?: return null
+        val n = d.opt("items") as? Number ?: return null
+        val items = n.toInt()
+        if (n.toDouble() != items.toDouble() || items < 0 || items > MAX_ITEMS) return null
+        if (!found && items != 0) return null
+        return Diag(host.lowercase(), found, items)
+    }
+
+    /** The frames heard from in the last minute ([seen]: frame -> (diag, when)) as one [DiagSummary]. */
+    fun summarize(seen: Collection<Pair<Diag, Long>>, nowMs: Long): DiagSummary {
+        val fresh = seen.filter { it.second > nowMs - DIAG_FRESH_MS }.map { it.first }
+        val strips = fresh.filter { it.stripFound }
+        return DiagSummary(fresh.size, strips.isNotEmpty(), strips.maxOfOrNull { it.items } ?: 0)
+    }
+
+    /** A short, text-free reason for the last failed send, for the predictor's line; null after a good one. */
+    fun errorOf(code: Int): String? = when (outcome(code)) {
+        Outcome.SENT -> null
+        Outcome.SIGNED_OUT -> "signed_out"
+        else -> if (code <= 0) "network" else "http_$code"
     }
 
     /** 1.00x to 1,000,000x with at most two decimals (the API's rule, modules/crash/rounds.js). */
@@ -97,10 +141,21 @@ object JetxRoundRules {
     fun dayOf(ms: Long, tz: TimeZone = TimeZone.getDefault()): Long =
         (ms + tz.getOffset(ms)).floorDiv(86_400_000L)
 
-    /** The 'collector' event: { on, status, rounds_today, last_multiplier }. */
-    fun status(on: Boolean, state: State, roundsToday: Int, last: Double?): JSONObject = JSONObject()
+    /**
+     * The 'collector' event: { on, status, rounds_today, last_multiplier } and, since 0.35.1, frames_seen,
+     * strip_found, strip_items, rounds_sent (rounds the API took today, duplicates included) and last_error.
+     */
+    fun status(
+        on: Boolean, state: State, roundsToday: Int, last: Double?,
+        diag: DiagSummary = DiagSummary(0, false, 0), roundsSent: Int = 0, lastError: String? = null,
+    ): JSONObject = JSONObject()
         .put("on", on)
         .put("status", if (on) state.wire else State.OFF.wire)
         .put("rounds_today", roundsToday)
         .put("last_multiplier", last ?: JSONObject.NULL)
+        .put("frames_seen", diag.framesSeen)
+        .put("strip_found", diag.stripFound)
+        .put("strip_items", diag.items)
+        .put("rounds_sent", roundsSent)
+        .put("last_error", lastError ?: JSONObject.NULL)
 }

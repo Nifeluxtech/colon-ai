@@ -20,8 +20,8 @@ import org.json.JSONObject
  * the collector); openSite {url?} -> opens that site (or the saved one) in the game pane; setLayout {layout};
  * setCollector {on} (0.35.0) -> the collector's status.
  * Events: session {status, host}, mode {mode}, layout {layout}, collector {on, status, rounds_today,
- * last_multiplier} (0.35.0).
- * The only game data the predictor gets is the collector's count and last multiplier (JetxCollector); never the
+ * last_multiplier} (0.35.0; 0.35.1 adds frames_seen, strip_found, strip_items, rounds_sent, last_error).
+ * The only game data the predictor gets is the collector's counts and last multiplier (JetxCollector); never the
  * betting site's cookies, passwords or tokens.
  */
 class JetxBridge(private val host: Host, private val webView: WebView?) {
