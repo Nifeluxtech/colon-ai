@@ -112,7 +112,10 @@ Automated clicking on an operator's site may breach its terms; the app warns the
 - Android: `src/colonjetx/assets/jetx/collector.js` (injected at document start into every frame of the game pane,
   origin rule `*`; read-only; finds the history strip = an element with 5..200 children of which ≥ 5 and ≥ 70% are
   `^\d+([.,]\d{1,2})?\s*[x×]$` (0.35.1: others skipped; nested spans, single leaf, open shadow roots), never
-  inside buttons, links or forms; a text-free `diag` message every 10 s; first look sends nothing; then diffs the strip,
+  inside buttons, links or forms; 0.35.2: `collector-find.js` adds "×"/"X"/NBSP/zero-width tolerant chips, bare
+  "1.07" with a CSS ::after x (or ≥ 5 bare making up 80%), and grouped strips (chips of grid rows under a common
+  ancestor ≤ 4 levels up, ≥ 5 and most short leaves); a `diag` message every 10 s with counts and ≤ 3 samples of
+  `[0-9.,xX× ]` ≤ 12 chars; first look sends nothing; then diffs the strip,
   newest first or last, by data-round-id style attributes when present; several new rounds at once are stamped 3 s
   apart). `JetxCollector.kt` (the `ColonJetXRounds` web message listener, never replies; queue ≤ 500, batches of
   50 every 5 s, backoff to 5 min, stop session on close / switch off), `JetxRoundRules.kt` (pure, `JetxRoundRulesTest`),
@@ -158,3 +161,11 @@ The owner's two ChatGPT conversations ("JetX AI Crash Predictor — Complete Tec
   or a single leaf, searches open shadow roots, and posts a text-free diagnostic `{diag: {frame_host, strip_found,
   items}}` every 10 s; the dashboard's collector card (top of the page in the app) shows frames seen, whether the
   strip was found and rounds sent today. Still to verify on the phone.
+- 2026-11-25: Hotfix 0.35.2 on branch `fix-jetx-collector-2` (draft PR): on the phone 0.35.1 saw 5 game frames but no
+  history strip although SportyBet's JetX shows a grid of "1.07x" pill chips with a More button. The finding code
+  moved to `collector-find.js` (injected with `collector.js` in one function, `JetxRoundRules.script`): chip text is
+  normalized ("×", "X", NBSP, zero-width, comma decimal), bare numbers count with a ::after x or as a mostly-bare
+  strip, and chips in grid rows are grouped under their common ancestor. The diagnostic adds `mult_texts`,
+  `canvases`, `shadow_hosts`, `closed_hint` and `sample`, shown on the dashboard line ("Multipliers on page: 0 ·
+  Canvases: 1", "Sample: 1.07x, 4.54x"). Still to verify on the phone; if mult_texts stays 0 the history is drawn
+  in a canvas or a closed shadow root and the DOM can't be read.

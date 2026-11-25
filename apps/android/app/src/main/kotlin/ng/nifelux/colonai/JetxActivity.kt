@@ -98,7 +98,8 @@ class JetxActivity : AppCompatActivity(), JetxBridge.Host, JetxCollector.Host {
         val g = game ?: return
         if (!prefs.collector || collectorView === g) return
         collectorView = g
-        collector.install(g, readAsset(JetxCollector.SCRIPT_ASSET))
+        collector.install(g, JetxRoundRules.script(readAsset(JetxCollector.FIND_ASSET),
+            readAsset(JetxCollector.SCRIPT_ASSET)))
     }
 
     private fun wireControls() {

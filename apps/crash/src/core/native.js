@@ -1,4 +1,4 @@
-/* Colon JetX · the Android app's bridge (v0.34.0, Crash Predictor step 2; collector v0.35.0, diagnostics v0.35.1).
+/* Colon JetX · the Android app's bridge (v0.34.0, Crash Predictor step 2; collector v0.35.0, diagnostics v0.35.1+).
    In the Colon JetX app this page runs in the bottom pane, under the user's own betting site, and the app gives it
    window.ColonJetX (apps/android: JetxBridge.kt, assets/jetx/bridge.js). It can ask the app to open the betting site
    in the top pane and hears the site's status: its host and whether it loaded, nothing more. The app never reads
@@ -40,14 +40,22 @@ var COLLECTOR = { live: 'Collecting rounds', waiting: 'Waiting for JetX to finis
   signed_out: 'Sign in to Colon here to save rounds', error: "Can't save rounds right now; retrying",
   unsupported: 'This phone’s WebView is too old to collect rounds', off: 'Off' };
 
-// The collector's diagnostics (v0.35.1) as one plain line: frames heard from, whether the history strip was found,
-// and rounds sent today. '' when the app is older or the collector is off.
+// The collector's diagnostics (v0.35.1; v0.35.2 multiplier-like texts, canvases, shadow roots and samples) as one
+// plain line: frames heard from, whether the history strip was found, what the frames hold and rounds sent today.
+// '' when the app is older or the collector is off.
 function collectorDetail(c) {
   if (!c || !c.on || c.frames_seen == null) return '';
   var strip = c.strip_found ? 'found (' + (c.strip_items || 0) + ' items)' : 'not found yet';
-  var line = 'Game frames seen: ' + (c.frames_seen || 0) + ' · History strip: ' + strip + ' · Sent today: '
-    + (c.rounds_sent || 0);
-  return c.last_error ? line + ' · Last error: ' + c.last_error : line;
+  var parts = ['Game frames seen: ' + (c.frames_seen || 0), 'History strip: ' + strip];
+  if (c.mult_texts != null) parts.push('Multipliers on page: ' + (c.mult_texts || 0));
+  if (c.canvases != null) parts.push('Canvases: ' + (c.canvases || 0));
+  if (c.shadow_hosts) parts.push('Shadow roots: ' + c.shadow_hosts);
+  if (c.closed_hint) parts.push('Closed components: ' + c.closed_hint);
+  parts.push('Sent today: ' + (c.rounds_sent || 0));
+  var sample = Array.isArray(c.sample) ? c.sample.filter(function (x) { return typeof x === 'string'; }) : [];
+  if (sample.length) parts.push('Sample: ' + sample.slice(0, 3).join(', '));
+  if (c.last_error) parts.push('Last error: ' + c.last_error);
+  return parts.join(' · ');
 }
 
 // The app's collector line: { tone, text, on, detail }.

@@ -2,7 +2,8 @@
    (WAIT until the analysis engine exists), guardrails, the round collector and the recent rounds and bets. In the
    Colon JetX Android app (v0.34.0) it also shows the betting site's status and the control mode, and opens the site
    in the top pane; since v0.35.0 it shows the app's collector live and can turn it on or off, and since v0.35.1
-   its diagnostics (game frames seen, history strip found) right under the app's line. */
+   its diagnostics (game frames seen, history strip found; v0.35.2 multipliers, canvases, a sample) right under
+   the app's line. */
 
 import { Colon } from '../../../../packages/ui/js/colon.js';
 import { baselineCard, betRows, collectorCard, fail, head, roundChips, skel, stat, tone, verdictCard }

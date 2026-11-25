@@ -1,5 +1,26 @@
 # Changelog
 
+## 0.35.2 (2026-11-25) · Colon JetX: the collector finds SportyBet's JetX history chips, richer diagnostics
+
+- **Android (Colon JetX)**: the strip finding moved to `assets/jetx/collector-find.js`, injected together with
+  `collector.js` inside one function (`JetxRoundRules.script`, no page globals). Chip text is normalized first
+  (zero-width characters and soft hyphens dropped, NBSP and other spaces as one space) and reads "1.07x", "4.54×",
+  "1.07X" or "12,50 x" (comma decimal). A bare "1.07" counts when the chip (or its last nested child) draws an x
+  with CSS `::after`, or when at least 5 bare two-decimal numbers make up 80% of a strip. When no single container
+  holds the chips (a history grid of rows), the chips are grouped under their nearest common ancestor up to 4
+  levels up: at least 5 chips that are most of that ancestor's short leaves (a "More" button or chevron is
+  skipped), read in document order. A clipped first chip ("3.96x4.35x") is skipped. Diffing is unchanged.
+- **Diagnostics**: the per-frame diagnostic (still at most every 10 s) adds `mult_texts` (short leaves that look
+  like multipliers, open shadow roots included), `canvases`, `shadow_hosts`, `closed_hint` (empty custom elements,
+  maybe closed shadow roots) and `sample`: up to 3 strings of at most 12 characters made only of `[0-9.,xX× ]`, so
+  no other page text leaves the frame. `JetxRoundRules.parseDiag` accepts and bounds them (counts 0..99,999, the
+  sample's characters and lengths checked again); the `collector` event sums the counts over the frames and takes
+  the sample of the frame with the most multipliers. The dashboard line reads e.g. "Game frames seen: 5 · History
+  strip: not found yet · Multipliers on page: 0 · Canvases: 1 · Sent today: 0" and "Sample: 1.07x, 4.54x".
+- Tests: `jetx-collector-find.test.js` ("×", NBSP, zero-width, bare numbers with a stubbed ::after, a 3 × 8 grid
+  with a More button, rows too short to be strips, the clipped chip, bounded diagnostics) and `JetxRoundRulesTest`
+  (the new keys, bad samples and counts refused, the combined script).
+
 ## 0.35.1 (2026-11-25) · Colon JetX: the round collector reads SportyBet's JetX history strip, with diagnostics
 
 - **Android (Colon JetX)**: `collector.js` finds the history strip tolerantly. A container counts when at least 5 of

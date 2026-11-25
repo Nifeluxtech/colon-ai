@@ -70,7 +70,8 @@ test('install: a diagnostic with counts only, nothing on the first look, then ea
     MutationObserver: class { constructor(fn) { changed = fn; } observe() {} } };
   C.install(win);
   timers.shift()();
-  assert.deepEqual(sent, [{ diag: { frame_host: 'g.example', strip_found: true, items: 6 } }]);
+  assert.deepEqual(sent, [{ diag: { frame_host: 'g.example', strip_found: true, items: 6, mult_texts: 6, canvases: 0,
+    shadow_hosts: 0, closed_hint: 0, sample: ['1.5x', '2x', '3x'] } }]);
   row.children.unshift(el('SPAN', [], '9.99x'));
   row.children.pop();
   changed();
@@ -118,7 +119,8 @@ test('messages: only multiplier, seen_at and a visible round id; catch-up rounds
 });
 
 test('read-only: the script never clicks, types or touches cookies, storage, forms or other channels', () => {
-  const src = fs.readFileSync(FILE, 'utf8').replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '');
+  const src = [FILE, FILE.replace('collector.js', 'collector-find.js')].map((f) => fs.readFileSync(f, 'utf8'))
+    .join('\n').replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '');
   for (const bad of [/\.click\(/, /dispatchEvent/, /document\.cookie/, /localStorage/, /sessionStorage/, /indexedDB/,
     /\.value\b/, /XMLHttpRequest/, /fetch\(/, /sendBeacon/, /\.submit\(/, /focus\(/, /innerHTML\s*=/]) {
     assert.doesNotMatch(src, bad, String(bad));
