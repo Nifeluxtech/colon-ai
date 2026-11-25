@@ -1,5 +1,22 @@
 # Changelog
 
+## 0.32.0 (2026-11-25) · Thought process and bundled skills
+
+- **Thought process**: Saga chat replies show a "Thought process" block above the answer, open and pulsing
+  ("Thinking…") while Colon reasons and folded once the answer starts; tap to open or close it. It holds the skills
+  used and the model's reasoning: Gemini thought summaries (`includeThoughts`, Gemini models only; Gemma unchanged;
+  `GEMINI_SHOW_THOUGHTS=off` to stop), `<think>` text from Qwen/DeepSeek and OpenAI-style `reasoning` deltas
+  (previously thrown away). Streams as a new `thought` SSE event and is saved on the message (migration 0027,
+  `chat_messages.thoughts`, up to 20,000 characters). Workspace builds show it under the "Thinking and writing the
+  code" step.
+- **Bundled skills** (`services/api/src/modules/skills`): free, open-licence skill files kept in `vendor/` with
+  their licences: obra/superpowers (MIT: brainstorming, writing-plans, executing-plans, systematic-debugging,
+  test-driven-development, verification-before-completion, code review), anthropics/skills (Apache-2.0:
+  frontend-design, webapp-testing, theme-factory, mcp-builder) and ui-ux-pro-max (MIT: ui-ux-pro-max, ui-styling,
+  design-system). Each message picks at most two by its words (no extra model call); "use the <name> skill" picks
+  one by name. Their guidance (up to 6 KB each) joins the prompt in chat and Workspace, and the thought process
+  names them. Anthropic's source-available docx/pdf/pptx/xlsx skills are not bundled.
+
 ## 0.31.4 (2026-11-23) · Workspace builds survive the host stopping idle processes
 
 Builds kept ending with "This build stopped before it finished (the server restarted)". cPanel showed no crash in

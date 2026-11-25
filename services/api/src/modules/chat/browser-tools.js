@@ -107,7 +107,7 @@ async function turn(args, ctx) {
     .filter(Boolean).join('\n\n') };
   const stream = ctx.toolStream || ai.toolCall.stream;
   const base = { routing: args.routing, tools: declsNow(ctx.repo), signal: args.signal, fetch: args.fetch,
-    onDelta: args.onDelta,
+    onDelta: args.onDelta, onThought: args.onThought,
     timeouts: { ...config.chat, ...(args.mode === 'developer' && config.chat.developerMaxTokens
       ? { maxTokens: config.chat.developerMaxTokens } : {}), ...(args.timeouts || {}) } };
   let r;

@@ -123,3 +123,16 @@ test('an ordinary turn streams the tool model\'s text as the reply (Developer mo
   assert.equal(saved.providerModel, 'gemini-3.5-flash-lite');
   assert.match(fetch.calls[0].body.systemInstruction.parts[0].text, /Mode: Developer\./);
 });
+
+test('v0.32.0: the thought process streams as "thought" (skill first, then reasoning) and is saved', async (t) => {
+  withEnv(t, {});
+  const fetch = fetcher(() => SSE([{ text: 'Split it into steps.', thought: true }, { text: 'Phase 1: setup.' }]));
+  const { ev, saved } = await reply('write out the plan for my app', fetch, 'developer');
+  assert.deepEqual(ev.map((e) => e.event), ['start', 'thought', 'thought', 'delta', 'done']);
+  assert.match(ev[1].data.text, /^Using the Writing plans skill/);
+  assert.equal(ev[2].data.text, 'Split it into steps.');
+  assert.equal(saved.content, 'Phase 1: setup.');
+  assert.match(saved.thoughts, /Writing plans skill\.\s+Split it into steps\.$/);
+  assert.equal(fetch.calls[0].body.generationConfig.thinkingConfig.includeThoughts, true);
+  assert.match(fetch.calls[0].body.systemInstruction.parts[0].text, /--- Skill: Writing plans/);
+});

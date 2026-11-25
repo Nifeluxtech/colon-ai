@@ -59,6 +59,12 @@ function msgHtml(m, current, dnow) {
 // v0.27.2: the steps Colon took (or is taking) for a reply, like other assistants show their tools.
 function secs(ms) { var n = Math.max(0, Math.round(ms / 1000)); return n < 60 ? n + 's' : Math.floor(n / 60) + 'm '
   + (n % 60) + 's'; }
+// v0.32.0: the model's reasoning on a step, open while it runs (styles in chat-thoughts.css)
+function thoughtHtml(x) {
+  return x.thought ? '<details class="cw-thought wk-thought' + (x.state === 'run' ? ' live" open' : '"')
+    + '><summary><span>Thought process</span>' + icon('chevDown') + '</summary><div class="cw-thought-body">'
+    + esc(x.thought) + '</div></details>' : '';
+}
 function stepsHtml(steps, live) {
   return '<ol class="wk-steps">' + steps.map(function (x) {
     var mark = x.state === 'run' ? '<span class="wk-spin" aria-hidden="true"></span>' : icon(x.state === 'fail'
@@ -66,7 +72,8 @@ function stepsHtml(steps, live) {
     var time = x.state === 'run' ? '<span class="wk-t" data-tick="' + (live || 0) + '">' + secs(live || 0)
       + '</span>' : x.ms > 400 ? '<span class="wk-t">' + secs(x.ms) + '</span>' : '';
     return '<li class="wk-st-' + esc(x.state) + '">' + mark + '<span class="wk-st-b"><span>' + esc(x.label)
-      + '</span>' + (x.detail ? '<small>' + esc(x.detail) + '</small>' : '') + '</span>' + time + '</li>';
+      + '</span>' + (x.detail ? '<small>' + esc(x.detail) + '</small>' : '') + thoughtHtml(x) + '</span>' + time
+      + '</li>';
   }).join('') + '</ol>';
 }
 function doneSteps(m) {

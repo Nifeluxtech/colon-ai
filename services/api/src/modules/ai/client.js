@@ -75,7 +75,9 @@ async function streamChat(o) {
   // 0.11.5: a Gemini function call (o.onCall gets the raw parts); a reply that is only a call is not empty.
   const call = (g) => { if (!g.calls || !g.calls.length) return; called = true; if (o.onCall) o.onCall(g.calls); };
   const trace = { headers: false, reasoning: 0 };   // for timeout errors: did the host answer at all, did it think
-  const filter = thinkFilter();
+  // v0.32.0: o.onThought(text) gets the model's reasoning: <think> text, reasoning deltas, Gemini thought parts
+  const thought = (t) => { if (t && o.onThought) o.onThought(t); };
+  const filter = thinkFilter(thought);
   const emit = (piece) => {
     if (!piece) return;
     text += piece;
@@ -121,7 +123,7 @@ async function streamChat(o) {
         for (const j of list) {
           if (j.error) throw new ProviderError(errorMessage(JSON.stringify(j)), { code: 'upstream_error' });
           const g = geminiChunk(j);
-          emit(filter.push(g.text)); call(g);
+          thought(g.thought); emit(filter.push(g.text)); call(g);
           if (g.finish) finishReason = g.finish;
           if (g.usage) usage = g.usage;
         }
@@ -147,7 +149,7 @@ async function streamChat(o) {
       if (native) {
         const g = geminiChunk(j);
         if (g.alive) arm(idleMs, 'idle');
-        emit(filter.push(g.text)); call(g);
+        thought(g.thought); emit(filter.push(g.text)); call(g);
         if (g.finish) finishReason = g.finish;
         if (g.usage) usage = g.usage;
         return;
@@ -160,6 +162,7 @@ async function streamChat(o) {
       if (!d.content && (d.reasoning || d.reasoning_content)) {
         trace.reasoning++;
         if (o.onReasoning) o.onReasoning();
+        thought(typeof d.reasoning === 'string' ? d.reasoning : d.reasoning_content);
       }
       if (typeof d.content === 'string') emit(filter.push(d.content));
       if (c.finish_reason) finishReason = c.finish_reason;

@@ -1,0 +1,16 @@
+/* Colon AI 0.32.0: a reply's "Thought process" (components/message.js thoughtsHtml). */
+.cw-thought{margin:0 0 8px;border-left:2px solid var(--line);padding:0 0 0 12px}
+.cw-thought>summary{display:inline-flex;align-items:center;gap:6px;cursor:pointer;list-style:none;color:var(--muted);
+  font-size:13.5px;padding:2px 0;user-select:none}
+.cw-thought>summary::-webkit-details-marker{display:none}
+.cw-thought>summary svg{width:15px;height:15px;flex:none}
+.cw-thought>summary svg:last-child{transition:transform .15s;transform:rotate(-90deg)}
+.cw-thought[open]>summary svg:last-child{transform:none}
+.cw-thought-body{white-space:pre-wrap;color:var(--muted);font-size:13.5px;line-height:1.55;margin-top:4px;
+  max-height:320px;overflow:auto}
+@media (prefers-reduced-motion:no-preference){
+  .cw-thought.live>summary span{animation:cw-pulse 1.6s ease-in-out infinite}
+}
+@keyframes cw-pulse{50%{opacity:.45}}
+.wk-thought{margin:6px 0 0;padding-left:10px}
+.wk-thought .cw-thought-body{font-size:12.5px;max-height:220px}

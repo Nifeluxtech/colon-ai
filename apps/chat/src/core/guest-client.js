@@ -43,6 +43,7 @@ function GuestChatData(opts) {
           if (replaceAt > -1) c.messages.splice(replaceAt, 1, msg); else c.messages.push(msg);
           emit({ type: 'start', message: msg });
         } else if (ev.type === 'delta' && msg) { msg.content += ev.text; emit(ev); }
+        else if (ev.type === 'thought' && msg) { msg.thoughts = (msg.thoughts || '') + ev.text; emit(ev); }
         else if (ev.type === 'done' && msg) { Object.assign(msg, ev.message, { version: msg.version });
           emit({ type: 'done', message: msg }); }
         else emit(ev);

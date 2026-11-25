@@ -1,17 +1,17 @@
 {
-  "versionName": "0.31.4",
-  "versionCode": 3104,
-  "apkUrl": "https://github.com/Nifeluxtech/colon-ai/releases/download/v0.31.4/colon-ai-0.31.4.apk",
-  "releaseUrl": "https://github.com/Nifeluxtech/colon-ai/releases/tag/v0.31.4",
-  "notes": "Workspace builds no longer stop with \"the server restarted\": the build keeps its server busy, reports a heartbeat, and starts again by itself if the server still stops.",
+  "versionName": "0.32.0",
+  "versionCode": 3200,
+  "apkUrl": "https://github.com/Nifeluxtech/colon-ai/releases/download/v0.32.0/colon-ai-0.32.0.apk",
+  "releaseUrl": "https://github.com/Nifeluxtech/colon-ai/releases/tag/v0.32.0",
+  "notes": "See how Colon thinks: a live \"Thought process\" above each reply that folds away when the answer starts. Colon now uses free, open-source skills for planning, debugging, testing and UI/UX design.",
   "minSupportedVersionCode": 0,
-  "publishedAt": "2026-11-23",
+  "publishedAt": "2026-11-25",
   "browser": {
-    "versionName": "0.31.4",
-    "versionCode": 3104,
-    "apkUrl": "https://github.com/Nifeluxtech/colon-ai/releases/download/v0.31.4/colon-browser-0.31.4.apk",
-    "releaseUrl": "https://github.com/Nifeluxtech/colon-ai/releases/tag/v0.31.4",
-    "notes": "Released alongside Colon AI 0.31.4 (no browser changes).",
+    "versionName": "0.32.0",
+    "versionCode": 3200,
+    "apkUrl": "https://github.com/Nifeluxtech/colon-ai/releases/download/v0.32.0/colon-browser-0.32.0.apk",
+    "releaseUrl": "https://github.com/Nifeluxtech/colon-ai/releases/tag/v0.32.0",
+    "notes": "Released alongside Colon AI 0.32.0 (no browser changes).",
     "minSupportedVersionCode": 0
   }
 }

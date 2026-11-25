@@ -9,6 +9,8 @@ const config = () => ({
   native: 'gemini',
   // Gemma 4 takes thinkingLevel "minimal" (fast, no hidden reasoning) or "high". Set GEMINI_THINKING=off to omit.
   thinkingLevel: env('GEMINI_THINKING', 'minimal') === 'off' ? '' : env('GEMINI_THINKING', 'minimal'),
+  // v0.32.0: GEMINI_SHOW_THOUGHTS=off stops asking Gemini models for their thought summaries
+  showThoughts: env('GEMINI_SHOW_THOUGHTS', 'on') !== 'off',
 });
 
 /* ---------- Google AI Studio native API (Gemma models are not served on its OpenAI endpoint) ---------- */
@@ -50,6 +52,10 @@ function geminiBody(o) {
   const thinking = own ? o.body.thinkingConfig : o.provider.thinkingLevel ? { thinkingLevel: o.provider.thinkingLevel }
     : null;
   if (thinking) gen.thinkingConfig = thinking;
+  // v0.32.0: Gemini models send a summary of their reasoning when asked (Gemma is left as it was)
+  if (o.onThought && /gemini-/i.test(o.model || '') && o.provider.showThoughts !== false) {
+    gen.thinkingConfig = { ...(gen.thinkingConfig || {}), includeThoughts: true };
+  }
   return {
     contents,
     ...(system.length ? { systemInstruction: { parts: [{ text: system.join('\n\n') }] } } : {}),
@@ -61,13 +67,13 @@ function geminiBody(o) {
 
 function geminiChunk(j) {
   const c = j && Array.isArray(j.candidates) ? j.candidates[0] : null;
-  let text = '', alive = false;
+  let text = '', thought = '', alive = false;
   const parts = (c && c.content && c.content.parts) || [];
   const calls = [];                          // 0.11.5: function calls, kept whole (Gemini 3 thought signatures)
   for (const p of parts) {
     alive = true;
     if (p.functionCall && p.functionCall.name) { calls.push(p); continue; }
-    if (p.thought) continue;                 // hidden reasoning
+    if (p.thought) { if (typeof p.text === 'string') thought += p.text; continue; }   // v0.32.0: shown
     if (typeof p.text === 'string') text += p.text;
   }
   let finish = null;
@@ -76,7 +82,7 @@ function geminiChunk(j) {
   const u = j && j.usageMetadata;
   const usage = u ? { prompt_tokens: u.promptTokenCount || 0, completion_tokens: u.candidatesTokenCount || 0,
     total_tokens: u.totalTokenCount || 0 } : null;
-  return { text, alive, finish, usage, calls };
+  return { text, thought, alive, finish, usage, calls };
 }
 
 function geminiEmptyReason(list) {

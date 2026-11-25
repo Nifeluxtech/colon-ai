@@ -1,6 +1,7 @@
 // Server-sent events, both directions.
 // - createParser(): incremental parser for provider streams (OpenAI-style "data: {json}" ... "data: [DONE]").
-// - thinkFilter(): hides <think>…</think> reasoning that some models (Qwen 3, DeepSeek R1) put in the text.
+// - thinkFilter(onThink): takes <think>…</think> reasoning (Qwen 3, DeepSeek R1) out of the text; v0.32.0: and
+//   hands it to onThink, so the app can show it as the reply's "Thought process".
 // - writer(res): our own stream to the Colon AI app: "event: <name>\ndata: <json>\n\n" (chat-data.js parses it).
 
 function createParser(onEvent) {
@@ -36,7 +37,7 @@ function createParser(onEvent) {
 }
 
 // Streams text through, dropping anything inside <think>…</think>, even when a tag is split across chunks.
-function thinkFilter() {
+function thinkFilter(onThink) {
   const OPEN = '<think>', CLOSE = '</think>';
   let inside = false, pending = '';
   function partialTail(s, tag) {
@@ -51,7 +52,7 @@ function thinkFilter() {
         const tag = inside ? CLOSE : OPEN;
         const i = s.indexOf(tag);
         if (i > -1) {
-          if (!inside) out += s.slice(0, i);
+          if (!inside) out += s.slice(0, i); else if (onThink && i) onThink(s.slice(0, i));
           s = s.slice(i + tag.length);
           inside = !inside;
           if (!inside) s = s.replace(/^\s+/, '');      // no blank lines left where the reasoning was
@@ -59,6 +60,7 @@ function thinkFilter() {
         }
         const keep = partialTail(s, tag);
         if (!inside) out += s.slice(0, s.length - keep);
+        else if (onThink && s.length > keep) onThink(s.slice(0, s.length - keep));
         pending = s.slice(s.length - keep);
         s = '';
       }

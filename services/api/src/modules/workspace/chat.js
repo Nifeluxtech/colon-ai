@@ -15,7 +15,7 @@ const sideTalk = require('./side');
 const triage = require('./triage');
 const fast = require('./fast');
 const exporter = require('./exporter');
-const { tracker } = require('./steps');
+const { tracker, skillStep } = require('./steps');
 
 const MAX_MESSAGE = 4000;
 const HISTORY = 8;          // earlier messages the model sees
@@ -138,12 +138,13 @@ function createChat({ engine, deps }) {
     const data = deps.dataInfo ? await deps.dataInfo(u, w.id).catch(() => null) : null;   // v0.29.0
     // v0.31.0: server access to a connected database / repository -> tool blocks and a short tool loop (tools.js)
     const kit = deps.tools && data ? await deps.tools(u, w.id, text, data).catch(() => null) : null;
+    const extra = skillStep(t, text);   // v0.32.0: bundled skills that fit the request (modules/skills)
     const context = prompt.context({ files, message: text, title: w.title, instructions: w.instructions,
-      reference: ref, data: kit ? { ...data, tools: kit.prompt } : data, links });
+      reference: ref, data: kit ? { ...data, tools: kit.prompt } : data, links }) + extra;
     const gen = (extra) => {   // a hard limit too, in case a provider ignores the abort signal
       let timer;
       return Promise.race([deps.generate({ mode: 'developer', language: 'en', messages: messages.concat(extra),
-        taskText: text, context, routing: ctx.routing, signal: ctx.signal }),
+        taskText: text, context, routing: ctx.routing, signal: ctx.signal, onThought: t.think }),
       new Promise((_, no) => { timer = setTimeout(() => no(err(504, 'timeout', FRIENDLY.timeout)), BUILD_MS + 10000);
         if (timer.unref) timer.unref(); })]).finally(() => clearTimeout(timer))
         .then((res) => { if (ctx.record) Promise.resolve(ctx.record(res)).catch(() => {}); return res; });

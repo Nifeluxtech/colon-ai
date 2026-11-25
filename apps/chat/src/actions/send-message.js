@@ -112,6 +112,8 @@ function run(call, tempUser, replaceId) {
         renderThread(); scrollBottom();
       }
       else if (ev.type === 'sources' && msg) { msg.sources = ev.sources; renderThread(); scrollBottom(); }
+      else if (ev.type === 'thought' && msg) {   // v0.32.0: the live thought process
+        if (data.kind === 'remote') msg.thoughts = (msg.thoughts || '') + ev.text; paint(); }
       else if (ev.type === 'status' && msg) { msg.stage = ev.stage; msg.stageCount = ev.count || 0; paint(); }
       else if (ev.type === 'delta' && msg) { if (data.kind === 'remote') msg.content += ev.text; paint();
         // 0.22.1: voice mode speaks each finished sentence while the rest streams (lib/hands-free.js partial).
