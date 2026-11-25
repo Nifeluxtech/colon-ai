@@ -151,7 +151,7 @@ for (const f of files.filter((x) => /^apps\/[^/]+\/src\/.*\.js$/.test(rel(x)))) 
 console.log(`Web apps: ${appFiles} app modules checked`);
 
 // index.html: every local CSS/JS/font/icon URL is on this version, so a phone never mixes releases.
-for (const app of ['chat', 'browser', 'admin']) {
+for (const app of ['chat', 'browser', 'admin', 'crash']) {
   const file = path.join(ROOT, 'apps', app, 'public', 'index.html');
   if (!fs.existsSync(file)) { fail('versions', `apps/${app}/public/index.html is missing`); continue; }
   const html = fs.readFileSync(file, 'utf8');

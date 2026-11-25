@@ -4,7 +4,8 @@
 // in those NODE_ENVs or the API refuses to start. Everything else is optional and keeps its default.
 const path = require('path');
 
-const ORIGINS = 'https://chat.apparatus.name.ng,https://browser.apparatus.name.ng,https://admin.apparatus.name.ng';
+const ORIGINS = 'https://chat.apparatus.name.ng,https://browser.apparatus.name.ng,https://admin.apparatus.name.ng,'
+  + 'https://crash.apparatus.name.ng';
 
 const str = (key, def, doc, extra = {}) => ({ key, type: 'string', default: def, doc, ...extra });
 const num = (key, def, doc) => ({ key, type: 'number', default: def, doc });

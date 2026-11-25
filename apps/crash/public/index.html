@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#050b08">
+<meta name="color-scheme" content="dark">
+<meta name="referrer" content="strict-origin-when-cross-origin">
+<link rel="icon" href="/v0.33.0/packages/brand/assets/colon-mark.svg" type="image/svg+xml">
+<link rel="stylesheet" href="/v0.33.0/packages/ui/css/tokens.css">
+<link rel="stylesheet" href="/v0.33.0/packages/ui/css/base.css">
+<link rel="stylesheet" href="/v0.33.0/packages/ui/css/components.css">
+<link rel="stylesheet" href="/v0.33.0/packages/ui/css/content.css">
+<link rel="stylesheet" href="/v0.33.0/packages/ui/css/polish.css">
+<link rel="stylesheet" href="assets/css/crash.css?v=0.33.0">
+<!-- Shared UI kit (packages/ui) and the JetX Crash Predictor (apps/crash/src) -->
+<script type="module" src="/v0.33.0/apps/crash/src/main.js"></script>
+<title>Colon JetX</title>
+<meta name="robots" content="noindex,nofollow">
+</head>
+<body>
+<div id="app"></div>
+<script>
+/* Stale-cache guard (v0.3.1): if an old cached UI kit loaded, show a friendly refresh screen instead of a raw error.
+   Since v0.5.4 every module loads from one versioned folder, so this mostly catches a module that failed to load. */
+window.colonKitReady = function (need, extra) {
+  var C = window.Colon, ok = !!(C && C.version && typeof C.start === 'function');
+  if (ok) for (var i = 0; i < need.length; i++) if (typeof C[need[i]] !== 'function') { ok = false; break; }
+  if (ok && extra) for (var j = 0; j < extra.length; j++) if (!window[extra[j]]) { ok = false; break; }
+  if (ok) return true;
+  var dark = document.documentElement.getAttribute('data-theme') !== 'light';
+  document.getElementById('app').innerHTML = '<div role="alert" style="min-height:100dvh;display:grid;'
+    + 'place-items:center;'
+    + 'padding:24px;font:16px/1.5 Inter,system-ui,sans-serif;text-align:center;background:'
+    + (dark ? '#080F24;color:#E2E8F0' : '#fff;color:#0F172A') + '">'
+    + '<div style="max-width:360px">'
+    + '<div style="font-size:20px;font-weight:700;margin-bottom:6px">Please refresh</div>'
+    + '<p style="margin:0 0 18px;opacity:.75">' + document.title
+    + ' was updated. Refresh to load the latest version.</p>'
+    + '<button type="button" onclick="location.reload()" style="min-height:44px;padding:0 22px;border:0;'
+    + 'border-radius:999px;background:#4169E1;color:#fff;font:600 15px Inter,system-ui,sans-serif;cursor:pointer">'
+    + 'Refresh</button></div></div>';
+  return false;
+};
+/* If the app's modules never ran (for example a file failed to load), show the same refresh screen. */
+window.addEventListener('load', function () { if (!window.colonBooted) window.colonKitReady([], ['ColonCrash']); });
+</script>
+</body>
+</html>
