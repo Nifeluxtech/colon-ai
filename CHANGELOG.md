@@ -1,5 +1,22 @@
 # Changelog
 
+## 0.33.0 (2026-11-25) · Colon JetX: Crash Predictor step 1 (accounts and dashboard)
+
+- **New web app `apps/crash`** (crash.apparatus.name.ng): a JetX companion for signed-in Colon users (the shared
+  Colon sign-in: Google or email, verification, 2FA). Dark theme with green highlights, mobile-first. Dashboard:
+  account, session status, today's rounds, bets and P/L, guardrail state, the honest baseline at the target
+  (about 0.97 / target: 74.6% at 1.30x, ~3% average loss per bet) next to the measured hit rate with a 95% range,
+  and the verdict, which is always WAIT (or STOP when a guardrail trips) until the analysis engine exists.
+  Settings: target cash-out (1.01x to 100x, default 1.30x), stake, currency, demo mode (on by default; switching to
+  real money shows the operator-terms and loss warning and needs confirm_real_money), stake cap, stop-loss, daily
+  loss limit, max bets per session, one-tap kill switch and the betting site URL. History: the latest rounds and bets.
+- **API module `crash`** with `GET /crash/dashboard`, `GET|PUT /crash/settings`, `GET /crash/rounds`,
+  `GET /crash/bets` (signed-in only). Every settings change is written to `crash_audit`.
+- **Migration 0028** (`crash_settings`, `crash_sessions`, `crash_rounds`, `crash_bets`, `crash_audit`), JetX rows
+  kept apart by `game`.
+- Deploy: `.cpanel.yml` builds the `crash` docroot; `https://crash.apparatus.name.ng` joins the default
+  `ALLOWED_ORIGINS` (add it to the production value in cPanel too). Plan: `docs/crash-predictor/HANDOFF.md`.
+
 ## 0.32.1 (2026-11-25) · Skills stay quiet, thoughts show
 
 - Skills no longer leak coding-agent text into chat replies ("I'm using the writing-plans skill", "For agentic

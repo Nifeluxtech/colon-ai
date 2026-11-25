@@ -20,7 +20,8 @@ colon-ai/
 │   │                        src/ = main.js, core/, pages/, components/ (chat also actions/)
 │   ├── chat/                Colon AI web app        → chat.apparatus.name.ng
 │   ├── browser/             Colon Browser web app   → browser.apparatus.name.ng
-│   └── admin/               Admin Dashboard         → admin.apparatus.name.ng
+│   ├── admin/               Admin Dashboard         → admin.apparatus.name.ng
+│   └── crash/               Colon JetX (Crash Predictor) → crash.apparatus.name.ng (docs/crash-predictor/)
 ├── services/
 │   └── api/                 Node.js API + WebSocket → api.apparatus.name.ng
 │       ├── src/             config/ (schema, validated at boot), http/ (middleware, thin routes), ws/,

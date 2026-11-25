@@ -16,6 +16,7 @@ deployment:
     - /bin/sh $REPO/scripts/deploy/build-docroot.sh $REPO chat $HOMEDIR/chat.apparatus.name.ng
     - /bin/sh $REPO/scripts/deploy/build-docroot.sh $REPO browser $HOMEDIR/browser.apparatus.name.ng
     - /bin/sh $REPO/scripts/deploy/build-docroot.sh $REPO admin $HOMEDIR/admin.apparatus.name.ng
+    - /bin/sh $REPO/scripts/deploy/build-docroot.sh $REPO crash $HOMEDIR/crash.apparatus.name.ng
     # Restart hint for the API (also press Restart in Setup Node.js App)
     - /bin/mkdir -p $REPO/services/api/tmp
     - /bin/touch $REPO/services/api/tmp/restart.txt
