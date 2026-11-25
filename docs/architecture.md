@@ -33,7 +33,9 @@ colon-ai/
 │   │   ├── public/              index.html + assets/css/, assets/config/models.json: copied to the docroot as is
 │   │   └── src/                 ES modules: main.js (boot), core/, pages/, components/, actions/, lib/
 │   ├── browser/                 Colon Browser: public/, src/{main.js, core/, components/, pages/}
-│   └── admin/                   Admin Dashboard: public/, src/{main.js, core/, components/, pages/}
+│   ├── admin/                   Admin Dashboard: public/, src/{main.js, core/, components/, pages/}
+│   └── crash/                   Colon JetX (Crash Predictor, v0.33.0, crash.apparatus.name.ng): public/,
+│                                src/{main.js, core/, components/, pages/}; plan: docs/crash-predictor/HANDOFF.md
 ├── packages/
 │   ├── ui/                      design system and shared code: js/ (colon.js = window.Colon, colon/, markdown/,
 │   │                            browser/, store.js, url.js), css/ (tokens, base, components, content, browser),
@@ -48,7 +50,7 @@ colon-ai/
 │       │   │                    admin,chat}/ and routes/{study,voice,browser}.js (wiring only)
 │       │   ├── ws/              WebSocket gateway (/ws; signed-in sockets get the browser session bridge)
 │       │   ├── modules/         account, admin, ai, auth, bench, browser, chat, developer, extract, health,
-│       │   │                    memory, projects (v0.15.0), jobs (v0.16.0), tools, media, research (v0.17.0), payments, billing, saga, safety, search, study, voice; each has an index.js facade and its handlers/ where it serves
+│       │   │                    memory, projects (v0.15.0), jobs (v0.16.0), tools, media, research (v0.17.0), payments, billing, saga, safety, search, study, voice, crash (v0.33.0); each has an index.js facade and its handlers/ where it serves
 │       │   │                    routes (developer: project-files context; extract/zip.js: the one ZIP reader)
 │       │   ├── shared/          logger, request-context, crypto, audit, settings, mailer, validate,
 │       │   │                    ratelimit, security-headers, multipart
