@@ -5,7 +5,8 @@
                                             setCollector { on }
      ColonJetX.on(event, fn) -> off()       events: session { status, host }, mode { mode }, layout { layout },
                                             collector { on, status, rounds_today, last_multiplier,
-                                            frames_seen, strip_found, strip_items, rounds_sent, last_error }
+                                            frames_seen, strip_found, strip_items, rounds_sent, last_error,
+                                            mult_texts, canvases, shadow_hosts, closed_hint, sample }
    The page also hears a 'colonjetx' DOM event on window once the bridge is ready (detail: the status). */
 (function () {
   'use strict';

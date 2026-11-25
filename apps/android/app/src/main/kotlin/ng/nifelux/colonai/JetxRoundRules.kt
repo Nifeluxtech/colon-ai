@@ -14,15 +14,27 @@ import java.util.TimeZone
  * page may not send more than [MAX_PER_MINUTE] rounds a minute. Nothing else from the page is ever accepted.
  * Since 0.35.1 the script also sends a diagnostic `{diag: {frame_host, strip_found, items}}` (two counts, no page
  * text) at most every 10 s per frame; [parseDiag] checks it and the frame's host comes from the origin, not the page.
+ * 0.35.2 adds counts (mult_texts, canvases, shadow_hosts, closed_hint) and `sample`: up to 3 strings of at most 12
+ * characters from [0-9.,xX× ] only, so no other page text can come through.
  */
 object JetxRoundRules {
     data class Round(val multiplier: Double, val seenAt: Long, val roundId: String?)
 
-    /** One frame's latest diagnostic: its host (from the message's origin), whether it sees the strip, how many. */
-    data class Diag(val host: String, val stripFound: Boolean, val items: Int)
+    /**
+     * One frame's latest diagnostic: its host (from the message's origin), whether it sees the strip, how many, and
+     * (0.35.2) how many multiplier-like texts, canvases, open shadow hosts and empty custom elements it has, with
+     * up to 3 multiplier-like samples.
+     */
+    data class Diag(
+        val host: String, val stripFound: Boolean, val items: Int, val multTexts: Int = 0, val canvases: Int = 0,
+        val shadowHosts: Int = 0, val closedHint: Int = 0, val sample: List<String> = emptyList(),
+    )
 
-    /** All frames' diagnostics in one line for the predictor. */
-    data class DiagSummary(val framesSeen: Int, val stripFound: Boolean, val items: Int)
+    /** All frames' diagnostics in one line for the predictor: counts summed, samples from the frame with most. */
+    data class DiagSummary(
+        val framesSeen: Int, val stripFound: Boolean, val items: Int, val multTexts: Int = 0, val canvases: Int = 0,
+        val shadowHosts: Int = 0, val closedHint: Int = 0, val sample: List<String> = emptyList(),
+    )
 
     /** What the collector is doing, as the predictor's 'collector' event says it. */
     enum class State(val wire: String) {
@@ -39,7 +51,11 @@ object JetxRoundRules {
     private const val PAST_MS = 10 * 60_000L
     private const val FUTURE_MS = 60_000L
     private val KEYS = setOf("multiplier", "seen_at", "round_id")
-    private val DIAG_KEYS = setOf("frame_host", "strip_found", "items")
+    private val DIAG_KEYS = setOf("frame_host", "strip_found", "items", "mult_texts", "canvases", "shadow_hosts",
+        "closed_hint", "sample")
+    const val MAX_COUNT = 99_999
+    const val MAX_SAMPLES = 3
+    private val SAMPLE = Regex("^[0-9.,xX\u00d7 ]{1,12}$")
     const val MAX_FRAMES = 20
     const val DIAG_FRESH_MS = 60_000L
     const val MAX_ITEMS = 200
@@ -71,19 +87,44 @@ object JetxRoundRules {
         val d = o.optJSONObject("diag") ?: return null
         if (d.keys().asSequence().any { it !in DIAG_KEYS }) return null
         val found = d.opt("strip_found") as? Boolean ?: return null
-        val n = d.opt("items") as? Number ?: return null
-        val items = n.toInt()
-        if (n.toDouble() != items.toDouble() || items < 0 || items > MAX_ITEMS) return null
+        val items = count(d.opt("items"), MAX_ITEMS) ?: return null
         if (!found && items != 0) return null
-        return Diag(host.lowercase(), found, items)
+        val extra = listOf("mult_texts", "canvases", "shadow_hosts", "closed_hint").map {
+            if (!d.has(it)) 0 else count(d.opt(it), MAX_COUNT) ?: return null
+        }
+        val sample = if (!d.has("sample")) emptyList() else samples(d.opt("sample")) ?: return null
+        return Diag(host.lowercase(), found, items, extra[0], extra[1], extra[2], extra[3], sample)
+    }
+
+    /** A whole number 0..[max], or null. */
+    private fun count(v: Any?, max: Int): Int? {
+        val n = v as? Number ?: return null
+        val i = n.toInt()
+        return if (n.toDouble() == i.toDouble() && i in 0..max) i else null
+    }
+
+    /** Up to [MAX_SAMPLES] strings made only of [0-9.,xX× ], 1..12 characters each; null when anything else. */
+    private fun samples(v: Any?): List<String>? {
+        val a = v as? JSONArray ?: return null
+        if (a.length() > MAX_SAMPLES) return null
+        return (0 until a.length()).map { (a.opt(it) as? String)?.takeIf { s -> SAMPLE.matches(s) } ?: return null }
     }
 
     /** The frames heard from in the last minute ([seen]: frame -> (diag, when)) as one [DiagSummary]. */
     fun summarize(seen: Collection<Pair<Diag, Long>>, nowMs: Long): DiagSummary {
         val fresh = seen.filter { it.second > nowMs - DIAG_FRESH_MS }.map { it.first }
         val strips = fresh.filter { it.stripFound }
-        return DiagSummary(fresh.size, strips.isNotEmpty(), strips.maxOfOrNull { it.items } ?: 0)
+        return DiagSummary(
+            fresh.size, strips.isNotEmpty(), strips.maxOfOrNull { it.items } ?: 0,
+            fresh.sumOf { it.multTexts }, fresh.sumOf { it.canvases }, fresh.sumOf { it.shadowHosts },
+            fresh.sumOf { it.closedHint }, fresh.filter { it.sample.isNotEmpty() }.maxByOrNull { it.multTexts }
+                ?.sample.orEmpty(),
+        )
     }
+
+    /** The injected collector: collector-find.js and collector.js in one function (no page globals), or null. */
+    fun script(find: String?, main: String?): String? =
+        if (find == null || main == null) null else "(function () {\n$find\n$main\n})();\n"
 
     /** A short, text-free reason for the last failed send, for the predictor's line; null after a good one. */
     fun errorOf(code: Int): String? = when (outcome(code)) {
@@ -143,7 +184,8 @@ object JetxRoundRules {
 
     /**
      * The 'collector' event: { on, status, rounds_today, last_multiplier } and, since 0.35.1, frames_seen,
-     * strip_found, strip_items, rounds_sent (rounds the API took today, duplicates included) and last_error.
+     * strip_found, strip_items, rounds_sent (rounds the API took today, duplicates included) and last_error; since
+     * 0.35.2 mult_texts, canvases, shadow_hosts, closed_hint (summed over the frames) and sample (up to 3 strings).
      */
     fun status(
         on: Boolean, state: State, roundsToday: Int, last: Double?,
@@ -158,4 +200,9 @@ object JetxRoundRules {
         .put("strip_items", diag.items)
         .put("rounds_sent", roundsSent)
         .put("last_error", lastError ?: JSONObject.NULL)
+        .put("mult_texts", diag.multTexts)
+        .put("canvases", diag.canvases)
+        .put("shadow_hosts", diag.shadowHosts)
+        .put("closed_hint", diag.closedHint)
+        .put("sample", JSONArray(diag.sample))
 }

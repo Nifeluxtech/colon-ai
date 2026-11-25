@@ -9,7 +9,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.util.TimeZone
 
-/** Colon JetX (0.35.0, Crash Predictor step 3; diagnostics 0.35.1): the collector's checks on what the game sends. */
+/** Colon JetX (0.35.0, Crash Predictor step 3; diagnostics 0.35.1 and 0.35.2): checks on what the game sends. */
 class JetxRoundRulesTest {
     private val now = 1_790_000_000_000L
     private val site = "https://games.example.bet"
@@ -135,5 +135,49 @@ class JetxRoundRulesTest {
         assertEquals(null, JetxRoundRules.errorOf(200))
         assertEquals("signed_out", JetxRoundRules.errorOf(401))
         assertEquals("network", JetxRoundRules.errorOf(0))
+    }
+
+    @Test fun richerDiagnosticsCarryBoundedCountsAndSamples() {
+        val raw = """{"diag":{"frame_host":"x","strip_found":false,"items":0,"mult_texts":24,"canvases":1,""" +
+            """"shadow_hosts":2,"closed_hint":0,"sample":["1.07x","4.54×","3.96x4.35x"]}}"""
+        val d = JetxRoundRules.parseDiag(raw, site)!!
+        assertEquals(JetxRoundRules.Diag("games.example.bet", false, 0, 24, 1, 2, 0, listOf("1.07x", "4.54×",
+            "3.96x4.35x")), d)
+        val other = JetxRoundRules.Diag("www.sportybet.com", false, 0, 0, 1, 0, 3, emptyList())
+        val sum = JetxRoundRules.summarize(listOf(d to now, other to now), now)
+        assertEquals(24, sum.multTexts)
+        assertEquals(2, sum.canvases)
+        assertEquals(3, sum.closedHint)
+        assertEquals(listOf("1.07x", "4.54×", "3.96x4.35x"), sum.sample)
+        val st = JetxRoundRules.status(true, JetxRoundRules.State.WAITING, 0, null, sum)
+        assertEquals(24, st.getInt("mult_texts"))
+        assertEquals(2, st.getInt("canvases"))
+        assertEquals(2, st.getInt("shadow_hosts"))
+        assertEquals("1.07x", st.getJSONArray("sample").getString(0))
+        assertEquals(0, JetxRoundRules.status(true, JetxRoundRules.State.LIVE, 0, null).getJSONArray("sample").length())
+    }
+
+    @Test fun badSamplesAndCountsAreRefused() {
+        fun diag(extra: String) = JetxRoundRules.parseDiag("""{"diag":{"strip_found":false,"items":0,$extra}}""", site)
+        assertNotNull(diag(""""sample":[]"""))
+        assertNull("page text", diag(""""sample":["Balance 1.07x"]"""))
+        assertNull("too long", diag(""""sample":["1.07x1.07x1.07"]"""))
+        assertNull("empty", diag(""""sample":[""]"""))
+        assertNull("not a string", diag(""""sample":[1.07]"""))
+        assertNull("too many", diag(""""sample":["1x","2x","3x","4x"]"""))
+        assertNull("not a list", diag(""""sample":"1.07x""""))
+        assertNull("html", diag(""""sample":["<b>1.07x"]"""))
+        assertNull(diag(""""mult_texts":-1"""))
+        assertNull(diag(""""canvases":1.5"""))
+        assertNull(diag(""""shadow_hosts":100000"""))
+        assertNull(diag(""""closed_hint":"3""""))
+        assertNull(diag(""""cookies":0"""))
+    }
+
+    @Test fun theScriptIsBothFilesInOneFunction() {
+        assertEquals("(function () {\nvar JetxFind = 1;\nmain();\n})();\n",
+            JetxRoundRules.script("var JetxFind = 1;", "main();"))
+        assertNull(JetxRoundRules.script(null, "main();"))
+        assertNull(JetxRoundRules.script("f", null))
     }
 }

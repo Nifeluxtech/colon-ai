@@ -23,7 +23,9 @@ import okhttp3.OkHttpClient
  * collector off stops it (POST /crash/sessions). The predictor hears a 'collector' event after each change.
  * Since 0.35.1 the script also sends a diagnostic per frame (host and counts only, JetxRoundRules.parseDiag); the
  * latest per frame is kept and summed up in the event (frames_seen, strip_found, strip_items), with rounds_sent and
- * last_error, so the predictor can say whether the history strip was found.
+ * last_error, so the predictor can say whether the history strip was found; 0.35.2 adds counts of multiplier-like
+ * texts, canvases and shadow hosts and up to 3 character-checked samples. The script is collector-find.js and
+ * collector.js together (JetxRoundRules.script).
  * On WebViews without document-start scripts or web message listeners there is no collector (status unsupported).
  */
 class JetxCollector(private val host: Host, private val http: OkHttpClient, private val prefs: JetxPrefs) {
@@ -180,6 +182,8 @@ class JetxCollector(private val host: Host, private val http: OkHttpClient, priv
         /** The object WebView puts in the game pane's frames; collector.js posts rounds on it and nothing else. */
         const val CHANNEL = "ColonJetXRounds"
         const val SCRIPT_ASSET = "jetx/collector.js"
+        /** How the script finds the history strip (0.35.2); injected together with it (JetxRoundRules.script). */
+        const val FIND_ASSET = "jetx/collector-find.js"
         private const val TAG = "ColonJetX"
     }
 }

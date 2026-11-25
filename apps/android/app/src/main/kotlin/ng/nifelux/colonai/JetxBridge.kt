@@ -20,7 +20,8 @@ import org.json.JSONObject
  * the collector); openSite {url?} -> opens that site (or the saved one) in the game pane; setLayout {layout};
  * setCollector {on} (0.35.0) -> the collector's status.
  * Events: session {status, host}, mode {mode}, layout {layout}, collector {on, status, rounds_today,
- * last_multiplier} (0.35.0; 0.35.1 adds frames_seen, strip_found, strip_items, rounds_sent, last_error).
+ * last_multiplier} (0.35.0; 0.35.1 adds frames_seen, strip_found, strip_items, rounds_sent, last_error; 0.35.2
+ * mult_texts, canvases, shadow_hosts, closed_hint and sample, up to 3 strings of [0-9.,xX× ] only).
  * The only game data the predictor gets is the collector's counts and last multiplier (JetxCollector); never the
  * betting site's cookies, passwords or tokens.
  */
