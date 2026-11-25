@@ -11,11 +11,11 @@ const ALL = ['general', 'developer', 'workspace', 'study', 'research'];
 const SKILLS = [
   { id: 'executing-plans', pack: 'superpowers', title: 'Executing plans', modes: CODE,
     words: /\b(execute|implement|start|continue|do|build) (the |my |this )?(plan|phase|step|task)s?\b|\bphase \d\b/i },
-  { id: 'writing-plans', pack: 'superpowers', title: 'Writing plans', modes: ALL,
+  { id: 'writing-plans', pack: 'superpowers', title: 'Writing plans', modes: CODE,
     words: /\b(plan|planning|roadmap|phases?|milestones?|step[- ]by[- ]step|break (it|this) down|spec|outline)\b/i },
   { id: 'brainstorming', pack: 'superpowers', title: 'Brainstorming', modes: ALL,
     words: /\b(brainstorm\w*|ideas?|what should i build|explore options|come up with|design (a|an|the) feature)\b/i },
-  { id: 'systematic-debugging', pack: 'superpowers', title: 'Systematic debugging', modes: ALL,
+  { id: 'systematic-debugging', pack: 'superpowers', title: 'Systematic debugging', modes: CODE,
     words: /\b(bug|debug\w*|error|exception|stack ?trace|crash\w*|broken|not working|doesn'?t work|fail(s|ing)?)\b/i },
   { id: 'test-driven-development', pack: 'superpowers', title: 'Test-driven development', modes: CODE,
     words: /\b(tdd|unit tests?|write tests?|test cases?|failing test|jest|mocha|pytest|vitest)\b/i },
