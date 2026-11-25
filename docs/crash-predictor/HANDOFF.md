@@ -39,8 +39,8 @@ Automated clicking on an operator's site may breach its terms; the app warns the
 ## 4. Five-step plan and status
 | Step | What | Status |
 |---|---|---|
-| 1 | Accounts and dashboard: `apps/crash` web app, `crash` API module, MySQL tables (rounds, sessions, bets, settings, audit), routes | **Done (v0.33.0, branch `feat/crash-predictor-step1`; not yet deployed)** |
-| 2 | Inbuilt browser: new Android flavor `colonjetx` on the Colon Browser WebView engine, split screen (game top, predictor bottom), manual / AI / shared control | Not started |
+| 1 | Accounts and dashboard: `apps/crash` web app, `crash` API module, MySQL tables (rounds, sessions, bets, settings, audit), routes | **Done (v0.33.0, merged to `main`; not yet deployed)** |
+| 2 | Inbuilt browser: new Android flavor `colonjetx` on the Colon Browser WebView engine, split screen (game top, predictor bottom), manual / AI / shared control | **Done (v0.34.0, branch `feat/crash-predictor-step2`; not yet deployed or released)** |
 | 3 | Round collector: injected script in the WebView (pattern: `apps/android/app/src/main/assets/saga/`) reads finished multipliers, posts them with time and round id, dedupes; CSV import | Not started |
 | 4 | Analysis engine: hit rate vs baseline, streaks, distribution, confidence ranges, out-of-sample model tests, BET / WAIT / STOP with reason | Not started |
 | 5 | Auto-bet: sets auto cash-out + stake, presses Bet on BET, all guardrails, demo default, audit log; Android build via CI, web via cPanel | Not started |
@@ -71,6 +71,27 @@ Automated clicking on an operator's site may breach its terms; the app warns the
 - Deploy: `.cpanel.yml` runs `build-docroot.sh $REPO crash $HOMEDIR/crash.apparatus.name.ng`;
   `scripts/deploy/build-docroot.sh`, its test and `scripts/check.js` know the `crash` app.
 
+### Step 2 files (Android, v0.34.0)
+- `apps/android/app/build.gradle.kts` — flavor `colonjetx` (`ng.nifelux.colonjetx`, `APP_KEY` colonjetx, `APK_NAME`
+  colon-jetx, `IS_JETX_APP` true; the other two flavors get `IS_JETX_APP` false).
+- `apps/android/app/src/colonjetx/` — manifest (launcher `JetxActivity`), name, green icon and splash, dark theme,
+  and the bridge shim `assets/jetx/bridge.js` (`window.ColonJetX`).
+- `apps/android/app/src/main/kotlin/ng/nifelux/colonai/Jetx*.kt` — `JetxActivity` (split screen), `JetxChrome`
+  (address bar, status dot, banner, chips, divider), `JetxWeb` (the two WebViews on the browser engine's settings),
+  `JetxBridge` (predictor origin only, main frame, WebView-enforced; no JavascriptInterface fallback), `JetxApi`
+  (`GET /crash/settings` for `site_url`, cookie only to the Colon API host), `JetxPrefs` (mode, layout, divider,
+  site), `JetxRules` (pure; `src/test/.../JetxRulesTest.kt`). Resources: `res/layout/activity_jetx.xml`,
+  `res/values/{strings,colors}_jetx.xml`, `res/drawable/bg_jetx_*.xml`, style `Colon.JetxChip`.
+- Bridge: page -> app `{id, cmd, args}`, app -> page `{id, ok, result|error}` or `{event, data}`. Commands `ready`,
+  `status` (app, version, mode, layout, `session {status, host}`, `autoClick: false`), `openSite {url?}`,
+  `setLayout {layout}`; events `session`, `mode`, `layout`. The predictor gets the site's host and load state only.
+- `apps/crash/src/core/native.js` + dashboard: the app line (site status, control mode) and "Show my betting site".
+- CI: `.github/workflows/android.yml` tests, lints and builds `colonjetx` and ships `colon-jetx-<version>.apk` and
+  `colon-jetx.apk`; `scripts/deploy/android-version.test.js` checks it. No `version.json` entry yet, so Colon JetX
+  has no in-app updates (`VersionManifest.forApp` knows only colonai and colonbrowser).
+- Step 3 hooks onto the game pane in `JetxWeb.game` (an injected collector, pattern `assets/saga/`); step 5's clicks
+  must check `JetxPrefs.mode` and the guardrails. AI / Shared currently change state and the banner only.
+
 ### Deploy notes
 - Subdomain **crash.apparatus.name.ng**, docroot `/home/apparatu/crash.apparatus.name.ng`.
 - `https://crash.apparatus.name.ng` is in the default `ALLOWED_ORIGINS` (`config/defaults.js`, `api.env.example`),
@@ -85,3 +106,9 @@ The owner's two ChatGPT conversations ("JetX AI Crash Predictor — Complete Tec
 - 2026-11-25: Step 1 done on branch `feat/crash-predictor-step1` (v0.33.0): migration 0028, `crash` API module and
   routes, `apps/crash` (dashboard, settings, history), unit tests, deploy wiring for crash.apparatus.name.ng.
   Verdict is a WAIT placeholder until step 4. Rounds and bets lists stay empty until steps 3 and 5 write them.
+- 2026-11-25: Step 1 merged to `main` (8b29fed).
+- 2026-11-25: Step 2 done on branch `feat/crash-predictor-step2` (v0.34.0): Android flavor `colonjetx` (Colon JetX)
+  with the split screen, Manual / AI / Shared mode (AI and Shared click nothing yet), the `window.ColonJetX` bridge
+  stub, the dashboard's app line, CI for the third APK and `JetxRulesTest`. Gradle was not run in the authoring
+  sandbox (no ARM64 aapt2); the new Kotlin was compiled with kotlinc against android.jar 36 and AndroidX, and
+  `JetxRulesTest` passed there. First CI run on the PR is the real Android build, lint and test.

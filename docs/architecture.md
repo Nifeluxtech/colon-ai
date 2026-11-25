@@ -15,7 +15,8 @@ Colon AI by Nifelux: three static web apps and one Node API in one repository, d
                              NVIDIA, Groq,       (DuckDuckGo,
                              OpenRouter,          Wikipedia, Brave,
                              N-ATLaS)             Tavily, SearXNG)
-  Android app (Phase 7): Android System WebView as the Colon Browser engine, bridged to the API (docs/decisions/0002).
+  Android apps (Phase 7; apps/android, three flavors: Colon AI, Colon Browser, Colon JetX since 0.34.0): Android
+  System WebView as the Colon Browser engine, bridged to the API (docs/decisions/0002).
 ```
 
 Hosting: AfeesHost cPanel 138 on CloudLinux, 1 GB RAM, 20 entry processes, 5 GB disk, SSH, Git Version Control,
@@ -35,7 +36,8 @@ colon-ai/
 │   ├── browser/                 Colon Browser: public/, src/{main.js, core/, components/, pages/}
 │   ├── admin/                   Admin Dashboard: public/, src/{main.js, core/, components/, pages/}
 │   └── crash/                   Colon JetX (Crash Predictor, v0.33.0, crash.apparatus.name.ng): public/,
-│                                src/{main.js, core/, components/, pages/}; plan: docs/crash-predictor/HANDOFF.md
+│                                src/{main.js, core/, components/, pages/}; plan: docs/crash-predictor/HANDOFF.md;
+│                                runs under the betting site in the colonjetx Android app (v0.34.0)
 ├── packages/
 │   ├── ui/                      design system and shared code: js/ (colon.js = window.Colon, colon/, markdown/,
 │   │                            browser/, store.js, url.js), css/ (tokens, base, components, content, browser),

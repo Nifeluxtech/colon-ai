@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Colon JetX's launcher screen: the splash on the JetX black-green, then the always-dark JetX theme. -->
+    <style name="Theme.Colon.Splash.Jetx">
+        <item name="windowSplashScreenBackground">@color/jetx_bg</item>
+        <item name="postSplashScreenTheme">@style/Theme.Colon.Jetx</item>
+    </style>
+
+    <!-- Always dark with green highlights, like the predictor web app (apps/crash). -->
+    <style name="Theme.Colon.Jetx" parent="Theme.Material3.Dark.NoActionBar">
+        <item name="colorPrimary">@color/jetx_green</item>
+        <item name="colorOnPrimary">@color/jetx_bg</item>
+        <item name="colorSecondary">@color/jetx_green</item>
+        <item name="colorSurface">@color/jetx_surface</item>
+        <item name="colorOnSurface">@color/jetx_text</item>
+        <item name="android:colorBackground">@color/jetx_bg</item>
+        <item name="android:windowBackground">@color/jetx_bg</item>
+        <item name="android:textColorPrimary">@color/jetx_text</item>
+        <item name="android:textColorSecondary">@color/jetx_muted</item>
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
+    </style>
+</resources>

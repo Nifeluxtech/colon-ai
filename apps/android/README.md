@@ -1,19 +1,19 @@
-# Colon AI and Colon Browser for Android
+# Colon AI, Colon Browser and Colon JetX for Android
 
-Two Android apps from one Gradle project (ROADMAP Phases 7–8), both on Android System WebView (Chromium) and built
-in the cloud by GitHub Actions, so you never need Android Studio or a PC. The code is shared (`app/src/main`); each
-app is a **product flavor** with its own manifest, name, icon and splash.
+Three Android apps from one Gradle project (ROADMAP Phases 7–8; Colon JetX since 0.34.0), all on Android System
+WebView (Chromium) and built in the cloud by GitHub Actions, so you never need Android Studio or a PC. The code is
+shared (`app/src/main`); each app is a **product flavor** with its own manifest, name, icon and splash.
 
-| | Colon AI (`colonai`) | Colon Browser (`colonbrowser`) |
-|---|---|---|
-| What it is | the chat, with a real browser panel beside it | the full standalone browser |
-| Application id | `ng.nifelux.colonai` (debug: `….colonai.debug`) | `ng.nifelux.colonbrowser` (debug: `….colonbrowser.debug`) |
-| Opens into | `MainActivity` (chat) | `BrowserActivity` (browser) |
-| Sources | `app/src/main` + `app/src/colonai` | `app/src/main` + `app/src/colonbrowser` |
-| Release APK | `colon-ai-<version>.apk` / `colon-ai.apk` | `colon-browser-<version>.apk` / `colon-browser.apk` |
-| Update entry | top level of `version.json` | `browser` in `version.json` |
+| | Colon AI (`colonai`) | Colon Browser (`colonbrowser`) | Colon JetX (`colonjetx`) |
+|---|---|---|---|
+| What it is | the chat, with a real browser panel beside it | the full standalone browser | the user's betting site and the JetX predictor, split screen |
+| Application id | `ng.nifelux.colonai` (debug: `….colonai.debug`) | `ng.nifelux.colonbrowser` (debug: `….colonbrowser.debug`) | `ng.nifelux.colonjetx` (debug: `….colonjetx.debug`) |
+| Opens into | `MainActivity` (chat) | `BrowserActivity` (browser) | `JetxActivity` (split screen) |
+| Sources | `app/src/main` + `app/src/colonai` | `app/src/main` + `app/src/colonbrowser` | `app/src/main` + `app/src/colonjetx` |
+| Release APK | `colon-ai-<version>.apk` / `colon-ai.apk` | `colon-browser-<version>.apk` / `colon-browser.apk` | `colon-jetx-<version>.apk` / `colon-jetx.apk` |
+| Update entry | top level of `version.json` | `browser` in `version.json` | none yet (no in-app updates; install new releases by hand) |
 
-Both: Android 7.0 and newer (minSdk 24), target Android 16 (API 36), version from the root `package.json` with
+All three: Android 7.0 and newer (minSdk 24), target Android 16 (API 36), version from the root `package.json` with
 versionCode = major × 10000 + minor × 100 + patch (0.8.0 → 800), same release signing key, a few MB each (release,
 shrunk with R8).
 
@@ -59,7 +59,23 @@ shrunk with R8).
   Sign-ins made in the Custom Tab belong to that browser, not to the WebView.
 - Cookies, logins, history and bookmarks stay on the phone (nothing is uploaded).
 
-**Both apps**
+**Colon JetX** (0.34.0, Crash Predictor step 2, `docs/crash-predictor/HANDOFF.md`)
+- **Split screen** (`JetxActivity`, `JetxChrome`, `JetxWeb`, `activity_jetx.xml`): the user's own betting site on top
+  (address bar, back, reload, a status dot: no site / loading / open / can't reach / offline), the predictor web app
+  `https://crash.apparatus.name.ng` below. Drag the divider (20–80%), or tap the layout chip: Split → Game → Predictor.
+  Switching only hides a pane, so nothing reloads. Always dark with green highlights.
+- **The site's address** comes from the predictor's Settings (`GET /crash/settings` → `site_url`, read with the Colon
+  session the predictor signed in with; `JetxApi`) or is typed in the address bar. The phone's own edit wins until
+  the saved site changes (`JetxRules.pickSite`). The user signs in to the site themselves: the app never reads or keeps
+  the site's passwords, cookies or tokens, and never injects anything into it.
+- **Control mode** chips: Manual (default), AI, Shared, remembered (`JetxPrefs`). In this step AI and Shared only
+  show a banner; nothing is clicked for the user (auto-bet is step 5, with demo mode and guardrails).
+- **Bridge stub** (`JetxBridge`, `src/colonjetx/assets/jetx/bridge.js`): `window.ColonJetX` in the predictor only
+  (that origin, main frame, enforced by WebView; no fallback on WebViews without `WEB_MESSAGE_LISTENER`). Commands
+  `ready`, `status`, `openSite {url?}`, `setLayout {layout}`; events `session {status, host}`, `mode`, `layout`. The
+  predictor learns the site's host and load state only. Reading game rounds is step 3.
+
+**All apps**
 - **Saga control** (`BrowserSaga`, `ControlState`) and the **backend bridge** (`BridgeClient`, `docs/android-bridge.md`).
 - **Saga browsing (v0.9.0, both apps):** Saga's page tools run on the tab it drives: read the page, list links,
   click, type, scroll (`assets/saga/tools.js`, injected per command) and a small screenshot (`SagaTools`).
@@ -76,17 +92,18 @@ shrunk with R8).
 ## Build in the cloud (GitHub Actions)
 
 `.github/workflows/android.yml` runs on every push to `main` that touches `apps/android/**`, on tags `v*`, and by
-hand (Actions › Android › Run workflow). It runs the unit tests and Android lint **for both apps**, builds both
-release APKs, and keeps them as one artifact for 30 days.
+hand (Actions › Android › Run workflow). It runs the unit tests and Android lint **for all three apps**, builds the
+three release APKs, and keeps them as one artifact for 30 days.
 
 **Get the APKs from a build:** GitHub › Actions › the latest "Android" run › scroll to Artifacts ›
-`colon-android-<version>-release` (or `-debug`) › download. The zip holds `colon-ai-<version>.apk` and
-`colon-browser-<version>.apk` (plus fixed-name copies and `.sha256` files); open them with your phone's file manager.
+`colon-android-<version>-release` (or `-debug`) › download. The zip holds `colon-ai-<version>.apk`,
+`colon-browser-<version>.apk` and `colon-jetx-<version>.apk` (plus fixed-name copies and `.sha256` files); open them
+with your phone's file manager.
 
 **Publish a release** (what the apps' update prompts and the web "Get the app" links use): Actions › Android ›
 Run workflow › tick **Publish a release** › Run. It creates the GitHub Release `v<version>` with
-`colon-ai-<version>.apk`, `colon-browser-<version>.apk`, the fixed-name copies `colon-ai.apk` and
-`colon-browser.apk` (for `releases/latest/download/…`), and a `.sha256` for each. Pushing a tag `v<version>` does the
+`colon-ai-<version>.apk`, `colon-browser-<version>.apk`, `colon-jetx-<version>.apk`, the fixed-name copies
+`colon-ai.apk`, `colon-browser.apk` and `colon-jetx.apk` (for `releases/latest/download/…`), and a `.sha256` for each. Pushing a tag `v<version>` does the
 same. The tag must match `package.json`, or the build stops.
 
 ## Install on a phone
@@ -133,8 +150,8 @@ Advanced (with a PC): create a PKCS12 keystore with `keytool`, base64 it, and ad
 ## Build on a computer (optional)
 
 JDK 17 and the Android SDK (platform 36), from `apps/android`:
-`./gradlew testColonaiDebugUnitTest testColonbrowserDebugUnitTest lintColonaiDebug lintColonbrowserDebug
-assembleColonaiDebug assembleColonbrowserDebug`. APKs are in `app/build/outputs/apk/<flavor>/<type>/`. With
+`./gradlew testColonaiDebugUnitTest testColonbrowserDebugUnitTest testColonjetxDebugUnitTest lintColonaiDebug
+lintColonbrowserDebug lintColonjetxDebug assembleColonaiDebug assembleColonbrowserDebug assembleColonjetxDebug`. APKs are in `app/build/outputs/apk/<flavor>/<type>/`. With
 `ANDROID_KEYSTORE_FILE` and the three password/alias variables set, `assembleColonaiRelease
 assembleColonbrowserRelease` sign with your key. On an ARM64 Linux machine pass an ARM64 `aapt2` with
 `-Pandroid.aapt2FromMavenOverride=<path>` (Google's build-tools ship x86-64 binaries only).
@@ -142,8 +159,8 @@ assembleColonbrowserRelease` sign with your key. On an ARM64 Linux machine pass 
 ## Code map
 
 All Kotlin is in one package, `app/src/main/kotlin/ng/nifelux/colonai/` (one folder keeps GitHub web uploads short),
-shared by both apps. Per-app files: `app/src/colonai/` (manifest, share-target resources) and `app/src/colonbrowser/`
-(manifest, name, icon, splash, update texts).
+shared by all apps. Per-app files: `app/src/colonai/` (manifest, share-target resources), `app/src/colonbrowser/`
+and `app/src/colonjetx/` (manifest, name, icon, splash, update texts; JetX also its bridge shim in `assets/jetx/`).
 
 | File | What it does |
 |---|---|
@@ -162,12 +179,15 @@ shared by both apps. Per-app files: `app/src/colonai/` (manifest, share-target r
 | `BrowserStore.kt`, `BrowserData.kt`, `HomePage.kt`, `EntryList.kt` | history, bookmarks, clear data, new-tab page, lists |
 | `BridgeClient.kt`, `BridgeProtocol.kt`, `Backoff.kt` | backend WebSocket bridge (`docs/android-bridge.md`) |
 | `UpdateChecker.kt`, `VersionManifest.kt` | in-app updates |
+| `JetxActivity.kt`, `JetxChrome.kt`, `JetxWeb.kt` | Colon JetX: split screen, its chrome, the two WebViews |
+| `JetxBridge.kt`, `JetxApi.kt`, `JetxPrefs.kt`, `JetxRules.kt` | Colon JetX: `window.ColonJetX`, the saved site, prefs, pure rules |
 | `Downloads.kt`, `FileChooser.kt`, `External.kt`, `Notifications.kt`, `UrlRules.kt` | platform helpers |
 
-Unit tests (JVM, no emulator, run for both flavors): `app/src/test/kotlin/ng/nifelux/colonai/` — URL rules and the
+Unit tests (JVM, no emulator, run for every flavor): `app/src/test/kotlin/ng/nifelux/colonai/` — URL rules and the
 bridge origin check, backoff, update manifest (per app), bridge protocol, control state machine, tab discarding,
 history and downloads lists, home-page escaping, tab persistence, private-tab rules, Custom Tab hosts, desktop user
-agent, panel layouts, clear-data rules and the app handoff.
+agent, panel layouts, clear-data rules, the app handoff and Colon JetX's rules (`JetxRulesTest`: modes, layouts, divider,
+site addresses, the saved site, the bridge status).
 
 ## Next steps (not in 0.9.0)
 

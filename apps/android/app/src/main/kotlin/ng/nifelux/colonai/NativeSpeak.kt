@@ -44,8 +44,11 @@ object NativeSpeak {
         }
     }
 
-    /** 0.22.1: starts the engine once at app start, so the first spoken reply doesn't wait for it (~0.5-1 s). */
-    fun warm(ctx: Context) { if (!BuildConfig.IS_BROWSER_APP) withEngine(ctx.applicationContext) { } }
+    /** 0.22.1: starts the engine once at app start, so the first spoken reply doesn't wait for it (~0.5-1 s).
+     *  Colon AI only: Colon Browser and Colon JetX (0.34.0) never speak replies. */
+    fun warm(ctx: Context) {
+        if (!BuildConfig.IS_BROWSER_APP && !BuildConfig.IS_JETX_APP) withEngine(ctx.applicationContext) { }
+    }
 
     private fun withEngine(ctx: Context, then: (Boolean) -> Unit) {
         if (ready) { then(true); return }

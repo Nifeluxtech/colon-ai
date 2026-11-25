@@ -35,13 +35,18 @@ test('the Gradle build and the workflow use the same names and rule', () => {
   assert.match(gradle, /major \* 10000 \+ minor \* 100 \+ patch/);
   assert.match(gradle, /applicationId = "ng\.nifelux\.colonai"/);
   assert.match(gradle, /applicationId = "ng\.nifelux\.colonbrowser"/);
+  assert.match(gradle, /applicationId = "ng\.nifelux\.colonjetx"/); // 0.34.0 Colon JetX
   const wf = read('.github/workflows/android.yml');
-  for (const name of ['colon-ai', 'colon-browser']) {
+  for (const name of ['colon-ai', 'colon-browser', 'colon-jetx']) {
     assert.match(wf, new RegExp(`${name}-\\$\\{?VERSION\\}?\\.apk`));
     assert.match(wf, new RegExp(`${name}\\.apk`));
   }
   assert.match(wf, /assembleColonaiRelease/);
   assert.match(wf, /assembleColonbrowserRelease/);
+  assert.match(wf, /assembleColonjetxRelease/);
+  assert.match(wf, /testColonjetxDebugUnitTest/);
+  assert.match(wf, /lintColonjetxDebug/);
+  assert.match(wf, /colonjetx:colon-jetx/);
   assert.doesNotMatch(wf, /echo "\$\{\{ secrets\./); // secrets are never echoed
 });
 

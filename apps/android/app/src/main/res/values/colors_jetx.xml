@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Colon JetX (0.34.0): always dark with green highlights, like the predictor web app (apps/crash crash.css). -->
+<resources>
+    <color name="jetx_bg">#050B08</color>
+    <color name="jetx_surface">#0B1712</color>
+    <color name="jetx_field">#12221A</color>
+    <color name="jetx_line">#1E3A2B</color>
+    <color name="jetx_text">#E8F5EE</color>
+    <color name="jetx_muted">#8AA597</color>
+    <color name="jetx_green">#22C55E</color>
+    <color name="jetx_green_dim">#1A3D2A</color>
+    <color name="jetx_warn">#F59E0B</color>
+    <color name="jetx_warn_bg">#2A1F08</color>
+    <color name="jetx_bad">#EF4444</color>
+</resources>

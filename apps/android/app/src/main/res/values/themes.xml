@@ -71,4 +71,21 @@
         <item name="android:scaleType">center</item>
         <item name="tint">@color/colon_text</item>
     </style>
+
+    <!-- 0.34.0 Colon JetX: the mode and layout chips on the split screen's divider bar (activity_jetx.xml). -->
+    <style name="Colon.JetxChip" parent="">
+        <item name="android:layout_width">wrap_content</item>
+        <item name="android:layout_height">30dp</item>
+        <item name="android:layout_marginEnd">6dp</item>
+        <item name="android:background">@drawable/bg_jetx_chip</item>
+        <item name="android:gravity">center</item>
+        <item name="android:minWidth">44dp</item>
+        <item name="android:paddingStart">12dp</item>
+        <item name="android:paddingEnd">12dp</item>
+        <item name="android:textColor">@color/jetx_text</item>
+        <item name="android:textSize">12sp</item>
+        <item name="android:textStyle">bold</item>
+        <item name="android:clickable">true</item>
+        <item name="android:focusable">true</item>
+    </style>
 </resources>

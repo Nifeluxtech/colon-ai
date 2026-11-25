@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Colon JetX (ng.nifelux.colonjetx): the app's own name and the update texts that name the app. -->
+<resources>
+    <string name="app_name">Colon JetX</string>
+    <string name="logo_description">Colon JetX</string>
+    <string name="update_message">Colon JetX %1$s is ready. You have %2$s.</string>
+    <string name="update_downloading">Colon JetX %1$s</string>
+    <string name="update_invalid">That file isn\'t a valid Colon JetX update, so it was deleted.</string>
+    <string name="update_other_key">This update is signed with a different key. Uninstall Colon JetX, then
+        install the new APK from the release page.</string>
+    <string name="update_allow_installs">Allow Colon JetX to install updates, then come back to finish.</string>
+    <string name="update_ready_title">Colon JetX %1$s is ready</string>
+    <string name="update_progress_title">Downloading Colon JetX %1$s</string>
+</resources>

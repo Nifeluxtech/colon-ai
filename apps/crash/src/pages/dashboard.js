@@ -1,9 +1,11 @@
 /* Colon JetX · Dashboard: account, session status, today's stats, the honest baseline at the target, the verdict
-   (WAIT until the analysis engine exists), guardrails and the recent rounds and bets. */
+   (WAIT until the analysis engine exists), guardrails and the recent rounds and bets. In the Colon JetX Android app
+   (v0.34.0) it also shows the betting site's status and the control mode, and opens the site in the top pane. */
 
 import { Colon } from '../../../../packages/ui/js/colon.js';
 import { baselineCard, betRows, fail, head, roundChips, skel, stat, tone, verdictCard } from '../components/cards.js';
 import { crashApi } from '../core/api.js';
+import * as app from '../core/native.js';
 import { money, mult, signed } from '../core/state.js';
 
 var C = Colon, icon = C.icon, esc = C.esc, $ = C.$;
@@ -40,12 +42,22 @@ function todayCard(d) {
     + '</div></section>';
 }
 
-function render(view, d) {
-  var s = d.settings;
-  var site = s.site_url ? '<a class="btn block" href="' + esc(s.site_url) + '" target="_blank" rel="noopener '
-    + 'noreferrer">' + icon('external') + 'Open my betting site</a>' : '<a class="btn block" href="#/settings">'
-    + icon('link') + 'Add your betting site</a>';
-  $('#cx-body', view).innerHTML = accountCard(d) + verdictCard(d.verdict) + baselineCard(d.baseline, d.today.hit_rate)
+// The Colon JetX app's line: the betting site's state (host only) and the control mode.
+function appCard(st) {
+  var d = app.describe(st);
+  return '<span class="status-dot' + (d.tone ? ' ' + d.tone : '') + '"></span> Betting site: ' + esc(d.site)
+    + '<br><span class="tiny muted">Control: ' + esc(d.mode) + '</span>';
+}
+
+function render(view, d, paintApp) {
+  var s = d.settings, inApp = app.inApp();
+  var site = inApp && s.site_url ? '<button class="btn block" type="button" id="cx-open-site">' + icon('external')
+    + 'Show my betting site</button>' : s.site_url ? '<a class="btn block" href="' + esc(s.site_url)
+    + '" target="_blank" rel="noopener noreferrer">' + icon('external') + 'Open my betting site</a>'
+    : '<a class="btn block" href="#/settings">' + icon('link') + 'Add your betting site</a>';
+  $('#cx-body', view).innerHTML = (inApp ? '<section class="card"><div class="section-title">Colon JetX app</div>'
+    + '<p class="small" id="cx-app"></p></section>' : '') + accountCard(d) + verdictCard(d.verdict)
+    + baselineCard(d.baseline, d.today.hit_rate)
     + todayCard(d) + sessionCard(d)
     + '<section class="card"><div class="cx-sec"><div class="section-title">Recent rounds</div><a class="small" '
     + 'href="#/history">See all</a></div>' + roundChips(d.recent_rounds, s.target_cashout)
@@ -54,20 +66,29 @@ function render(view, d) {
     + 'href="#/history">See all</a></div>' + betRows(d.recent_bets, s.currency) + '</section>'
     + '<div class="cx-actions">' + site + '<a class="btn block" href="#/settings">' + icon('settings')
     + 'Settings</a></div>';
+  var open = $('#cx-open-site', view);
+  if (open) open.onclick = function () { app.openSite(s.site_url).catch(function (e) { C.toast(e.message); }); };
+  paintApp();
 }
 
 function dashboard(view) {
   var first = (C.user.name || '').split(' ')[0];
   view.innerHTML = head(first ? 'Hello, ' + first : 'JetX dashboard', 'JetX companion · target, guardrails and '
     + 'the honest odds') + '<div id="cx-body">' + skel(4) + '</div>';
-  var stop = false;
+  var stop = false, st = null, offs = [];
+  var paintApp = function () { var el = $('#cx-app', view); if (el) el.innerHTML = appCard(st); };
+  if (app.inApp()) {
+    app.appStatus().then(function (s) { st = s; paintApp(); }).catch(function () {});
+    offs.push(app.on('session', function (x) { st = st || {}; st.session = x; paintApp(); }));
+    offs.push(app.on('mode', function (x) { st = st || {}; st.mode = x.mode; paintApp(); }));
+  }
   var load = function () {
-    crashApi.dashboard().then(function (d) { if (!stop) render(view, d); }).catch(function (e) {
+    crashApi.dashboard().then(function (d) { if (!stop) render(view, d, paintApp); }).catch(function (e) {
       if (!stop) fail($('#cx-body', view), e); });
   };
   load();
   var timer = setInterval(function () { if (!document.hidden) load(); }, 30000);
-  return function () { stop = true; clearInterval(timer); };
+  return function () { stop = true; clearInterval(timer); offs.forEach(function (off) { off(); }); };
 }
 
 export { dashboard };
