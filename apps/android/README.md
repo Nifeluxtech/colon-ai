@@ -67,13 +67,20 @@ shrunk with R8).
 - **The site's address** comes from the predictor's Settings (`GET /crash/settings` → `site_url`, read with the Colon
   session the predictor signed in with; `JetxApi`) or is typed in the address bar. The phone's own edit wins until
   the saved site changes (`JetxRules.pickSite`). The user signs in to the site themselves: the app never reads or keeps
-  the site's passwords, cookies or tokens, and never injects anything into it.
+  the site's passwords, cookies or tokens; the only script it gets is the read-only round collector (below).
 - **Control mode** chips: Manual (default), AI, Shared, remembered (`JetxPrefs`). In this step AI and Shared only
   show a banner; nothing is clicked for the user (auto-bet is step 5, with demo mode and guardrails).
 - **Bridge stub** (`JetxBridge`, `src/colonjetx/assets/jetx/bridge.js`): `window.ColonJetX` in the predictor only
   (that origin, main frame, enforced by WebView; no fallback on WebViews without `WEB_MESSAGE_LISTENER`). Commands
   `ready`, `status`, `openSite {url?}`, `setLayout {layout}`; events `session {status, host}`, `mode`, `layout`. The
-  predictor learns the site's host and load state only. Reading game rounds is step 3.
+  predictor learns the site's host and load state only, plus the collector's status (0.35.0).
+- **Round collector** (0.35.0, step 3; `JetxCollector`, `JetxRoundRules`, `src/colonjetx/assets/jetx/collector.js`):
+  a read-only script in every frame of the game pane finds JetX's round-history strip and posts each new finished
+  multiplier `{multiplier, seen_at, round_id?}` on `window.ColonJetXRounds` (never answered). It never clicks, types
+  or reads forms, passwords, cookies or storage. The app checks every message (https frames, those keys, sane values,
+  20 a minute), batches them to `POST /crash/rounds` with the Colon session (API host only), and stops the session
+  on close or when switched off (`setCollector {on}` from the predictor; `JetxPrefs.collector`, on by default). The
+  strip heuristics (5+ "1.53x" items, new ones at either end) still need checking on a live JetX page.
 
 **All apps**
 - **Saga control** (`BrowserSaga`, `ControlState`) and the **backend bridge** (`BridgeClient`, `docs/android-bridge.md`).
@@ -181,13 +188,15 @@ and `app/src/colonjetx/` (manifest, name, icon, splash, update texts; JetX also 
 | `UpdateChecker.kt`, `VersionManifest.kt` | in-app updates |
 | `JetxActivity.kt`, `JetxChrome.kt`, `JetxWeb.kt` | Colon JetX: split screen, its chrome, the two WebViews |
 | `JetxBridge.kt`, `JetxApi.kt`, `JetxPrefs.kt`, `JetxRules.kt` | Colon JetX: `window.ColonJetX`, the saved site, prefs, pure rules |
+| `JetxCollector.kt`, `JetxRoundRules.kt` | Colon JetX: the round collector (0.35.0) and its pure checks |
 | `Downloads.kt`, `FileChooser.kt`, `External.kt`, `Notifications.kt`, `UrlRules.kt` | platform helpers |
 
 Unit tests (JVM, no emulator, run for every flavor): `app/src/test/kotlin/ng/nifelux/colonai/` — URL rules and the
 bridge origin check, backoff, update manifest (per app), bridge protocol, control state machine, tab discarding,
 history and downloads lists, home-page escaping, tab persistence, private-tab rules, Custom Tab hosts, desktop user
 agent, panel layouts, clear-data rules, the app handoff and Colon JetX's rules (`JetxRulesTest`: modes, layouts, divider,
-site addresses, the saved site, the bridge status).
+site addresses, the saved site, the bridge status; `JetxRoundRulesTest`: the collector's message checks, batches,
+backoff and status).
 
 ## Next steps (not in 0.9.0)
 

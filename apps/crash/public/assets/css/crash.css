@@ -56,3 +56,6 @@
 .cx-kill .btn{flex:none}
 .cx-form{display:flex;flex-direction:column;gap:14px}
 @media (min-width:640px){ .cx-actions{grid-template-columns:1fr 1fr} }
+.cx-stack{display:flex;flex-direction:column;gap:14px}
+.cx-coll .grid{margin-top:10px}
+#cx-coll-app .btn{margin-top:10px}

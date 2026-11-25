@@ -24,10 +24,11 @@ import org.json.JSONObject
  * (https://crash.apparatus.name.ng) below, on the Colon Browser engine (JetxWeb). Draggable divider, or the game or
  * the predictor alone (JetxChrome). Control mode Manual (default), AI or Shared: in this step AI and Shared only
  * change the state and show a banner; nothing is clicked for the user (auto-bet is step 5, with its guardrails).
- * The betting site is never read (no game data until step 3) and its passwords, cookies and tokens are never read
- * or kept: the user signs in there themselves. Docs: docs/crash-predictor/HANDOFF.md.
+ * Step 3 (0.35.0): the round collector (JetxCollector) reads only JetX's finished multipliers from the game pane
+ * and sends them to the Colon API; the site's passwords, cookies and tokens are never read or kept: the user signs
+ * in there themselves. Docs: docs/crash-predictor/HANDOFF.md.
  */
-class JetxActivity : AppCompatActivity(), JetxBridge.Host {
+class JetxActivity : AppCompatActivity(), JetxBridge.Host, JetxCollector.Host {
     lateinit var bridge: JetxBridge
         private set
     lateinit var fileChooser: FileChooser
@@ -36,6 +37,8 @@ class JetxActivity : AppCompatActivity(), JetxBridge.Host {
         private set
     private lateinit var prefs: JetxPrefs
     private lateinit var ui: JetxChrome
+    private lateinit var collector: JetxCollector
+    private var collectorView: WebView? = null
     private var game: TabWebView? = null
     private var predictor: WebView? = null
     private var site: String? = null
@@ -57,11 +60,13 @@ class JetxActivity : AppCompatActivity(), JetxBridge.Host {
         fileChooser = FileChooser(this)
         fullscreen = Fullscreen(this)
         ui = JetxChrome(this)
+        collector = JetxCollector(this, ColonApplication.of(this).http, prefs)
 
         game = JetxWeb.game(this)?.also { ui.gamePane.addView(it, 0, match()) }
+        installCollector()
         predictor = JetxWeb.predictor(this)?.also { ui.predictorPane.addView(it, match()) }
         bridge = JetxBridge(this, predictor)
-        bridge.install(readShim())
+        bridge.install(readAsset(JetxBridge.SHIM_ASSET))
         wireControls()
         ui.showMode(prefs.mode)
         ui.showLayout(prefs.layout, prefs.split)
@@ -84,9 +89,17 @@ class JetxActivity : AppCompatActivity(), JetxBridge.Host {
     private fun match() = FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT,
         FrameLayout.LayoutParams.MATCH_PARENT)
 
-    private fun readShim(): String? = try {
-        assets.open(JetxBridge.SHIM_ASSET).bufferedReader().use { it.readText() }
-    } catch (_: Exception) { null } // only Colon JetX ships the shim (src/colonjetx/assets)
+    private fun readAsset(path: String): String? = try {
+        assets.open(path).bufferedReader().use { it.readText() }
+    } catch (_: Exception) { null } // only Colon JetX ships these (src/colonjetx/assets)
+
+    /** The round collector goes into the game pane's WebView while it is on (it takes effect from the next page). */
+    private fun installCollector() {
+        val g = game ?: return
+        if (!prefs.collector || collectorView === g) return
+        collectorView = g
+        collector.install(g, readAsset(JetxCollector.SCRIPT_ASSET))
+    }
 
     private fun wireControls() {
         ui.address.setOnEditorActionListener { _, actionId, event ->
@@ -165,12 +178,13 @@ class JetxActivity : AppCompatActivity(), JetxBridge.Host {
         if (game) {
             this.game?.let { ShellWeb.destroy(it) }
             this.game = JetxWeb.game(this)?.also { ui.gamePane.addView(it, 0, match()) }
+            installCollector()
             site?.let { load(it) }
         } else {
             predictor?.let { ShellWeb.destroy(it) }
             predictor = JetxWeb.predictor(this)?.also { ui.predictorPane.addView(it, match()) }
             bridge = JetxBridge(this, predictor)
-            bridge.install(readShim())
+            bridge.install(readAsset(JetxBridge.SHIM_ASSET))
             predictor?.loadUrl(JetxRules.PREDICTOR_URL)
         }
     }
@@ -202,6 +216,7 @@ class JetxActivity : AppCompatActivity(), JetxBridge.Host {
 
     override fun bridgeStatus(): JSONObject =
         JetxRules.status(BuildConfig.VERSION_NAME, prefs.mode, prefs.layout, siteState, site)
+            .put("collector", collector.status())
 
     override fun bridgeOpenSite(url: String?): String? {
         val target = url ?: site ?: return null
@@ -212,6 +227,18 @@ class JetxActivity : AppCompatActivity(), JetxBridge.Host {
     }
 
     override fun bridgeSetLayout(layout: JetxRules.Layout) = setLayout(layout)
+
+    override fun bridgeSetCollector(on: Boolean): JSONObject {
+        collector.setOn(on)
+        if (on) installCollector()
+        return collector.status()
+    }
+
+    /* ---------- JetxCollector.Host ---------- */
+
+    override fun onCollector(status: JSONObject) {
+        if (::bridge.isInitialized) bridge.emit("collector", status) // the collector is set up before the bridge
+    }
 
     /* ---------- lifecycle ---------- */
 
@@ -230,6 +257,7 @@ class JetxActivity : AppCompatActivity(), JetxBridge.Host {
     }
 
     override fun onDestroy() {
+        collector.close()
         game?.let { ShellWeb.destroy(it) }
         predictor?.let { ShellWeb.destroy(it) }
         game = null

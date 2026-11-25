@@ -1,9 +1,10 @@
-/* Colon JetX · the Android app's bridge (v0.34.0, Crash Predictor step 2).
+/* Colon JetX · the Android app's bridge (v0.34.0, Crash Predictor step 2; collector v0.35.0).
    In the Colon JetX app this page runs in the bottom pane, under the user's own betting site, and the app gives it
    window.ColonJetX (apps/android: JetxBridge.kt, assets/jetx/bridge.js). It can ask the app to open the betting site
    in the top pane and hears the site's status: its host and whether it loaded, nothing more. The app never reads
-   the site (game data comes in step 3) and never its passwords, cookies or tokens. In a normal browser there is no
-   bridge, inApp() is false and the page works as before. */
+   the site's passwords, cookies or tokens. Since v0.35.0 its round collector reads JetX's finished multipliers in
+   the game pane and sends them to the API itself; this page hears only its status ('collector' event) and can turn
+   it on or off. In a normal browser there is no bridge, inApp() is false and the page works as before. */
 
 function bridge() { var b = window.ColonJetX; return b && typeof b.call === 'function' ? b : null; }
 function inApp() { return !!bridge(); }
@@ -11,13 +12,16 @@ function call(cmd, args) {
   var b = bridge();
   return b ? b.call(cmd, args || {}) : Promise.reject(new Error('Open this in the Colon JetX app.'));
 }
-// fn(data) for 'session' { status, host }, 'mode' { mode } and 'layout' { layout }; returns off().
+// fn(data) for 'session' { status, host }, 'mode' { mode }, 'layout' { layout } and 'collector' { on, status,
+// rounds_today, last_multiplier }; returns off().
 function on(event, fn) { var b = bridge(); return b ? b.on(event, fn) : function () {}; }
 
-// -> { app, version, mode, layout, session: { status, host }, autoClick: false }
+// -> { app, version, mode, layout, session: { status, host }, autoClick: false, collector }
 function appStatus() { return call('status'); }
 // Opens url (or the site the app already has) in the game pane.
 function openSite(url) { return call('openSite', url ? { url: url } : {}); }
+// Turns the app's round collector on or off -> its status.
+function setCollector(on) { return call('setCollector', { on: !!on }); }
 
 var SITE = { none: 'No site open', loading: 'Loading…', loaded: 'Open', error: "Can't reach it", offline: 'Offline' };
 var MODE = { manual: 'Manual', ai: 'AI (nothing is clicked for you yet)', shared: 'Shared (nothing is clicked yet)' };
@@ -32,4 +36,15 @@ function describe(st) {
   };
 }
 
-export { appStatus, describe, inApp, on, openSite };
+var COLLECTOR = { live: 'Collecting rounds', waiting: 'Waiting for JetX to finish a round',
+  signed_out: 'Sign in to Colon here to save rounds', error: "Can't save rounds right now; retrying",
+  unsupported: 'This phone’s WebView is too old to collect rounds', off: 'Off' };
+
+// The app's collector line: { tone, text, on }.
+function describeCollector(c) {
+  var st = (c && c.status) || 'off';
+  return { on: !!(c && c.on), text: COLLECTOR[st] || st,
+    tone: st === 'live' ? '' : st === 'waiting' ? 'warn' : 'bad' };
+}
+
+export { appStatus, describe, describeCollector, inApp, on, openSite, setCollector };

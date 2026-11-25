@@ -1,8 +1,10 @@
-/* Colon JetX for Android (0.34.0, Crash Predictor step 2): window.ColonJetX in the predictor pane.
+/* Colon JetX for Android (0.34.0, Crash Predictor step 2; collector 0.35.0): window.ColonJetX in the predictor pane.
    Injected at document start by JetxBridge.kt, only into https://crash.apparatus.name.ng (main frame); WebView
    supplies window.ColonJetXNative there and nowhere else. Never injected into the betting site.
-     ColonJetX.call(cmd, args) -> Promise   commands: ready, status, openSite { url? }, setLayout { layout }
-     ColonJetX.on(event, fn) -> off()       events: session { status, host }, mode { mode }, layout { layout }
+     ColonJetX.call(cmd, args) -> Promise   commands: ready, status, openSite { url? }, setLayout { layout },
+                                            setCollector { on }
+     ColonJetX.on(event, fn) -> off()       events: session { status, host }, mode { mode }, layout { layout },
+                                            collector { on, status, rounds_today, last_multiplier }
    The page also hears a 'colonjetx' DOM event on window once the bridge is ready (detail: the status). */
 (function () {
   'use strict';

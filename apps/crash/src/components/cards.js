@@ -1,4 +1,5 @@
-/* Colon JetX · building blocks: page header, stats, the verdict, the honest baseline, round chips and bet rows. */
+/* Colon JetX · building blocks: page header, stats, the verdict, the honest baseline, the round collector (v0.35.0),
+   round chips and bet rows. */
 
 import { Colon } from '../../../../packages/ui/js/colon.js';
 import { money, mult, pct, signed } from '../core/state.js';
@@ -35,7 +36,7 @@ function verdictCard(v) {
 function baselineCard(b, h) {
   var measured = h && h.rounds ? pct(h.rate) + ' <small>(' + pct(h.low, 0) + '–' + pct(h.high, 0) + ')</small>'
     : '—';
-  var read = !h || !h.rounds ? 'No rounds recorded today yet. The collector arrives in a later step.'
+  var read = !h || !h.rounds ? 'No rounds recorded today yet. Open JetX in the Colon JetX app, or import a CSV.'
     : h.above === true ? 'Above the baseline so far today. Short runs like this happen by chance.'
       : h.above === false ? 'Below the baseline so far today. Short runs like this happen by chance.'
         : 'Within the normal range of the baseline: no edge shown.';
@@ -45,6 +46,22 @@ function baselineCard(b, h) {
     + '<p class="small">' + esc(read) + '</p><p class="tiny muted">JetX returns about ' + pct(b.rtp, 0)
     + ', so a round reaches ' + mult(b.target) + ' with about ' + pct(b.probability) + ' chance whatever came '
     + 'before, and each bet loses about ' + pct(-b.expected_return, 0) + ' of its stake on average.</p></section>';
+}
+
+var COLL = { live: 'Live', idle: 'Waiting for rounds', off: 'Not collecting' };
+
+// c: dashboard.collector { status: live|idle|off, rounds_today, last_multiplier, last_round_at }
+function collectorCard(c, target) {
+  c = c || { status: 'off', rounds_today: 0, last_multiplier: null };
+  var dot = c.status === 'live' ? '' : c.status === 'idle' ? ' warn' : ' bad', m = c.last_multiplier;
+  return '<section class="card cx-coll"><div class="cx-sec"><div class="section-title">Round collector</div>'
+    + '<span class="small"><span class="status-dot' + dot + '"></span> ' + esc(COLL[c.status] || c.status)
+    + '</span></div><div class="grid cols-2">' + stat(String(c.rounds_today || 0), 'Collected today')
+    + stat(m == null ? '—' : '<span class="' + (m >= target ? 'cx-up' : 'cx-down') + '">' + mult(m) + '</span>',
+      'Last round' + (c.last_round_at ? ' · ' + C.ago(c.last_round_at) : '')) + '</div><div id="cx-coll-app"></div>'
+    + '<p class="tiny muted">The Colon JetX Android app records each finished JetX round while your site is open. '
+    + 'It reads only the multipliers, never your password or account. You can also import a CSV or add rounds in '
+    + '<a href="#/history">History</a>.</p></section>';
 }
 
 function roundChips(rounds, target) {
@@ -67,4 +84,4 @@ function betRows(bets, currency) {
   }).join('') + '</div>';
 }
 
-export { baselineCard, betRows, fail, head, roundChips, skel, stat, tone, verdictCard };
+export { baselineCard, betRows, collectorCard, fail, head, roundChips, skel, stat, tone, verdictCard };

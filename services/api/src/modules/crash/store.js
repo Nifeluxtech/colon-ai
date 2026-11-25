@@ -28,9 +28,10 @@ function sqlStore(q = db) {
       created_at) VALUES (?,?,?,?, UTC_TIMESTAMP(3))`, [userId, event, details ? JSON.stringify(details) : null,
       String(ip || '').slice(0, 64)]),
     async roundStats(userId, game, since, target) {
-      const r = await q.one(`SELECT COUNT(*) AS n, COALESCE(SUM(multiplier >= ?), 0) AS hits FROM crash_rounds
+      const r = await q.one(`SELECT COUNT(*) AS n, COALESCE(SUM(multiplier >= ?), 0) AS hits,
+        COALESCE(SUM(source = 'collector'), 0) AS collected FROM crash_rounds
         WHERE user_id = ? AND game = ? AND observed_at >= ?`, [target, userId, game, since]);
-      return { n: Number(r && r.n) || 0, hits: Number(r && r.hits) || 0 };
+      return { n: Number(r && r.n) || 0, hits: Number(r && r.hits) || 0, collected: Number(r && r.collected) || 0 };
     },
     // since: bets placed from then; sessionId: only that session's bets (either may be null).
     async betStats(userId, game, { since = null, sessionId = null } = {}) {
@@ -49,12 +50,38 @@ function sqlStore(q = db) {
       ORDER BY observed_at DESC, id DESC LIMIT ?`, [userId, game, limit]),
     listBets: (userId, game, limit) => q.query(`SELECT ${BET_COLS} FROM crash_bets WHERE user_id = ? AND game = ?
       ORDER BY placed_at DESC, id DESC LIMIT ?`, [userId, game, limit]),
+    // Step 3 (v0.35.0): the collector, CSV import and manual entry. INSERT IGNORE skips a round already stored
+    // (unique user + game + round_id); the count inserted is affectedRows.
+    async insertRounds(userId, game, rounds) {
+      let inserted = 0;
+      for (let i = 0; i < rounds.length; i += 500) {
+        const part = rounds.slice(i, i + 500);
+        const res = await q.query(`INSERT IGNORE INTO crash_rounds (user_id, game, round_id, multiplier, observed_at,
+          source, created_at) VALUES ${part.map(() => '(?,?,?,?,?,?, UTC_TIMESTAMP(3))').join(',')}`,
+        part.flatMap((r) => [userId, game, r.round_id, r.multiplier, r.observed_at, r.source]));
+        inserted += Number(res && res.affectedRows) || 0;
+      }
+      return inserted;
+    },
+    roundsNear: (userId, game, from, to) => q.query(`SELECT ${ROUND_COLS} FROM crash_rounds WHERE user_id = ?
+      AND game = ? AND observed_at BETWEEN ? AND ? ORDER BY observed_at DESC LIMIT 500`, [userId, game, from, to]),
+    lastRound: (userId, game, source) => q.one(`SELECT ${ROUND_COLS} FROM crash_rounds WHERE user_id = ? AND game = ?
+      AND source = ? ORDER BY observed_at DESC, id DESC LIMIT 1`, [userId, game, source]),
+    async startSession(userId, game, demo) {
+      const res = await q.query(`INSERT INTO crash_sessions (user_id, game, demo, started_at)
+        VALUES (?,?,?, UTC_TIMESTAMP(3))`, [userId, game, demo ? 1 : 0]);
+      return q.one('SELECT id, game, demo, started_at FROM crash_sessions WHERE id = ? AND user_id = ?',
+        [res.insertId, userId]);
+    },
+    endSession: (userId, game, id, reason) => q.query(`UPDATE crash_sessions SET ended_at = UTC_TIMESTAMP(3),
+      end_reason = ? WHERE id = ? AND user_id = ? AND game = ? AND ended_at IS NULL`,
+    [String(reason).slice(0, 40), id, userId, game]),
   };
 }
 
 function memoryStore(seed = {}) {
   const s = { settings: new Map(), audit: [], rounds: seed.rounds || [], bets: seed.bets || [],
-    sessions: seed.sessions || [] };
+    sessions: seed.sessions || [], seq: 1000 };
   const mine = (rows, userId, game) => rows.filter((r) => r.user_id === userId && (r.game || 'jetx') === game);
   const newest = (k) => (a, b) => new Date(b[k]) - new Date(a[k]) || b.id - a.id;
   return {
@@ -68,7 +95,8 @@ function memoryStore(seed = {}) {
     async audit(userId, event, details, ip = '') { s.audit.push({ user_id: userId, event, details, ip }); },
     async roundStats(userId, game, since, target) {
       const rows = mine(s.rounds, userId, game).filter((r) => new Date(r.observed_at) >= since);
-      return { n: rows.length, hits: rows.filter((r) => Number(r.multiplier) >= target).length };
+      return { n: rows.length, hits: rows.filter((r) => Number(r.multiplier) >= target).length,
+        collected: rows.filter((r) => r.source === 'collector').length };
     },
     async betStats(userId, game, { since = null, sessionId = null } = {}) {
       const rows = mine(s.bets, userId, game).filter((b) => (!since || new Date(b.placed_at) >= since)
@@ -87,6 +115,31 @@ function memoryStore(seed = {}) {
     },
     async listBets(userId, game, limit) {
       return mine(s.bets, userId, game).sort(newest('placed_at')).slice(0, limit);
+    },
+    async insertRounds(userId, game, rounds) {
+      let inserted = 0;
+      for (const r of rounds) {
+        if (mine(s.rounds, userId, game).some((x) => x.round_id === r.round_id)) continue;
+        s.rounds.push({ ...r, id: ++s.seq, user_id: userId, game });
+        inserted += 1;
+      }
+      return inserted;
+    },
+    async roundsNear(userId, game, from, to) {
+      return mine(s.rounds, userId, game).filter((r) => new Date(r.observed_at) >= from
+        && new Date(r.observed_at) <= to);
+    },
+    async lastRound(userId, game, source) {
+      return mine(s.rounds, userId, game).filter((r) => r.source === source).sort(newest('observed_at'))[0] || null;
+    },
+    async startSession(userId, game, demo) {
+      const row = { id: ++s.seq, user_id: userId, game, demo: demo ? 1 : 0, started_at: new Date(), ended_at: null };
+      s.sessions.push(row);
+      return row;
+    },
+    async endSession(userId, game, id, reason) {
+      const row = mine(s.sessions, userId, game).find((x) => x.id === id && !x.ended_at);
+      if (row) Object.assign(row, { ended_at: new Date(), end_reason: reason });
     },
   };
 }
