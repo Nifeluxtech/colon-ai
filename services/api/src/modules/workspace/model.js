@@ -19,7 +19,8 @@ function wrap(generate, kit) {
       const system = kit.systemPrompt({ mode: o.mode, language: o.language || 'en', context: o.context || '' });
       const r = await kit.stream({ routing: o.routing, signal: o.signal, models: [m],
         messages: [{ role: 'system', content: system }, ...o.messages],
-        timeouts: { maxTokens: o.timeouts && o.timeouts.maxTokens, firstTokenTimeoutMs: 30000 } });
+        timeouts: { maxTokens: o.timeouts && o.timeouts.maxTokens, firstTokenTimeoutMs: 30000 },
+        onThought: o.onThought });
       if (!String(r.text || '').trim()) throw Object.assign(new Error('empty'), { code: 'empty' });
       return { text: r.text, providerId: r.providerId, providerName: 'Google AI Studio', model: r.model,
         target: 'workspace', attempts: r.attempts, route: 'workspace' };

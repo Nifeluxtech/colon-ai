@@ -44,6 +44,7 @@ function msgOut(m) {
     status, model: m.model, mode: m.mode, version: m.version, created_at: m.created_at,
   };
   if (m.origin) out.origin = m.origin;
+  if (m.thoughts) out.thoughts = m.thoughts;   // v0.32.0
   const web = json(m.web_search);
   if (web) out.web = { ok: Boolean(web.ok), provider: web.provider || null };
   if (error) out.error = error;

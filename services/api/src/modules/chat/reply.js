@@ -19,6 +19,8 @@ const webSearch = require('../search');
 const tools = require('../tools');
 const billing = require('../billing');
 const safety = require('../safety');
+const skills = require('../skills');
+const THOUGHTS_MAX = 20000;   // v0.32.0: characters of a reply's thought process kept
 const { SECURITY_HEADERS } = require('../../shared/security-headers');
 const log = require('../../shared/logger');
 
@@ -69,7 +71,11 @@ async function respond(o) {
   let text = '';
   let prefix = '';     // the "web search unavailable" notice, kept at the top of the saved answer
   let web = null;      // { ok, sources, provider, ms, read } when Research mode searched
-  const saved = () => (web ? { sources: web.ok ? webSearch.publicSources(web.sources) : [], web: webMeta(web) } : {});
+  let thoughts = '';   // v0.32.0: the skills used and the model's reasoning, shown as the "Thought process"
+  const think = (t) => { if (!t || ctl.signal.aborted) return; if (thoughts.length < THOUGHTS_MAX) thoughts += t;
+    sse.send('thought', { text: t }); };
+  const saved = () => ({ ...(web ? { sources: web.ok ? webSearch.publicSources(web.sources) : [], web: webMeta(web) }
+    : {}), ...(thoughts.trim() ? { thoughts: thoughts.trim().slice(0, THOUGHTS_MAX) } : {}) });
   const engine = o.billing || (o.routing ? null : billing);
   let bill = null;     // { requestId, done } once credits are reserved for this reply
   try {
@@ -116,6 +122,11 @@ async function respond(o) {
       // (searchFirst never sends page text to the app; the model gets it fenced and neutralised below.)
       if (web && !web.ok) { prefix += UNAVAILABLE; text = prefix; sse.send('delta', { text: UNAVAILABLE }); }
     }
+    // v0.32.0: the bundled skills that fit this message (modules/skills), named first in the thought process
+    const picked = o.voice || o.skills === false ? [] : skills.pick(o.userText != null ? o.userText : o.searchText,
+      { mode: o.mode || 'general' });
+    if (picked.length) think(`Using the ${picked.map((s) => s.title).join(' and ')} skill${picked.length > 1 ? 's'
+      : ''}.\n\n`);
     let result;
     try {
       const webContext = web
@@ -126,9 +137,10 @@ async function respond(o) {
         messages: safety.redactMessages(o.history).messages, fetch: o.fetch,
         taskText: o.userText != null ? o.userText : o.searchText, attachments: o.attachments,
         web: Boolean(web && web.ok), voice: Boolean(o.voice),
-        context: [verdict.guidance, webContext, o.project && o.project.block, o.extraContext].filter(Boolean)
-          .join('\n\n'),
+        context: [verdict.guidance, webContext, o.project && o.project.block, o.extraContext, skills.block(picked)]
+          .filter(Boolean).join('\n\n'),
         timeouts: cfg.hedge ? { ...(o.timeouts || {}), hedge: cfg.hedge } : o.timeouts,
+        onThought: think,
         onDelta: (piece) => {
           if (stop) return;
           if ((stop = out.push(piece))) { ctl.abort(); return; }   // never send the piece that tripped the check

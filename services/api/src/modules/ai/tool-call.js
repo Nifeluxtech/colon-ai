@@ -52,7 +52,7 @@ async function stream(o) {
       const r = await streamChat({ provider: p, model, messages: o.messages, tools: o.tools, signal: o.signal,
         fetch: o.fetch, maxTokens: t.maxTokens, firstTokenTimeoutMs: t.toolTimeoutMs || t.firstTokenTimeoutMs,
         idleTimeoutMs: t.idleTimeoutMs, maxMs: t.maxReplyMs, onCall: (c) => parts.push(...c),
-        onDelta: (piece) => { sent = true; if (o.onDelta) o.onDelta(piece); } });
+        onDelta: (piece) => { sent = true; if (o.onDelta) o.onDelta(piece); }, onThought: o.onThought });
       attempts.push({ provider: 'gemini', model, ok: true, ms: Date.now() - started });
       return { text: r.text || '', calls: callsOf(parts), providerId: 'gemini', model, attempts };
     } catch (e) {

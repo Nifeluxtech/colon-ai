@@ -27,7 +27,7 @@ function persistedStore(conv, { version = 1 } = {}) {
       id = m.id;
       return m;
     },
-    async finish({ content, status, error, providerId, providerModel, sources, web }) {
+    async finish({ content, status, error, providerId, providerModel, sources, web, thoughts }) {
       await db.query(
         ('UPDATE chat_messages SET content = ?, status = ?, error = ?, provider = ?, provider_model = ?, '
           + 'completed_at = UTC_TIMESTAMP(3) WHERE id = ?'),
@@ -41,6 +41,9 @@ function persistedStore(conv, { version = 1 } = {}) {
           .catch(() => db.query('UPDATE chat_messages SET sources = ? WHERE id = ?', [JSON.stringify(sources || []),
             id]).catch(() => {}));
       }
+      // v0.32.0: the thought process (migration 0027); a database without the column still saves the answer
+      if (thoughts) await db.query('UPDATE chat_messages SET thoughts = ? WHERE id = ?', [thoughts, id])
+        .catch(() => {});
       if (content) await store.touch(conv, { preview: content });
       return store.getMessage(conv.id, id);
     },

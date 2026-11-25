@@ -95,16 +95,33 @@ function msgHtml(m, isLast) {
       (m.version > 1 ? '<span class="tiny muted">Version ' + m.version + '</span>' : '') + '</div>') +
     '</div>';
 }
+// v0.32.0: the "Thought process" (skills used + the model's reasoning): open while Colon thinks, folded once the
+// answer starts, unless the user opened or closed it themselves (S.thoughtOpen, set by a tap on its summary).
+function thoughtsHtml(m, streaming) {
+  var t = String(m.thoughts || '').trim();
+  if (!t) return '';
+  var live = streaming && !m.content, mine = (S.thoughtOpen || {})[m.id];
+  return '<details class="cw-thought' + (live ? ' live' : '') + '"' + ((mine == null ? live : mine) ? ' open' : '')
+    + ' data-tid="' + esc(m.id) + '"><summary>' + icon('sparkles') + '<span>' + (live ? 'Thinking…'
+    : 'Thought process') + '</span>' + icon('chevDown') + '</summary><div class="cw-thought-body md">' + MD.render(t)
+    + '</div></details>';
+}
+document.addEventListener('click', function (e) {
+  var s = e.target.closest && e.target.closest('.cw-thought > summary');
+  if (!s) return;
+  var d = s.parentNode;
+  (S.thoughtOpen = S.thoughtOpen || {})[d.getAttribute('data-tid')] = !d.open;
+});
 function aiBody(m) {
-  var streaming = m.status === 'streaming';
+  var streaming = m.status === 'streaming', th = thoughtsHtml(m, streaming);
   if (streaming && !m.content) {
     var st = m.stage && STAGES[m.stage] ? STAGES[m.stage](m.stage === 'writing' ? (m.sources
       || []).length : m.stageCount || 0) : ASSISTANT + ' is thinking…';
-    return '<div class="cw-thinking' + (m.stage ? ' cw-stage' : '') + '" role="status">' + (m.stage === 'searching'
+    return th + '<div class="cw-thinking' + (m.stage ? ' cw-stage' : '') + '" role="status">' + (m.stage === 'searching'
       || m.stage === 'reading' ? icon('globe') : '') + '<span class="typing"><i></i><i></i><i></i></span><span>'
       + (m.stage ? esc(st) : st) + '</span></div>';
   }
-  return '<div class="md' + (streaming ? ' streaming' : '') + '">' + MD.render(m.content, { sources: m.sources })
+  return th + '<div class="md' + (streaming ? ' streaming' : '') + '">' + MD.render(m.content, { sources: m.sources })
     + '</div>';
 }
 function errorCard(m) {

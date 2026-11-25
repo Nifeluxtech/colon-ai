@@ -87,6 +87,8 @@ function race(queue, hedge, { o, messages, timeouts, attempts, route }) {
         firstTokenTimeoutMs: timeouts.firstTokenTimeoutMs, idleTimeoutMs: timeouts.idleTimeoutMs,
           maxMs: timeouts.maxReplyMs,
         onDelta: (piece) => { if (!claim()) return; text += piece; if (o.onDelta) o.onDelta(piece); },
+        // v0.32.0: reasoning counts as starting to answer, so only the winner's thoughts reach the user
+        onThought: o.onThought ? (t) => { if (claim()) o.onThought(t); } : undefined,
       }).then((r) => {
         live.delete(ctl); running--;
         if (!claim()) return;
