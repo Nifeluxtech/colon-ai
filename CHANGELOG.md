@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.39.0 (2026-11-27) · Photos in Workspace chat, sites open in Colon Browser, YouTube fixed
+
+- **Workspace photos** (`modules/workspace/images.js`, migration `0030_workspace_images.sql`:
+  `colon_workspace_messages.images`): the photo button in the Workspace chat adds up to 3 images (ordinary uploads,
+  `POST /uploads`); `POST /workspaces/:id/chat` takes `images` (attachment ids, the user's own images only). A
+  message with photos always builds (or queues behind a running build), and the model gets them as image parts
+  with the request. Sent messages show their photos. Helpers moved to `workspace/chat-util.js` (size limit).
+- **Open in Colon Browser**: the Workspace's live link, Open, "open my site" and outside links from the Preview open
+  in the Colon Browser app (bridge command `openInBrowserApp`, `Colon.native.openSite`), or the phone's browser when
+  it isn't installed; a new tab on the web.
+- **YouTube in the browser**: the mobile user agent drops the WebView markers (`; wv`, `Version/4.0`) that made
+  YouTube answer "This browser is no longer supported" (`UserAgents.mobile`, Colon Browser and the in-chat browser).
+- **Saga shopping**: browsing rules for Jumia, Konga and Glovo (search addresses, cart and checkout summary); Saga
+  never places an order or pays unless asked, and Colon asks the user's approval first.
+- Tests: `tests/unit/workspace-images.test.js`, `UserAgentsTest.mobileSiteLooksLikeChrome`.
+
 ## 0.38.0 (2026-11-26) · Colon JetX: Crash Predictor step 5 (auto-bet, guardrails), screen reader, side panel, bubble
 
 - **Auto-bet API** (`services/api/src/modules/crash/autobet.js`, `autobet-rules.js`; migration `0029_crash_autobet.sql`

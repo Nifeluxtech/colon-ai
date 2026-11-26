@@ -85,7 +85,8 @@ object BrowserWeb {
     /** Mobile or desktop site: the user agent (always ending with the app's ColonAndroid token). */
     fun applyUserAgent(wv: WebView, desktop: Boolean) {
         val base = WebSettings.getDefaultUserAgent(wv.context)
-        wv.settings.userAgentString = (if (desktop) UserAgents.desktop(base) else base) + " " + ShellWeb.UA_TOKEN
+        wv.settings.userAgentString = (if (desktop) UserAgents.desktop(base) else UserAgents.mobile(base)) + " " +
+            ShellWeb.UA_TOKEN
         wv.settings.loadWithOverviewMode = true
         wv.settings.useWideViewPort = true
     }

@@ -67,6 +67,13 @@ var native = {
   /** Opens a link in the app's native browser panel. Returns false on the web (caller falls back). */
   openTab: function (url) { var b = bridge(); if (!b) return false; b.openTab(url || '').catch(function () {});
     return true; },
+  /** 0.38.0: opens a site in the Colon Browser app (the phone's browser when it isn't installed), or a new tab on
+      the web. */
+  openSite: function (url) {
+    if (native.can('openInBrowserApp')) { native.call('openInBrowserApp', { url: url }).catch(function () {
+      window.open(url, '_blank', 'noopener'); }); return; }
+    window.open(url, '_blank', 'noopener');
+  },
   /** True when the app has the native in-chat browser panel (Colon AI 0.8.0+). */
   hasPanel: function () { return native.can('browserPanel'); },
   /** Drives the native panel: action open|navigate|layout|collapse|close|back|forward|reload|handoff|state, and

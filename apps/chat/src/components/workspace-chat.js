@@ -12,6 +12,8 @@ import { secretSheet, tableSheet } from './workspace-data-forms.js';
 import { connectSheet } from './workspace-connect.js';
 import { downloadZip } from './workspace-export.js';
 import { split as splitNeeds, met } from '../lib/ws-needs.js';
+import { attachmentsHtml, loadAttachmentThumbs } from './uploads.js';
+import { photoPicker } from './workspace-photos.js';
 
 var C = Colon, icon = C.icon, esc = C.esc;
 var POLL_MS = 1500;
@@ -48,7 +50,8 @@ function needsHtml(m, needs, dnow) {
   }).join('');
 }
 function msgHtml(m, current, dnow) {
-  if (m.role === 'user') return '<div class="wk-msg wk-me">' + textHtml(m.content) + (m.kind === 'queued'
+  if (m.role === 'user') return '<div class="wk-msg wk-me">' + attachmentsHtml(m.images) + textHtml(m.content)
+    + (m.kind === 'queued'
     ? '<span class="wk-q">' + icon('clock') + 'Queued: builds next</span>' : m.kind === 'dropped' || m.kind
     === 'stopped' ? '<span class="wk-q">' + icon('alert') + 'Stopped: not built</span>' : '') + '</div>';
   var undo = !m.error && m.version_after != null && m.version_after === current, sp = splitNeeds(m.content);
@@ -102,15 +105,20 @@ var LOST = '<div class="wk-msg wk-colon wk-err">' + icon('alert') + '<p>Colon di
 export function mount(el, o) {
   var data = o.data, id = o.id, timer = null, lastVersion = null, busy = false;
   el.innerHTML = '<div class="wk-chat"><div class="wk-msgs" aria-live="polite"><div class="skel px-skel-c"></div>'
-    + '</div><form class="wk-compose" novalidate><div class="wk-ctx" data-ctxs></div><div class="wk-row-in">'
+    + '</div><form class="wk-compose" novalidate><div class="wk-ctx" data-ctxs></div>'
+    + '<div class="wk-photos" data-photos hidden></div><div class="wk-row-in">'
     + '<button type="button" class="icon-btn wk-plus" aria-label="Add: clone, learn, instructions" '
-    + 'aria-haspopup="menu" data-plus>' + icon('plus') + '</button><textarea rows="1" maxlength="4000" data-in '
+    + 'aria-haspopup="menu" data-plus>' + icon('plus') + '</button><button type="button" class="icon-btn" '
+    + 'aria-label="Add a photo" data-tip="Add a photo" data-photo>' + icon('image') + '</button>'
+    + '<textarea rows="1" maxlength="4000" data-in '
     + 'aria-label="Message '
     + 'Colon" placeholder="Describe your site or a change…"></textarea><button type="submit" class="icon-btn '
     + 'wk-send" aria-label="Send">' + icon('send') + '</button></div><button type="button" class="cw-jump btn sm" '
     + 'data-jump hidden aria-label="Scroll to the latest message">' + icon('chevDown') + 'Latest</button></form></div>';
   var list = el.querySelector('.wk-msgs'), form = el.querySelector('form'), input = el.querySelector('[data-in]');
   var send = el.querySelector('.wk-send'), ctxs = el.querySelector('[data-ctxs]'), lastH = null, note = null;
+  // 0.38.0: photos to send with the next message (a screenshot or design to build from)
+  var pics = photoPicker(el.querySelector('[data-photos]'), el.querySelector('[data-photo]'), data);
   // v0.27.3: the + menu (clone / learn from a repository, instructions) and the chips for what is on
   var po = { id: id, data: data, onDone: function () { load(); if (o.onChanged) o.onChanged(); },
     onBusy: function (t) { note = t; if (lastH) render(lastH); } };
@@ -148,6 +156,7 @@ export function mount(el, o) {
         return '<button type="button" class="wk-idea" data-idea="' + esc(t) + '">' + icon('sparkles') + esc(t)
           + '</button>';
       }).join('') + '</div>';
+    loadAttachmentThumbs(list);
     list.querySelectorAll('[data-idea]').forEach(function (b) { b.addEventListener('click', function () {
       input.value = b.getAttribute('data-idea'); grow(); input.focus(); }); });
     list.querySelectorAll('[data-need]').forEach(function (b) { b.addEventListener('click', function () {
@@ -221,17 +230,18 @@ export function mount(el, o) {
   });
   form.addEventListener('submit', function (e) {
     e.preventDefault();
-    var text = input.value.trim();
-    if (!text || busy) return;
+    var text = input.value.trim(), ids = pics.ids();
+    if ((!text && !ids.length) || busy) return;
+    if (pics.uploading()) { C.toast('Wait for your photo to finish uploading.'); return; }
     setBusy(true);
     // v0.31.4: the request stays open while a build runs (hold), so after 2 s the composer frees and the poll
     // shows the build; the reply ending the request just reloads. A late network drop is not an error.
     var freed = false, early = setTimeout(function () {
-      freed = true; setBusy(false); input.value = ''; grow(); load();
+      freed = true; setBusy(false); input.value = ''; pics.clear(); grow(); load();
     }, 2000);
-    data.sendWorkspaceChat(id, text).then(function (r) {
+    data.sendWorkspaceChat(id, text, ids).then(function (r) {
       clearTimeout(early);
-      if (!freed) { setBusy(false); input.value = ''; grow(); }
+      if (!freed) { setBusy(false); input.value = ''; pics.clear(); grow(); }
       // v0.31.2: a tab command ("open browser", "show the code") answers at once; the page switches tab
       if (r && r.action && o.onAction) { load().then(function () { o.onAction(r.action); }); return; }
       load();

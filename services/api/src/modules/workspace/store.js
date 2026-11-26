@@ -74,14 +74,16 @@ function sqlStore(q) {
       WHERE workspace_id = ? AND n = ?`, [wsId, Number(n)]),
     // v0.26.0 (step 2): the Workspace chat.
     messages: (wsId, limit) => q.query(`SELECT * FROM (SELECT id, role, content, changes, version_before,
-      version_after, error, steps, kind, created_at FROM colon_workspace_messages WHERE workspace_id = ?
+      version_after, error, steps, kind, images, created_at FROM colon_workspace_messages WHERE workspace_id = ?
       ORDER BY id DESC
       LIMIT ${Math.max(1, Math.min(200, Number(limit) || 50))}) t ORDER BY id`, [wsId]),
     async addMessage(wsId, m) {
       const r = await q.query(`INSERT INTO colon_workspace_messages (workspace_id, role, content, changes,
-        version_before, version_after, error, steps, kind, created_at) VALUES (?,?,?,?,?,?,?,?,?, UTC_TIMESTAMP(3))`,
+        version_before, version_after, error, steps, kind, images, created_at)
+        VALUES (?,?,?,?,?,?,?,?,?,?, UTC_TIMESTAMP(3))`,
       [wsId, m.role, m.content, m.changes ? JSON.stringify(m.changes) : null, m.version_before ?? null,
-        m.version_after ?? null, m.error ? 1 : 0, m.steps ? JSON.stringify(m.steps) : null, m.kind || null]);
+        m.version_after ?? null, m.error ? 1 : 0, m.steps ? JSON.stringify(m.steps) : null, m.kind || null,
+        m.images && m.images.length ? JSON.stringify(m.images) : null]);
       return r.insertId;
     },
     reference: async (wsId) => { const r = await q.one('SELECT ref_text FROM colon_workspaces WHERE id = ?',
@@ -173,7 +175,7 @@ function memoryStore() {
       s.messages.push({ id, workspace_id: wsId, role: m.role, content: m.content, changes: m.changes
         ? JSON.stringify(m.changes) : null, version_before: m.version_before ?? null, version_after: m.version_after
         ?? null, error: m.error ? 1 : 0, steps: m.steps ? JSON.stringify(m.steps) : null, kind: m.kind || null,
-        created_at: now() });
+        images: m.images && m.images.length ? JSON.stringify(m.images) : null, created_at: now() });
       return id;
     },
     async reference(wsId) { const w = s.ws.find((x) => x.id === wsId); return w ? w.ref_text || null : null; },
