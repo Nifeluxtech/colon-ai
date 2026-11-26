@@ -2,6 +2,7 @@ package ng.nifelux.colonai
 
 import android.annotation.SuppressLint
 import android.graphics.Color
+import android.graphics.RectF
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
 import android.os.Handler
@@ -27,6 +28,8 @@ import java.util.TimeZone
  * for a small card with the reason, the last recorded multipliers and the kill switch, tap again to close. It
  * refreshes after every stored round ([refresh], from JetxCollector) and every 15 s while shown. The collector and
  * the screen reader keep recording underneath it.
+ * 0.39.1: it starts on the right edge (JetxRules.BUBBLE_X; a spot saved under 0.38.0 is dropped once, JetxPrefs),
+ * the left edge being the "what Colon sees" column (JetxSeenColumn), which gets the 20 newest rounds ([onLive]).
  */
 class JetxBubble(
     private val a: JetxActivity,
@@ -34,6 +37,7 @@ class JetxBubble(
     private val prefs: JetxPrefs,
     private val http: OkHttpClient,
     private val onKill: () -> Unit,
+    private val onLive: (JetxAutobetRules.Live) -> Unit = {},
 ) {
     private val main = Handler(Looper.getMainLooper())
     private val dp = a.resources.displayMetrics.density
@@ -108,8 +112,8 @@ class JetxBubble(
     fun refresh() {
         if (!shown) return
         val tz = JetxAutobetRules.tzOffset(TimeZone.getDefault().getOffset(System.currentTimeMillis()))
-        JetxApi.get(http, "/crash/live?limit=8&tz_offset=$tz") { code, body ->
-            if (code == 200) JetxAutobetRules.parseLive(body)?.let { live = it }
+        JetxApi.get(http, "/crash/live?limit=20&tz_offset=$tz") { code, body ->
+            if (code == 200) JetxAutobetRules.parseLive(body)?.let { live = it; onLive(it) }
             else if (code == -1) bubble.text = a.getString(R.string.jetx_bubble_signin)
             render()
         }
@@ -200,6 +204,15 @@ class JetxBubble(
                 else -> false
             }
         }
+    }
+
+    /** Where the bubble (and its open card) is in the pane, for the screen reader to skip; empty while hidden. */
+    fun areas(): List<RectF> {
+        if (!shown) return emptyList()
+        val size = SIZE_DP * dp
+        val out = mutableListOf(RectF(bubble.x, bubble.y, bubble.x + size, bubble.y + size))
+        if (expanded) out += RectF(card.x, card.y, card.x + card.width, card.y + card.height)
+        return out
     }
 
     fun close() = main.removeCallbacks(poll)

@@ -43,7 +43,7 @@ Automated clicking on an operator's site may breach its terms; the app warns the
 | 2 | Inbuilt browser: new Android flavor `colonjetx` on the Colon Browser WebView engine, split screen (game top, predictor bottom), manual / AI / shared control | **Done, released and deployed (v0.34.0, merged to `main` as 5a9d766 via PR #68; release v0.34.0 with `colon-jetx.apk`)** |
 | 3 | Round collector: injected script in the WebView (pattern: `apps/android/app/src/main/assets/saga/`) reads finished multipliers, posts them with time and round id, dedupes; CSV import | **Done (PR #69 merged as b7dba82, release v0.35.0, deployed). Collector heuristics not yet checked on a live JetX page** |
 | 4 | Analysis engine: hit rate vs baseline, streaks, distribution, confidence ranges, out-of-sample model tests, BET / WAIT / STOP with reason | **Done (v0.36.0, merged to `main` as 4d3062a via PR #71)** |
-| 5 | Auto-bet: sets auto cash-out + stake, presses Bet on BET, all guardrails, demo default, audit log; Android build via CI, web via cPanel | **Built (v0.38.0, branch `feat/crash-predictor-step5`, pushed as `crash-step5`, draft PR; not merged, released or deployed). Also: screen-reader collector, side layout, full-screen bubble** |
+| 5 | Auto-bet: sets auto cash-out + stake, presses Bet on BET, all guardrails, demo default, audit log; Android build via CI, web via cPanel | **Done (v0.38.0, merged to `main` as 7a1edb4 via PR #74). Also: screen-reader collector, side layout, full-screen bubble. Hotfix 0.39.1 (branch `fix/jetx-overlay`, draft PR): screen reader sends rounds, overlay, pointer** |
 
 ## 5. Repo conventions you must follow
 - `node scripts/check.js` must pass: files ≤ 300 lines, lines ≤ 120 chars; API layering (routes import only `modules/<name>/index.js`, shared, config, middleware; modules never import http/ws or another module's internals); apps import `packages/ui` only through its public entry files and never another app; every asset URL in `apps/*/public/index.html` carries the package.json version; `config/api.env.example` matches `services/api/src/config/defaults.js`.
@@ -183,6 +183,24 @@ Automated clicking on an operator's site may breach its terms; the app warns the
 - Tests: `crash-autobet.test.js`, `jetx-autobet-click.test.js`, `jetx-collector-find.test.js` (shadow + iframes).
 - Limits: see the step 5 log entry.
 
+### 0.39.1 files (screen-reader fix, full-screen overlay, Colon pointer)
+- `JetxSeqRules.kt` (pure, `JetxSeqRulesTest`): `fit` / `good` (overlap ≥ 3, the two values next to the new ones
+  agree, one miss forgiven from 5 overlapping), `stable` (two reads agree), `step` (k new values, newest-left tried
+  fully before newest-right), `catchUp` (strip minus stored), `merge` (the column's list). `JetxOcrRules` lost
+  `shift` / `confirmed`. `JetxScreenReader` uses them, takes `stored` (GET /crash/live?limit=20) and `exclude`
+  (Colon's overlay rects), keeps the strip across misses, resets a capture stuck 6 s, exposes `live`, `lastReadAt`,
+  `snapshot` and `offerHistory`; status adds `state`, `sent`, `error`, `dir` (+ `pointer` from the activity).
+- `JetxOverlay.kt` (Game layout only) holds `JetxSeenColumn.kt` (left column, `JetxOverlayRules`:
+  colours, status dot, band, label; `JetxPrefs.seenFolded`), `JetxBubble` (right edge default,
+  `JetxRules.BUBBLE_X` 0.98; `JetxPrefs` drops a pre-0.39.1 spot once via `bubble_scheme`) and
+  `JetxPointerTaps.kt` (Colon's `SagaPointer`; MotionEvent taps and KeyEvent typing into the game WebView only;
+  targets from `JetxPointerRules`: `chevron`, `grid`, `betButton`, `betStake`, `field`, `roundInProgress`,
+  `verify`, `keys`, `mayReadHistory` (2 min), `wantsHistory` (< 20 stored)). `JetxRules.launchLayout()` = GAME.
+- `JetxAutobet.screen`: the pointer's Bet, used only when no frame's DOM found the Bet button; gated by
+  `JetxAutobetRules.mayClick` (and the click still being current) before every tap; untapped failures void,
+  an unconfirmed tap is reported only.
+- Web: `apps/crash/src/core/native.js` diagnostics line (state, SR sent, last SR error, pointer).
+
 ### Deploy notes
 - Subdomain **crash.apparatus.name.ng**, docroot `/home/apparatu/crash.apparatus.name.ng`.
 - `https://crash.apparatus.name.ng` is in the default `ALLOWED_ORIGINS` (`config/defaults.js`, `api.env.example`),
@@ -243,3 +261,13 @@ The owner's two ChatGPT conversations ("JetX AI Crash Predictor — Complete Tec
   be voided; demo mode is unaffected); the screen reader is unverified on a phone (strip band, OCR accuracy on small
   chips, a repeated identical value can be missed, more than 5 new rounds at once resyncs without sending); the
   manual watcher sees only DOM Bet buttons; JetX may require an auto-collect of at least 1.35x.
+- 2026-11-27: Step 5 merged to `main` (7a1edb4, PR #74); 0.39.0 (PR #75, Workspace photos) merged after it.
+- 2026-11-27: Hotfix 0.39.1 on branch `fix/jetx-overlay` (pushed as `jetx-overlay`, draft PR; planned as 0.38.1,
+  renumbered because main was already 0.39.0). The phone's diag showed the screen reader reading 7 chips with 0 sent:
+  0.38.0's exact read comparisons never matched with OCR noise and the clipped end chip, and the first read sent
+  nothing. Fixed with tolerant alignment and a first-read catch-up; plus the full-screen overlay (left column of
+  what Colon sees, bubble on the right, opens in Game layout) and Colon's pointer (history dropdown, screen-tap Bet
+  fallback). Pure rules compiled and tested with kotlinc + JUnit in the sandbox; the Android classes were
+  type-checked with kotlinc against android.jar with stubs except `JetxActivity` (CI builds it). Unverified on a
+  phone: OCR targets (dropdown button position, Bet word, the auto cash-out label JetX uses), whether the game
+  accepts synthetic taps and typed keys, newest-left grid order, and timing of a screen-tap bet before the round.

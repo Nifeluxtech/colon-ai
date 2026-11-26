@@ -47,17 +47,22 @@ object JetxRules {
     const val SPLIT_DEFAULT = 0.55f
     /** Side by side (0.38.0): the game takes 62% of the width, the Colon panel the rest. */
     const val SIDE_DEFAULT = 0.62f
-    /** The bubble's default spot over the full-screen game (shares of the pane): the left edge, a little above the
-     *  middle, clear of the bet panel at the bottom and the history strip at the top. */
-    const val BUBBLE_X = 0.02f
-    const val BUBBLE_Y = 0.42f
+    /** The bubble's default spot over the full-screen game (shares of the pane). 0.39.1: the right edge (the left
+     *  edge is the "what Colon sees" column), a little above the middle, clear of the bet panel and the strip. */
+    const val BUBBLE_X = 0.98f
+    const val BUBBLE_Y = 0.40f
 
     /** The bubble's spot as shares of the pane: the saved one, kept inside the pane, or the default. */
     fun bubbleSpot(x: Float, y: Float): Pair<Float, Float> =
         if (x !in 0f..1f || y !in 0f..1f) BUBBLE_X to BUBBLE_Y else x to y
 
-    /** The full-screen bubble shows only when the game is alone on screen (the Colon panel hidden). */
+    /** The full-screen bubble shows only when the game is alone on screen (the Colon panel hidden). 0.39.1: so does
+     *  the "what Colon sees" column (JetxSeenColumn) and the pointer's Read action. */
     fun showsBubble(layout: Layout): Boolean = layout == Layout.GAME
+
+    /** 0.39.1 (owner: the overlay beats the dashboard): Colon JetX always opens on the full-screen game with the
+     *  column and the bubble; the layout chip still switches for the rest of the visit. */
+    fun launchLayout(): Layout = Layout.GAME
 
     /** The game is on screen (so the screen reader may read it) in every layout but the predictor alone. */
     fun gameVisible(layout: Layout): Boolean = layout != Layout.PREDICTOR

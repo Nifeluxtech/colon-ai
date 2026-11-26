@@ -1,5 +1,27 @@
 # Changelog
 
+## 0.39.1 (2026-11-27) · Colon JetX: screen reader sends rounds, full-screen overlay, Colon pointer
+
+- **Screen reader fix**: on the phone 0.38.0 read 7 chips and never sent a round (exact comparisons: one OCR misread
+  or the half-visible chip under the dropdown button broke every match, and the first read was only a baseline).
+  `JetxSeqRules` lines reads up by best overlap (one misread forgiven, clipped end chip ignored, newest-left or
+  newest-right learnt); the first stable read sends the visible strip as history minus what `GET /crash/live`
+  already has, then each confirmed shift sends the new value(s). The found strip survives short losses, a stuck
+  capture is let go after 6 s, and Colon's own overlays are not read as the game. Diagnostics add the reader's
+  state, "SR sent: N · last SR error" and the pointer's last result.
+- **Full-screen overlay** (Game layout only; Split and Side unchanged): a slim see-through column on the left lists
+  the multipliers Colon sees, newest first (live read, then stored rounds without doubles; under 2x blue-grey, under
+  10x purple, 10x and up gold) with a reading / no chips / off dot; tap folds it to a tab (remembered). The bubble
+  now defaults to the right edge; a spot saved by 0.38.0 is reset once. Colon JetX now always opens in this layout.
+- **Colon pointer** (the Colon browser's animated arrow, `SagaPointer`): taps the game where its controls are
+  pixels, found by on-device OCR, with MotionEvents to the app's own game WebView only. It opens JetX's history
+  dropdown, reads the grid and sends it like a catch-up, then closes it (column "Read", or on its own while fewer
+  than 20 rounds are stored; at most every 2 minutes; not while a round is visibly in flight). For real-money
+  auto-bets it is the fallback when the page's DOM has no Bet button: the same gate as the click script before
+  every tap, the auto cash-out (and a differing stake) typed only into a field found by OCR and read back, else
+  void; a Bet tap it can't confirm is reported, not voided. Demo mode still never clicks.
+- Tests: `JetxSeqRulesTest` (the phone's reads replayed), `JetxOverlayRulesTest`, `JetxPointerRulesTest`.
+
 ## 0.39.0 (2026-11-27) · Photos in Workspace chat, sites open in Colon Browser, YouTube fixed
 
 - **Workspace photos** (`modules/workspace/images.js`, migration `0030_workspace_images.sql`:

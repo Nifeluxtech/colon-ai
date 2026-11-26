@@ -67,7 +67,11 @@ function collectorDetail(c) {
   var sr = c.screen_reader;
   if (sr) {
     parts.push('Screen reader: ' + (sr.state === 'unavailable' ? 'unavailable' : sr.on ? 'on' : 'off')
+      + (sr.state && sr.state !== 'unavailable' ? ' (' + sr.state + ')' : '')
       + ' · last read: ' + (sr.last_chips || 0) + ' chips');
+    // v0.39.1: what the screen reader handed on, and why it last couldn't.
+    if (sr.sent != null) parts.push('SR sent: ' + (sr.sent || 0) + ' · last SR error: ' + (sr.error || 'none'));
+    if (sr.pointer) parts.push('Pointer: ' + String(sr.pointer).replace(/_/g, ' '));
   }
   parts.push('Sent today: ' + (c.rounds_sent || 0));
   var sample = Array.isArray(c.sample) ? c.sample.filter(function (x) { return typeof x === 'string'; }) : [];

@@ -65,4 +65,13 @@
         guarantee.</string>
     <string name="jetx_bubble_kill">STOP betting</string>
     <string name="jetx_bubble_stopped">Betting stopped</string>
+    <!-- 0.39.1: the full-screen "what Colon sees" column and Colon's pointer -->
+    <string name="jetx_seen_read">Read</string>
+    <string name="jetx_seen_read_desc">Let Colon open the game\'s history and read it</string>
+    <string name="jetx_seen_desc">What Colon sees, newest first (%1$s). Tap to fold.</string>
+    <string name="jetx_seen_open">What Colon sees (%1$s). Tap to open.</string>
+    <string name="jetx_history_wait">Colon read the history less than 2 minutes ago.</string>
+    <string name="jetx_history_read">Colon read %1$d rounds from the history.</string>
+    <string name="jetx_history_failed">Colon couldn\'t read the history (%1$s).</string>
+    <string name="jetx_auto_unconfirmed">Bet was tapped on screen but Colon couldn\'t confirm it; check the game.</string>
 </resources>
