@@ -16,5 +16,13 @@ object UserAgents {
         return ua.replace(Regex("\\s{2,}"), " ").trim()
     }
 
+    /**
+     * 0.38.0: the mobile site as Chrome on Android asks for it. The WebView's own markers ("; wv" and "Version/4.0")
+     * make YouTube and some Google pages answer "This browser is no longer supported", so they are dropped.
+     */
+    fun mobile(webViewUa: String): String =
+        webViewUa.replace(Regex("\\s*; wv(?=\\))"), "").replace(Regex("\\sVersion/\\d+(\\.\\d+)*"), "")
+            .replace(Regex("\\s{2,}"), " ").trim()
+
     fun isDesktop(ua: String): Boolean = !ua.contains("Android") && !ua.contains("Mobile")
 }

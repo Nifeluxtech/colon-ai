@@ -66,6 +66,10 @@ function draw(el, o, owner) {
     + '<p class="wk-pub-note">Sites are public. Only static files go live (HTML, CSS, JavaScript, images), with a '
     + 'small “Made with Colon” badge.</p></div>';
   var q = function (s) { return el.querySelector(s); };
+  // 0.38.0: the live link and Open go to the Colon Browser app on the phone (a new tab on the web)
+  el.querySelectorAll('.wk-pub a[target="_blank"]').forEach(function (a) { a.addEventListener('click', function (e) {
+    if (!C.native.can('openInBrowserApp')) return;
+    e.preventDefault(); C.native.openSite(a.href); }); });
   var site = q('[data-site]'), user = q('[data-user]'), go = q('[data-go]');
   function say(k, text, bad) { var m = q('[data-msg-' + k + ']'); m.textContent = text || '';
     m.className = bad ? 'wk-bad' : 'wk-ok'; }
@@ -103,7 +107,7 @@ function draw(el, o, owner) {
   function publish() {
     return o.data.publishWorkspace(o.id, clean(site)).then(function (r) {
       C.toast('Live at ' + r.url.replace(/^https:\/\//, ''), 'ok', { label: 'Open', fn: function () {
-        window.open(r.url, '_blank', 'noopener'); } });
+        C.native.openSite(r.url); } });
       o.onChanged();
     });
   }

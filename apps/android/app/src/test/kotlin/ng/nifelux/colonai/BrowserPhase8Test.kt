@@ -120,6 +120,13 @@ class UserAgentsTest {
         assertTrue(UserAgents.isDesktop(d))
         assertFalse(UserAgents.isDesktop(mobile))
     }
+
+    @Test fun mobileSiteLooksLikeChrome() {   // 0.38.0: YouTube refuses WebView user agents
+        val m = UserAgents.mobile(mobile)
+        assertEquals("Mozilla/5.0 (Linux; Android 14; SM-A145F) AppleWebKit/537.36 (KHTML, like Gecko) " +
+            "Chrome/131.0.6778.135 Mobile Safari/537.36", m)
+        assertFalse(UserAgents.isDesktop(m))
+    }
 }
 
 class PanelLayoutTest {

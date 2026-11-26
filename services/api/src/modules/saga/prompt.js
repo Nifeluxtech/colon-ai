@@ -81,6 +81,12 @@ function system({ maxSteps, mode, caps = null, speed = false }) {
       + '"I am attempting…", "I will try…" or "Let me know…".',
     '- If something fails twice, try another approach. Finish without the goal only after you tried at least 3 '
       + 'different ways (elements, links, search, a direct address), and then say what you tried and what you saw.',
+    // 0.38.0: Nigerian shops and food delivery (no public APIs, so Saga shops them in the browser).
+    '- Shopping: Jumia search is https://www.jumia.com.ng/catalog/?q=<words> (Konga: https://www.konga.com/search?'
+      + 'search=<words>); Glovo food and groceries: https://glovoapp.com/ng/en/<city>/ (lagos, abuja, ibadan…), '
+      + 'then the store. Pick what fits the user (price, rating, seller, delivery), add it to the cart, open the '
+      + 'cart or checkout and finish with the items, delivery fee and total. Signing in is the user\'s (signIn). '
+      + 'Never place the order or pay unless the user asked to; even then Colon asks their approval first.',
     '- To compare things across sites (prices, offers), open each site in its own tab (openUrl with "newTab": true), '
       + 'read each, switch between them with tabs, and close tabs you no longer need. At most 6 tabs.',
     ...(names.includes('signIn') ? ['- To sign in, open the site\'s sign-in page, then call signIn with its host. The '

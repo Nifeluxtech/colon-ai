@@ -126,6 +126,17 @@ class NativeBridge(private val host: MainActivity, private val webView: WebView)
                 if (!UrlRules.isWebUrl(url)) done(false, null, "bad_url")
                 else { UpdateChecker.openExternal(host, url); done(true, null, null) }
             }
+            // 0.38.0: a site link from Workspace opens in Colon Browser (its own app), else the phone's browser.
+            "openInBrowserApp" -> {
+                val url = a.optString("url")
+                if (!UrlRules.isWebUrl(url)) done(false, null, "bad_url")
+                else {
+                    val inApp = if (BuildConfig.IS_BROWSER_APP) { host.openBrowserTab(url); true }
+                        else Handoff.openUrl(host, url)
+                    if (!inApp) UpdateChecker.openExternal(host, url)
+                    done(true, JSONObject().put("colonBrowser", inApp), null)
+                }
+            }
             "haptic" -> {
                 webView.performHapticFeedback(when (a.optString("kind")) {
                     "long" -> HapticFeedbackConstants.LONG_PRESS
@@ -322,7 +333,7 @@ class NativeBridge(private val host: MainActivity, private val webView: WebView)
         const val LEGACY = "ColonNativeLegacy"
         private const val MAX_SAVE_B64 = 34 * 1024 * 1024 // about 25 MB of file
         private val END_KINDS = setOf("done", "error", "stopped")
-        val FEATURES = listOf("share", "download", "saveFile", "openTab", "openExternal", "haptic",
+        val FEATURES = listOf("share", "download", "saveFile", "openTab", "openExternal", "haptic", "openInBrowserApp",
             "requestPermission", "checkUpdate", "setTheme", "setSession", "takeShare", "fileInput", "mic", "browserPanel",
             "browserInline", "browserChats", "browserCard",
             // 0.11.0

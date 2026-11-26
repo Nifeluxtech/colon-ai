@@ -73,6 +73,15 @@ async function forModel(userId, attachmentLists, latestIndex) {
   return out;
 }
 
+// 0.38.0: the user's own uploaded images by id (a Workspace chat message's photos), in the order given.
+async function ownedImages(userId, ids) {
+  const list = [...new Set((Array.isArray(ids) ? ids : []).map(String))];
+  if (!list.length) return [];
+  const rows = await db.query(`SELECT * FROM chat_attachments WHERE user_id = ? AND kind = 'image' AND id IN (${list
+    .map(() => '?').join(',')})`, [userId, ...list]);
+  return list.map((id) => rows.find((r) => r.id === id)).filter(Boolean);
+}
+
 // 0.17.0 (D15): a file Colon made (a generated image), stored like an upload and attached to an assistant message.
 // -> the chat_attachments row
 async function addGenerated(userId, conv, { id, name, mime, kind = 'image', data, meta = {} }) {
@@ -91,4 +100,5 @@ const linkToMessage = (userId, id, messageId, conversationId) => (conversationId
     conversationId, id, userId]) : db.query('UPDATE chat_attachments SET message_id = ? WHERE id = ? AND user_id = ?',
   [messageId, id, userId]));
 
-module.exports = { save, remove, deleteWhere, fullPath, forModel, dataUrl, addGenerated, linkToMessage };
+module.exports = { save, remove, deleteWhere, fullPath, forModel, dataUrl, addGenerated, linkToMessage,
+  ownedImages };

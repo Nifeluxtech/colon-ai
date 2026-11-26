@@ -126,7 +126,7 @@ CW.pages.workspaceOne = function (page, ctx) {
     open_chat: 'chat' };
   function act(a) {
     var pub = st.workspace && st.workspace.published;
-    if (a === 'open_site' && pub && pub.url) { window.open(pub.url, '_blank', 'noopener'); return; }
+    if (a === 'open_site' && pub && pub.url) { C.native.openSite(pub.url); return; }   // 0.38.0: Colon Browser
     var tab = ACT[a] || (a === 'open_site' ? 'preview' : null);
     if (tab && tab !== st.tab) go(tab);
   }

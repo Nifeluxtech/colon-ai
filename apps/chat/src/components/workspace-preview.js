@@ -98,7 +98,7 @@ function mount(el, o) {
       C.toast('Forms don’t send anything in the preview.');
     } else if (d.type === 'nav') {
       var href = String(d.href || '');
-      if (/^https?:\/\//i.test(href)) { window.open(href, '_blank', 'noopener'); return; }
+      if (/^https?:\/\//i.test(href)) { C.native.openSite(href); return; }
       var p = resolvePath(d.from, href), target = p === null ? null : pagePath(index(), p);
       if (p === '') C.toast('That link starts with “/”, so it won’t work once published. Use a relative link.',
         'bad');

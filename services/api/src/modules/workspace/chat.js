@@ -15,6 +15,7 @@ const sideTalk = require('./side');
 const triage = require('./triage');
 const fast = require('./fast');
 const exporter = require('./exporter');
+const photos = require('./images');   // 0.38.0: photos sent with a message
 const { tracker, skillStep } = require('./steps');
 
 const MAX_MESSAGE = 4000;
@@ -24,7 +25,7 @@ const QUEUE_STALE_MS = 15 * 60 * 1000;   // the same for a build that waited in 
 const SIDE_STALE_MS = 2 * 60 * 1000;     // ... and for a quick answer to a mid-build message
 // v0.27.3: a build gets 240 s; one with no progress for RUN_STALE_MS was lost (the process running it ended).
 // v0.31.4: a running build beats every BEAT_MS, so one silent for RUN_STALE_MS really was lost.
-const BUILD_MS = 240000, RUN_STALE_MS = 2 * 60 * 1000, BEAT_MS = 30000, HOLD_MS = 270000;
+const BUILD_MS = 240000, BEAT_MS = 30000, HOLD_MS = 270000;   // RUN_STALE_MS: chat-util.js
 const STOP = new RegExp('^\\s*(please\\s+)?(stop|cancel|abort|halt)'
   + '(\\s+(it|that|this|now|please|the build|building|everything))*[\\s.!]*$', 'i');
 const err = (status, code, message) => Object.assign(new Error(message), { status, code });
@@ -36,32 +37,10 @@ const FRIENDLY = {
   timeout: 'Colon took too long on this one, so nothing was changed. Try a smaller change, or send it again.',
 };
 
-const msgOut = (m) => ({ id: Number(m.id), role: m.role, content: m.content, error: Boolean(Number(m.error)),
-  changes: m.changes ? (typeof m.changes === 'string' ? JSON.parse(m.changes) : m.changes) : [],
-  version_before: m.version_before == null ? null : Number(m.version_before),
-  version_after: m.version_after == null ? null : Number(m.version_after),
-  steps: m.steps ? (typeof m.steps === 'string' ? JSON.parse(m.steps) : m.steps) : [], kind: m.kind || null,
-  created_at: m.created_at });
-const young = (m, ms) => Date.now() - new Date(m.created_at).getTime() < ms;
-// a running build is alive while its newest step (or the message itself) is under RUN_STALE_MS old
-const alive = (m) => {
-  const at = Math.max(new Date(m.created_at).getTime(), ...(m.steps || []).map((x) => Number(x.at) || 0));
-  return Date.now() - at < RUN_STALE_MS;
-};
-
-const kb = (n) => (n < 1024 ? `${n} B` : `${Math.round(n / 1024)} KB`);
-const VERB = { created: 'Created', edited: 'Edited', deleted: 'Deleted' };
-
-// What an earlier assistant message looked like to the model: its note plus the files it touched.
-const asHistory = (m) => {
-  const ex = m.role === 'assistant' ? exporter.stripMark(m.content) : { text: m.content };
-  const text = ex.marked ? `${ex.text}\n(Gave the user a ZIP download of the files.)` : ex.text;
-  return { role: m.role, content: m.role === 'assistant' && m.changes.length
-    ? `${text}\n(Changed: ${m.changes.map((c) => `${c.op} ${c.path}`).join(', ')})` : text };
-};
+const { msgOut, young, alive, kb, VERB, asHistory } = require('./chat-util');
 
 function createChat({ engine, deps }) {
-  const store = engine.store;
+  const store = engine.store, pics = photos.create(deps);
   const running = new Map();   // workspace id -> { started }
   // v0.31.2: tab commands, quick answers, link reading and "stop" live in fast.js (size limit)
   const { readLinks, command, quick, stop } = fast.create({ engine, deps, store, running,
@@ -117,7 +96,7 @@ function createChat({ engine, deps }) {
     if (now.some((x) => x.role === 'user' && x.kind === 'running' && alive(x))) return null;
     const q = now.find((x) => x.role === 'user' && x.kind === 'queued' && young(x, QUEUE_STALE_MS));
     if (!q || !(await store.claimKind(q.id, 'queued', 'running'))) return null;
-    return drain(u, w, { id: q.id, content: q.content, steps: q.steps }, ctx);
+    return drain(u, w, { id: q.id, content: q.content, steps: q.steps, images: q.images }, ctx);
   }
 
   async function reply(u, w, m, ctx, t) {
@@ -132,7 +111,7 @@ function createChat({ engine, deps }) {
     const earlier = (await store.messages(w.id, HISTORY * 3)).map(msgOut).filter((x) => !x.error && x.id !== m.id
       && x.kind !== 'side' && x.kind !== 'quick' && x.kind !== 'queued' && x.kind !== 'running').slice(-HISTORY);
     const messages = earlier.map(asHistory);
-    messages.push({ role: 'user', content: text });
+    messages.push({ role: 'user', content: await pics.content(u, m.images, text) });
     const links = await fast.linkStep(t, text, ctx.signal, readLinks, deps);   // v0.31.2
     const ref = w.ref_url ? await store.reference(w.id).catch(() => null) : null;
     const data = deps.dataInfo ? await deps.dataInfo(u, w.id).catch(() => null) : null;   // v0.29.0
@@ -202,11 +181,14 @@ function createChat({ engine, deps }) {
   async function start(u, id, body = {}, ctx = {}) {
     const w = await engine.owned(u, id);
     const tag = (out) => Object.assign(out, { wsId: w.id });
-    const text = String(body.message == null ? '' : body.message).trim();
+    const images = await pics.claim(u, body.images);   // 0.38.0: a message's photos skip the quick paths
+    const text = String(body.message == null ? '' : body.message).trim() || (images.length ? 'Build this.' : '');
     if (!text) throw err(422, 'invalid', 'Tell Colon what to build or change.');
     if (text.length > MAX_MESSAGE) throw err(422, 'invalid', `Keep a message under ${MAX_MESSAGE} characters.`);
     const recent = (await store.messages(w.id, 30)).map(msgOut);
-    if (running.has(w.id) || pending(recent)) return tag(await side(u, w, text, recent, ctx));
+    const busy = running.has(w.id) || pending(recent);
+    if (images.length) return tag(await withPhotos(u, w, text, images, busy, ctx));
+    if (busy) return tag(await side(u, w, text, recent, ctx));
     // v0.31.2: commands and questions answer in seconds; only changes build (triage.js). deps.quick switches it on.
     if (deps.quick) {
       const t = STOP.test(text) ? { kind: 'answer', stop: true } : triage.classify(text);
@@ -220,6 +202,14 @@ function createChat({ engine, deps }) {
     return tag({ message: { id: Number(mid), role: 'user', content: text, kind: 'running' }, working: true });
   }
 
+  // 0.38.0: a message with photos always builds (or waits its turn in the queue), so the model sees them
+  async function withPhotos(u, w, text, images, busy, ctx) {
+    const kind = busy ? 'queued' : 'running', mid = Number(await store.addMessage(w.id, { role: 'user',
+      content: text, kind, images }));
+    const job = busy ? null : drain(u, w, { id: mid, content: text, images }, ctx);
+    if (job && ctx.wait) await job;
+    return { message: { id: mid, role: 'user', content: text, kind, images }, working: true };
+  }
   const stopped = async (m) => (await store.kindOf(m.id).catch(() => 'running')) === 'stopped';
   async function build(u, w0, m, ctx0) {
     const t = tracker((steps) => store.setSteps(m.id, steps), (m.steps || []).filter((x) => x.retry));
@@ -291,7 +281,6 @@ function createChat({ engine, deps }) {
     if (ctx.wait) await job;
     return { message: { id: mid, role: 'user', content: text, kind: 'side' }, working: true };
   }
-
 
   return { send, history, _running: running };
 }
