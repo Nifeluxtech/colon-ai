@@ -19,6 +19,7 @@ import { modelMenu, updateHeader } from '../components/model-picker.js';
 import { applySidebar, closeDrawer, moreMenu, openDrawer, profileMenu, refreshConvs, toggleSidebar,
   toggleTheme } from '../components/sidebar.js';
 import { openAttachment } from '../components/uploads.js';
+import { stickerSheet } from '../components/sticker-sheet.js';
 import { CW } from '../core/cw.js';
 import { $, PROMPTS, S, data, isMobile } from '../core/state.js';
 import { SPEECH_LANGS } from '../core/voice-client.js';
@@ -124,7 +125,7 @@ function bind() {
       'rename-current': function () { if (S.current) renameConv(S.current); },
       // 0.24.0: the paperclip opens Camera / Photos / Files; Developer mode's Attach project goes straight to Files.
       attach: function () { attachMenu(a); }, 'attach-files': function () { pickFiles('files'); },
-      mic: function () { voiceMenu(a); },
+      mic: function () { voiceMenu(a); }, stickers: function () { stickerSheet(); },   // 0.37.0
       // 0.18.1: the send button in voice mode (empty composer) starts or ends hands-free.
       send: function () { if (!a.classList.contains('voice') || S.streaming) return;
         if (S.hf.active()) S.hf.reopen(); else S.hf.start(); syncComposer(); },

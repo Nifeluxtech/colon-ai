@@ -7,6 +7,7 @@ import { bindWakeWordSettings, wakeWordSettingsHtml } from '../components/wake-w
 import { CW } from '../core/cw.js';
 import { Colon } from '../../../../packages/ui/js/colon.js';
 import { ColonBrowser } from '../../../../packages/ui/js/browser/index.js';
+import { bindFun, funRowHtml } from '../components/sticker-sheet.js';
 
 var C = Colon, icon = C.icon, esc = C.esc;
 CW.pages = CW.pages || {};
@@ -119,6 +120,7 @@ CW.pages.settings = function (page, ctx) {
           s.enterToSend) +
         toggle('streaming', 'Stream replies', 'Show answers word by word as they’re written.', s.streaming) +
         toggle('showMeta', 'Show mode on replies', 'Label each reply with the mode that wrote it.', s.showMeta) +
+        funRowHtml() +   // 0.37.0: Fun and stickers (components/sticker-sheet.js)
         toggle('linksInPanel', 'Open links in the browser panel',
           'Links and sources open beside your chat instead of a new tab.', s.linksInPanel) +
         select('browserLayout', 'Browser panel layout', 'On phones the panel always opens inside the chat first.',
@@ -159,7 +161,7 @@ CW.pages.settings = function (page, ctx) {
         + (data.kind === 'local' ? 'preview data mode' : 'synced') + ' · by Nifelux</p></div></div>';
     bind(s);
     bindAppRow(page);
-    bindSagaSettings(page); bindWakeWordSettings(page);   // 0.23.0: Hey Colon (Android app only)
+    bindSagaSettings(page); bindWakeWordSettings(page); bindFun(page);   // 0.23.0: Hey Colon (Android app only)
     stats();
     if (ctx && ctx.query && ctx.query.get('s')) jump(ctx.query.get('s'));
   }

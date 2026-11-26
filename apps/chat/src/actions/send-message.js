@@ -20,6 +20,8 @@ import { $, S, data, defaultModel, isMobile, mode, modelId, rafThrottle } from '
 import { imageEditPlan } from '../lib/chat-tools.js';
 import { looksLikePassword, saveLoginIntent } from '../lib/secret-text.js';
 
+import { Stickers } from '../lib/stickers.js';
+
 var C = Colon, esc = C.esc;
 
 /* ================= Streaming send ================= */
@@ -69,7 +71,8 @@ function sendChat(text, atts) {
     // 0.11.5: the chat model sees this chat's browser (page, summary, numbered items) and decides to browse.
     run(function (o) { return pageState().then(function (b) { return data.send(Object.assign({ conversationId: c.id,
       content: text, attachments: atts, mode: c.mode, model: c.model || defaultModel(), browser: b,
-      voice: !!(S.hf && S.hf.active()) }, o)); }); },   // 0.22.1: a short spoken answer, fastest route
+      voice: !!(S.hf && S.hf.active()),
+      fun: Stickers.funOn() }, o)); }); },   // 0.22.1: a short spoken answer, fastest route
       temp);
   }).catch(function (e) { ta.value = text; autoGrow(); syncComposer(); C.toast(e.message, 'bad'); });
 }
