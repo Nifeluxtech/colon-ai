@@ -16,6 +16,8 @@ import java.util.TimeZone
  * text) at most every 10 s per frame; [parseDiag] checks it and the frame's host comes from the origin, not the page.
  * 0.35.2 adds counts (mult_texts, canvases, shadow_hosts, closed_hint) and `sample`: up to 3 strings of at most 12
  * characters from [0-9.,xX× ] only, so no other page text can come through.
+ * 0.38.0 adds iframes, shadow_iframes (iframes inside shadow roots) and frame_origins: up to 3 iframe source origins
+ * ("https://host[:port]", no path or query), checked by [ORIGIN]. Messages may be up to 1 KB for them.
  */
 object JetxRoundRules {
     data class Round(val multiplier: Double, val seenAt: Long, val roundId: String?)
@@ -28,12 +30,14 @@ object JetxRoundRules {
     data class Diag(
         val host: String, val stripFound: Boolean, val items: Int, val multTexts: Int = 0, val canvases: Int = 0,
         val shadowHosts: Int = 0, val closedHint: Int = 0, val sample: List<String> = emptyList(),
+        val iframes: Int = 0, val shadowIframes: Int = 0, val frameOrigins: List<String> = emptyList(),
     )
 
     /** All frames' diagnostics in one line for the predictor: counts summed, samples from the frame with most. */
     data class DiagSummary(
         val framesSeen: Int, val stripFound: Boolean, val items: Int, val multTexts: Int = 0, val canvases: Int = 0,
         val shadowHosts: Int = 0, val closedHint: Int = 0, val sample: List<String> = emptyList(),
+        val iframes: Int = 0, val shadowIframes: Int = 0, val frameOrigins: List<String> = emptyList(),
     )
 
     /** What the collector is doing, as the predictor's 'collector' event says it. */
@@ -42,7 +46,7 @@ object JetxRoundRules {
         UNSUPPORTED("unsupported");
     }
 
-    const val MAX_MESSAGE = 512
+    const val MAX_MESSAGE = 1024
     const val MAX_PER_MINUTE = 20
     const val BATCH = 50
     const val MAX_QUEUE = 500
@@ -52,7 +56,8 @@ object JetxRoundRules {
     private const val FUTURE_MS = 60_000L
     private val KEYS = setOf("multiplier", "seen_at", "round_id")
     private val DIAG_KEYS = setOf("frame_host", "strip_found", "items", "mult_texts", "canvases", "shadow_hosts",
-        "closed_hint", "sample")
+        "closed_hint", "sample", "iframes", "shadow_iframes", "frame_origins")
+    private val ORIGIN = Regex("^https?://[a-z0-9.-]{1,253}(:[0-9]{1,5})?$")
     const val MAX_COUNT = 99_999
     const val MAX_SAMPLES = 3
     private val SAMPLE = Regex("^[0-9.,xX\u00d7 ]{1,12}$")
@@ -89,11 +94,13 @@ object JetxRoundRules {
         val found = d.opt("strip_found") as? Boolean ?: return null
         val items = count(d.opt("items"), MAX_ITEMS) ?: return null
         if (!found && items != 0) return null
-        val extra = listOf("mult_texts", "canvases", "shadow_hosts", "closed_hint").map {
+        val extra = listOf("mult_texts", "canvases", "shadow_hosts", "closed_hint", "iframes", "shadow_iframes").map {
             if (!d.has(it)) 0 else count(d.opt(it), MAX_COUNT) ?: return null
         }
         val sample = if (!d.has("sample")) emptyList() else samples(d.opt("sample")) ?: return null
-        return Diag(host.lowercase(), found, items, extra[0], extra[1], extra[2], extra[3], sample)
+        val origins = if (!d.has("frame_origins")) emptyList() else origins(d.opt("frame_origins")) ?: return null
+        return Diag(host.lowercase(), found, items, extra[0], extra[1], extra[2], extra[3], sample, extra[4], extra[5],
+            origins)
     }
 
     /** A whole number 0..[max], or null. */
@@ -110,6 +117,13 @@ object JetxRoundRules {
         return (0 until a.length()).map { (a.opt(it) as? String)?.takeIf { s -> SAMPLE.matches(s) } ?: return null }
     }
 
+    /** Up to 3 iframe origins, each exactly "https://host[:port]" (lowercase); null when anything else. */
+    private fun origins(v: Any?): List<String>? {
+        val a = v as? JSONArray ?: return null
+        if (a.length() > MAX_SAMPLES) return null
+        return (0 until a.length()).map { (a.opt(it) as? String)?.takeIf { s -> ORIGIN.matches(s) } ?: return null }
+    }
+
     /** The frames heard from in the last minute ([seen]: frame -> (diag, when)) as one [DiagSummary]. */
     fun summarize(seen: Collection<Pair<Diag, Long>>, nowMs: Long): DiagSummary {
         val fresh = seen.filter { it.second > nowMs - DIAG_FRESH_MS }.map { it.first }
@@ -119,6 +133,8 @@ object JetxRoundRules {
             fresh.sumOf { it.multTexts }, fresh.sumOf { it.canvases }, fresh.sumOf { it.shadowHosts },
             fresh.sumOf { it.closedHint }, fresh.filter { it.sample.isNotEmpty() }.maxByOrNull { it.multTexts }
                 ?.sample.orEmpty(),
+            fresh.sumOf { it.iframes }, fresh.sumOf { it.shadowIframes },
+            fresh.flatMap { it.frameOrigins }.distinct().take(MAX_SAMPLES),
         )
     }
 
@@ -205,4 +221,7 @@ object JetxRoundRules {
         .put("shadow_hosts", diag.shadowHosts)
         .put("closed_hint", diag.closedHint)
         .put("sample", JSONArray(diag.sample))
+        .put("iframes", diag.iframes)
+        .put("shadow_iframes", diag.shadowIframes)
+        .put("frame_origins", JSONArray(diag.frameOrigins))
 }

@@ -73,6 +73,32 @@ object JetxApi {
         })
     }
 
+    /** 0.38.0: GET [path] from the Colon API (the bubble's GET /crash/live); [done] as for [post]. */
+    fun get(http: OkHttpClient, path: String, done: (Int, String?) -> Unit) {
+        val main = Handler(Looper.getMainLooper())
+        val url = "${BuildConfig.API_URL}$path"
+        val cookie = if (UrlRules.isColonApi(url)) sessionCookie() else null
+        if (cookie == null) { main.post { done(-1, null) }; return }
+        val req = Request.Builder().url(url)
+            .header("Accept", "application/json")
+            .header("Cookie", cookie)
+            .header("User-Agent", "ColonAndroid/${BuildConfig.VERSION_NAME} (${BuildConfig.APP_KEY})")
+            .header("X-Colon-Client", "android")
+            .build()
+        http.newCall(req).enqueue(object : Callback {
+            override fun onFailure(call: Call, e: IOException) { main.post { done(0, null) } }
+
+            override fun onResponse(call: Call, response: Response) {
+                val (code, body) = try {
+                    response.use { r -> r.code to r.body?.string()?.take(32_000) }
+                } catch (_: IOException) {
+                    0 to null
+                }
+                main.post { done(code, body) }
+            }
+        })
+    }
+
     private fun sessionCookie(): String? = try {
         CookieManager.getInstance().getCookie(BuildConfig.API_URL)
             ?.split(';')?.map { it.trim() }?.firstOrNull { it.startsWith("colon_sid=") }

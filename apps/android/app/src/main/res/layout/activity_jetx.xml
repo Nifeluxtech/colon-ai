@@ -1,7 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- Colon JetX (0.34.0, Crash Predictor step 2): the betting site on top (address bar, back, reload, status), the
      mode banner, the game pane, the divider bar (control mode, drag handle, layout) and the predictor pane. The two
-     WebViews are added in code (JetxActivity); layouts only change visibility and weights, so nothing reloads. -->
+     WebViews are added in code (JetxActivity); layouts only change visibility and weights, so nothing reloads.
+     0.38.0: the panes sit in jetx_panes, which turns horizontal for the side-by-side layout (game left, Colon panel
+     right; the divider bar then moves below both). The STOP chip is the auto-bet's kill switch. -->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:id="@+id/jetx_root"
@@ -104,6 +106,13 @@
         android:textSize="12sp"
         android:visibility="gone" />
 
+    <LinearLayout
+        android:id="@+id/jetx_panes"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:orientation="vertical">
+
     <FrameLayout
         android:id="@+id/jetx_game"
         android:layout_width="match_parent"
@@ -140,6 +149,12 @@
         <TextView android:id="@+id/jetx_mode_shared" style="@style/Colon.JetxChip"
             android:text="@string/jetx_mode_shared" />
 
+        <TextView android:id="@+id/jetx_stop" style="@style/Colon.JetxChip"
+            android:contentDescription="@string/jetx_stop_desc"
+            android:text="@string/jetx_stop"
+            android:textColor="@color/jetx_bad"
+            android:visibility="gone" />
+
         <FrameLayout
             android:id="@+id/jetx_handle"
             android:layout_width="0dp"
@@ -165,4 +180,5 @@
         android:layout_width="match_parent"
         android:layout_height="0dp"
         android:layout_weight="0.45" />
+    </LinearLayout>
 </LinearLayout>

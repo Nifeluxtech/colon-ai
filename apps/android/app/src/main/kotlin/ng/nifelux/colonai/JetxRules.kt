@@ -26,9 +26,10 @@ object JetxRules {
         }
     }
 
-    /** Which panes show: both (split), the game alone or the predictor alone. Switching never reloads a pane. */
+    /** Which panes show: both (split, one above the other), both side by side (0.38.0: game left, the Colon panel
+     *  right), the game alone (full screen, with the bubble) or the predictor alone. Switching never reloads a pane. */
     enum class Layout(val wire: String) {
-        SPLIT("split"), GAME("game"), PREDICTOR("predictor");
+        SPLIT("split"), SIDE("side"), GAME("game"), PREDICTOR("predictor");
 
         companion object {
             fun from(s: String?): Layout? = entries.firstOrNull { it.wire == s?.trim()?.lowercase() }
@@ -44,15 +45,32 @@ object JetxRules {
     const val SPLIT_MIN = 0.2f
     const val SPLIT_MAX = 0.8f
     const val SPLIT_DEFAULT = 0.55f
+    /** Side by side (0.38.0): the game takes 62% of the width, the Colon panel the rest. */
+    const val SIDE_DEFAULT = 0.62f
+    /** The bubble's default spot over the full-screen game (shares of the pane): the left edge, a little above the
+     *  middle, clear of the bet panel at the bottom and the history strip at the top. */
+    const val BUBBLE_X = 0.02f
+    const val BUBBLE_Y = 0.42f
+
+    /** The bubble's spot as shares of the pane: the saved one, kept inside the pane, or the default. */
+    fun bubbleSpot(x: Float, y: Float): Pair<Float, Float> =
+        if (x !in 0f..1f || y !in 0f..1f) BUBBLE_X to BUBBLE_Y else x to y
+
+    /** The full-screen bubble shows only when the game is alone on screen (the Colon panel hidden). */
+    fun showsBubble(layout: Layout): Boolean = layout == Layout.GAME
+
+    /** The game is on screen (so the screen reader may read it) in every layout but the predictor alone. */
+    fun gameVisible(layout: Layout): Boolean = layout != Layout.PREDICTOR
 
     fun clampSplit(f: Float): Float = if (f.isNaN()) SPLIT_DEFAULT else f.coerceIn(SPLIT_MIN, SPLIT_MAX)
 
     /** The divider at [y] px down a [total] px tall area of both panes -> the game pane's share. */
     fun splitAt(y: Float, total: Float): Float = if (total <= 0f) SPLIT_DEFAULT else clampSplit(y / total)
 
-    /** The layout button: split -> game full -> predictor full -> split. */
+    /** The layout button: split -> side by side -> game full -> predictor full -> split. */
     fun nextLayout(l: Layout): Layout = when (l) {
-        Layout.SPLIT -> Layout.GAME
+        Layout.SPLIT -> Layout.SIDE
+        Layout.SIDE -> Layout.GAME
         Layout.GAME -> Layout.PREDICTOR
         Layout.PREDICTOR -> Layout.SPLIT
     }
@@ -113,8 +131,10 @@ object JetxRules {
     }
 
     /** Commands the predictor may send over window.ColonJetX (JetxBridge). Anything else is refused.
-     *  setCollector {on} (0.35.0) turns the round collector on or off. */
-    val COMMANDS: Set<String> = setOf("ready", "status", "openSite", "setLayout", "setCollector")
+     *  setCollector {on} (0.35.0) turns the round collector on or off. 0.38.0: setRealMoney {on} (on shows the
+     *  app's own warning first), stopAutobet (the kill switch) and resumeAutobet. Nothing here clicks the game. */
+    val COMMANDS: Set<String> = setOf("ready", "status", "openSite", "setLayout", "setCollector", "setRealMoney",
+        "stopAutobet", "resumeAutobet")
 
     /** The status the predictor reads: app, version, mode, layout and the site's host and state. */
     fun status(version: String, mode: Mode, layout: Layout, site: Site, siteUrl: String?): JSONObject =
@@ -124,7 +144,7 @@ object JetxRules {
             .put("mode", mode.wire)
             .put("layout", layout.wire)
             .put("session", session(site, siteUrl))
-            .put("autoClick", false) // step 5; nothing is clicked for the user before then
+            .put("autoClick", false) // 0.38.0: JetxActivity sets it from the auto-bet's state (bridgeStatus)
 
     fun session(site: Site, siteUrl: String?): JSONObject =
         JSONObject().put("status", site.wire).put("host", hostOf(siteUrl) ?: JSONObject.NULL)

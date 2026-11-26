@@ -25,3 +25,6 @@ had not seen. The dashboard's verdict card shows the engine's BET / WAIT / STOP 
 Sign-in, profile, 2FA and devices are the shared Colon account screens (`#/login`, `#/account`). The verdict is
 WAIT until a rule beats break-even on rounds it has not seen (step 4); it is never shown as a prediction.
 Demo mode is on by default; switching to real money shows the operator-terms and ~3% loss warning first.
+
+Step 5 (v0.38.0): the Auto-bet page (`src/pages/autobet.js`, `GET /crash/autobet`, `POST /crash/autobet/stop`) and
+the Live page for the Android app's side panel (`src/pages/live.js`, `GET /crash/live`).

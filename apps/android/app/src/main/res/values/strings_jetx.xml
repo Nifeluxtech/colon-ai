@@ -15,14 +15,54 @@
     <string name="jetx_mode_manual">Manual</string>
     <string name="jetx_mode_ai">AI</string>
     <string name="jetx_mode_shared">Shared</string>
-    <string name="jetx_banner_ai">AI mode is on. Automatic play comes in a later update, with demo mode, stake
-        caps and a kill switch; for now nothing is clicked for you.</string>
-    <string name="jetx_banner_shared">Shared mode is on. Colon will suggest and you confirm, in a later update;
-        for now nothing is clicked for you.</string>
+    <string name="jetx_banner_ai">AI mode: Colon bets only when the analysis says BET and your guardrails are
+        clear. Demo bets are never clicked. Not a guarantee: tap STOP any time.</string>
+    <string name="jetx_banner_shared">Shared mode: when the analysis says BET, Colon asks you to confirm each bet
+        with one tap. Not a guarantee: tap STOP any time.</string>
     <string name="jetx_layout_split">Split</string>
+    <string name="jetx_layout_side">Side</string>
     <string name="jetx_layout_game">Game</string>
     <string name="jetx_layout_predictor">Predictor</string>
     <string name="jetx_layout_button">Layout: %1$s. Tap to change.</string>
     <string name="jetx_predictor_offline">The predictor can\'t be reached. Check your connection.</string>
     <string name="jetx_divider">Drag to resize the panes</string>
+    <!-- 0.38.0 (Crash Predictor step 5): auto-bet, the kill switch, the real-money warning and the bubble. -->
+    <string name="jetx_stop">STOP</string>
+    <string name="jetx_stopped">Stopped</string>
+    <string name="jetx_stop_desc">Kill switch: stop all auto-betting now</string>
+    <string name="jetx_resume_desc">Auto-betting is stopped. Tap to allow it again on this phone.</string>
+    <string name="jetx_auto_no_answer">Couldn\'t reach Colon for a decision; no bet.</string>
+    <string name="jetx_auto_refused">No bet: %1$s</string>
+    <string name="jetx_auto_demo">Demo bet</string>
+    <string name="jetx_auto_real">REAL-MONEY bet</string>
+    <string name="jetx_auto_confirm_title">Place this bet?</string>
+    <string name="jetx_auto_confirm">%1$s of %3$s at %2$s auto cash-out.\n\n%4$s\n\nAn estimate, not a guarantee:
+        the round can crash below the target.</string>
+    <string name="jetx_auto_bet">Bet</string>
+    <string name="jetx_auto_skip">Skip</string>
+    <string name="jetx_auto_skipped">Skipped this round.</string>
+    <string name="jetx_auto_demo_bet">Demo bet recorded: %1$s at %2$s (nothing clicked).</string>
+    <string name="jetx_auto_real_bet">Real bet placed: %1$s at %2$s.</string>
+    <string name="jetx_auto_not_clicked">Not clicked: real-money auto-bet is off on this phone.</string>
+    <string name="jetx_auto_failed">Nothing was clicked (%1$s); the bet was cancelled.</string>
+    <string name="jetx_auto_no_reply">Bet sent to the game, but it didn\'t answer. Check the game.</string>
+    <string name="jetx_auto_manual">Your bet of %1$s was logged.</string>
+    <string name="jetx_auto_stopped">Stopped. No bets until you allow them again.</string>
+    <string name="jetx_auto_resumed">Allowed again on this phone. The account\'s kill switch is in Settings.</string>
+    <string name="jetx_real_title">Real-money auto-bet?</string>
+    <string name="jetx_real_warning" formatted="false">Colon\'s suggestions are not guaranteed predictions. At about 97% RTP each bet
+        loses about 3% of its stake on average, and no pattern changes that. Letting an app click for you may breach
+        your betting site\'s terms. Colon will only click when your account is out of demo mode, the analysis says
+        BET and every guardrail is clear. Only stake what you can afford to lose.</string>
+    <string name="jetx_real_accept">I understand, allow real money</string>
+    <string name="jetx_bubble_loading">…</string>
+    <string name="jetx_bubble_signin">Sign in\nbelow</string>
+    <string name="jetx_bubble_desc">Colon estimate: %1$s. Tap for details.</string>
+    <string name="jetx_bubble_recent">Recent: %1$s</string>
+    <string name="jetx_bubble_note">Estimate from the published odds (0.97 / target): no rule has a proven edge.
+        Not a guarantee.</string>
+    <string name="jetx_bubble_note_rule">Estimate: the chosen rule\'s hit rate on rounds it had not seen. Not a
+        guarantee.</string>
+    <string name="jetx_bubble_kill">STOP betting</string>
+    <string name="jetx_bubble_stopped">Betting stopped</string>
 </resources>

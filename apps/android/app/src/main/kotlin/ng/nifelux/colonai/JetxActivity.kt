@@ -27,6 +27,10 @@ import org.json.JSONObject
  * Step 3 (0.35.0): the round collector (JetxCollector) reads only JetX's finished multipliers from the game pane
  * and sends them to the Colon API; the site's passwords, cookies and tokens are never read or kept: the user signs
  * in there themselves. Docs: docs/crash-predictor/HANDOFF.md.
+ * Step 5 (0.38.0): auto-bet in AI and Shared modes (JetxAutobet: demo by default, real-money clicks only behind the
+ * API's decision, the app's own warning-gated switch and the STOP chip), the user's own bets logged read-only, the
+ * screen reader (JetxScreenReader: on-device OCR of the game's history strip when the DOM collector can't see it),
+ * the side-by-side layout and, in the full-screen game, the floating estimate bubble (JetxBubble).
  */
 class JetxActivity : AppCompatActivity(), JetxBridge.Host, JetxCollector.Host {
     lateinit var bridge: JetxBridge
@@ -38,7 +42,11 @@ class JetxActivity : AppCompatActivity(), JetxBridge.Host, JetxCollector.Host {
     private lateinit var prefs: JetxPrefs
     private lateinit var ui: JetxChrome
     private lateinit var collector: JetxCollector
+    private lateinit var autobet: JetxAutobet
+    private lateinit var reader: JetxScreenReader
+    private lateinit var bubble: JetxBubble
     private var collectorView: WebView? = null
+    private var autobetView: WebView? = null
     private var game: TabWebView? = null
     private var predictor: WebView? = null
     private var site: String? = null
@@ -60,7 +68,13 @@ class JetxActivity : AppCompatActivity(), JetxBridge.Host, JetxCollector.Host {
         fileChooser = FileChooser(this)
         fullscreen = Fullscreen(this)
         ui = JetxChrome(this)
-        collector = JetxCollector(this, ColonApplication.of(this).http, prefs)
+        val http = ColonApplication.of(this).http
+        collector = JetxCollector(this, http, prefs)
+        autobet = JetxAutobet(this, http, prefs) { st -> if (::bridge.isInitialized) bridge.emit("autobet", st) }
+        reader = JetxScreenReader(this, { game }, ::readerActive, { collector.offerRounds(it) },
+            { onCollector(collector.status()) })
+        collector.screenStatus = { reader.status() }
+        bubble = JetxBubble(this, ui.gamePane, prefs, http) { autobet.stop(); ui.showStop(prefs.mode, true) }
 
         game = JetxWeb.game(this)?.also { ui.gamePane.addView(it, 0, match()) }
         installCollector()
@@ -69,7 +83,9 @@ class JetxActivity : AppCompatActivity(), JetxBridge.Host, JetxCollector.Host {
         bridge.install(readAsset(JetxBridge.SHIM_ASSET))
         wireControls()
         ui.showMode(prefs.mode)
-        ui.showLayout(prefs.layout, prefs.split)
+        ui.showStop(prefs.mode, prefs.stopped)
+        ui.showLayout(prefs.layout, prefs.split, prefs.sideSplit)
+        bubble.show(JetxRules.showsBubble(prefs.layout))
 
         predictor?.loadUrl(JetxRules.PREDICTOR_URL)
         site = prefs.site
@@ -93,9 +109,20 @@ class JetxActivity : AppCompatActivity(), JetxBridge.Host, JetxCollector.Host {
         assets.open(path).bufferedReader().use { it.readText() }
     } catch (_: Exception) { null } // only Colon JetX ships these (src/colonjetx/assets)
 
-    /** The round collector goes into the game pane's WebView while it is on (it takes effect from the next page). */
+    /** The screen reader reads only while the game is on screen, loaded, collecting and the DOM can't see the strip. */
+    private fun readerActive(): Boolean = prefs.collector && JetxRules.gameVisible(prefs.layout) &&
+        siteState == JetxRules.Site.LOADED && !collector.domStripFound()
+
+    /** The round collector goes into the game pane's WebView while it is on (it takes effect from the next page).
+     *  0.38.0: so do the auto-bet's click script and the manual-bet watcher (both inert until used). */
     private fun installCollector() {
         val g = game ?: return
+        if (autobetView !== g) {
+            autobetView = g
+            val find = readAsset(JetxAutobet.FIND_ASSET)
+            autobet.install(g, JetxAutobet.script(find, readAsset(JetxAutobet.CLICK_ASSET)),
+                JetxAutobet.script(find, readAsset(JetxAutobet.WATCH_ASSET)))
+        }
         if (!prefs.collector || collectorView === g) return
         collectorView = g
         collector.install(g, JetxRoundRules.script(readAsset(JetxCollector.FIND_ASSET),
@@ -115,6 +142,7 @@ class JetxActivity : AppCompatActivity(), JetxBridge.Host, JetxCollector.Host {
         }
         ui.status.setOnClickListener { toast(ui.statusLabel) }
         ui.modeChips.forEach { (mode, v) -> v.setOnClickListener { setMode(mode) } }
+        ui.stopChip.setOnClickListener { bridgeStopAutobet(!prefs.stopped) }
         ui.layoutChip.setOnClickListener { setLayout(JetxRules.nextLayout(prefs.layout)) }
         ui.wireDivider({ prefs.layout == JetxRules.Layout.SPLIT }) { prefs.split = it }
     }
@@ -204,12 +232,14 @@ class JetxActivity : AppCompatActivity(), JetxBridge.Host, JetxCollector.Host {
         if (mode == prefs.mode) return
         prefs.mode = mode
         ui.showMode(mode)
+        ui.showStop(mode, prefs.stopped)
         bridge.emit("mode", JSONObject().put("mode", mode.wire))
     }
 
     private fun setLayout(layout: JetxRules.Layout) {
         prefs.layout = layout
-        ui.showLayout(layout, prefs.split)
+        ui.showLayout(layout, prefs.split, prefs.sideSplit)
+        bubble.show(JetxRules.showsBubble(layout))
         bridge.emit("layout", JSONObject().put("layout", layout.wire))
     }
 
@@ -218,6 +248,8 @@ class JetxActivity : AppCompatActivity(), JetxBridge.Host, JetxCollector.Host {
     override fun bridgeStatus(): JSONObject =
         JetxRules.status(BuildConfig.VERSION_NAME, prefs.mode, prefs.layout, siteState, site)
             .put("collector", collector.status())
+            .put("autobet", autobet.status())
+            .put("autoClick", prefs.realMoney && !prefs.stopped && prefs.mode != JetxRules.Mode.MANUAL)
 
     override fun bridgeOpenSite(url: String?): String? {
         val target = url ?: site ?: return null
@@ -235,10 +267,27 @@ class JetxActivity : AppCompatActivity(), JetxBridge.Host, JetxCollector.Host {
         return collector.status()
     }
 
+    override fun bridgeSetRealMoney(on: Boolean, done: (Boolean) -> Unit) = autobet.setRealMoney(on) { now ->
+        done(now)
+        bridge.emit("autobet", autobet.status())
+    }
+
+    override fun bridgeStopAutobet(stop: Boolean): JSONObject {
+        if (stop) autobet.stop() else autobet.resume()
+        ui.showStop(prefs.mode, prefs.stopped)
+        return autobet.status()
+    }
+
     /* ---------- JetxCollector.Host ---------- */
 
     override fun onCollector(status: JSONObject) {
         if (::bridge.isInitialized) bridge.emit("collector", status) // the collector is set up before the bridge
+    }
+
+    /** A round reached the API: the auto-bet asks for the next round's decision and the bubble refreshes. */
+    override fun onRoundsSaved(inserted: Int) {
+        autobet.onRoundsSaved()
+        bubble.refresh()
     }
 
     /* ---------- lifecycle ---------- */
@@ -248,9 +297,11 @@ class JetxActivity : AppCompatActivity(), JetxBridge.Host, JetxCollector.Host {
         game?.onResume()
         predictor?.onResume()
         if (reloadOnReturn) { reloadOnReturn = false; game?.reload() }
+        reader.start()
     }
 
     override fun onPause() {
+        reader.stop()
         game?.onPause()
         predictor?.onPause()
         try { CookieManager.getInstance().flush() } catch (_: Exception) { } // the site's own sign-in survives
@@ -259,6 +310,9 @@ class JetxActivity : AppCompatActivity(), JetxBridge.Host, JetxCollector.Host {
 
     override fun onDestroy() {
         collector.close()
+        autobet.close()
+        bubble.close()
+        JetxOcr.close()
         game?.let { ShellWeb.destroy(it) }
         predictor?.let { ShellWeb.destroy(it) }
         game = null

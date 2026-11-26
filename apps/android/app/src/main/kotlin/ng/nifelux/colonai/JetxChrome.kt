@@ -14,6 +14,9 @@ import androidx.core.content.ContextCompat
 /**
  * Colon JetX's native chrome (activity_jetx.xml, 0.34.0): the address bar, the betting site's status dot, the
  * mode banner, the mode and layout chips and the draggable divider. Display only; JetxActivity owns the state.
+ * 0.38.0: the side-by-side layout (jetx_panes turns horizontal, game left and the Colon panel right, the divider
+ * bar moves below both) and the STOP chip (the auto-bet's kill switch, shown in AI and Shared modes or while
+ * stopped).
  */
 class JetxChrome(private val a: JetxActivity) {
     val address: EditText = a.findViewById(R.id.jetx_address)
@@ -24,6 +27,11 @@ class JetxChrome(private val a: JetxActivity) {
         JetxRules.Mode.AI to a.findViewById(R.id.jetx_mode_ai),
         JetxRules.Mode.SHARED to a.findViewById(R.id.jetx_mode_shared))
     val layoutChip: TextView = a.findViewById(R.id.jetx_layout)
+    val stopChip: TextView = a.findViewById(R.id.jetx_stop)
+    private val root: LinearLayout = a.findViewById(R.id.jetx_root)
+    private val panes: LinearLayout = a.findViewById(R.id.jetx_panes)
+    private val divider: View = a.findViewById(R.id.jetx_divider)
+    private var side = false
     val status: View = a.findViewById(R.id.jetx_status)
     private val progress: ProgressBar = a.findViewById(R.id.jetx_progress)
     private val banner: TextView = a.findViewById(R.id.jetx_banner)
@@ -68,13 +76,27 @@ class JetxChrome(private val a: JetxActivity) {
         banner.visibility = if (banner.text.isEmpty()) View.GONE else View.VISIBLE
     }
 
+    /** The kill switch chip: visible in AI and Shared modes, and whenever auto-betting is stopped. */
+    fun showStop(mode: JetxRules.Mode, stopped: Boolean) {
+        stopChip.visibility = if (stopped || mode != JetxRules.Mode.MANUAL) View.VISIBLE else View.GONE
+        stopChip.text = a.getString(if (stopped) R.string.jetx_stopped else R.string.jetx_stop)
+        stopChip.contentDescription = a.getString(if (stopped) R.string.jetx_resume_desc else R.string.jetx_stop_desc)
+        stopChip.setTextColor(ContextCompat.getColor(a, if (stopped) R.color.jetx_muted else R.color.jetx_bad))
+    }
+
     /** Hides a pane in the full layouts (its WebView stays alive, so nothing reloads) and sets the split. */
-    fun showLayout(layout: JetxRules.Layout, savedSplit: Float) {
+    fun showLayout(layout: JetxRules.Layout, savedSplit: Float, sideSplit: Float = JetxRules.SIDE_DEFAULT) {
+        arrange(layout == JetxRules.Layout.SIDE)
         gamePane.visibility = if (layout == JetxRules.Layout.PREDICTOR) View.GONE else View.VISIBLE
         predictorPane.visibility = if (layout == JetxRules.Layout.GAME) View.GONE else View.VISIBLE
-        applySplit(if (layout == JetxRules.Layout.SPLIT) savedSplit else 0.5f)
+        applySplit(when (layout) {
+            JetxRules.Layout.SPLIT -> savedSplit
+            JetxRules.Layout.SIDE -> sideSplit
+            else -> 0.5f
+        })
         val name = a.getString(when (layout) {
             JetxRules.Layout.SPLIT -> R.string.jetx_layout_split
+            JetxRules.Layout.SIDE -> R.string.jetx_layout_side
             JetxRules.Layout.GAME -> R.string.jetx_layout_game
             JetxRules.Layout.PREDICTOR -> R.string.jetx_layout_predictor
         })
@@ -99,6 +121,22 @@ class JetxChrome(private val a: JetxActivity) {
                 }
                 else -> false
             }
+        }
+    }
+
+    /** Side by side: panes horizontal and the divider bar under them; otherwise the divider sits between the panes.
+     *  Only the divider bar moves; the panes (and their WebViews) stay where they are. */
+    private fun arrange(sideBySide: Boolean) {
+        if (sideBySide == side) return
+        side = sideBySide
+        (divider.parent as? android.view.ViewGroup)?.removeView(divider)
+        panes.orientation = if (side) LinearLayout.HORIZONTAL else LinearLayout.VERTICAL
+        if (side) root.addView(divider) else panes.addView(divider, panes.indexOfChild(gamePane) + 1)
+        for (p in listOf(gamePane, predictorPane)) {
+            val lp = p.layoutParams as LinearLayout.LayoutParams
+            lp.width = if (side) 0 else LinearLayout.LayoutParams.MATCH_PARENT
+            lp.height = if (side) LinearLayout.LayoutParams.MATCH_PARENT else 0
+            p.layoutParams = lp
         }
     }
 

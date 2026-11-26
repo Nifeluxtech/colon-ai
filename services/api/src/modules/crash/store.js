@@ -1,10 +1,11 @@
-// Crash Predictor persistence (migration 0028). Every statement is scoped to the owner (WHERE user_id = ?), so one
-// user never reads or changes another user's settings, rounds, bets or audit. sqlStore() talks to MySQL;
+// Crash Predictor persistence (migrations 0028 and 0029). Every statement is scoped to the owner (WHERE user_id = ?),
+// so one user never reads or changes another user's settings, rounds, bets or audit. sqlStore() talks to MySQL;
 // memoryStore() is the same interface in memory, for tests. Times are UTC Date objects.
 const db = require('../../db');
 
 const ROUND_COLS = 'id, game, round_id, multiplier, observed_at, source';
-const BET_COLS = 'id, session_id, round_id, game, stake, target, outcome, payout, demo, placed_at, settled_at';
+const BET_COLS = 'id, session_id, round_id, game, source, stake, target, cashout, outcome, payout, multiplier, demo, '
+  + 'client_ref, placed_at, settled_at';
 const SETTLED = "outcome IN ('won','lost')";
 
 function sqlStore(q = db) {
@@ -33,9 +34,11 @@ function sqlStore(q = db) {
         WHERE user_id = ? AND game = ? AND observed_at >= ?`, [target, userId, game, since]);
       return { n: Number(r && r.n) || 0, hits: Number(r && r.hits) || 0, collected: Number(r && r.collected) || 0 };
     },
-    // since: bets placed from then; sessionId: only that session's bets (either may be null).
-    async betStats(userId, game, { since = null, sessionId = null } = {}) {
-      const where = (since ? ' AND placed_at >= ?' : '') + (sessionId ? ' AND session_id = ?' : '');
+    // since: bets placed from then; sessionId: only that session's bets; demo (v0.38.0): true / false for demo or
+    // real-money bets only (any may be null).
+    async betStats(userId, game, { since = null, sessionId = null, demo = null } = {}) {
+      const where = (since ? ' AND placed_at >= ?' : '') + (sessionId ? ' AND session_id = ?' : '')
+        + (demo == null ? '' : ` AND demo = ${demo ? 1 : 0}`);
       const r = await q.one(`SELECT COUNT(*) AS n, COALESCE(SUM(outcome = 'won'), 0) AS wins,
         COALESCE(SUM(outcome = 'lost'), 0) AS losses, COALESCE(SUM(stake), 0) AS staked,
         COALESCE(SUM(CASE WHEN ${SETTLED} THEN payout - stake ELSE 0 END), 0) AS profit
@@ -84,6 +87,28 @@ function sqlStore(q = db) {
         [userId, game]);
       return { n: Number(r && r.n) || 0, max_id: r && r.max_id != null ? String(r.max_id) : null };
     },
+    // Step 5 (v0.38.0): auto-bet and manual bets. A bet is settled once (WHERE outcome = 'pending').
+    async insertBet(userId, game, b) {
+      const res = await q.query(`INSERT INTO crash_bets (user_id, session_id, round_id, game, source, stake, target,
+        cashout, outcome, payout, multiplier, demo, client_ref, placed_at, settled_at)
+        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?, ${b.outcome === 'pending' ? 'NULL' : 'UTC_TIMESTAMP(3)'})`,
+      [userId, b.session_id || null, b.round_id || null, game, b.source, b.stake, b.target, b.cashout ?? null,
+        b.outcome, b.payout, b.multiplier ?? null, b.demo ? 1 : 0, b.client_ref || null, b.placed_at]);
+      return q.one(`SELECT ${BET_COLS} FROM crash_bets WHERE id = ? AND user_id = ?`, [res.insertId, userId]);
+    },
+    getBet: (userId, game, id) => q.one(`SELECT ${BET_COLS} FROM crash_bets WHERE id = ? AND user_id = ?
+      AND game = ?`, [id, userId, game]),
+    betByRef: (userId, game, ref) => q.one(`SELECT ${BET_COLS} FROM crash_bets WHERE user_id = ? AND game = ?
+      AND client_ref = ?`, [userId, game, ref]),
+    pendingBets: (userId, game, limit) => q.query(`SELECT ${BET_COLS} FROM crash_bets WHERE user_id = ? AND game = ?
+      AND outcome = 'pending' ORDER BY placed_at, id LIMIT ?`, [userId, game, limit]),
+    async settleBet(userId, game, id, v) {
+      const res = await q.query(`UPDATE crash_bets SET outcome = ?, payout = ?, multiplier = ?, cashout = ?,
+        round_id = COALESCE(?, round_id), settled_at = UTC_TIMESTAMP(3) WHERE id = ? AND user_id = ? AND game = ?
+        AND outcome = 'pending'`, [v.outcome, v.payout, v.multiplier ?? null, v.cashout ?? null, v.round_id || null,
+        id, userId, game]);
+      return Number(res && res.affectedRows) || 0;
+    },
   };
 }
 
@@ -106,9 +131,9 @@ function memoryStore(seed = {}) {
       return { n: rows.length, hits: rows.filter((r) => Number(r.multiplier) >= target).length,
         collected: rows.filter((r) => r.source === 'collector').length };
     },
-    async betStats(userId, game, { since = null, sessionId = null } = {}) {
+    async betStats(userId, game, { since = null, sessionId = null, demo = null } = {}) {
       const rows = mine(s.bets, userId, game).filter((b) => (!since || new Date(b.placed_at) >= since)
-        && (!sessionId || b.session_id === sessionId));
+        && (!sessionId || b.session_id === sessionId) && (demo == null || Boolean(Number(b.demo)) === demo));
       const settled = rows.filter((b) => b.outcome === 'won' || b.outcome === 'lost');
       const sum = (xs, f) => xs.reduce((t, b) => t + f(b), 0);
       return { n: rows.length, wins: rows.filter((b) => b.outcome === 'won').length,
@@ -157,6 +182,31 @@ function memoryStore(seed = {}) {
       const rows = mine(s.rounds, userId, game);
       const max = rows.reduce((m, r) => Math.max(m, Number(r.id) || 0), 0);
       return { n: rows.length, max_id: rows.length ? String(max) : null };
+    },
+    async insertBet(userId, game, b) {
+      const id = ++s.seq;
+      s.bets.push({ id, user_id: userId, game, session_id: b.session_id || null, round_id: b.round_id || null,
+        source: b.source, stake: b.stake, target: b.target, cashout: b.cashout ?? null, outcome: b.outcome,
+        payout: b.payout, multiplier: b.multiplier ?? null, demo: b.demo ? 1 : 0, client_ref: b.client_ref || null,
+        placed_at: b.placed_at, settled_at: b.outcome === 'pending' ? null : new Date() });
+      return s.bets[s.bets.length - 1];
+    },
+    async getBet(userId, game, id) {
+      return mine(s.bets, userId, game).find((b) => String(b.id) === String(id)) || null;
+    },
+    async betByRef(userId, game, ref) {
+      return mine(s.bets, userId, game).find((b) => b.client_ref && b.client_ref === ref) || null;
+    },
+    async pendingBets(userId, game, limit) {
+      return mine(s.bets, userId, game).filter((b) => b.outcome === 'pending')
+        .sort((a, b) => new Date(a.placed_at) - new Date(b.placed_at) || a.id - b.id).slice(0, limit);
+    },
+    async settleBet(userId, game, id, v) {
+      const row = mine(s.bets, userId, game).find((b) => String(b.id) === String(id) && b.outcome === 'pending');
+      if (!row) return 0;
+      Object.assign(row, { outcome: v.outcome, payout: v.payout, multiplier: v.multiplier ?? null,
+        cashout: v.cashout ?? null, round_id: v.round_id || row.round_id || null, settled_at: new Date() });
+      return 1;
     },
   };
 }

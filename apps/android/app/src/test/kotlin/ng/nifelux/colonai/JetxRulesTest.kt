@@ -18,14 +18,27 @@ class JetxRulesTest {
         assertEquals(JetxRules.Layout.SPLIT, JetxRules.Layout.from("split"))
         assertEquals(JetxRules.Layout.GAME, JetxRules.Layout.from("game"))
         assertEquals(JetxRules.Layout.PREDICTOR, JetxRules.Layout.from("Predictor"))
-        assertNull(JetxRules.Layout.from("side"))
+        assertEquals(JetxRules.Layout.SIDE, JetxRules.Layout.from("side"))
+        assertNull(JetxRules.Layout.from("float"))
     }
 
-    @Test fun theLayoutButtonCyclesThroughAllThree() {
+    @Test fun theLayoutButtonCyclesThroughAllFour() {
         var l = JetxRules.Layout.SPLIT
         val seen = mutableListOf<JetxRules.Layout>()
-        repeat(3) { l = JetxRules.nextLayout(l); seen += l }
-        assertEquals(listOf(JetxRules.Layout.GAME, JetxRules.Layout.PREDICTOR, JetxRules.Layout.SPLIT), seen)
+        repeat(4) { l = JetxRules.nextLayout(l); seen += l }
+        assertEquals(listOf(JetxRules.Layout.SIDE, JetxRules.Layout.GAME, JetxRules.Layout.PREDICTOR,
+            JetxRules.Layout.SPLIT), seen)
+    }
+
+    @Test fun theBubbleShowsOnlyInFullScreenGameAndStaysInside() {
+        assertTrue(JetxRules.showsBubble(JetxRules.Layout.GAME))
+        assertFalse(JetxRules.showsBubble(JetxRules.Layout.SIDE))
+        assertFalse(JetxRules.showsBubble(JetxRules.Layout.SPLIT))
+        assertTrue(JetxRules.gameVisible(JetxRules.Layout.GAME))
+        assertFalse(JetxRules.gameVisible(JetxRules.Layout.PREDICTOR))
+        assertEquals(JetxRules.BUBBLE_X to JetxRules.BUBBLE_Y, JetxRules.bubbleSpot(-1f, -1f))
+        assertEquals(JetxRules.BUBBLE_X to JetxRules.BUBBLE_Y, JetxRules.bubbleSpot(0.5f, 1.5f))
+        assertEquals(0.7f to 0.2f, JetxRules.bubbleSpot(0.7f, 0.2f))
     }
 
     @Test fun theDividerStopsShortOfTheEdges() {
