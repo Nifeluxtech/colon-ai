@@ -180,4 +180,22 @@ class JetxRoundRulesTest {
         assertNull(JetxRoundRules.script(null, "main();"))
         assertNull(JetxRoundRules.script("f", null))
     }
+
+    @Test fun diagnosticsCarryShadowIframesAndOriginsOnly() {
+        val raw = """{"diag":{"strip_found":false,"items":0,"iframes":3,"shadow_iframes":2,""" +
+            """"frame_origins":["https://jetx.provider.example","https://other.example:8443"]}}"""
+        val d = JetxRoundRules.parseDiag(raw, site)
+        assertEquals(3, d!!.iframes)
+        assertEquals(2, d.shadowIframes)
+        assertEquals(listOf("https://jetx.provider.example", "https://other.example:8443"), d.frameOrigins)
+        val path = """{"diag":{"strip_found":false,"items":0,"frame_origins":["https://a.example/game?t=1"]}}"""
+        assertNull("origins only", JetxRoundRules.parseDiag(path, site))
+        val many = """{"diag":{"strip_found":false,"items":0,"frame_origins":["https://a.ex","https://b.ex",""" +
+            """"https://c.ex","https://d.ex"]}}"""
+        assertNull(JetxRoundRules.parseDiag(many, site))
+        val st = JetxRoundRules.status(true, JetxRoundRules.State.WAITING, 0, null,
+            JetxRoundRules.summarize(listOf(d to now), now))
+        assertEquals(2, st.getInt("shadow_iframes"))
+        assertEquals(2, st.getJSONArray("frame_origins").length())
+    }
 }

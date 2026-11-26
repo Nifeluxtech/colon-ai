@@ -103,6 +103,11 @@ android {
         getByName("colonai") { java.srcDir(if (hasKws) "src/wake-sherpa/kotlin" else "src/wake-none/kotlin") }
         getByName("colonbrowser") { java.srcDir("src/wake-none/kotlin") }
         getByName("colonjetx") { java.srcDir("src/wake-none/kotlin") }
+        // 0.37.0: Colon JetX's screen reader uses ML Kit text recognition (src/ocr-mlkit); the other apps get a stub
+        // (src/ocr-none) and no ML Kit dependency.
+        getByName("colonai") { java.srcDir("src/ocr-none/kotlin") }
+        getByName("colonbrowser") { java.srcDir("src/ocr-none/kotlin") }
+        getByName("colonjetx") { java.srcDir("src/ocr-mlkit/kotlin") }
     }
 
     signingConfigs {
@@ -172,6 +177,8 @@ dependencies {
     implementation(libs.okhttp)
     implementation(libs.media3.exoplayer) // Colon Music (OS Assistant Step 3)
     implementation(libs.media3.session)
+    // Colon JetX only (0.37.0): on-device OCR for the screen reader, model served by Play services (small APK).
+    "colonjetxImplementation"(libs.mlkit.text.recognition)
 
     testImplementation(libs.junit)
     testImplementation(libs.json) // org.json is a stub in local unit tests; this is the real implementation
