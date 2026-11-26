@@ -19,6 +19,7 @@ import { modelMenu, updateHeader } from '../components/model-picker.js';
 import { applySidebar, closeDrawer, moreMenu, openDrawer, profileMenu, refreshConvs, toggleSidebar,
   toggleTheme } from '../components/sidebar.js';
 import { openAttachment } from '../components/uploads.js';
+import '../components/email-card.js';   // 0.40.0: Send on email cards (Approve, then Gmail)
 import { stickerSheet } from '../components/sticker-sheet.js';
 import { CW } from '../core/cw.js';
 import { $, PROMPTS, S, data, isMobile } from '../core/state.js';

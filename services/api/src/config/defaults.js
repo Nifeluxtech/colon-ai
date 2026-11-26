@@ -30,6 +30,8 @@ const SCHEMA = [
   num('SESSION_DAYS', 30, 'sign-in session length in days'),
   str('OWNER_EMAIL', '', 'this account becomes Super Admin when it registers'),
   str('GOOGLE_CLIENT_ID', '', 'Google sign-in OAuth client id (optional)'),
+  secret('GOOGLE_CLIENT_SECRET', 'Google OAuth client secret: turns on sending email with the user\'s Gmail (0.40.0)'),
+  str('GMAIL_REDIRECT_URI', '', 'Gmail OAuth callback; default <APP_URL_API>/gmail/callback'),
   url('APP_URL_CHAT', 'https://chat.apparatus.name.ng', 'Colon AI web app URL (links in emails)'),
   // Email
   secret('BREVO_API_KEY', 'Brevo key for verification and reset emails (optional)'),

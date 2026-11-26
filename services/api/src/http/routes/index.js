@@ -20,4 +20,5 @@ module.exports = new Router()
   .use(require('./voice'))
   .use(require('./music'))
   .use(require('./crash'))
+  .use(require('./gmail'))   // 0.40.0: send-only Gmail
   .use(require('./browser'));
