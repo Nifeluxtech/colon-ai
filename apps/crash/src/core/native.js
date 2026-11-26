@@ -4,7 +4,9 @@
    in the top pane and hears the site's status: its host and whether it loaded, nothing more. The app never reads
    the site's passwords, cookies or tokens. Since v0.35.0 its round collector reads JetX's finished multipliers in
    the game pane and sends them to the API itself; this page hears only its status ('collector' event) and can turn
-   it on or off. In a normal browser there is no bridge, inApp() is false and the page works as before. */
+   it on or off. In a normal browser there is no bridge, inApp() is false and the page works as before.
+   v0.37.0: the auto-bet's controls (the app's own real-money switch, shown behind the app's warning; the kill
+   switch), the 'autobet' event, the side-by-side layout and the screen reader's line in the diagnostics. */
 
 function bridge() { var b = window.ColonJetX; return b && typeof b.call === 'function' ? b : null; }
 function inApp() { return !!bridge(); }
@@ -22,9 +24,15 @@ function appStatus() { return call('status'); }
 function openSite(url) { return call('openSite', url ? { url: url } : {}); }
 // Turns the app's round collector on or off -> its status.
 function setCollector(on) { return call('setCollector', { on: !!on }); }
+// v0.37.0: the app's real-money switch (on: the app shows its warning first) -> { real_money }.
+function setRealMoney(on) { return call('setRealMoney', { on: !!on }); }
+// The kill switch on this phone (stop) or lifted (resume) -> the auto-bet status.
+function stopAutobet() { return call('stopAutobet'); }
+function resumeAutobet() { return call('resumeAutobet'); }
 
 var SITE = { none: 'No site open', loading: 'Loading…', loaded: 'Open', error: "Can't reach it", offline: 'Offline' };
-var MODE = { manual: 'Manual', ai: 'AI (nothing is clicked for you yet)', shared: 'Shared (nothing is clicked yet)' };
+var MODE = { manual: 'Manual', ai: 'AI (bets only on BET, within your guardrails)',
+  shared: 'Shared (you confirm each bet)' };
 
 // Plain-text parts of the app line: { tone: ''|'warn'|'bad', site, mode }.
 function describe(st) {
@@ -51,6 +59,16 @@ function collectorDetail(c) {
   if (c.canvases != null) parts.push('Canvases: ' + (c.canvases || 0));
   if (c.shadow_hosts) parts.push('Shadow roots: ' + c.shadow_hosts);
   if (c.closed_hint) parts.push('Closed components: ' + c.closed_hint);
+  if (c.iframes != null) parts.push('Frames: ' + (c.iframes || 0) + (c.shadow_iframes ? ' (' + c.shadow_iframes
+    + ' in shadow roots)' : ''));
+  var origins = Array.isArray(c.frame_origins) ? c.frame_origins.filter(function (x) {
+    return typeof x === 'string' && /^https?:\/\/[a-z0-9.:-]+$/i.test(x); }) : [];
+  if (origins.length) parts.push('Frame origins: ' + origins.slice(0, 3).join(', '));
+  var sr = c.screen_reader;
+  if (sr) {
+    parts.push('Screen reader: ' + (sr.state === 'unavailable' ? 'unavailable' : sr.on ? 'on' : 'off')
+      + ' · last read: ' + (sr.last_chips || 0) + ' chips');
+  }
   parts.push('Sent today: ' + (c.rounds_sent || 0));
   var sample = Array.isArray(c.sample) ? c.sample.filter(function (x) { return typeof x === 'string'; }) : [];
   if (sample.length) parts.push('Sample: ' + sample.slice(0, 3).join(', '));
@@ -65,4 +83,5 @@ function describeCollector(c) {
     tone: st === 'live' ? '' : st === 'waiting' ? 'warn' : 'bad' };
 }
 
-export { appStatus, collectorDetail, describe, describeCollector, inApp, on, openSite, setCollector };
+export { appStatus, collectorDetail, describe, describeCollector, inApp, on, openSite, resumeAutobet, setCollector,
+  setRealMoney, stopAutobet };

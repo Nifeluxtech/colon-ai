@@ -1,5 +1,49 @@
 # Changelog
 
+## 0.37.0 (2026-11-26) · Colon JetX: Crash Predictor step 5 (auto-bet, guardrails), screen reader, side panel, bubble
+
+- **Auto-bet API** (`services/api/src/modules/crash/autobet.js`, `autobet-rules.js`; migration `0029_crash_autobet.sql`
+  adds `crash_bets.source` auto | manual, `cashout`, `multiplier`, `client_ref` (unique per user), a NULL-able
+  `target` and a pending index). `POST /crash/autobet { control: ai | shared, real?, dry_run?, client_ref?,
+  tz_offset? }` allows a bet only when the verdict is BET and every guardrail is clear (Manual control, kill switch,
+  real money while the account is in demo mode, stop-loss, daily loss limit, max bets, stake cap, a stake that could
+  pass the stop-loss or the daily limit, a bet still pending, and any verdict but BET all refuse); an allowed decision
+  records the bet at once (pending). Demo bets are never clicked: they settle against the first round collected
+  after them (won at or above the target, else lost; void with the stake back after 10 minutes without a round).
+  Guardrails count one mode's bets only (demo losses never use up real-money limits). `GET /crash/autobet` (mode,
+  simulated demo balance from 10,000, both modes' guardrails, verdict, what a decision would say now, bet log, hit
+  rate vs baseline 0.97 / target and break-even 1 / target for auto, manual, demo and real bets),
+  `POST /crash/autobet/stop` (kill switch on, not rate-limited), `POST /crash/bets` (auto goes through the decision;
+  manual is the user's own bet: stake, target?, cashout?, outcome?, never gated), `POST /crash/bets/:id/settle`
+  (cash-out, round multiplier, lost or void; a demo auto bet can only be voided), `GET /crash/live` (target, the
+  estimated chance for the next round: the chosen rule's unseen hit rate on BET, else 0.97 / target, labelled an
+  estimate; verdict and reason; newest recorded multipliers; kill switch). Every decision, bet and settlement is in
+  `crash_audit` (`autobet.decision`, `bet.placed`, `bet.manual`, `bet.settled`).
+- **Android (Colon JetX)**: `JetxAutobet` asks the API after each stored round in AI or Shared mode (Shared: a dry run,
+  then a one-tap Bet / Skip prompt). Real-money clicks need the account out of demo mode AND the app's own switch,
+  turned on only after a warning (no guaranteed predictions, about 3% average loss per bet, auto-clicking may breach
+  the operator's terms). The isolated click script (`assets/jetx/autobet-click.js` with `bet-find.js`) probes every
+  frame first and sets the auto cash-out and stake and presses Bet in one frame only; anything missing (a canvas
+  game) means no click and the bet is voided (fail closed). STOP chip in the bottom bar (kill switch on the phone and
+  the account). Read-only manual-bet watcher (`manual-watch.js`): the user's own trusted Bet taps, stake, auto
+  cash-out and time only. Kotlin: `JetxAutobetRules` (+ test).
+- **Screen reader** (`JetxScreenReader`, `JetxOcrRules` + test): when the DOM collector can't see the history strip,
+  about once a second it copies the game pane's pixels (PixelCopy), reads them with on-device ML Kit text
+  recognition (Play services model, Colon JetX only: `src/ocr-mlkit`, a stub elsewhere), finds the strip band (the
+  top row of 5+ "2.01x" chips) and sends each confirmed new leftmost value as a collected round. No image leaves the
+  phone. The collector's diagnostics add "Screen reader: on · last read: N chips".
+- **Collector**: walks open shadow roots at any depth and same-origin iframes inside them; the diagnostic adds
+  iframes, iframes inside shadow roots and up to 3 iframe origins (origin only). New rounds are sent at once.
+- **Layouts**: Side (game left, Colon panel right, showing the web app's new Live view: recorded multipliers newest
+  first and the next-round suggestion), and in the full-screen Game layout a draggable round bubble ("1.30x · 74.6%
+  · WAIT", green / amber / red) that opens a card with the reason, recent multipliers and the kill switch.
+- **Web**: Auto-bet page (mode, demo balance, guardrails form, kill switch, the app's real-money switch, bet log with
+  You / Colon and Demo / Real labels, hit rate vs baseline and break-even, the 1.35x minimum auto-collect note) and
+  the Live page.
+- Tests: `crash-autobet.test.js`, `jetx-autobet-click.test.js` (fail closed, probe touches nothing, one click only
+  on command, static gate checks), `jetx-collector-find.test.js` (shadow roots and iframes), Kotlin
+  `JetxAutobetRulesTest`, `JetxOcrRulesTest`, `JetxRoundRulesTest`, `JetxRulesTest`.
+
 ## 0.36.0 (2026-11-25) · Colon JetX: Crash Predictor step 4 (the analysis engine)
 
 - **Engine** (`services/api/src/modules/crash/`: `engine.js`, `stats.js`, `strategies.js`, `dist.js`, `analysis.js`;
