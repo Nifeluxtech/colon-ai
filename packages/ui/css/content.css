@@ -149,3 +149,9 @@
 .set-inline{display:flex;gap:8px;align-items:center}
 .set-inline .input{min-height:42px;width:220px;min-width:0}
 @media (max-width:480px){.set-inline{width:100%}.set-inline .input{flex:1;width:auto}}
+
+/* 0.40.0: an email Colon wrote, as a card (wraps like a letter; Send next to Copy) */
+.md-email pre { white-space: pre-wrap; word-break: break-word; }
+.md-email pre code { font-family: inherit; font-size: 14.5px; line-height: 1.55; }
+.md-email .md-code-head > span { font-weight: 600; }
+.md-email .md-send { margin-left: 6px; }

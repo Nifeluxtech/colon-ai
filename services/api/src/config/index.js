@@ -38,6 +38,11 @@ module.exports = {
   urls: {
     chat: env('APP_URL_CHAT', 'https://chat.apparatus.name.ng'),
   },
+  // 0.40.0: send-only Gmail (modules/gmail). Uses GOOGLE_CLIENT_ID; off while GOOGLE_CLIENT_SECRET is empty.
+  gmail: {
+    clientSecret: env('GOOGLE_CLIENT_SECRET', ''),
+    redirect: env('GMAIL_REDIRECT_URI', ''),
+  },
   // Phase 3: Colon AI chat. AI provider keys are read by src/modules/ai/routing.js (enabled only when a key is set).
   chat: {
     dailyLimit: Number(env('CHAT_DAILY_LIMIT', 100)),        // replies per signed-in user per UTC day

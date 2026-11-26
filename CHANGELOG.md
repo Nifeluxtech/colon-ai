@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.40.0 (2026-11-27) · Send email with your Gmail (send only)
+
+- **Email cards**: when Colon writes an email it comes as a card (```email: To, Cc, Subject, body) with Copy and
+  Send (`packages/ui/js/markdown/code-blocks.js`, prompt rule in `modules/ai/prompts.js`).
+- **Send this email?**: Send opens a sheet with From, To, Subject and the text, all editable; nothing goes out
+  until the user taps Approve (`apps/chat/src/components/email-card.js`). Dismiss sends nothing.
+- **Connect Gmail** (Settings › Chat preferences): Google OAuth with the `gmail.send` scope only; Colon never reads
+  the inbox. The refresh token is stored encrypted with `APP_SECRET` (migration `0031_gmail.sql`, `colon_gmail`).
+  Disconnect revokes it. Routes: `GET/DELETE /gmail`, `POST /gmail/connect`, `GET /gmail/callback`,
+  `POST /gmail/send` (`modules/gmail`).
+- **Config**: `GOOGLE_CLIENT_SECRET` (the same OAuth client as `GOOGLE_CLIENT_ID`; empty = off) and optional
+  `GMAIL_REDIRECT_URI` (default `<APP_URL_API>/gmail/callback`).
+- Tests: `tests/unit/gmail.test.js`.
+
 ## 0.39.0 (2026-11-27) · Photos in Workspace chat, sites open in Colon Browser, YouTube fixed
 
 - **Workspace photos** (`modules/workspace/images.js`, migration `0030_workspace_images.sql`:

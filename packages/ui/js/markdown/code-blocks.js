@@ -118,9 +118,19 @@ function diffPath(code) {
   return m && m[1] !== '/dev/null' ? m[1].trim().slice(0, 120) : '';
 }
 
+// 0.40.0: an email Colon wrote (```email: To:, Cc:, Subject:, a blank line, the body) is a card with Copy and,
+// once complete, Send (apps/chat/src/components/email-card.js asks for Approve and sends it with Gmail).
+function emailBlock(code, open) {
+  return '<div class="md-code md-email' + (open ? ' streaming' : '') + '"><div class="md-code-head"><span>Email'
+    + '</span><button type="button" class="md-copy" data-copy-code aria-label="Copy email">Copy</button>'
+    + (open ? '' : '<button type="button" class="md-copy md-send" data-email-send aria-label="Send this email">'
+    + 'Send</button>') + '</div><pre><code class="lang-email">' + esc(code) + '</code></pre></div>';
+}
+
 function codeBlock(code, lang, open) {
   var label = lang || 'text';
   var l = String(lang || '').toLowerCase();
+  if (l === 'email') return emailBlock(code, open);
   if (l === 'diff' || l === 'patch') { var fp = diffPath(code); if (fp) label = fp; }
   return '<div class="md-code' + (open ? ' streaming' : '') + '"><div class="md-code-head"><span>' + esc(label)
     + '</span>' +

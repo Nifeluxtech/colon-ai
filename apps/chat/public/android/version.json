@@ -1,17 +1,17 @@
 {
-  "versionName": "0.39.0",
-  "versionCode": 3900,
-  "apkUrl": "https://github.com/Nifeluxtech/colon-ai/releases/download/v0.39.0/colon-ai-0.39.0.apk",
-  "releaseUrl": "https://github.com/Nifeluxtech/colon-ai/releases/tag/v0.39.0",
-  "notes": "Send photos in Workspace chat, open your site in Colon Browser, and YouTube works in the browser again.",
+  "versionName": "0.40.0",
+  "versionCode": 4000,
+  "apkUrl": "https://github.com/Nifeluxtech/colon-ai/releases/download/v0.40.0/colon-ai-0.40.0.apk",
+  "releaseUrl": "https://github.com/Nifeluxtech/colon-ai/releases/tag/v0.40.0",
+  "notes": "Colon can send the emails it writes from your Gmail, only after you tap Approve.",
   "minSupportedVersionCode": 0,
-  "publishedAt": "2026-11-26",
+  "publishedAt": "2026-11-27",
   "browser": {
-    "versionName": "0.39.0",
-    "versionCode": 3900,
-    "apkUrl": "https://github.com/Nifeluxtech/colon-ai/releases/download/v0.39.0/colon-browser-0.39.0.apk",
-    "releaseUrl": "https://github.com/Nifeluxtech/colon-ai/releases/tag/v0.39.0",
-    "notes": "YouTube works again: the browser now identifies as Chrome on Android.",
+    "versionName": "0.40.0",
+    "versionCode": 4000,
+    "apkUrl": "https://github.com/Nifeluxtech/colon-ai/releases/download/v0.40.0/colon-browser-0.40.0.apk",
+    "releaseUrl": "https://github.com/Nifeluxtech/colon-ai/releases/tag/v0.40.0",
+    "notes": "Released alongside Colon AI 0.40.0 (no browser changes).",
     "minSupportedVersionCode": 0
   }
 }
