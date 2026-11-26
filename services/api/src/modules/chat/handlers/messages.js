@@ -77,7 +77,8 @@ async function seqOf(id) {
   return row ? row.seq : null;
 }
 
-async function streamFor(req, res, conv, userMsg, { version = 1, onOpen, route = 'chat.send', voice = false } = {}) {
+async function streamFor(req, res, conv, userMsg, { version = 1, onOpen, route = 'chat.send', voice = false,
+  fun = true } = {}) {
   const client = (req.body && req.body.client) || null;   // 0.24.0: { platform, version } for app-help answers
   const counters = await limits.resolveCounters(req, conv.mode);
   const guard = safety.collector();   // injection flags found in attached files (logged as safety events)
@@ -101,7 +102,7 @@ async function streamFor(req, res, conv, userMsg, { version = 1, onOpen, route =
         name: req.user.name, route, guard, userText: userMsg.content, project: built.project,
       attachments: fileNames((history[history.length - 1] || {}).files),
       // 0.22.1 voice mode: the plain chain with a brief spoken answer (no browser-tool round trip first).
-      history: built.messages, counters, store: persistedStore(conv, { version }), onOpen, voice,
+      history: built.messages, counters, store: persistedStore(conv, { version }), onOpen, voice, fun,
       generate: voice ? undefined : generate,
       webSearch: wantsWeb(conv.mode), searchText: userMsg.content, searchPrevious: previousUserText(history),
     });
@@ -136,7 +137,9 @@ const postConversationsByIdMessages = async (req, res) => {
     conversationId: fresh.id });
   const offer = saved.length ? [] : await memory.offerFor({ user: req.user, text: content });
   // 0.11.5: browsing is the chat model's own choice (browser-tools.js); keyword routing only when it fails.
-  await streamFor(req, res, fresh, userMsg, { voice: req.body.voice === true, onOpen: (sse) => {
+  // 0.37.0: fun false = the user set Fun to Off in Settings (the tone then stays plain, no stickers).
+  await streamFor(req, res, fresh, userMsg, { voice: req.body.voice === true, fun: req.body.fun !== false,
+    onOpen: (sse) => {
     sse.send('user', { message: userMsg, conversation: store.convOut(fresh) });
     if (saved.length) sse.send('memory', { memory: saved[0], memories: saved });
     if (offer.length) sse.send('memory_offer', { notes: offer });

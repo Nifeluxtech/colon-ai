@@ -8,6 +8,7 @@ module.exports = {
   dynamic: require('./dynamic'),
   limits: require('./limits'),
   prompts: require('./prompts'),
+  fun: require('./fun'),   // 0.37.0: tone that follows the user, and stickers
   client: require('./client'),
   sse: require('./sse'),
   calls: require('./calls'),

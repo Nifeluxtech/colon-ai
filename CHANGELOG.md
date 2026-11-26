@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.37.0 (2026-11-26) · Colon gets a fun side, and stickers
+
+- **Tone that follows the user** (`services/api/src/modules/ai/fun.js`, added to every system prompt): playful back
+  when the user is playful (jokes, Naijá, emoji, a sticker), friendly and plain when they are plain, calm with no
+  jokes or stickers on serious topics. Never in Developer mode or voice replies.
+- **Stickers**: 40 static stickers (Microsoft Fluent Emoji 3D, MIT, 160px WebP, about 5 KB each, in
+  `apps/chat/public/assets/stickers/fluent/`) with Naija captions (Omo!, Wahala, E choke!, Sapa, No vex, Oya!…). A
+  sticker is the token `[sticker:<id>]`: the smiley in the composer opens the picker and sends one as its own
+  message; Colon may end a reply with one sticker when it fits. Drawn big in the thread, with no bubble for a
+  sticker the user sent; copy, read aloud, chat titles and previews use its caption instead of the token.
+- **Settings › Chat preferences › Fun and stickers**: Auto (default, follows the user) or Off (plain replies, no
+  stickers), per device; the app sends `fun: false` with a message when Off.
+- Tests: `tests/unit/fun.test.js` (prompt rule, plain modes, titles, the app and API sticker lists match).
+
 ## 0.36.0 (2026-11-25) · Colon JetX: Crash Predictor step 4 (the analysis engine)
 
 - **Engine** (`services/api/src/modules/crash/`: `engine.js`, `stats.js`, `strategies.js`, `dist.js`, `analysis.js`;

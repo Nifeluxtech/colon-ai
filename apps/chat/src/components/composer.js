@@ -29,6 +29,8 @@ function composerHtml() {
         + 'General" data-tip="Mode"></button>') +
       ('<textarea id="cw-input" rows="1" maxlength="16000" enterkeyhint="send" aria-label="Message Colon" '
         + 'placeholder="Ask Colon anything…"></textarea>') +
+      ('<button type="button" class="icon-btn" data-a="stickers" aria-label="Stickers" aria-haspopup="dialog" '
+        + 'data-tip="Stickers">') + icon('smile') + '</button>' +   // 0.37.0 (components/sticker-sheet.js)
       ('<button type="button" class="icon-btn" data-a="mic" aria-label="Voice input" aria-pressed="false" '
         + 'data-tip="Voice input">') + icon('mic') + '</button>' +
       '<button type="submit" class="cw-send" data-a="send" aria-label="Send message" disabled>' + icon('send')
