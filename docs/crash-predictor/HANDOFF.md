@@ -41,8 +41,8 @@ Automated clicking on an operator's site may breach its terms; the app warns the
 |---|---|---|
 | 1 | Accounts and dashboard: `apps/crash` web app, `crash` API module, MySQL tables (rounds, sessions, bets, settings, audit), routes | **Done and deployed (v0.33.0, merged to `main` as 8b29fed)** |
 | 2 | Inbuilt browser: new Android flavor `colonjetx` on the Colon Browser WebView engine, split screen (game top, predictor bottom), manual / AI / shared control | **Done, released and deployed (v0.34.0, merged to `main` as 5a9d766 via PR #68; release v0.34.0 with `colon-jetx.apk`)** |
-| 3 | Round collector: injected script in the WebView (pattern: `apps/android/app/src/main/assets/saga/`) reads finished multipliers, posts them with time and round id, dedupes; CSV import | **Done (v0.35.0, branch `feat/crash-predictor-step3`, draft PR; not merged, released or deployed). Collector heuristics not yet checked on a live JetX page** |
-| 4 | Analysis engine: hit rate vs baseline, streaks, distribution, confidence ranges, out-of-sample model tests, BET / WAIT / STOP with reason | Not started |
+| 3 | Round collector: injected script in the WebView (pattern: `apps/android/app/src/main/assets/saga/`) reads finished multipliers, posts them with time and round id, dedupes; CSV import | **Done (PR #69 merged as b7dba82, release v0.35.0, deployed). Collector heuristics not yet checked on a live JetX page** |
+| 4 | Analysis engine: hit rate vs baseline, streaks, distribution, confidence ranges, out-of-sample model tests, BET / WAIT / STOP with reason | **Done (v0.36.0, branch `feat/crash-predictor-step4`, pushed as `crash-step4`, draft PR; not merged, released or deployed)** |
 | 5 | Auto-bet: sets auto cash-out + stake, presses Bet on BET, all guardrails, demo default, audit log; Android build via CI, web via cPanel | Not started |
 
 ## 5. Repo conventions you must follow
@@ -128,6 +128,33 @@ Automated clicking on an operator's site may breach its terms; the app warns the
   a canvas, without an "x", or in a closed shadow root; then nothing is collected and the selectors need adjusting
   from a saved copy of that page). The live "big multiplier" on crash is not read, only the history strip.
 
+### Step 4 files (analysis engine, v0.36.0)
+- API (pure JS, no migration): `services/api/src/modules/crash/dist.js` (normal CDF and quantile, chi-square p,
+  two-sided p), `stats.js` (`summary`: hit rate + Wilson vs baseline 0.97 / t and break-even 1 / t, streaks with the
+  typical longest, six buckets vs the 0.97 / m shares with a chi-square fit, median, last 50 / 200, runs test),
+  `strategies.js` (10 transparent rules; `evaluate`: chronological 50/50 split, the earlier half picks the rule with
+  the best 95% lower bound among those with ≥ 30 bets, the later half tests every rule; Bonferroni z for alpha
+  0.05 / 10 ≈ 2.81), `engine.js` (`analyse(xs, target)`, `verdict(analysis, rails)`), `analysis.js` (per-user cache
+  keyed on round count + newest id + target + limit, 5-minute TTL, 500 users max). `store.js` gains
+  `recentMultipliers` and `roundsMeta`. `index.js` adds `analysis()`, `handlers.getAnalysis` and `engine`.
+- Verdict order: STOP (any guardrail) → WAIT (0 rounds; < 300 rounds; rounds don't fit the published odds: fit
+  p < 0.001 or < 10 distinct multipliers; no rule chosen; chosen rule < 100 unseen bets; its corrected lower bound
+  ≤ 1 / target; its condition false for the next round) → BET. Shape: `{ action, verdict, reason, strategy: { id,
+  name, rule } | null, numbers, engine: true, note }`. Thresholds are constants in `engine.js` / `strategies.js`.
+- Route: `GET /crash/analysis?limit=&tz_offset=` (`requireUser`, 600/h) → `{ game, target, limit, analysed,
+  total_rounds, stats, strategies, verdict, guardrails, notice }`. `/crash/dashboard` `verdict` uses the same engine.
+- Tests: `services/api/tests/unit/crash-engine.test.js` (seeded synthetic data: fair i.i.d. never BET over 40 seeds
+  × 300 / 1,200 / 5,000 rounds; a planted after-a-miss dependence gives BET; marginal bias and identical rounds give
+  WAIT on the data check; kill switch and stop-loss give STOP; no look-ahead in any rule).
+- Web: `apps/crash/src/pages/analysis.js` (route `/analysis`, nav "Analysis"), `cards.js` `verdictCard(v, { link })`
+  shows the reason, rule and numbers; `api.js` `analysis()`; CSS `.cx-table`, `.cx-vnums`, `.cx-honest`.
+- Android: nothing added. Step 5 can read the verdict from `GET /crash/dashboard` (or the predictor page) before
+  clicking; no bridge field was needed yet.
+- Limits: the engine can only find dependence that the 10 fixed rules express; with 5,000 rounds the test half is
+  2,500, so a rule betting 10% of rounds has ~250 unseen bets and can only show an edge of several points. A BET on
+  real data most likely means a collector error (missed low rounds, doubled rounds) that the fit test did not catch.
+  A rule chosen today is re-chosen as rounds arrive (no frozen holdout across time).
+
 ### Deploy notes
 - Subdomain **crash.apparatus.name.ng**, docroot `/home/apparatu/crash.apparatus.name.ng`.
 - `https://crash.apparatus.name.ng` is in the default `ALLOWED_ORIGINS` (`config/defaults.js`, `api.env.example`),
@@ -169,3 +196,9 @@ The owner's two ChatGPT conversations ("JetX AI Crash Predictor — Complete Tec
   `canvases`, `shadow_hosts`, `closed_hint` and `sample`, shown on the dashboard line ("Multipliers on page: 0 ·
   Canvases: 1", "Sample: 1.07x, 4.54x"). Still to verify on the phone; if mult_texts stays 0 the history is drawn
   in a canvas or a closed shadow root and the DOM can't be read.
+- 2026-11-25: Step 3 merged to `main` (b7dba82, PR #69), released as v0.35.0 and deployed.
+- 2026-11-25: Step 4 done on branch `feat/crash-predictor-step4` (v0.36.0, pushed as `crash-step4`, draft PR): the
+  analysis engine (stats, 10 rules tested only on unseen rounds with a Bonferroni-corrected bound, BET / WAIT / STOP
+  with reason and numbers), `GET /crash/analysis`, the Analysis page and the real verdict on the dashboard. No
+  migration, no Android change. A hotfix (v0.35.1, collector) is in flight separately; step 4 is to be rebased onto
+  it once it merges. Next: step 5 (auto-bet) reads this verdict.

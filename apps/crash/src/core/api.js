@@ -7,6 +7,10 @@ var C = Colon;
 
 var crashApi = {
   dashboard: function () { return C.api('/crash/dashboard?tz_offset=' + tzOffset()); },
+  // v0.36.0 (step 4): stats, out-of-sample rule tests and the verdict over the newest rounds (at most 5000).
+  analysis: function (limit) {
+    return C.api('/crash/analysis?limit=' + (limit || 5000) + '&tz_offset=' + tzOffset());
+  },
   settings: function () { return C.api('/crash/settings'); },
   // body: the changed fields; confirm_real_money: true once the user accepted the real-money warning.
   saveSettings: function (body) { return C.api('/crash/settings', { method: 'PUT', body: body }); },

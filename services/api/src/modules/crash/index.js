@@ -4,13 +4,17 @@
 // does not exist yet, so the verdict is always WAIT (or STOP when a guardrail has tripped). Never a prediction.
 // Step 3 (v0.35.0) stores rounds from the Colon JetX collector, CSV imports and manual entries (collect.js,
 // rounds.js) and opens the collector's session; the dashboard shows the collector's status.
-//   create({ store }) -> { getSettings, updateSettings, dashboard, rounds, bets, addRounds, importCsv,
+// Step 4 (v0.36.0): the analysis engine (engine.js, stats.js, strategies.js, dist.js, analysis.js) gives the real
+// verdict (BET / WAIT / STOP with its reason and numbers) and GET /crash/analysis returns the full analysis.
+//   create({ store }) -> { getSettings, updateSettings, dashboard, analysis, rounds, bets, addRounds, importCsv,
 //   startSession, stopSession }; other layers import only this file.
 const { sqlStore, memoryStore } = require('./store');
 const S = require('./settings');
 const M = require('./math');
 const R = require('./rounds');
 const { collector } = require('./collect');
+const E = require('./engine');
+const { analyzer } = require('./analysis');
 
 const GAME = 'jetx';
 const err = (status, code, message) => Object.assign(new Error(message), { status, code });
@@ -32,15 +36,22 @@ const betOut = (b) => ({ id: String(b.id), session_id: b.session_id ? String(b.s
   outcome: b.outcome, payout: Number(b.payout), demo: Boolean(Number(b.demo)), placed_at: iso(b.placed_at),
   settled_at: iso(b.settled_at) });
 
-function verdictFor(rails) {
-  if (rails.status !== 'ok') return { action: 'STOP', reason: rails.reasons[0].message, engine: false };
-  return { action: 'WAIT', engine: false, reason: 'The analysis engine isn’t built yet, so there is no proven edge '
-    + 'over the baseline. Colon waits until a model beats it on rounds it has not seen.' };
-}
+// -> { action, verdict, reason, strategy, numbers, engine, note }: STOP on a guardrail, else the engine's call.
+const verdictFor = (rails, analysis = null) => E.verdict(analysis, rails);
 
 function create({ store = sqlStore(), clock = () => new Date() } = {}) {
   const uid = (u) => { if (!u || !u.id) throw err(401, 'unauthenticated', 'Please sign in.'); return u.id; };
   const col = collector({ store, clock, settingsOf: async (id) => S.fromRow(await store.getSettings(id)) });
+  const engine = analyzer({ store, clock });
+
+  // Today's and this session's bets against the user's guardrails.
+  async function railsOf(id, settings, since) {
+    const [today, session] = await Promise.all([store.betStats(id, GAME, { since }), store.openSession(id, GAME)]);
+    const sess = session ? await store.betStats(id, GAME, { sessionId: session.id }) : { n: 0, profit: 0 };
+    const rails = S.guardrails(settings, { sessionBets: sess.n, sessionProfit: sess.profit,
+      todayProfit: today.profit });
+    return { today, session, sess, rails };
+  }
 
   async function getSettings(u) { return S.fromRow(await store.getSettings(uid(u))); }
 
@@ -67,11 +78,8 @@ function create({ store = sqlStore(), clock = () => new Date() } = {}) {
     const settings = S.fromRow(await store.getSettings(id));
     const target = settings.target_cashout;
     const since = dayStart(clock(), tzOffset);
-    const [rs, today, session] = await Promise.all([store.roundStats(id, GAME, since, target),
-      store.betStats(id, GAME, { since }), store.openSession(id, GAME)]);
-    const sess = session ? await store.betStats(id, GAME, { sessionId: session.id }) : { n: 0, profit: 0 };
-    const rails = S.guardrails(settings, { sessionBets: sess.n, sessionProfit: sess.profit,
-      todayProfit: today.profit });
+    const [rs, { today, session, sess, rails }, an] = await Promise.all([store.roundStats(id, GAME, since, target),
+      railsOf(id, settings, since), engine.run(id, GAME, target)]);
     const [recentRounds, recentBets, coll] = await Promise.all([store.listRounds(id, GAME, 10),
       store.listBets(id, GAME, 10), col.status(id, { collectedToday: rs.collected || 0, session })]);
     return {
@@ -87,10 +95,21 @@ function create({ store = sqlStore(), clock = () => new Date() } = {}) {
         started_at: iso(session.started_at), bets: sess.n, profit: money(sess.profit) } : null,
       collector: coll,
       guardrails: rails,
-      verdict: verdictFor(rails),
+      verdict: verdictFor(rails, an),
       recent_rounds: recentRounds.map(roundOut),
       recent_bets: recentBets.map(betOut),
     };
+  }
+
+  // -> { limit, analysed, total_rounds, stats, strategies, verdict, guardrails, notice } over the newest rounds.
+  async function analysis(u, { limit, tzOffset = 0 } = {}) {
+    const id = uid(u);
+    const settings = S.fromRow(await store.getSettings(id));
+    const [{ rails }, an] = await Promise.all([railsOf(id, settings, dayStart(clock(), tzOffset)),
+      engine.run(id, GAME, settings.target_cashout, { limit })]);
+    return { game: GAME, target: settings.target_cashout, limit: an.limit, analysed: an.analysed,
+      total_rounds: an.total_rounds, stats: an.stats, strategies: an.strategies, verdict: verdictFor(rails, an),
+      guardrails: rails, notice: E.NOTE };
   }
 
   const rounds = async (u, { limit } = {}) => (await store.listRounds(uid(u), GAME, limitOf(limit, 50))).map(roundOut);
@@ -101,8 +120,8 @@ function create({ store = sqlStore(), clock = () => new Date() } = {}) {
   const startSession = async (u, o) => col.startSession(uid(u), o);
   const stopSession = async (u, o) => col.stopSession(uid(u), o);
 
-  return { getSettings, updateSettings, dashboard, rounds, bets, addRounds, importCsv, startSession, stopSession,
-    store };
+  return { getSettings, updateSettings, dashboard, analysis, rounds, bets, addRounds, importCsv, startSession,
+    stopSession, store };
 }
 
 let shared = null;
@@ -111,6 +130,9 @@ const instance = () => (shared || (shared = create()));
 const handlers = {
   // GET /crash/dashboard?tz_offset= -> the dashboard summary
   getDashboard: async (req) => [200, await instance().dashboard(req.user, { tzOffset: req.query.get('tz_offset') })],
+  // GET /crash/analysis?limit=&tz_offset= -> stats, out-of-sample strategy tests and the verdict (newest 5000 rounds)
+  getAnalysis: async (req) => [200, await instance().analysis(req.user, { limit: req.query.get('limit'),
+    tzOffset: req.query.get('tz_offset') })],
   // GET /crash/settings -> { settings, limits, warning }
   getSettings: async (req) => [200, { settings: await instance().getSettings(req.user), limits: S.LIMITS,
     warning: S.REAL_MONEY_WARNING }],
@@ -137,4 +159,4 @@ const handlers = {
 };
 
 module.exports = { create, instance, memoryStore, handlers, dayStart, verdictFor, GAME,
-  math: M, settings: S, rounds: R };
+  math: M, settings: S, rounds: R, engine: E };

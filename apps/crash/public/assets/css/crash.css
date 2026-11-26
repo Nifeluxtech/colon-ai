@@ -59,3 +59,14 @@
 .cx-stack{display:flex;flex-direction:column;gap:14px}
 .cx-coll .grid{margin-top:10px}
 #cx-coll-app .btn{margin-top:10px}
+/* v0.36.0 (step 4): the Analysis page and the verdict's numbers */
+#cx-an{display:flex;flex-direction:column;gap:14px;margin-top:6px}
+#cx-an .card{padding:16px}
+.cx-vnums{margin:10px 0 4px;text-align:left}
+.cx-honest{border-color:var(--primary-line)}
+.cx-table-wrap{overflow-x:auto;margin:8px -4px 0}
+.cx-table{width:100%;border-collapse:collapse;font-size:13px}
+.cx-table th,.cx-table td{padding:8px 6px;text-align:left;border-top:1px solid var(--line);vertical-align:top}
+.cx-table thead th{border-top:0;font-size:12px;color:var(--muted);font-weight:650;white-space:nowrap}
+.cx-table td:not(:first-child){white-space:nowrap;font-family:var(--mono)}
+.cx-chosen{background:var(--primary-soft)}

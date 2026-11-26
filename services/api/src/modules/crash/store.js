@@ -76,6 +76,14 @@ function sqlStore(q = db) {
     endSession: (userId, game, id, reason) => q.query(`UPDATE crash_sessions SET ended_at = UTC_TIMESTAMP(3),
       end_reason = ? WHERE id = ? AND user_id = ? AND game = ? AND ended_at IS NULL`,
     [String(reason).slice(0, 40), id, userId, game]),
+    // Step 4 (v0.36.0): the analysis engine reads the newest `limit` multipliers; roundsMeta keys its cache.
+    recentMultipliers: (userId, game, limit) => q.query(`SELECT id, multiplier FROM crash_rounds WHERE user_id = ?
+      AND game = ? ORDER BY observed_at DESC, id DESC LIMIT ?`, [userId, game, limit]),
+    async roundsMeta(userId, game) {
+      const r = await q.one(`SELECT COUNT(*) AS n, MAX(id) AS max_id FROM crash_rounds WHERE user_id = ? AND game = ?`,
+        [userId, game]);
+      return { n: Number(r && r.n) || 0, max_id: r && r.max_id != null ? String(r.max_id) : null };
+    },
   };
 }
 
@@ -140,6 +148,15 @@ function memoryStore(seed = {}) {
     async endSession(userId, game, id, reason) {
       const row = mine(s.sessions, userId, game).find((x) => x.id === id && !x.ended_at);
       if (row) Object.assign(row, { ended_at: new Date(), end_reason: reason });
+    },
+    async recentMultipliers(userId, game, limit) {
+      return mine(s.rounds, userId, game).sort(newest('observed_at')).slice(0, limit)
+        .map((r) => ({ id: r.id, multiplier: r.multiplier }));
+    },
+    async roundsMeta(userId, game) {
+      const rows = mine(s.rounds, userId, game);
+      const max = rows.reduce((m, r) => Math.max(m, Number(r.id) || 0), 0);
+      return { n: rows.length, max_id: rows.length ? String(max) : null };
     },
   };
 }
