@@ -5,7 +5,10 @@
    Strips: one container whose children are chips (findStrip), or chips in the rows of a grid grouped under their
    nearest common ancestor up to 4 levels up (findGrouped). A chip reads "1.07x", "1,07 ×" or "1.07X" (zero-width
    characters and NBSP dropped), or a bare "1.07" whose x is drawn by CSS ::after; bare numbers without an x count
-   only when at least 5 of them make up 80% of a strip. In node it is a module (services/api/tests/unit). */
+   only when at least 5 of them make up 80% of a strip. In node it is a module (services/api/tests/unit).
+   0.37.0: the walk goes through open shadow roots at any depth and into same-origin iframes (also those inside
+   shadow roots); the diagnostic adds iframes, shadow_iframes (iframes inside shadow roots) and frame_origins (the
+   origins of iframe sources, origin only, at most 3). */
 var JetxFind = (function () {
   'use strict';
   var MULT = /^(\d{1,7})(?:[.,](\d{1,2}))?\s*[x\u00d7]$/i, BARE = /^(\d{1,7})[.,](\d{2})$/;
@@ -123,18 +126,36 @@ var JetxFind = (function () {
     return items;
   }
 
-  // Walks root (a document, element or open shadow root) depth first in document order, open shadow roots too.
-  // visit(el, ancestors up to GROUP_UP, depth) returns false to skip el's subtree.
+  // A same-origin iframe's document body (never throws; a cross-origin frame runs its own copy of this script).
+  function frameBody(el) {
+    if (el.tagName !== 'IFRAME' && el.tagName !== 'FRAME') return null;
+    try { var d = el.contentDocument; return d ? d.body || d.documentElement : null; } catch (e) { return null; }
+  }
+
+  // Walks root (a document, element or open shadow root) depth first in document order, through open shadow roots
+  // at any depth and same-origin iframes. visit(el, ancestors up to GROUP_UP, depth, inShadow) returns false to skip
+  // el's subtree; inShadow is true under a shadow root.
   function walk(root, visit, maxDepth) {
-    var start = root && (root.body || root.documentElement || root), stack = start ? [[start, [], 0]] : [], seen = 0;
+    var start = root && (root.body || root.documentElement || root), stack = start ? [[start, [], 0, false]] : [];
+    var seen = 0;
     while (stack.length && seen < MAX_NODES) {
-      var top = stack.pop(), el = top[0], kids = el.children || [], sr = el.shadowRoot, i;
+      var top = stack.pop(), el = top[0], kids = el.children || [], sr = el.shadowRoot, sh = top[3], i;
       seen++;
-      if (visit(el, top[1], top[2]) === false || top[2] >= (maxDepth || 1e9)) continue;
-      var up = [el].concat(top[1]).slice(0, GROUP_UP);
-      for (i = kids.length - 1; i >= 0; i--) stack.push([kids[i], up, top[2] + 1]);
-      if (sr && sr.children) for (i = sr.children.length - 1; i >= 0; i--) stack.push([sr.children[i], up, top[2] + 1]);
+      if (visit(el, top[1], top[2], sh) === false || top[2] >= (maxDepth || 1e9)) continue;
+      var up = [el].concat(top[1]).slice(0, GROUP_UP), fb = frameBody(el);
+      for (i = kids.length - 1; i >= 0; i--) stack.push([kids[i], up, top[2] + 1, sh]);
+      var sk = (sr && sr.children) || [];
+      for (i = sk.length - 1; i >= 0; i--) stack.push([sk[i], up, top[2] + 1, true]);
+      if (fb) stack.push([fb, [], top[2] + 1, sh]);
     }
+  }
+
+  // An iframe's source as an origin only ("https://host[:port]"), or null.
+  function originOf(src, base) {
+    try {
+      var u = new URL(String(src || ''), base || undefined);
+      return /^https?:$/.test(u.protocol) && u.origin.length <= 100 ? u.origin : null;
+    } catch (e) { return null; }
   }
 
   // The best history strip under root: the container with the most multiplier items, never inside buttons,
@@ -202,10 +223,17 @@ var JetxFind = (function () {
   // open shadow hosts, custom elements that are empty (maybe a closed shadow root), and up to 3 samples made only
   // of [0-9.,xX× ] (never other page text), x-shaped ones first.
   function diagStats(root) {
-    var d = { mult_texts: 0, canvases: 0, shadow_hosts: 0, closed_hint: 0 }, xs = [], bare = [];
-    walk(root, function (el) {
+    var d = { mult_texts: 0, canvases: 0, shadow_hosts: 0, closed_hint: 0, iframes: 0, shadow_iframes: 0 };
+    var xs = [], bare = [], origins = [], base = root && root.baseURI;
+    walk(root, function (el, anc, depth, inShadow) {
       var tag = String(el.tagName || ''), kids = el.children || [];
       if (tag === 'CANVAS') d.canvases++;
+      if (tag === 'IFRAME' || tag === 'FRAME') {
+        d.iframes++;
+        if (inShadow) d.shadow_iframes++;
+        var o = originOf(el.getAttribute && el.getAttribute('src'), base);
+        if (o && origins.indexOf(o) < 0 && origins.length < 3) origins.push(o);
+      }
       if (el.shadowRoot) d.shadow_hosts++;
       else if (tag.indexOf('-') > 0 && !kids.length) d.closed_hint++;
       if (NO_CHIP[tag]) return false;
@@ -218,10 +246,12 @@ var JetxFind = (function () {
     });
     Object.keys(d).forEach(function (k) { d[k] = Math.min(d[k], MAX_COUNT); });
     d.sample = xs.concat(bare).slice(0, 3);
+    d.frame_origins = origins;
     return d;
   }
   return { norm: norm, parseMultiplier: parseMultiplier, parseBare: parseBare, roundIdOf: roundIdOf,
     readStrip: readStrip, chipText: chipText, itemsOf: itemsOf, findStrip: findStrip, findGrouped: findGrouped,
-    leafItems: leafItems, diagStats: diagStats, useStyle: useStyle, GROUP_SHARE: GROUP_SHARE };
+    leafItems: leafItems, diagStats: diagStats, useStyle: useStyle, GROUP_SHARE: GROUP_SHARE, originOf: originOf,
+    walk: walk };
 })();
 if (typeof module === 'object' && module && module.exports) module.exports = JetxFind;

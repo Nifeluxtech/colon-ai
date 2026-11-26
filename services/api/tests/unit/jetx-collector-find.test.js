@@ -118,3 +118,27 @@ test('diagStats: counts, and samples only of [0-9.,xX× ], at most 3 of at most 
   assert.equal(C.diagStats({ body: many }).sample.length, 3);
   assert.deepEqual(C.diagStats({ body: el('BODY', [span('Welcome back')]) }).sample, []);
 });
+
+test('0.37.0: nested open shadow roots and a same-origin iframe inside one are walked; diag counts frames', () => {
+  const values = ['2.01x', '2.25x', '1.79x', '5.31x', '1.12x', '3.40x'];
+  const row = el('DIV', values.map(chip));
+  const inner = { body: el('BODY', [el('DIV', [row])]) };
+  const frame = el('IFRAME', [], '', { attrs: { src: 'https://jetx.provider.example/game?token=secret#x' } });
+  frame.contentDocument = inner;
+  const cross = el('IFRAME', [], '', { attrs: { src: 'https://other.example:8443/a' } });
+  Object.defineProperty(cross, 'contentDocument', { get: () => { throw new Error('cross-origin'); } });
+  const deep = el('GAME-VIEW'); deep.shadowRoot = { children: [frame, cross, el('CANVAS')] };
+  const host = el('APP-ROOT'); host.shadowRoot = { children: [el('DIV', [deep])] };
+  const doc = { body: el('BODY', [host, el('IFRAME', [], '', { attrs: { src: 'about:blank' } })]),
+    baseURI: 'https://www.sportybet.com/ng/' };
+  assert.equal(C.findStrip(doc), row, 'found through two shadow roots and an iframe');
+  const d = C.diagStats(doc);
+  assert.equal(d.iframes, 3);
+  assert.equal(d.shadow_iframes, 2);
+  assert.equal(d.canvases, 1);
+  assert.equal(d.shadow_hosts, 2);
+  assert.deepEqual(d.frame_origins, ['https://jetx.provider.example', 'https://other.example:8443']);
+  assert.ok(d.frame_origins.every((o) => !/[?#/]/.test(o.replace('https://', ''))), 'origin only, no path');
+  assert.equal(C.originOf('javascript:alert(1)'), null);
+  assert.equal(C.originOf('/x', 'https://a.example/b'), 'https://a.example');
+});

@@ -6,8 +6,12 @@
 // rounds.js) and opens the collector's session; the dashboard shows the collector's status.
 // Step 4 (v0.36.0): the analysis engine (engine.js, stats.js, strategies.js, dist.js, analysis.js) gives the real
 // verdict (BET / WAIT / STOP with its reason and numbers) and GET /crash/analysis returns the full analysis.
+// Step 5 (v0.37.0): auto-bet (autobet.js, autobet-rules.js): GET|POST /crash/autobet (state; the decision before
+// each round, BET verdict + guardrails), POST /crash/autobet/stop (kill switch), POST /crash/bets (auto through the
+// decision; the user's own bets as source manual), POST /crash/bets/:id/settle. Guardrails count one mode's bets.
 //   create({ store }) -> { getSettings, updateSettings, dashboard, analysis, rounds, bets, addRounds, importCsv,
-//   startSession, stopSession }; other layers import only this file.
+//   startSession, stopSession, autobetState, decide, recordBet, settleBet, stopAll, live }; other layers import only
+//   this file. GET /crash/live is the side panel's and the full-screen bubble's compact view.
 const { sqlStore, memoryStore } = require('./store');
 const S = require('./settings');
 const M = require('./math');
@@ -15,6 +19,8 @@ const R = require('./rounds');
 const { collector } = require('./collect');
 const E = require('./engine');
 const { analyzer } = require('./analysis');
+const { autobet, betOut } = require('./autobet');
+const AR = require('./autobet-rules');
 
 const GAME = 'jetx';
 const err = (status, code, message) => Object.assign(new Error(message), { status, code });
@@ -31,23 +37,27 @@ const money = (x) => Math.round(Number(x || 0) * 100) / 100;
 
 const roundOut = (r) => ({ id: String(r.id), round_id: r.round_id, multiplier: Number(r.multiplier),
   observed_at: iso(r.observed_at), source: r.source });
-const betOut = (b) => ({ id: String(b.id), session_id: b.session_id ? String(b.session_id) : null,
-  round_id: b.round_id ? String(b.round_id) : null, stake: Number(b.stake), target: Number(b.target),
-  outcome: b.outcome, payout: Number(b.payout), demo: Boolean(Number(b.demo)), placed_at: iso(b.placed_at),
-  settled_at: iso(b.settled_at) });
 
 // -> { action, verdict, reason, strategy, numbers, engine, note }: STOP on a guardrail, else the engine's call.
 const verdictFor = (rails, analysis = null) => E.verdict(analysis, rails);
 
-function create({ store = sqlStore(), clock = () => new Date() } = {}) {
+// verdictOf (tests only): (userId, settings, rails) -> a verdict, in place of the analysis engine's.
+function create({ store = sqlStore(), clock = () => new Date(), verdictOf = null } = {}) {
   const uid = (u) => { if (!u || !u.id) throw err(401, 'unauthenticated', 'Please sign in.'); return u.id; };
   const col = collector({ store, clock, settingsOf: async (id) => S.fromRow(await store.getSettings(id)) });
   const engine = analyzer({ store, clock });
+  const settingsOf = async (id) => S.fromRow(await store.getSettings(id));
+  const auto = autobet({ store, clock, settingsOf,
+    railsFor: async (id, settings, { since, demo }) => railsOf(id, settings, since || dayStart(clock()), demo),
+    verdictOf: verdictOf || (async (id, settings, rails) => verdictFor(rails,
+      await engine.run(id, GAME, settings.target_cashout))) });
 
-  // Today's and this session's bets against the user's guardrails.
-  async function railsOf(id, settings, since) {
-    const [today, session] = await Promise.all([store.betStats(id, GAME, { since }), store.openSession(id, GAME)]);
-    const sess = session ? await store.betStats(id, GAME, { sessionId: session.id }) : { n: 0, profit: 0 };
+  // Today's and this session's bets against the user's guardrails. v0.37.0: only bets of one mode count (demo
+  // bets never use up the real-money limits, nor real bets the demo ones); by default the account's mode.
+  async function railsOf(id, settings, since, demo = settings.demo_mode !== false) {
+    const [today, session] = await Promise.all([store.betStats(id, GAME, { since, demo }),
+      store.openSession(id, GAME)]);
+    const sess = session ? await store.betStats(id, GAME, { sessionId: session.id, demo }) : { n: 0, profit: 0 };
     const rails = S.guardrails(settings, { sessionBets: sess.n, sessionProfit: sess.profit,
       todayProfit: today.profit });
     return { today, session, sess, rails };
@@ -113,15 +123,28 @@ function create({ store = sqlStore(), clock = () => new Date() } = {}) {
   }
 
   const rounds = async (u, { limit } = {}) => (await store.listRounds(uid(u), GAME, limitOf(limit, 50))).map(roundOut);
-  const bets = async (u, { limit } = {}) => (await store.listBets(uid(u), GAME, limitOf(limit, 50))).map(betOut);
+  const bets = async (u, { limit } = {}) => {
+    await auto.settlePending(uid(u));
+    return (await store.listBets(uid(u), GAME, limitOf(limit, 50))).map(betOut);
+  };
 
   const addRounds = async (u, body, o) => col.addRounds(uid(u), body, o);
   const importCsv = async (u, body, o) => col.importCsv(uid(u), body, o);
   const startSession = async (u, o) => col.startSession(uid(u), o);
   const stopSession = async (u, o) => col.stopSession(uid(u), o);
 
+  const since = (tzOffset) => dayStart(clock(), tzOffset);
+  const autobetState = async (u, { tzOffset = 0 } = {}) => auto.state(uid(u), { since: since(tzOffset) });
+  const decide = async (u, body, o = {}) => auto.decide(uid(u), body, { ...o, since: since(body && body.tz_offset) });
+  const recordBet = async (u, body, o = {}) => auto.record(uid(u), body, { ...o,
+    since: since(body && body.tz_offset) });
+  const settleBet = async (u, id, body, o) => auto.settle(uid(u), id, body, o);
+  const live = async (u, { tzOffset = 0, limit } = {}) => auto.live(uid(u), { since: since(tzOffset), limit });
+  // The kill switch in one call (the app's STOP button): on at once, whatever else is in the settings.
+  const stopAll = async (u, { ip = '' } = {}) => (await updateSettings(u, { kill_switch: true }, { ip })).settings;
+
   return { getSettings, updateSettings, dashboard, analysis, rounds, bets, addRounds, importCsv, startSession,
-    stopSession, store };
+    stopSession, autobetState, decide, recordBet, settleBet, stopAll, live, store };
 }
 
 let shared = null;
@@ -156,7 +179,22 @@ const handlers = {
     if (b.action === 'stop') return [200, await instance().stopSession(req.user, { ip: req.ip, reason: b.reason })];
     throw err(422, 'invalid', 'Send action start or stop.');
   },
+  // v0.37.0 (step 5). GET /crash/autobet?tz_offset= -> mode, demo balance, guardrails, verdict, bet log and hit rate
+  getAutobet: async (req) => [200, await instance().autobetState(req.user, { tzOffset: req.query.get('tz_offset') })],
+  // POST /crash/autobet { control: ai | shared, real?, dry_run?, client_ref?, tz_offset? } -> { allow, code, reason,
+  // stake, target, demo, mode, verdict, guardrails, bet } (bet: recorded when allowed and not a dry run)
+  postAutobet: async (req) => [200, await instance().decide(req.user, req.body, { ip: req.ip })],
+  // GET /crash/live?limit=&tz_offset= -> { target, estimate { chance, source, label }, verdict, recent[], kill_switch }
+  getLive: async (req) => [200, await instance().live(req.user, { tzOffset: req.query.get('tz_offset'),
+    limit: req.query.get('limit') })],
+  // POST /crash/autobet/stop -> the kill switch on at once -> { settings }
+  stopAutobet: async (req) => [200, { settings: await instance().stopAll(req.user, { ip: req.ip }) }],
+  // POST /crash/bets { source: auto | manual, mode: demo | real, stake, target?, cashout?, multiplier?, outcome?,
+  // placed_at?, client_ref? } -> { bet, duplicate }
+  postBet: async (req) => [200, await instance().recordBet(req.user, req.body, { ip: req.ip })],
+  // POST /crash/bets/:id/settle { multiplier? | cashout? | outcome: lost | void, reason? } -> { bet }
+  settleBet: async (req) => [200, await instance().settleBet(req.user, req.params.id, req.body, { ip: req.ip })],
 };
 
 module.exports = { create, instance, memoryStore, handlers, dayStart, verdictFor, GAME,
-  math: M, settings: S, rounds: R, engine: E };
+  math: M, settings: S, rounds: R, engine: E, autobetRules: AR };

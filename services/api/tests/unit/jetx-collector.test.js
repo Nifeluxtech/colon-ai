@@ -71,7 +71,8 @@ test('install: a diagnostic with counts only, nothing on the first look, then ea
   C.install(win);
   timers.shift()();
   assert.deepEqual(sent, [{ diag: { frame_host: 'g.example', strip_found: true, items: 6, mult_texts: 6, canvases: 0,
-    shadow_hosts: 0, closed_hint: 0, sample: ['1.5x', '2x', '3x'] } }]);
+    shadow_hosts: 0, closed_hint: 0, iframes: 0, shadow_iframes: 0, sample: ['1.5x', '2x', '3x'],
+    frame_origins: [] } }]);
   row.children.unshift(el('SPAN', [], '9.99x'));
   row.children.pop();
   changed();
