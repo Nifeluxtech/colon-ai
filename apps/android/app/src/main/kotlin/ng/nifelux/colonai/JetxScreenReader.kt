@@ -12,7 +12,7 @@ import android.view.View
 import org.json.JSONObject
 
 /**
- * Colon JetX's screen reader (0.37.0): the fallback round collector for games the page's DOM doesn't expose (a
+ * Colon JetX's screen reader (0.38.0): the fallback round collector for games the page's DOM doesn't expose (a
  * canvas, a closed shadow root, a frame the injected script can't reach). About once a second, while the game pane
  * is on screen and the DOM collector has not found the history strip, it copies the game pane's pixels (PixelCopy
  * from the window on Android 8+, View.draw before), reads them with on-device OCR (JetxOcr) and, with

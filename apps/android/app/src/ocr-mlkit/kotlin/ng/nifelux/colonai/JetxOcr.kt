@@ -7,7 +7,7 @@ import com.google.mlkit.vision.text.TextRecognizer
 import com.google.mlkit.vision.text.latin.TextRecognizerOptions
 
 /**
- * Colon JetX's on-device text recognition (0.37.0, colonjetx only): ML Kit Text Recognition (Latin) through Google
+ * Colon JetX's on-device text recognition (0.38.0, colonjetx only): ML Kit Text Recognition (Latin) through Google
  * Play services, so the model is not bundled in the APK (the manifest asks Play services to fetch "ocr" at install).
  * Everything runs on the phone; the bitmap is never sent anywhere. Words come back with their boxes, as
  * JetxOcrRules.Token. No Play services, or the model is still downloading: [done] gets null and the screen reader

@@ -8,7 +8,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.json.JSONObject
 
-/** Colon JetX auto-bet (0.37.0): when the app may ask, when it may click, and what it accepts from the game. */
+/** Colon JetX auto-bet (0.38.0): when the app may ask, when it may click, and what it accepts from the game. */
 class JetxAutobetRulesTest {
     private val now = 1_790_000_000_000L
     private val site = "https://games.example.bet"

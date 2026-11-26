@@ -1,4 +1,4 @@
-/* Colon JetX for Android (0.37.0, Crash Predictor step 5): finding the game's Bet button, its auto cash-out field
+/* Colon JetX for Android (0.38.0, Crash Predictor step 5): finding the game's Bet button, its auto cash-out field
    and its stake field. READ-ONLY: it only looks at elements, their labels and values. Used by autobet-click.js (the
    real-money click, only on the app's command) and manual-watch.js (the user's own bets, read-only); the app puts
    this file and one of those in one function (JetxAutobet.script), so JetxBetFind never becomes a page global.

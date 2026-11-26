@@ -14,7 +14,7 @@ import androidx.core.content.ContextCompat
 /**
  * Colon JetX's native chrome (activity_jetx.xml, 0.34.0): the address bar, the betting site's status dot, the
  * mode banner, the mode and layout chips and the draggable divider. Display only; JetxActivity owns the state.
- * 0.37.0: the side-by-side layout (jetx_panes turns horizontal, game left and the Colon panel right, the divider
+ * 0.38.0: the side-by-side layout (jetx_panes turns horizontal, game left and the Colon panel right, the divider
  * bar moves below both) and the STOP chip (the auto-bet's kill switch, shown in AI and Shared modes or while
  * stopped).
  */

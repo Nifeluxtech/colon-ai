@@ -7,7 +7,7 @@ import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
-/** Colon JetX's screen reader (0.37.0): reading multipliers out of OCR words, finding the strip, new rounds. */
+/** Colon JetX's screen reader (0.38.0): reading multipliers out of OCR words, finding the strip, new rounds. */
 class JetxOcrRulesTest {
     private fun row(y: Int, vararg texts: String, w: Int = 60): List<JetxOcrRules.Token> =
         texts.mapIndexed { i, t -> JetxOcrRules.Token(t, 10 + i * (w + 10), y, 10 + i * (w + 10) + w, y + 24) }

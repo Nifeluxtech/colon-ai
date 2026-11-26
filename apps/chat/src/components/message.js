@@ -15,6 +15,7 @@ import { editMessage, regenerate } from '../actions/send-message.js';
 import { replayVideo } from '../actions/music-chat.js';
 import { ReadAloud } from '../lib/read-aloud.js';
 import { CW } from '../core/cw.js';
+import { Stickers } from '../lib/stickers.js';
 import { $, ASSISTANT, MODES, S, STAGES, data, ephemeral, signedIn } from '../core/state.js';
 
 var C = Colon, icon = C.icon, esc = C.esc, MD = ColonMarkdown;
@@ -43,8 +44,10 @@ function msgHtml(m, isLast) {
   var fresh = S.seen[m.id] ? '' : ' fresh';  // entry animation only the first time a message appears
   if (m.role === 'event') return '<div class="cw-event"><span>' + esc(m.content) + '</span></div>';
   if (m.role === 'user') {
-    return '<div class="cw-msg user' + fresh + '" data-mid="' + esc(m.id) + '"><div class="cw-bubble">'
-      + attachmentsHtml(m.attachments) + (m.content ? '<div class="cw-user-text">' + esc(m.content) + '</div>' : '')
+    var stk = !(m.attachments || []).length && Stickers.onlySticker(m.content);   // 0.37.0: a sticker they sent
+    return '<div class="cw-msg user' + fresh + '" data-mid="' + esc(m.id) + '"><div class="cw-bubble'
+      + (stk ? ' is-sticker">' + Stickers.imgHtml(stk) : '">' + attachmentsHtml(m.attachments) + (m.content
+        ? '<div class="cw-user-text">' + esc(m.content) + '</div>' : ''))
       + '</div>' + memoryChipHtml(m) +   // 0.24.0: "Saved to memory" with Undo, or the offer to turn memory on
       '<div class="cw-actions"><button class="icon-btn sm" data-msg="copy" aria-label="Copy message" data-tip="Copy">'
         + icon('copy') + '</button>' +
@@ -121,8 +124,10 @@ function aiBody(m) {
       || m.stage === 'reading' ? icon('globe') : '') + '<span class="typing"><i></i><i></i><i></i></span><span>'
       + (m.stage ? esc(st) : st) + '</span></div>';
   }
-  return th + '<div class="md' + (streaming ? ' streaming' : '') + '">' + MD.render(m.content, { sources: m.sources })
-    + '</div>';
+  // 0.37.0: [sticker:id] in a reply is drawn as the sticker (a half-written token waits until it is complete).
+  var text = streaming ? m.content.replace(/\[(s(t(i(c(k(e(r(:[a-z]*)?)?)?)?)?)?)?)?$/, '') : m.content;
+  return th + '<div class="md' + (streaming ? ' streaming' : '') + '">' + Stickers.drawStickers(MD.render(text,
+    { sources: m.sources })) + '</div>';
 }
 function errorCard(m) {
   var e = m.error || {}, noProv = e.code === 'no_provider', needLogin = !signedIn() && (e.code === 'quota'
@@ -155,7 +160,8 @@ function msgAction(b) {
   if (act === 'edit') { editMessage(m); return; }
   if (act === 'imgedit') { startImageEdit(m); return; }
   if (act === 'replay') { replayVideo(m); return; }   // 0.22.1: a past video card's Play again
-  if (act === 'copy') C.copyText(m.content).then(function () { C.toast('Copied.'); }, function () { C.toast(
+  if (act === 'copy') C.copyText(Stickers.stripStickers(m.content)).then(function () { C.toast('Copied.'); },
+    function () { C.toast(
     'Couldn’t copy.', 'bad'); });
   else if (act === 'regen') regenerate(m.id);
   else if (act === 'up') sendFeedback(m, m.feedback && m.feedback.rating === 'up' ? {} : { rating: 'up' });
@@ -181,7 +187,8 @@ function msgAction(b) {
   else if (act === 'speak') {
     if (S.speaking === m.id) { ReadAloud.stop(); S.speaking = null; renderThread(); return; }
     var v = S.settings.voice || {};
-    ReadAloud.play(MD.toText(m.content).slice(0, 12000), { engine: v.readAloudVoice || 'auto', speaker: v.speaker,
+    ReadAloud.play(MD.toText(Stickers.stripStickers(m.content)).slice(0, 12000), {
+      engine: v.readAloudVoice || 'auto', speaker: v.speaker,
       rate: v.readAloudRate || 1, lang: v.lang, onStart: function () { C.toast('Preparing the Colon voice…'); },
       onEnd: function () { S.speaking = null; renderThread(); } });
     S.speaking = m.id; renderThread();

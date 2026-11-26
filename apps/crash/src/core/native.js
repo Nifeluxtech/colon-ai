@@ -5,7 +5,7 @@
    the site's passwords, cookies or tokens. Since v0.35.0 its round collector reads JetX's finished multipliers in
    the game pane and sends them to the API itself; this page hears only its status ('collector' event) and can turn
    it on or off. In a normal browser there is no bridge, inApp() is false and the page works as before.
-   v0.37.0: the auto-bet's controls (the app's own real-money switch, shown behind the app's warning; the kill
+   v0.38.0: the auto-bet's controls (the app's own real-money switch, shown behind the app's warning; the kill
    switch), the 'autobet' event, the side-by-side layout and the screen reader's line in the diagnostics. */
 
 function bridge() { var b = window.ColonJetX; return b && typeof b.call === 'function' ? b : null; }
@@ -24,7 +24,7 @@ function appStatus() { return call('status'); }
 function openSite(url) { return call('openSite', url ? { url: url } : {}); }
 // Turns the app's round collector on or off -> its status.
 function setCollector(on) { return call('setCollector', { on: !!on }); }
-// v0.37.0: the app's real-money switch (on: the app shows its warning first) -> { real_money }.
+// v0.38.0: the app's real-money switch (on: the app shows its warning first) -> { real_money }.
 function setRealMoney(on) { return call('setRealMoney', { on: !!on }); }
 // The kill switch on this phone (stop) or lifted (resume) -> the auto-bet status.
 function stopAutobet() { return call('stopAutobet'); }

@@ -1,0 +1,17 @@
+/* Colon AI · stickers (0.37.0): stickers in replies and in the user's messages, and the sticker picker sheet. */
+.cw-sticker { display: block; width: 120px; height: 120px; object-fit: contain; margin: 6px 0 2px;
+  filter: drop-shadow(0 4px 10px rgba(0, 0, 0, .12)); animation: cw-sticker-pop .28s ease-out; }
+.md .cw-sticker { display: block; }
+.cw-msg.user .cw-bubble.is-sticker { background: none; border: 0; box-shadow: none; padding: 0; }
+.cw-msg.user .cw-bubble.is-sticker .cw-sticker { margin: 0 0 0 auto; }
+@keyframes cw-sticker-pop { from { transform: scale(.6); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .cw-sticker { animation: none; } }
+
+.cw-sticker-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(76px, 1fr)); gap: 6px;
+  margin-top: 12px; max-height: 58vh; overflow-y: auto; padding-bottom: 8px; }
+.cw-sticker-pick { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 6px 2px;
+  border: 0; border-radius: 14px; background: transparent; color: var(--muted, inherit); font: inherit;
+  font-size: 11px; line-height: 1.2; text-align: center; cursor: pointer; }
+.cw-sticker-pick:hover, .cw-sticker-pick:focus-visible { background: var(--surface-2, rgba(127, 127, 127, .12)); }
+.cw-sticker-pick:active { transform: scale(.94); }
+.cw-sticker-pick .cw-sticker { width: 56px; height: 56px; margin: 0; animation: none; filter: none; }

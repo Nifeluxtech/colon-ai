@@ -22,7 +22,7 @@ import org.json.JSONObject
  * Events: session {status, host}, mode {mode}, layout {layout}, collector {on, status, rounds_today,
  * last_multiplier} (0.35.0; 0.35.1 adds frames_seen, strip_found, strip_items, rounds_sent, last_error; 0.35.2
  * mult_texts, canvases, shadow_hosts, closed_hint and sample, up to 3 strings of [0-9.,xX× ] only).
- * 0.37.0: commands setRealMoney {on} (on: the app shows its own warning; answers { real_money } once the user chose),
+ * 0.38.0: commands setRealMoney {on} (on: the app shows its own warning; answers { real_money } once the user chose),
  * stopAutobet (the kill switch) and resumeAutobet, both answering the auto-bet status; event autobet {mode,
  * real_money, stopped, frames, line}; status gains autobet, and the layout may be side.
  * The only game data the predictor gets is the collector's counts and last multiplier (JetxCollector); never the
@@ -36,9 +36,9 @@ class JetxBridge(private val host: Host, private val webView: WebView?) {
         fun bridgeSetLayout(layout: JetxRules.Layout)
         /** Turns the round collector on or off (0.35.0); returns its status. */
         fun bridgeSetCollector(on: Boolean): JSONObject
-        /** The app's real-money switch (0.37.0): [done] gets the new state after the warning (or at once for off). */
+        /** The app's real-money switch (0.38.0): [done] gets the new state after the warning (or at once for off). */
         fun bridgeSetRealMoney(on: Boolean, done: (Boolean) -> Unit)
-        /** The kill switch (0.37.0) on or lifted on this phone; returns the auto-bet status. */
+        /** The kill switch (0.38.0) on or lifted on this phone; returns the auto-bet status. */
         fun bridgeStopAutobet(stop: Boolean): JSONObject
     }
 

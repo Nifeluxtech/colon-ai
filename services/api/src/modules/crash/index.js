@@ -6,7 +6,7 @@
 // rounds.js) and opens the collector's session; the dashboard shows the collector's status.
 // Step 4 (v0.36.0): the analysis engine (engine.js, stats.js, strategies.js, dist.js, analysis.js) gives the real
 // verdict (BET / WAIT / STOP with its reason and numbers) and GET /crash/analysis returns the full analysis.
-// Step 5 (v0.37.0): auto-bet (autobet.js, autobet-rules.js): GET|POST /crash/autobet (state; the decision before
+// Step 5 (v0.38.0): auto-bet (autobet.js, autobet-rules.js): GET|POST /crash/autobet (state; the decision before
 // each round, BET verdict + guardrails), POST /crash/autobet/stop (kill switch), POST /crash/bets (auto through the
 // decision; the user's own bets as source manual), POST /crash/bets/:id/settle. Guardrails count one mode's bets.
 //   create({ store }) -> { getSettings, updateSettings, dashboard, analysis, rounds, bets, addRounds, importCsv,
@@ -52,7 +52,7 @@ function create({ store = sqlStore(), clock = () => new Date(), verdictOf = null
     verdictOf: verdictOf || (async (id, settings, rails) => verdictFor(rails,
       await engine.run(id, GAME, settings.target_cashout))) });
 
-  // Today's and this session's bets against the user's guardrails. v0.37.0: only bets of one mode count (demo
+  // Today's and this session's bets against the user's guardrails. v0.38.0: only bets of one mode count (demo
   // bets never use up the real-money limits, nor real bets the demo ones); by default the account's mode.
   async function railsOf(id, settings, since, demo = settings.demo_mode !== false) {
     const [today, session] = await Promise.all([store.betStats(id, GAME, { since, demo }),
@@ -179,7 +179,7 @@ const handlers = {
     if (b.action === 'stop') return [200, await instance().stopSession(req.user, { ip: req.ip, reason: b.reason })];
     throw err(422, 'invalid', 'Send action start or stop.');
   },
-  // v0.37.0 (step 5). GET /crash/autobet?tz_offset= -> mode, demo balance, guardrails, verdict, bet log and hit rate
+  // v0.38.0 (step 5). GET /crash/autobet?tz_offset= -> mode, demo balance, guardrails, verdict, bet log and hit rate
   getAutobet: async (req) => [200, await instance().autobetState(req.user, { tzOffset: req.query.get('tz_offset') })],
   // POST /crash/autobet { control: ai | shared, real?, dry_run?, client_ref?, tz_offset? } -> { allow, code, reason,
   // stake, target, demo, mode, verdict, guardrails, bet } (bet: recorded when allowed and not a dry run)

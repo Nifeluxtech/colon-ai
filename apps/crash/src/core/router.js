@@ -4,9 +4,9 @@
      /settings   target cash-out, stake, demo mode, guardrails, kill switch, betting site
      /analysis   hit rate vs baseline vs break-even, streaks, distribution, out-of-sample rule tests (v0.36.0)
      /history    every recent round and bet
-     /autobet    auto-bet: mode, demo balance, guardrails, kill switch, bet log, hit rate vs the honest odds (v0.37.0)
+     /autobet    auto-bet: mode, demo balance, guardrails, kill switch, bet log, hit rate vs the honest odds (v0.38.0)
      /live       the compact Colon panel for the app's side-by-side layout: recorded rounds and the next-round
-                 suggestion (v0.37.0); the app's layout event opens it
+                 suggestion (v0.38.0); the app's layout event opens it
    Plan: docs/crash-predictor/HANDOFF.md. */
 
 import { X } from './state.js';

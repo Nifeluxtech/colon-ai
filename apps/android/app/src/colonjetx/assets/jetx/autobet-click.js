@@ -1,4 +1,4 @@
-/* Colon JetX for Android (0.37.0, Crash Predictor step 5): the real-money click, ISOLATED in its own file.
+/* Colon JetX for Android (0.38.0, Crash Predictor step 5): the real-money click, ISOLATED in its own file.
    JetxAutobet injects bet-find.js and this file (one function) into the game pane's frames. On its own it does
    NOTHING: it says hello ({ready:true}) on window.ColonJetXBet and then only answers the app's commands on that
    channel. The app sends a command only after the Colon API allowed a real-money bet (verdict BET, every guardrail

@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.37.0 (2026-11-26) · Colon JetX: Crash Predictor step 5 (auto-bet, guardrails), screen reader, side panel, bubble
+## 0.38.0 (2026-11-26) · Colon JetX: Crash Predictor step 5 (auto-bet, guardrails), screen reader, side panel, bubble
 
 - **Auto-bet API** (`services/api/src/modules/crash/autobet.js`, `autobet-rules.js`; migration `0029_crash_autobet.sql`
   adds `crash_bets.source` auto | manual, `cashout`, `multiplier`, `client_ref` (unique per user), a NULL-able
@@ -43,6 +43,19 @@
 - Tests: `crash-autobet.test.js`, `jetx-autobet-click.test.js` (fail closed, probe touches nothing, one click only
   on command, static gate checks), `jetx-collector-find.test.js` (shadow roots and iframes), Kotlin
   `JetxAutobetRulesTest`, `JetxOcrRulesTest`, `JetxRoundRulesTest`, `JetxRulesTest`.
+## 0.37.0 (2026-11-26) · Colon gets a fun side, and stickers
+
+- **Tone that follows the user** (`services/api/src/modules/ai/fun.js`, added to every system prompt): playful back
+  when the user is playful (jokes, Naijá, emoji, a sticker), friendly and plain when they are plain, calm with no
+  jokes or stickers on serious topics. Never in Developer mode or voice replies.
+- **Stickers**: 40 static stickers (Microsoft Fluent Emoji 3D, MIT, 160px WebP, about 5 KB each, in
+  `apps/chat/public/assets/stickers/fluent/`) with Naija captions (Omo!, Wahala, E choke!, Sapa, No vex, Oya!…). A
+  sticker is the token `[sticker:<id>]`: the smiley in the composer opens the picker and sends one as its own
+  message; Colon may end a reply with one sticker when it fits. Drawn big in the thread, with no bubble for a
+  sticker the user sent; copy, read aloud, chat titles and previews use its caption instead of the token.
+- **Settings › Chat preferences › Fun and stickers**: Auto (default, follows the user) or Off (plain replies, no
+  stickers), per device; the app sends `fun: false` with a message when Off.
+- Tests: `tests/unit/fun.test.js` (prompt rule, plain modes, titles, the app and API sticker lists match).
 
 ## 0.36.0 (2026-11-25) · Colon JetX: Crash Predictor step 4 (the analysis engine)
 

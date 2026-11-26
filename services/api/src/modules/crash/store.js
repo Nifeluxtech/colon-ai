@@ -34,7 +34,7 @@ function sqlStore(q = db) {
         WHERE user_id = ? AND game = ? AND observed_at >= ?`, [target, userId, game, since]);
       return { n: Number(r && r.n) || 0, hits: Number(r && r.hits) || 0, collected: Number(r && r.collected) || 0 };
     },
-    // since: bets placed from then; sessionId: only that session's bets; demo (v0.37.0): true / false for demo or
+    // since: bets placed from then; sessionId: only that session's bets; demo (v0.38.0): true / false for demo or
     // real-money bets only (any may be null).
     async betStats(userId, game, { since = null, sessionId = null, demo = null } = {}) {
       const where = (since ? ' AND placed_at >= ?' : '') + (sessionId ? ' AND session_id = ?' : '')
@@ -87,7 +87,7 @@ function sqlStore(q = db) {
         [userId, game]);
       return { n: Number(r && r.n) || 0, max_id: r && r.max_id != null ? String(r.max_id) : null };
     },
-    // Step 5 (v0.37.0): auto-bet and manual bets. A bet is settled once (WHERE outcome = 'pending').
+    // Step 5 (v0.38.0): auto-bet and manual bets. A bet is settled once (WHERE outcome = 'pending').
     async insertBet(userId, game, b) {
       const res = await q.query(`INSERT INTO crash_bets (user_id, session_id, round_id, game, source, stake, target,
         cashout, outcome, payout, multiplier, demo, client_ref, placed_at, settled_at)

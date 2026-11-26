@@ -73,7 +73,7 @@ object JetxApi {
         })
     }
 
-    /** 0.37.0: GET [path] from the Colon API (the bubble's GET /crash/live); [done] as for [post]. */
+    /** 0.38.0: GET [path] from the Colon API (the bubble's GET /crash/live); [done] as for [post]. */
     fun get(http: OkHttpClient, path: String, done: (Int, String?) -> Unit) {
         val main = Handler(Looper.getMainLooper())
         val url = "${BuildConfig.API_URL}$path"

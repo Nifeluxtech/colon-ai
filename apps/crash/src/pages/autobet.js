@@ -1,4 +1,4 @@
-/* Colon JetX · Auto-bet (v0.37.0, Crash Predictor step 5): the mode (demo or real money), the demo balance, the
+/* Colon JetX · Auto-bet (v0.38.0, Crash Predictor step 5): the mode (demo or real money), the demo balance, the
    guardrails (editable here), the kill switch, the bet log (Colon's auto bets and the user's own bets, demo and real
    labelled) and the hit rate against the baseline (0.97 / target) and break-even (1 / target). In the Colon JetX
    app it also shows the app's real-money switch, which the app guards with its own warning. Never a guarantee. */

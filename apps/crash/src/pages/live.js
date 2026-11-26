@@ -1,4 +1,4 @@
-/* Colon JetX · Live (v0.37.0): the compact Colon panel for the app's side-by-side layout (game left, this right).
+/* Colon JetX · Live (v0.38.0): the compact Colon panel for the app's side-by-side layout (game left, this right).
    It lists the multipliers Colon has recorded, newest first, and the analyser's suggestion for the next round:
    BET / WAIT / STOP with its reason, the target and the estimated chance of reaching it (the chosen rule's rate on
    unseen rounds when the verdict is BET, else the published odds 0.97 / target). An estimate, never a guarantee.

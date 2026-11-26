@@ -1,4 +1,4 @@
-// Unit tests for the Crash Predictor auto-bet (v0.37.0, step 5): the decision gate (verdict BET + every guardrail),
+// Unit tests for the Crash Predictor auto-bet (v0.38.0, step 5): the decision gate (verdict BET + every guardrail),
 // real money only when the account is out of demo mode and the app asks for it, demo settlement against the next
 // collected round, the user's own manual bets (read-only log), the kill switch and the audit trail. In-memory store.
 const test = require('node:test');

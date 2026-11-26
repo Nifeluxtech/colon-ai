@@ -1,4 +1,4 @@
-/* Colon JetX for Android (0.37.0, Crash Predictor step 5): the user's own bets, READ-ONLY. JetxAutobet injects
+/* Colon JetX for Android (0.38.0, Crash Predictor step 5): the user's own bets, READ-ONLY. JetxAutobet injects
    bet-find.js and this file (one function) into the game pane's frames. When the user (a trusted tap, never a
    script's click, so never Colon's own auto-bet) presses a Bet button, it reads the stake field and, when auto
    cash-out is on, the auto cash-out field, and posts { manual: { stake, target, at } } on window.ColonJetXManual.

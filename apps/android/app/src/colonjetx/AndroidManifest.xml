@@ -4,7 +4,7 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
     <application>
-        <!-- 0.37.0: the screen reader's on-device text recognition (ML Kit through Play services, JetxOcr). Play
+        <!-- 0.38.0: the screen reader's on-device text recognition (ML Kit through Play services, JetxOcr). Play
              services fetches the Latin OCR model at install; the game's pixels never leave the phone. -->
         <meta-data
             android:name="com.google.mlkit.vision.DEPENDENCIES"

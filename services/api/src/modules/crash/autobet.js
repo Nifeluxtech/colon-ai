@@ -1,4 +1,4 @@
-// Crash Predictor step 5 (v0.37.0): auto-bet decisions, bet records and settlement (docs/crash-predictor/HANDOFF.md).
+// Crash Predictor step 5 (v0.38.0): auto-bet decisions, bet records and settlement (docs/crash-predictor/HANDOFF.md).
 //   autobet({ store, clock, settingsOf, verdictOf }) -> { decide, record, settle, settlePending, state }
 // Colon JetX asks decide() before each round. It allows a bet only when the verdict is BET and every guardrail is
 // clear (autobet-rules.js); an allowed decision records the bet at once (pending), so the guardrails count it even

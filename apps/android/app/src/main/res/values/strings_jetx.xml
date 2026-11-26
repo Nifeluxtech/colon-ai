@@ -26,7 +26,7 @@
     <string name="jetx_layout_button">Layout: %1$s. Tap to change.</string>
     <string name="jetx_predictor_offline">The predictor can\'t be reached. Check your connection.</string>
     <string name="jetx_divider">Drag to resize the panes</string>
-    <!-- 0.37.0 (Crash Predictor step 5): auto-bet, the kill switch, the real-money warning and the bubble. -->
+    <!-- 0.38.0 (Crash Predictor step 5): auto-bet, the kill switch, the real-money warning and the bubble. -->
     <string name="jetx_stop">STOP</string>
     <string name="jetx_stopped">Stopped</string>
     <string name="jetx_stop_desc">Kill switch: stop all auto-betting now</string>

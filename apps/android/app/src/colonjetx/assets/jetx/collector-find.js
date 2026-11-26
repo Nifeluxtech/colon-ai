@@ -6,7 +6,7 @@
    nearest common ancestor up to 4 levels up (findGrouped). A chip reads "1.07x", "1,07 ×" or "1.07X" (zero-width
    characters and NBSP dropped), or a bare "1.07" whose x is drawn by CSS ::after; bare numbers without an x count
    only when at least 5 of them make up 80% of a strip. In node it is a module (services/api/tests/unit).
-   0.37.0: the walk goes through open shadow roots at any depth and into same-origin iframes (also those inside
+   0.38.0: the walk goes through open shadow roots at any depth and into same-origin iframes (also those inside
    shadow roots); the diagnostic adds iframes, shadow_iframes (iframes inside shadow roots) and frame_origins (the
    origins of iframe sources, origin only, at most 3). */
 var JetxFind = (function () {

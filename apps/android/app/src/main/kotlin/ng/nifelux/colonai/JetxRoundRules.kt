@@ -16,7 +16,7 @@ import java.util.TimeZone
  * text) at most every 10 s per frame; [parseDiag] checks it and the frame's host comes from the origin, not the page.
  * 0.35.2 adds counts (mult_texts, canvases, shadow_hosts, closed_hint) and `sample`: up to 3 strings of at most 12
  * characters from [0-9.,xX× ] only, so no other page text can come through.
- * 0.37.0 adds iframes, shadow_iframes (iframes inside shadow roots) and frame_origins: up to 3 iframe source origins
+ * 0.38.0 adds iframes, shadow_iframes (iframes inside shadow roots) and frame_origins: up to 3 iframe source origins
  * ("https://host[:port]", no path or query), checked by [ORIGIN]. Messages may be up to 1 KB for them.
  */
 object JetxRoundRules {

@@ -1,7 +1,7 @@
 package ng.nifelux.colonai
 
 /**
- * Colon JetX's screen reader (0.37.0): the pure rules behind JetxScreenReader. No Android types, unit-tested in
+ * Colon JetX's screen reader (0.38.0): the pure rules behind JetxScreenReader. No Android types, unit-tested in
  * JetxOcrRulesTest.
  *
  * On-device text recognition reads the game pane's pixels into words with boxes ([Token]). The history strip is

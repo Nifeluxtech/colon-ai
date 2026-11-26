@@ -26,7 +26,7 @@ object JetxRules {
         }
     }
 
-    /** Which panes show: both (split, one above the other), both side by side (0.37.0: game left, the Colon panel
+    /** Which panes show: both (split, one above the other), both side by side (0.38.0: game left, the Colon panel
      *  right), the game alone (full screen, with the bubble) or the predictor alone. Switching never reloads a pane. */
     enum class Layout(val wire: String) {
         SPLIT("split"), SIDE("side"), GAME("game"), PREDICTOR("predictor");
@@ -45,7 +45,7 @@ object JetxRules {
     const val SPLIT_MIN = 0.2f
     const val SPLIT_MAX = 0.8f
     const val SPLIT_DEFAULT = 0.55f
-    /** Side by side (0.37.0): the game takes 62% of the width, the Colon panel the rest. */
+    /** Side by side (0.38.0): the game takes 62% of the width, the Colon panel the rest. */
     const val SIDE_DEFAULT = 0.62f
     /** The bubble's default spot over the full-screen game (shares of the pane): the left edge, a little above the
      *  middle, clear of the bet panel at the bottom and the history strip at the top. */
@@ -131,7 +131,7 @@ object JetxRules {
     }
 
     /** Commands the predictor may send over window.ColonJetX (JetxBridge). Anything else is refused.
-     *  setCollector {on} (0.35.0) turns the round collector on or off. 0.37.0: setRealMoney {on} (on shows the
+     *  setCollector {on} (0.35.0) turns the round collector on or off. 0.38.0: setRealMoney {on} (on shows the
      *  app's own warning first), stopAutobet (the kill switch) and resumeAutobet. Nothing here clicks the game. */
     val COMMANDS: Set<String> = setOf("ready", "status", "openSite", "setLayout", "setCollector", "setRealMoney",
         "stopAutobet", "resumeAutobet")
@@ -144,7 +144,7 @@ object JetxRules {
             .put("mode", mode.wire)
             .put("layout", layout.wire)
             .put("session", session(site, siteUrl))
-            .put("autoClick", false) // 0.37.0: JetxActivity sets it from the auto-bet's state (bridgeStatus)
+            .put("autoClick", false) // 0.38.0: JetxActivity sets it from the auto-bet's state (bridgeStatus)
 
     fun session(site: Site, siteUrl: String?): JSONObject =
         JSONObject().put("status", site.wire).put("host", hostOf(siteUrl) ?: JSONObject.NULL)

@@ -13,7 +13,7 @@ import org.json.JSONObject
 import java.util.TimeZone
 
 /**
- * Colon JetX auto-bet (0.37.0, Crash Predictor step 5, docs/crash-predictor/HANDOFF.md).
+ * Colon JetX auto-bet (0.38.0, Crash Predictor step 5, docs/crash-predictor/HANDOFF.md).
  *
  * After each round the API stored ([onRoundsSaved]), in AI or Shared mode only, it asks POST /crash/autobet. The API
  * allows only a BET verdict with every guardrail clear and records the bet itself (demo or real), so a decision

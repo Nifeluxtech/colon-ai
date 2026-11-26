@@ -5,7 +5,7 @@ import org.json.JSONObject
 import java.util.Locale
 
 /**
- * Colon JetX auto-bet (0.37.0, Crash Predictor step 5): the pure rules behind JetxAutobet and JetxBubble. No Android
+ * Colon JetX auto-bet (0.38.0, Crash Predictor step 5): the pure rules behind JetxAutobet and JetxBubble. No Android
  * types, unit-tested in JetxAutobetRulesTest.
  *
  * Order of every bet: a round is stored -> [mayAsk] (AI or Shared mode, not stopped) -> POST /crash/autobet (the API

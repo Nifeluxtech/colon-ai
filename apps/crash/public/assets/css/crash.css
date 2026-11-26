@@ -70,7 +70,7 @@
 .cx-table thead th{border-top:0;font-size:12px;color:var(--muted);font-weight:650;white-space:nowrap}
 .cx-table td:not(:first-child){white-space:nowrap;font-family:var(--mono)}
 .cx-chosen{background:var(--primary-soft)}
-/* v0.37.0 (step 5): Auto-bet and the side panel's live view */
+/* v0.38.0 (step 5): Auto-bet and the side panel's live view */
 #cx-ab,#cx-live{display:flex;flex-direction:column;gap:14px;margin-top:6px}
 #cx-ab .card,#cx-live .card{padding:16px}
 .cx-live-v .cx-verdict-a{font-size:34px}

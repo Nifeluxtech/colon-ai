@@ -1,4 +1,4 @@
-// Colon JetX auto-bet (v0.37.0, Crash Predictor step 5): the isolated click script and the read-only manual-bet
+// Colon JetX auto-bet (v0.38.0, Crash Predictor step 5): the isolated click script and the read-only manual-bet
 // watcher the Android app injects into the game pane (apps/android/app/src/colonjetx/assets/jetx/: bet-find.js,
 // autobet-click.js, manual-watch.js), plus static checks that the click only happens behind the app's gate.
 const test = require('node:test');

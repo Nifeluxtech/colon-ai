@@ -2,6 +2,7 @@
 // (Nigerian context, local examples, replies in the user's chosen language including Naijá).
 // Every prompt carries the safety section from modules/safety (refusals, no prompt leaks, untrusted-content rule).
 const { SYSTEM: SAFETY } = require('../safety');
+const { funRule } = require('./fun');
 const LANGUAGE_NAMES = { en: 'English', pcm: 'Nigerian Pidgin (Naijá)', yo: 'Yorùbá', ha: 'Hausa', ig: 'Igbo' };
 
 const BASE = [
@@ -136,10 +137,12 @@ const VOICE = 'Voice: this is a spoken conversation and your reply is read aloud
   + 'markdown, headings, lists, tables, code, emoji or links. Offer to say more instead of saying everything.';
 
 // web: true when numbered web sources follow (Research mode with search); context: extra system text appended last.
-function systemPrompt({ mode = 'general', language = 'en', name = '', web = false, context = '', voice = false } = {}) {
+// fun: false when the user set Fun to Off (0.37.0); otherwise the tone follows the user (modules/ai/fun.js).
+function systemPrompt({ mode = 'general', language = 'en', name = '', web = false, context = '', voice = false,
+  fun = true } = {}) {
   const modeText = mode === 'research' ? `${MODES.research}\n${web ? RESEARCH_WEB : RESEARCH_NO_WEB}` : (MODES[mode]
     || MODES.general);
-  return [BASE, SAFETY, modeText, voice ? VOICE : '', languageRule(language),
+  return [BASE, SAFETY, modeText, voice ? VOICE : '', funRule({ mode, voice, fun }), languageRule(language),
     name ? `The user's name is ${String(name).replace(/[\r\n<>]+/g, ' ').slice(0, 80)}.` : '', context]
     .filter(Boolean).join('\n\n');
 }

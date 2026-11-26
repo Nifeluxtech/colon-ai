@@ -102,7 +102,7 @@ function fallback(ctx, attempts = []) {
 async function turn(args, ctx) {
   const s = ctx.state || null;
   const sys = { role: 'system', content: [ai.prompts.systemPrompt({ mode: args.mode, language: args.language,
-    name: args.name, web: Boolean(args.web), context: args.context }), RULES.join('\n'),
+    name: args.name, web: Boolean(args.web), context: args.context, fun: args.fun !== false }), RULES.join('\n'),
   tools.enabled('generate_image') ? IMAGE_RULE : '', ctx.repo ? REPO_RULE : '', state.block(s, ctx.guard)]
     .filter(Boolean).join('\n\n') };
   const stream = ctx.toolStream || ai.toolCall.stream;

@@ -29,18 +29,18 @@ class JetxPrefs(context: Context) {
         get() = p.getBoolean(K_COLLECTOR, true)
         set(v) = p.edit().putBoolean(K_COLLECTOR, v).apply()
 
-    /** 0.37.0: the app's own real-money switch for auto-bet clicks. Off by default; on only after its warning
+    /** 0.38.0: the app's own real-money switch for auto-bet clicks. Off by default; on only after its warning
      *  (JetxAutobet.setRealMoney), and only used when the account itself has left demo mode. */
     var realMoney: Boolean
         get() = p.getBoolean(K_REAL, false)
         set(v) = p.edit().putBoolean(K_REAL, v).apply()
 
-    /** 0.37.0: the phone's kill switch (the STOP chip). On: no decisions are asked for and nothing is clicked. */
+    /** 0.38.0: the phone's kill switch (the STOP chip). On: no decisions are asked for and nothing is clicked. */
     var stopped: Boolean
         get() = p.getBoolean(K_STOPPED, false)
         set(v) = p.edit().putBoolean(K_STOPPED, v).apply()
 
-    /** 0.37.0: the full-screen bubble's place over the game, as shares of the pane (x, y); -1 = the default. */
+    /** 0.38.0: the full-screen bubble's place over the game, as shares of the pane (x, y); -1 = the default. */
     var bubbleX: Float
         get() = p.getFloat(K_BX, -1f)
         set(v) = p.edit().putFloat(K_BX, v).apply()
@@ -48,7 +48,7 @@ class JetxPrefs(context: Context) {
         get() = p.getFloat(K_BY, -1f)
         set(v) = p.edit().putFloat(K_BY, v).apply()
 
-    /** The game pane's share of the width in the side-by-side layout (0.37.0). */
+    /** The game pane's share of the width in the side-by-side layout (0.38.0). */
     var sideSplit: Float
         get() = JetxRules.clampSplit(p.getFloat(K_SIDE, JetxRules.SIDE_DEFAULT))
         set(v) = p.edit().putFloat(K_SIDE, JetxRules.clampSplit(v)).apply()

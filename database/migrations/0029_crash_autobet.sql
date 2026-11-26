@@ -1,4 +1,4 @@
--- 0029 (v0.37.0, Crash Predictor step 5): auto-bet and the user's own manual bets in crash_bets. Additive only.
+-- 0029 (v0.38.0, Crash Predictor step 5): auto-bet and the user's own manual bets in crash_bets. Additive only.
 -- Plan and rules: docs/crash-predictor/HANDOFF.md. crash_audit (0028) already takes every decision and bet.
 --
 -- source      who placed the bet: 'auto' (Colon JetX's auto-bet, after POST /crash/autobet allowed it) or 'manual'

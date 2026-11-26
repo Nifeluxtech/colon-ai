@@ -119,7 +119,7 @@ test('diagStats: counts, and samples only of [0-9.,xX× ], at most 3 of at most 
   assert.deepEqual(C.diagStats({ body: el('BODY', [span('Welcome back')]) }).sample, []);
 });
 
-test('0.37.0: nested open shadow roots and a same-origin iframe inside one are walked; diag counts frames', () => {
+test('0.38.0: nested open shadow roots and a same-origin iframe inside one are walked; diag counts frames', () => {
   const values = ['2.01x', '2.25x', '1.79x', '5.31x', '1.12x', '3.40x'];
   const row = el('DIV', values.map(chip));
   const inner = { body: el('BODY', [el('DIV', [row])]) };

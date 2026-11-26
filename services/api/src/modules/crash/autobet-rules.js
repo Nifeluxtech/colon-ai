@@ -1,4 +1,4 @@
-// Crash Predictor step 5 (v0.37.0): the auto-bet's pure rules (docs/crash-predictor/HANDOFF.md). No I/O.
+// Crash Predictor step 5 (v0.38.0): the auto-bet's pure rules (docs/crash-predictor/HANDOFF.md). No I/O.
 //   decide({ settings, rails, verdict, control, real, pending }) -> { allow, code, reason, stake, target, demo }
 //       The only gate before Colon JetX bets for the user. Refuses, in order: Manual control, the kill switch, real
 //       money asked for while the account is in demo mode, any tripped guardrail (stop-loss, daily loss limit, max

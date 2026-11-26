@@ -1,17 +1,17 @@
 {
-  "versionName": "0.37.0",
-  "versionCode": 3700,
-  "apkUrl": "https://github.com/Nifeluxtech/colon-ai/releases/download/v0.37.0/colon-ai-0.37.0.apk",
-  "releaseUrl": "https://github.com/Nifeluxtech/colon-ai/releases/tag/v0.37.0",
+  "versionName": "0.38.0",
+  "versionCode": 3800,
+  "apkUrl": "https://github.com/Nifeluxtech/colon-ai/releases/download/v0.38.0/colon-ai-0.38.0.apk",
+  "releaseUrl": "https://github.com/Nifeluxtech/colon-ai/releases/tag/v0.38.0",
   "notes": "Released alongside Colon JetX auto-bet, the screen reader and the side panel (no Colon AI changes).",
   "minSupportedVersionCode": 0,
   "publishedAt": "2026-11-26",
   "browser": {
-    "versionName": "0.37.0",
-    "versionCode": 3700,
-    "apkUrl": "https://github.com/Nifeluxtech/colon-ai/releases/download/v0.37.0/colon-browser-0.37.0.apk",
-    "releaseUrl": "https://github.com/Nifeluxtech/colon-ai/releases/tag/v0.37.0",
-    "notes": "Released alongside Colon AI 0.37.0 (no browser changes).",
+    "versionName": "0.38.0",
+    "versionCode": 3800,
+    "apkUrl": "https://github.com/Nifeluxtech/colon-ai/releases/download/v0.38.0/colon-browser-0.38.0.apk",
+    "releaseUrl": "https://github.com/Nifeluxtech/colon-ai/releases/tag/v0.38.0",
+    "notes": "Released alongside Colon AI 0.38.0 (no browser changes).",
     "minSupportedVersionCode": 0
   }
 }

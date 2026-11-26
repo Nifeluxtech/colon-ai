@@ -27,7 +27,7 @@ import okhttp3.OkHttpClient
  * texts, canvases and shadow hosts and up to 3 character-checked samples. The script is collector-find.js and
  * collector.js together (JetxRoundRules.script).
  * On WebViews without document-start scripts or web message listeners there is no collector (status unsupported).
- * 0.37.0: rounds read off the screen (JetxScreenReader, when the DOM strip is not found) come in through
+ * 0.38.0: rounds read off the screen (JetxScreenReader, when the DOM strip is not found) come in through
  * [offerRounds] and go the same way; a new round is sent at once (not after 5 s) so the auto-bet and the bubble can
  * act before the next round, and [Host.onRoundsSaved] says when the API has it. The event adds `screen_reader`.
  */
@@ -36,11 +36,11 @@ class JetxCollector(private val host: Host, private val http: OkHttpClient, priv
         /** The collector's status changed: { on, status, rounds_today, last_multiplier } (JetxRoundRules.status). */
         fun onCollector(status: org.json.JSONObject)
 
-        /** The API stored [inserted] new rounds (0.37.0: the auto-bet asks for its decision, the bubble refreshes). */
+        /** The API stored [inserted] new rounds (0.38.0: the auto-bet asks for its decision, the bubble refreshes). */
         fun onRoundsSaved(inserted: Int) {}
     }
 
-    /** The screen reader's status for the event (0.37.0), set by JetxActivity. */
+    /** The screen reader's status for the event (0.38.0), set by JetxActivity. */
     var screenStatus: (() -> org.json.JSONObject)? = null
 
     private val main = Handler(Looper.getMainLooper())
@@ -90,7 +90,7 @@ class JetxCollector(private val host: Host, private val http: OkHttpClient, priv
     /** True while some frame's DOM collector sees the history strip (then the screen reader stays idle). */
     fun domStripFound(): Boolean = summary().stripFound
 
-    /** Rounds read off the screen, oldest first (0.37.0): stamped now, the older ones 3 s apart, sent at once. */
+    /** Rounds read off the screen, oldest first (0.38.0): stamped now, the older ones 3 s apart, sent at once. */
     fun offerRounds(values: List<Double>) {
         if (!prefs.collector || values.isEmpty()) return
         val now = System.currentTimeMillis()
@@ -137,7 +137,7 @@ class JetxCollector(private val host: Host, private val http: OkHttpClient, priv
         queue.addLast(round)
         last = round.multiplier
         host.onCollector(status())
-        schedule(0L) // 0.37.0: at once, so the decision for the next round can be made in time
+        schedule(0L) // 0.38.0: at once, so the decision for the next round can be made in time
     }
 
     /** Keeps each frame's latest diagnostic (at most MAX_FRAMES frames); tells the predictor when the sum changes. */

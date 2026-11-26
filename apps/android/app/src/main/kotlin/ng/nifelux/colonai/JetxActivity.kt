@@ -27,7 +27,7 @@ import org.json.JSONObject
  * Step 3 (0.35.0): the round collector (JetxCollector) reads only JetX's finished multipliers from the game pane
  * and sends them to the Colon API; the site's passwords, cookies and tokens are never read or kept: the user signs
  * in there themselves. Docs: docs/crash-predictor/HANDOFF.md.
- * Step 5 (0.37.0): auto-bet in AI and Shared modes (JetxAutobet: demo by default, real-money clicks only behind the
+ * Step 5 (0.38.0): auto-bet in AI and Shared modes (JetxAutobet: demo by default, real-money clicks only behind the
  * API's decision, the app's own warning-gated switch and the STOP chip), the user's own bets logged read-only, the
  * screen reader (JetxScreenReader: on-device OCR of the game's history strip when the DOM collector can't see it),
  * the side-by-side layout and, in the full-screen game, the floating estimate bubble (JetxBubble).
@@ -114,7 +114,7 @@ class JetxActivity : AppCompatActivity(), JetxBridge.Host, JetxCollector.Host {
         siteState == JetxRules.Site.LOADED && !collector.domStripFound()
 
     /** The round collector goes into the game pane's WebView while it is on (it takes effect from the next page).
-     *  0.37.0: so do the auto-bet's click script and the manual-bet watcher (both inert until used). */
+     *  0.38.0: so do the auto-bet's click script and the manual-bet watcher (both inert until used). */
     private fun installCollector() {
         val g = game ?: return
         if (autobetView !== g) {

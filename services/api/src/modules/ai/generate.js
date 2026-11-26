@@ -143,7 +143,7 @@ async function generate(o) {
         ? 'no_vision' : 'no_provider' });
   }
   const messages = [{ role: 'system', content: systemPrompt({ mode: o.mode, language: o.language, name: o.name,
-    web: Boolean(o.web), context: o.context, voice: Boolean(o.voice) }) }, ...o.messages];
+    web: Boolean(o.web), context: o.context, voice: Boolean(o.voice), fun: o.fun !== false }) }, ...o.messages];
   const attempts = [];
   // Hedged racing: free hosts are often slow to start, so each "wave" asks up to `hedge` models at once
   // (different providers first) and keeps whichever starts answering first; the others are cancelled.

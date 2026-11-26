@@ -1,6 +1,8 @@
 // Chat data access: conversations, messages, attachments and settings, always scoped to the owner.
 const crypto = require('crypto');
 const db = require('../../db');
+// 0.37.0: "[sticker:omo]" reads as (sticker: Omo!) in titles and previews (modules/ai/fun.js).
+const noStickers = (t) => require('../ai').fun.plain(t);
 
 const MODES = ['general', 'study', 'developer', 'research'];
 const newId = () => crypto.randomBytes(12).toString('base64url');   // 16 chars, not guessable
@@ -13,13 +15,13 @@ const notFound = (what = 'This conversation no longer exists.') => Object.assign
   code: 'not_found' });
 
 function titleFrom(text) {
-  const s = String(text || '').replace(/[`*_#>\[\]()]/g, '').replace(/\s+/g, ' ').trim();
+  const s = noStickers(text).replace(/[`*_#>\[\]()]/g, '').replace(/\s+/g, ' ').trim();
   if (!s) return 'New chat';
   const words = s.split(' ').slice(0, 7).join(' ');
   const t = words.length > 60 ? words.slice(0, 60).replace(/\s+\S*$/, '') : words;
   return t.charAt(0).toUpperCase() + t.slice(1);
 }
-const previewFrom = (md) => String(md || '').replace(/```[\s\S]*?```/g, ' ').replace(/[`*_#>|$\\]/g,
+const previewFrom = (md) => noStickers(md).replace(/```[\s\S]*?```/g, ' ').replace(/[`*_#>|$\\]/g,
   '').replace(/\[([^\]]*)\]\([^)]*\)/g, '$1').replace(/\s+/g, ' ').trim().slice(0, 120);
 
 function convOut(c) {

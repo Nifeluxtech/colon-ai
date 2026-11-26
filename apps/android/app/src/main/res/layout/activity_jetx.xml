@@ -2,7 +2,7 @@
 <!-- Colon JetX (0.34.0, Crash Predictor step 2): the betting site on top (address bar, back, reload, status), the
      mode banner, the game pane, the divider bar (control mode, drag handle, layout) and the predictor pane. The two
      WebViews are added in code (JetxActivity); layouts only change visibility and weights, so nothing reloads.
-     0.37.0: the panes sit in jetx_panes, which turns horizontal for the side-by-side layout (game left, Colon panel
+     0.38.0: the panes sit in jetx_panes, which turns horizontal for the side-by-side layout (game left, Colon panel
      right; the divider bar then moves below both). The STOP chip is the auto-bet's kill switch. -->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"

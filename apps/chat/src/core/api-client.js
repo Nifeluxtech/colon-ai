@@ -66,7 +66,8 @@ function RemoteChatData() {
       if (temp.has(o.conversationId)) return temp.send(o);
       // 0.11.5: browser = this chat's browser now (page, summary, numbered clickable items) for the chat model.
       return sse(conv(o.conversationId) + '/messages', { content: o.content, attachment_ids: (o.attachments || []).map(
-        function (a) { return a.id; }), browser: o.browser || undefined, voice: o.voice || undefined }, o,
+        function (a) { return a.id; }), browser: o.browser || undefined, voice: o.voice || undefined,
+        fun: o.fun === false ? false : undefined }, o,
         o.conversationId);
     },
     regenerate: function (o) {

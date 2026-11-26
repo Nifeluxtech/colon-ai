@@ -1,5 +1,5 @@
 // Crash Predictor (v0.33.0, step 1; rounds and sessions v0.35.0, step 3; analysis v0.36.0, step 4; auto-bet
-// v0.37.0, step 5): route wiring.
+// v0.38.0, step 5): route wiring.
 // Handlers: modules/crash/index.js. Signed-in Colon users only; every call acts on req.user's own settings, rounds
 // and bets.
 const Router = require('../router');

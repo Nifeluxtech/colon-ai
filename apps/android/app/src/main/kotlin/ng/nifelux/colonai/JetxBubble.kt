@@ -19,7 +19,7 @@ import okhttp3.OkHttpClient
 import java.util.TimeZone
 
 /**
- * Colon JetX's floating bubble (0.37.0) over the full-screen game (layout GAME, the Colon panel hidden): a small
+ * Colon JetX's floating bubble (0.38.0) over the full-screen game (layout GAME, the Colon panel hidden): a small
  * round badge with the target, the engine's estimated chance that the next round reaches it, and the verdict, e.g.
  * "1.30x / 74.6% / WAIT", green for BET, amber for WAIT, red for STOP. The chance is the chosen rule's hit rate on
  * unseen rounds when the verdict is BET, else the published-odds baseline 0.97 / target (GET /crash/live), and is

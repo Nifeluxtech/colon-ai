@@ -43,7 +43,7 @@ Automated clicking on an operator's site may breach its terms; the app warns the
 | 2 | Inbuilt browser: new Android flavor `colonjetx` on the Colon Browser WebView engine, split screen (game top, predictor bottom), manual / AI / shared control | **Done, released and deployed (v0.34.0, merged to `main` as 5a9d766 via PR #68; release v0.34.0 with `colon-jetx.apk`)** |
 | 3 | Round collector: injected script in the WebView (pattern: `apps/android/app/src/main/assets/saga/`) reads finished multipliers, posts them with time and round id, dedupes; CSV import | **Done (PR #69 merged as b7dba82, release v0.35.0, deployed). Collector heuristics not yet checked on a live JetX page** |
 | 4 | Analysis engine: hit rate vs baseline, streaks, distribution, confidence ranges, out-of-sample model tests, BET / WAIT / STOP with reason | **Done (v0.36.0, merged to `main` as 4d3062a via PR #71)** |
-| 5 | Auto-bet: sets auto cash-out + stake, presses Bet on BET, all guardrails, demo default, audit log; Android build via CI, web via cPanel | **Built (v0.37.0, branch `feat/crash-predictor-step5`, pushed as `crash-step5`, draft PR; not merged, released or deployed). Also: screen-reader collector, side layout, full-screen bubble** |
+| 5 | Auto-bet: sets auto cash-out + stake, presses Bet on BET, all guardrails, demo default, audit log; Android build via CI, web via cPanel | **Built (v0.38.0, branch `feat/crash-predictor-step5`, pushed as `crash-step5`, draft PR; not merged, released or deployed). Also: screen-reader collector, side layout, full-screen bubble** |
 
 ## 5. Repo conventions you must follow
 - `node scripts/check.js` must pass: files ≤ 300 lines, lines ≤ 120 chars; API layering (routes import only `modules/<name>/index.js`, shared, config, middleware; modules never import http/ws or another module's internals); apps import `packages/ui` only through its public entry files and never another app; every asset URL in `apps/*/public/index.html` carries the package.json version; `config/api.env.example` matches `services/api/src/config/defaults.js`.
@@ -155,7 +155,7 @@ Automated clicking on an operator's site may breach its terms; the app warns the
   real data most likely means a collector error (missed low rounds, doubled rounds) that the fit test did not catch.
   A rule chosen today is re-chosen as rounds arrive (no frozen holdout across time).
 
-### Step 5 files (auto-bet, screen reader, side panel, bubble, v0.37.0)
+### Step 5 files (auto-bet, screen reader, side panel, bubble, v0.38.0)
 - Migration `0029_crash_autobet.sql`: `crash_bets` gains `source` (auto | manual), `cashout`, `multiplier`,
   `client_ref` (unique per user + game), a NULL-able `target` and a pending index. No new table.
 - API: `modules/crash/autobet-rules.js` (pure: `decide`, `cleanManual`, `settleWith`, `roundFor`, `summarize`,
@@ -230,7 +230,8 @@ The owner's two ChatGPT conversations ("JetX AI Crash Predictor — Complete Tec
   with reason and numbers), `GET /crash/analysis`, the Analysis page and the real verdict on the dashboard. No
   migration, no Android change. A hotfix (v0.35.1, collector) is in flight separately; step 4 is to be rebased onto
   it once it merges. Next: step 5 (auto-bet) reads this verdict.
-- 2026-11-26: Step 5 built on branch `feat/crash-predictor-step5` (v0.37.0, pushed as `crash-step5`, draft PR): the
+- 2026-11-26: Step 5 built on branch `feat/crash-predictor-step5` (planned as 0.37.0; that version was taken by
+  PR #73, Colon's fun side and stickers, merged and tagged meanwhile, so step 5 is v0.38.0, pushed as `crash-step5`, draft PR): the
   auto-bet decision API with every guardrail, demo bets settled against collected rounds, manual-bet logging, the
   kill switch, migration 0029; in Colon JetX the auto-bet controller (Shared asks per bet), the isolated fail-closed
   click script behind a second warned real-money switch, the read-only manual-bet watcher, the screen-reader
