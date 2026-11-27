@@ -25,6 +25,8 @@ import java.util.TimeZone
  *    to probe every frame of the game pane; the first frame that has the Bet button, the auto cash-out and the stake
  *    fields is told to set them and press Bet, once. Nothing found (a canvas game): nothing is clicked and the bet
  *    is reported void (fail closed). JetxAutobetRules.mayClick is the gate, checked again right before the click.
+ *    0.39.1: when no frame has it, the pointer path ([screen], JetxPointerTaps) taps it on screen under the same
+ *    gate; a tap that could not be confirmed is reported, not voided (the bet may be on).
  *  - The kill switch ([stop]) stops at once on the phone and turns the account's kill switch on (POST
  *    /crash/autobet/stop); [resume] lifts only the phone's stop (the account's is lifted in Settings).
  * The read-only watcher (assets/jetx/manual-watch.js) reports the user's own Bet taps: stake, auto cash-out target
@@ -48,6 +50,8 @@ class JetxAutobet(
     private var click: Click? = null
     private var line = ""
     private var dialog: AlertDialog? = null
+    /** 0.39.1: the pointer's screen-tap Bet (decision, gate, done(ok, reason, tapped)); null = no fallback. */
+    var screen: ((JetxAutobetRules.Decision, () -> Boolean, (Boolean, String, Boolean) -> Unit) -> Unit)? = null
 
     /** The click script, the manual watcher and their two channels go into the game pane's WebView. */
     fun install(webView: WebView?, clickScript: String?, watchScript: String?) {
@@ -145,10 +149,26 @@ class JetxAutobet(
         click = c
         val probe = JetxAutobetRules.probeJson(c.nonce)
         frames.toList().forEach { f -> try { f.postMessage(probe) } catch (_: Exception) { frames.remove(f) } }
-        main.postDelayed({
-            if (click === c && !c.sent) { click = null; void(c.nonce, c.reason ?: "no_bet_button") }
-        }, PROBE_MS)
+        main.postDelayed({ if (click === c && !c.sent) screenFallback(c) }, PROBE_MS)
         asking = false
+    }
+
+    /** 0.39.1: no frame's DOM has the Bet button (a canvas game): the pointer taps it on screen (JetxPointerTaps),
+     *  gated by the same rule before every tap, or the bet is void. */
+    private fun screenFallback(c: Click) {
+        val tapper = screen
+        val domNothing = c.reason == null || c.reason == "no_bet_button"
+        if (tapper == null || !domNothing) { click = null; void(c.nonce, c.reason ?: "no_bet_button"); return }
+        val gate = { click === c && JetxAutobetRules.mayClick(c.decision, prefs.realMoney, prefs.mode, prefs.stopped) }
+        tapper(c.decision, gate) { ok, reason, tapped ->
+            if (click === c) click = null
+            when {
+                ok -> report(a.getString(R.string.jetx_auto_real_bet, JetxAutobetRules.amount(c.decision.stake),
+                    JetxAutobetRules.x2(c.decision.target)))
+                tapped -> report(a.getString(R.string.jetx_auto_unconfirmed))
+                else -> void(c.nonce, reason)
+            }
+        }
     }
 
     private fun onBetMessage(raw: String?, origin: String, reply: JavaScriptReplyProxy) {

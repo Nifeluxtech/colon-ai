@@ -20,17 +20,13 @@ import androidx.core.view.WindowInsetsCompat
 import org.json.JSONObject
 
 /**
- * Colon JetX (ng.nifelux.colonjetx, 0.34.0, Crash Predictor step 2): the user's betting site on top, the predictor
- * (https://crash.apparatus.name.ng) below, on the Colon Browser engine (JetxWeb). Draggable divider, or the game or
- * the predictor alone (JetxChrome). Control mode Manual (default), AI or Shared: in this step AI and Shared only
- * change the state and show a banner; nothing is clicked for the user (auto-bet is step 5, with its guardrails).
- * Step 3 (0.35.0): the round collector (JetxCollector) reads only JetX's finished multipliers from the game pane
- * and sends them to the Colon API; the site's passwords, cookies and tokens are never read or kept: the user signs
- * in there themselves. Docs: docs/crash-predictor/HANDOFF.md.
- * Step 5 (0.38.0): auto-bet in AI and Shared modes (JetxAutobet: demo by default, real-money clicks only behind the
- * API's decision, the app's own warning-gated switch and the STOP chip), the user's own bets logged read-only, the
- * screen reader (JetxScreenReader: on-device OCR of the game's history strip when the DOM collector can't see it),
- * the side-by-side layout and, in the full-screen game, the floating estimate bubble (JetxBubble).
+ * Colon JetX (ng.nifelux.colonjetx; docs/crash-predictor/HANDOFF.md): the user's betting site (game pane) and the
+ * predictor (https://crash.apparatus.name.ng) on the Colon Browser engine (JetxWeb), in split, side, game-only or
+ * predictor-only layouts (JetxChrome); Manual / AI / Shared control. The round collector (JetxCollector, DOM) and
+ * the screen reader (JetxScreenReader, on-device OCR) send only finished multipliers; the site's passwords, cookies
+ * and tokens are never read. Auto-bet (JetxAutobet): demo by default, real clicks only behind the API's decision,
+ * the warned real-money switch and the STOP chip. 0.39.1: opens on the full-screen game with JetxOverlay (the
+ * "what Colon sees" column, the bubble on the right, Colon's pointer for the history dropdown and screen-tap bets).
  */
 class JetxActivity : AppCompatActivity(), JetxBridge.Host, JetxCollector.Host {
     lateinit var bridge: JetxBridge
@@ -44,7 +40,7 @@ class JetxActivity : AppCompatActivity(), JetxBridge.Host, JetxCollector.Host {
     private lateinit var collector: JetxCollector
     private lateinit var autobet: JetxAutobet
     private lateinit var reader: JetxScreenReader
-    private lateinit var bubble: JetxBubble
+    private lateinit var overlay: JetxOverlay
     private var collectorView: WebView? = null
     private var autobetView: WebView? = null
     private var game: TabWebView? = null
@@ -72,9 +68,13 @@ class JetxActivity : AppCompatActivity(), JetxBridge.Host, JetxCollector.Host {
         collector = JetxCollector(this, http, prefs)
         autobet = JetxAutobet(this, http, prefs) { st -> if (::bridge.isInitialized) bridge.emit("autobet", st) }
         reader = JetxScreenReader(this, { game }, ::readerActive, { collector.offerRounds(it) },
-            { onCollector(collector.status()) })
-        collector.screenStatus = { reader.status() }
-        bubble = JetxBubble(this, ui.gamePane, prefs, http) { autobet.stop(); ui.showStop(prefs.mode, true) }
+            { onCollector(collector.status()) }, { done -> overlay.stored(done) }, { overlay.areas() })
+        collector.screenStatus = { reader.status().put("pointer", overlay.taps.lastResult ?: JSONObject.NULL) }
+        overlay = JetxOverlay(this, ui.gamePane, prefs, http, reader, { collector.domStripFound() }, { game }) {
+            autobet.stop(); ui.showStop(prefs.mode, true)
+        }
+        autobet.screen = { d, gate, done -> overlay.taps.bet(d, gate, done) }
+        prefs.layout = JetxRules.launchLayout() // 0.39.1: always opens on the full-screen game with the overlay
 
         game = JetxWeb.game(this)?.also { ui.gamePane.addView(it, 0, match()) }
         installCollector()
@@ -85,7 +85,7 @@ class JetxActivity : AppCompatActivity(), JetxBridge.Host, JetxCollector.Host {
         ui.showMode(prefs.mode)
         ui.showStop(prefs.mode, prefs.stopped)
         ui.showLayout(prefs.layout, prefs.split, prefs.sideSplit)
-        bubble.show(JetxRules.showsBubble(prefs.layout))
+        overlay.show(JetxRules.showsBubble(prefs.layout))
 
         predictor?.loadUrl(JetxRules.PREDICTOR_URL)
         site = prefs.site
@@ -239,7 +239,7 @@ class JetxActivity : AppCompatActivity(), JetxBridge.Host, JetxCollector.Host {
     private fun setLayout(layout: JetxRules.Layout) {
         prefs.layout = layout
         ui.showLayout(layout, prefs.split, prefs.sideSplit)
-        bubble.show(JetxRules.showsBubble(layout))
+        overlay.show(JetxRules.showsBubble(layout))
         bridge.emit("layout", JSONObject().put("layout", layout.wire))
     }
 
@@ -287,7 +287,7 @@ class JetxActivity : AppCompatActivity(), JetxBridge.Host, JetxCollector.Host {
     /** A round reached the API: the auto-bet asks for the next round's decision and the bubble refreshes. */
     override fun onRoundsSaved(inserted: Int) {
         autobet.onRoundsSaved()
-        bubble.refresh()
+        overlay.refresh()
     }
 
     /* ---------- lifecycle ---------- */
@@ -311,7 +311,7 @@ class JetxActivity : AppCompatActivity(), JetxBridge.Host, JetxCollector.Host {
     override fun onDestroy() {
         collector.close()
         autobet.close()
-        bubble.close()
+        overlay.close()
         JetxOcr.close()
         game?.let { ShellWeb.destroy(it) }
         predictor?.let { ShellWeb.destroy(it) }

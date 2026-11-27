@@ -11,12 +11,19 @@ import android.content.Context
 class JetxPrefs(context: Context) {
     private val p = context.applicationContext.getSharedPreferences("colon.jetx", Context.MODE_PRIVATE)
 
+    init {
+        // 0.39.1: the bubble's default moved to the right edge; a spot saved before that is dropped once.
+        if (JetxOverlayRules.resetBubble(p.getInt(K_BSCHEME, 0))) {
+            p.edit().remove(K_BX).remove(K_BY).putInt(K_BSCHEME, JetxOverlayRules.BUBBLE_SCHEME).apply()
+        }
+    }
+
     var mode: JetxRules.Mode
         get() = JetxRules.Mode.from(p.getString(K_MODE, null)) ?: JetxRules.Mode.MANUAL
         set(v) = p.edit().putString(K_MODE, v.wire).apply()
 
     var layout: JetxRules.Layout
-        get() = JetxRules.Layout.from(p.getString(K_LAYOUT, null)) ?: JetxRules.Layout.SPLIT
+        get() = JetxRules.Layout.from(p.getString(K_LAYOUT, null)) ?: JetxRules.launchLayout()
         set(v) = p.edit().putString(K_LAYOUT, v.wire).apply()
 
     var split: Float
@@ -47,6 +54,11 @@ class JetxPrefs(context: Context) {
     var bubbleY: Float
         get() = p.getFloat(K_BY, -1f)
         set(v) = p.edit().putFloat(K_BY, v).apply()
+
+    /** 0.39.1: the full-screen "what Colon sees" column folded to a thin tab. */
+    var seenFolded: Boolean
+        get() = p.getBoolean(K_FOLDED, false)
+        set(v) = p.edit().putBoolean(K_FOLDED, v).apply()
 
     /** The game pane's share of the width in the side-by-side layout (0.38.0). */
     var sideSplit: Float
@@ -81,5 +93,7 @@ class JetxPrefs(context: Context) {
         const val K_BX = "bubble_x"
         const val K_BY = "bubble_y"
         const val K_SIDE = "side_split"
+        const val K_BSCHEME = "bubble_scheme"
+        const val K_FOLDED = "seen_folded"
     }
 }

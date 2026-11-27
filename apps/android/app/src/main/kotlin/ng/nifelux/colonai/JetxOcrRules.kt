@@ -6,9 +6,8 @@ package ng.nifelux.colonai
  *
  * On-device text recognition reads the game pane's pixels into words with boxes ([Token]). The history strip is
  * found as the topmost row (in the upper [TOP_SHARE] of the game) of at least [MIN_CHIPS] multiplier-shaped words,
- * most of them ending in x; after that only that band is read. The strip shows the newest round on the left, so a
- * new round is a new leftmost value with the old sequence shifted right ([shift]). A read counts only when the
- * next read agrees ([confirmed]): chips sliding in mid-animation are not taken. Only multipliers leave this
+ * most of them ending in x; after that only that band is read. 0.39.1: how successive reads become new rounds moved
+ * to JetxSeqRules (0.38.0's exact `shift` / `confirmed` never matched on the phone). Only multipliers leave this
  * class; the pixels and any other text never do.
  */
 object JetxOcrRules {
@@ -20,13 +19,8 @@ object JetxOcrRules {
     /** The strip's band, as shares (0..1) of the captured height, and the values left to right. */
     data class Strip(val top: Float, val bottom: Float, val values: List<Double>)
 
-    /** [added]: new rounds, oldest first. [resync]: the reads don't line up; start again from [cur]. */
-    data class Shift(val added: List<Double>, val resync: Boolean)
-
     const val MIN_CHIPS = 5
     const val TOP_SHARE = 0.6f
-    const val MIN_OVERLAP = 3
-    const val MAX_NEW = 5
     const val X_SHARE = 0.5
     const val MAX_CHIPS = 40
 
@@ -77,26 +71,5 @@ object JetxOcrRules {
     fun read(tokens: List<Token>): List<Double>? {
         val row = rows(chips(tokens)).maxByOrNull { it.size } ?: return null
         return if (row.size >= MIN_CHIPS) row.map { it.m }.take(MAX_CHIPS) else null
-    }
-
-    /** A read is used only when it matches the read before it (the strip is not moving). */
-    fun confirmed(lastRaw: List<Double>?, cur: List<Double>?): Boolean = cur != null && cur == lastRaw
-
-    /**
-     * [prev]: the last confirmed strip, [cur]: this one, both newest first (leftmost). New rounds are the k values
-     * in front of the old sequence shifted right by k (1..[MAX_NEW]), with at least [MIN_OVERLAP] values agreeing.
-     */
-    fun shift(prev: List<Double>?, cur: List<Double>): Shift {
-        if (prev.isNullOrEmpty()) return Shift(emptyList(), true)
-        if (cur == prev) return Shift(emptyList(), false)
-        for (k in 1..MAX_NEW) {
-            val n = minOf(prev.size, cur.size - k)
-            if (n < MIN_OVERLAP) break
-            if (cur.subList(k, k + n) == prev.subList(0, n)) return Shift(cur.subList(0, k).reversed(), false)
-        }
-        // The strip may also have lost its rightmost chip only (clipped): same front, nothing new.
-        val n = minOf(prev.size, cur.size)
-        if (n >= MIN_OVERLAP && cur.subList(0, n) == prev.subList(0, n)) return Shift(emptyList(), false)
-        return Shift(emptyList(), true)
     }
 }

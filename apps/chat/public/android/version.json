@@ -1,17 +1,17 @@
 {
-  "versionName": "0.39.0",
-  "versionCode": 3900,
-  "apkUrl": "https://github.com/Nifeluxtech/colon-ai/releases/download/v0.39.0/colon-ai-0.39.0.apk",
-  "releaseUrl": "https://github.com/Nifeluxtech/colon-ai/releases/tag/v0.39.0",
-  "notes": "Send photos in Workspace chat, open your site in Colon Browser, and YouTube works in the browser again.",
+  "versionName": "0.39.1",
+  "versionCode": 3901,
+  "apkUrl": "https://github.com/Nifeluxtech/colon-ai/releases/download/v0.39.1/colon-ai-0.39.1.apk",
+  "releaseUrl": "https://github.com/Nifeluxtech/colon-ai/releases/tag/v0.39.1",
+  "notes": "Bug-fix release for Colon JetX; Colon AI is unchanged from 0.39.0.",
   "minSupportedVersionCode": 0,
-  "publishedAt": "2026-11-26",
+  "publishedAt": "2026-11-27",
   "browser": {
-    "versionName": "0.39.0",
-    "versionCode": 3900,
-    "apkUrl": "https://github.com/Nifeluxtech/colon-ai/releases/download/v0.39.0/colon-browser-0.39.0.apk",
-    "releaseUrl": "https://github.com/Nifeluxtech/colon-ai/releases/tag/v0.39.0",
-    "notes": "YouTube works again: the browser now identifies as Chrome on Android.",
+    "versionName": "0.39.1",
+    "versionCode": 3901,
+    "apkUrl": "https://github.com/Nifeluxtech/colon-ai/releases/download/v0.39.1/colon-browser-0.39.1.apk",
+    "releaseUrl": "https://github.com/Nifeluxtech/colon-ai/releases/tag/v0.39.1",
+    "notes": "Bug-fix release for Colon JetX; Colon Browser is unchanged from 0.39.0.",
     "minSupportedVersionCode": 0
   }
 }
