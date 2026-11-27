@@ -75,6 +75,11 @@
 #cx-ab .card,#cx-live .card{padding:16px}
 .cx-live-v .cx-verdict-a{font-size:34px}
 .cx-live-est b{font:700 22px var(--mono);color:var(--primary)}
+.cx-guess-r b{font:700 22px var(--mono)}
+.cx-guess p{margin:6px 0 0}
+.cx-trans{margin-top:8px;font-size:12px}
+.cx-trans td,.cx-trans th{text-align:center;padding:3px 5px}
+.cx-trans tr.cx-now{background:var(--ok-bg);color:var(--ok)}
 .cx-live-list{list-style:none;margin:8px 0 0;padding:0;display:flex;flex-direction:column;gap:4px}
 .cx-live-list li{display:flex;justify-content:space-between;align-items:baseline;padding:4px 10px;border-radius:10px;
   background:var(--bad-bg);color:var(--bad);font-family:var(--mono)}

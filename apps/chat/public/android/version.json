@@ -1,16 +1,16 @@
 {
-  "versionName": "0.39.2",
-  "versionCode": 3902,
-  "apkUrl": "https://github.com/Nifeluxtech/colon-ai/releases/download/v0.39.2/colon-ai-0.39.2.apk",
-  "releaseUrl": "https://github.com/Nifeluxtech/colon-ai/releases/tag/v0.39.2",
+  "versionName": "0.39.3",
+  "versionCode": 3903,
+  "apkUrl": "https://github.com/Nifeluxtech/colon-ai/releases/download/v0.39.3/colon-ai-0.39.3.apk",
+  "releaseUrl": "https://github.com/Nifeluxtech/colon-ai/releases/tag/v0.39.3",
   "notes": "Bug-fix release for Colon JetX; Colon AI is unchanged from 0.39.0.",
   "minSupportedVersionCode": 0,
   "publishedAt": "2026-11-27",
   "browser": {
-    "versionName": "0.39.2",
-    "versionCode": 3902,
-    "apkUrl": "https://github.com/Nifeluxtech/colon-ai/releases/download/v0.39.2/colon-browser-0.39.2.apk",
-    "releaseUrl": "https://github.com/Nifeluxtech/colon-ai/releases/tag/v0.39.2",
+    "versionName": "0.39.3",
+    "versionCode": 3903,
+    "apkUrl": "https://github.com/Nifeluxtech/colon-ai/releases/download/v0.39.3/colon-browser-0.39.3.apk",
+    "releaseUrl": "https://github.com/Nifeluxtech/colon-ai/releases/tag/v0.39.3",
     "notes": "Bug-fix release for Colon JetX; Colon Browser is unchanged from 0.39.0.",
     "minSupportedVersionCode": 0
   }

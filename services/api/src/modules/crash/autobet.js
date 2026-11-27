@@ -8,6 +8,7 @@
 // (read-only, never gated). Every decision and every bet is written to crash_audit.
 const A = require('./autobet-rules');
 const S = require('./settings');
+const G = require('./guess');
 
 const GAME = A.GAME;
 const err = (status, code, message, field) => Object.assign(new Error(message), { status, code, field });
@@ -21,7 +22,7 @@ const betOut = (b) => ({ id: String(b.id), session_id: b.session_id ? String(b.s
   client_ref: b.client_ref || null, placed_at: iso(b.placed_at), settled_at: iso(b.settled_at) });
 
 // railsFor(userId, settings, { since, demo }) -> { rails, session }: the guardrails over bets of that mode only.
-function autobet({ store, clock = () => new Date(), settingsOf, railsFor, verdictOf }) {
+function autobet({ store, clock = () => new Date(), settingsOf, railsFor, verdictOf, guessOf }) {
   // Settles pending bets: by the first round collected after each was placed, or void after SETTLE_MS.
   async function settlePending(userId) {
     const now = clock();
@@ -156,13 +157,17 @@ function autobet({ store, clock = () => new Date(), settingsOf, railsFor, verdic
   async function live(userId, { since, limit = 20 } = {}) {
     const settings = await settingsOf(userId);
     const { rails } = await railsFor(userId, settings, { since, demo: settings.demo_mode !== false });
-    const [verdict, rounds] = await Promise.all([verdictOf(userId, settings, rails),
-      store.listRounds(userId, GAME, Math.max(1, Math.min(50, Number(limit) || 20)))]);
+    const [verdict, rounds, last] = await Promise.all([verdictOf(userId, settings, rails),
+      store.listRounds(userId, GAME, Math.max(1, Math.min(50, Number(limit) || 20))),
+      store.recentMultipliers(userId, GAME, G.ALL_ROUNDS)]);
     return { game: GAME, target: settings.target_cashout, estimate: A.estimate(verdict, settings.target_cashout),
       verdict: { action: verdict.action, reason: verdict.reason, strategy: verdict.strategy || null },
       recent: rounds.map((r) => ({ id: String(r.id), multiplier: Number(r.multiplier), observed_at: iso(r.observed_at),
         hit: Number(r.multiplier) >= settings.target_cashout })),
-      kill_switch: settings.kill_switch, demo_mode: settings.demo_mode !== false, notice: A.NOTICE };
+      kill_switch: settings.kill_switch, demo_mode: settings.demo_mode !== false, notice: A.NOTICE,
+      // 0.39.3: the guess (guess.js) and its AI read (ai-read.js), made after the verdict; nothing reads them back.
+      guess: guessOf ? await guessOf(userId, last, verdict)
+        : G.guess(last.map((r) => Number(r.multiplier)).reverse()) };
   }
 
   return { decide, record, settle, settlePending, state, live };

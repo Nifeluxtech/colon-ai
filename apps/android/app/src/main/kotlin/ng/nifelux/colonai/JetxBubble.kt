@@ -7,6 +7,10 @@ import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
 import android.os.Handler
 import android.os.Looper
+import android.text.SpannableStringBuilder
+import android.text.Spanned
+import android.text.style.BackgroundColorSpan
+import android.text.style.ForegroundColorSpan
 import android.view.Gravity
 import android.view.MotionEvent
 import android.view.View
@@ -30,6 +34,10 @@ import java.util.TimeZone
  * the screen reader keep recording underneath it.
  * 0.39.1: it starts on the right edge (JetxRules.BUBBLE_X; a spot saved under 0.38.0 is dropped once, JetxPrefs),
  * the left edge being the "what Colon sees" column (JetxSeenColumn), which gets the 20 newest rounds ([onLive]).
+ * 0.39.3: a fourth line "Guess 1.89–2.34x" (JetxGuessRules; the badge is a rounded 104 x 84 dp tile so it fits)
+ * and, on the card, the big-round range, the measured "after a crash under 1.20x" line and the "not a prediction"
+ * label, the previous -> next bucket table (the newest round's row tinted) and the reasoning (an AI read when one
+ * answered). Display only: the verdict and auto-bet never read the guess.
  */
 class JetxBubble(
     private val a: JetxActivity,
@@ -46,6 +54,8 @@ class JetxBubble(
     private val head = TextView(a)
     private val reason = TextView(a)
     private val recent = TextView(a)
+    private val guess = TextView(a)
+    private val table = TextView(a)
     private val note = TextView(a)
     private val kill = Button(a)
     private var live: JetxAutobetRules.Live? = null
@@ -60,10 +70,10 @@ class JetxBubble(
     }
 
     init {
-        val size = (SIZE_DP * dp).toInt()
-        bubble.layoutParams = FrameLayout.LayoutParams(size, size, Gravity.TOP or Gravity.START)
+        bubble.layoutParams = FrameLayout.LayoutParams((W_DP * dp).toInt(), (H_DP * dp).toInt(),
+            Gravity.TOP or Gravity.START)
         bubble.gravity = Gravity.CENTER
-        bubble.textSize = 10.5f
+        bubble.textSize = 10f
         bubble.setTypeface(bubble.typeface, Typeface.BOLD)
         bubble.setTextColor(Color.WHITE)
         bubble.elevation = 8 * dp
@@ -80,11 +90,13 @@ class JetxBubble(
             setColor(ContextCompat.getColor(a, R.color.jetx_surface))
             setStroke((1 * dp).toInt(), ContextCompat.getColor(a, R.color.jetx_line))
         }
-        listOf(head, reason, recent, note).forEach {
+        listOf(head, reason, recent, guess, table, note).forEach {
             it.setTextColor(ContextCompat.getColor(a, R.color.jetx_text))
             it.textSize = 12f
             card.addView(it)
         }
+        table.typeface = Typeface.MONOSPACE
+        table.textSize = 9.5f
         head.setTypeface(head.typeface, Typeface.BOLD)
         head.textSize = 14f
         note.setTextColor(ContextCompat.getColor(a, R.color.jetx_muted))
@@ -129,7 +141,7 @@ class JetxBubble(
             else -> R.color.jetx_bad
         }
         bubble.background = GradientDrawable().apply {
-            shape = GradientDrawable.OVAL
+            cornerRadius = 28 * dp
             setColor(ContextCompat.getColor(a, color))
             setStroke((2 * dp).toInt(), Color.argb(200, 255, 255, 255))
         }
@@ -138,6 +150,10 @@ class JetxBubble(
         reason.text = l.reason
         recent.text = a.getString(R.string.jetx_bubble_recent,
             if (l.recent.isEmpty()) "—" else l.recent.take(8).joinToString("  ") { JetxAutobetRules.x2(it) })
+        guess.text = l.guess?.let { JetxGuessRules.detail(it) }
+            ?: a.getString(R.string.jetx_bubble_guess_none)
+        table.text = l.guess?.transitions?.let { tableText(it) } ?: ""
+        table.visibility = if (table.text.isEmpty()) View.GONE else View.VISIBLE
         note.text = when {
             l.chance == null && l.rounds < l.minRounds -> a.getString(R.string.jetx_bubble_note_collecting, l.minRounds)
             l.chance == null -> a.getString(R.string.jetx_bubble_note_none)
@@ -149,19 +165,35 @@ class JetxBubble(
         kill.isEnabled = !stopped
     }
 
+    /** The previous -> next bucket table, the newest round's row tinted green. */
+    private fun tableText(t: JetxGuessRules.Transitions): CharSequence {
+        val (lines, mark) = JetxGuessRules.tableRows(t)
+        val out = SpannableStringBuilder()
+        lines.forEachIndexed { i, line ->
+            val start = out.length
+            out.append(line)
+            if (i == mark) {
+                out.setSpan(BackgroundColorSpan(Color.argb(60, 34, 197, 94)), start, out.length,
+                    Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+                out.setSpan(ForegroundColorSpan(ContextCompat.getColor(a, R.color.jetx_green)), start, out.length,
+                    Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+            }
+            if (i < lines.size - 1) out.append('\n')
+        }
+        return out
+    }
+
     private fun place() {
         val (x, y) = JetxRules.bubbleSpot(prefs.bubbleX, prefs.bubbleY)
-        val size = SIZE_DP * dp
-        bubble.x = (x * (pane.width - size)).coerceAtLeast(0f)
-        bubble.y = (y * (pane.height - size)).coerceAtLeast(0f)
+        bubble.x = (x * (pane.width - W_DP * dp)).coerceAtLeast(0f)
+        bubble.y = (y * (pane.height - H_DP * dp)).coerceAtLeast(0f)
         placeCard()
     }
 
     /** The card opens beside the bubble, on whichever side has room, kept inside the pane. */
     private fun placeCard() {
         val cw = CARD_DP * dp
-        val size = SIZE_DP * dp
-        val right = bubble.x + size + 6 * dp
+        val right = bubble.x + W_DP * dp + 6 * dp
         card.x = if (right + cw <= pane.width) right else (bubble.x - cw - 6 * dp).coerceAtLeast(0f)
         card.y = bubble.y.coerceAtMost((pane.height - card.height).toFloat().coerceAtLeast(0f))
     }
@@ -189,18 +221,18 @@ class JetxBubble(
                     val dy = e.rawY - downY
                     if (!dragging && dx * dx + dy * dy > slop * slop) dragging = true
                     if (dragging) {
-                        val size = SIZE_DP * dp
-                        v.x = (startX + dx).coerceIn(0f, maxOf(0f, pane.width - size))
-                        v.y = (startY + dy).coerceIn(0f, maxOf(0f, pane.height - size))
+                        v.x = (startX + dx).coerceIn(0f, maxOf(0f, pane.width - W_DP * dp))
+                        v.y = (startY + dy).coerceIn(0f, maxOf(0f, pane.height - H_DP * dp))
                         if (expanded) placeCard()
                     }
                     true
                 }
                 MotionEvent.ACTION_UP -> {
                     if (dragging) {
-                        val size = SIZE_DP * dp
-                        prefs.bubbleX = if (pane.width > size) v.x / (pane.width - size) else 0f
-                        prefs.bubbleY = if (pane.height > size) v.y / (pane.height - size) else 0f
+                        val w = W_DP * dp
+                        val h = H_DP * dp
+                        prefs.bubbleX = if (pane.width > w) v.x / (pane.width - w) else 0f
+                        prefs.bubbleY = if (pane.height > h) v.y / (pane.height - h) else 0f
                     } else {
                         v.performClick()
                     }
@@ -214,8 +246,7 @@ class JetxBubble(
     /** Where the bubble (and its open card) is in the pane, for the screen reader to skip; empty while hidden. */
     fun areas(): List<RectF> {
         if (!shown) return emptyList()
-        val size = SIZE_DP * dp
-        val out = mutableListOf(RectF(bubble.x, bubble.y, bubble.x + size, bubble.y + size))
+        val out = mutableListOf(RectF(bubble.x, bubble.y, bubble.x + W_DP * dp, bubble.y + H_DP * dp))
         if (expanded) out += RectF(card.x, card.y, card.x + card.width, card.y + card.height)
         return out
     }
@@ -223,8 +254,9 @@ class JetxBubble(
     fun close() = main.removeCallbacks(poll)
 
     private companion object {
-        const val SIZE_DP = 76
-        const val CARD_DP = 240
+        const val W_DP = 104
+        const val H_DP = 84
+        const val CARD_DP = 280
         const val POLL_MS = 15_000L
     }
 }
