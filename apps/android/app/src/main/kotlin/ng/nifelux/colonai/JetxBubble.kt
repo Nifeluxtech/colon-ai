@@ -22,9 +22,9 @@ import java.util.TimeZone
 /**
  * Colon JetX's floating bubble (0.38.0) over the full-screen game (layout GAME, the Colon panel hidden): a small
  * round badge with the target, the engine's estimated chance that the next round reaches it, and the verdict, e.g.
- * "1.30x / 74.6% / WAIT", green for BET, amber for WAIT, red for STOP. The chance is the chosen rule's hit rate on
- * unseen rounds when the verdict is BET, else the published-odds baseline 0.97 / target (GET /crash/live), and is
- * always labelled an estimate, never a guarantee. Drag it anywhere over the game (the spot is remembered); tap it
+ * "1.30x / 82.3% / BET", green for BET, amber for WAIT, red for STOP. The chance is the engine's estimate
+ * (GET /crash/live), always labelled an estimate, never a guarantee; 0.39.2: until the engine has 10 rounds it shows
+ * "1.30x / 3/10 rounds / WAIT" instead, never the 74.6% baseline as if it were a prediction. Drag it anywhere over the game (the spot is remembered); tap it
  * for a small card with the reason, the last recorded multipliers and the kill switch, tap again to close. It
  * refreshes after every stored round ([refresh], from JetxCollector) and every 15 s while shown. The collector and
  * the screen reader keep recording underneath it.
@@ -138,7 +138,12 @@ class JetxBubble(
         reason.text = l.reason
         recent.text = a.getString(R.string.jetx_bubble_recent,
             if (l.recent.isEmpty()) "—" else l.recent.take(8).joinToString("  ") { JetxAutobetRules.x2(it) })
-        note.text = a.getString(if (l.source == "rule") R.string.jetx_bubble_note_rule else R.string.jetx_bubble_note)
+        note.text = when {
+            l.chance == null && l.rounds < l.minRounds -> a.getString(R.string.jetx_bubble_note_collecting, l.minRounds)
+            l.chance == null -> a.getString(R.string.jetx_bubble_note_none)
+            l.source == "rule" -> a.getString(R.string.jetx_bubble_note_rule)
+            else -> a.getString(R.string.jetx_bubble_note)
+        }
         val stopped = prefs.stopped || l.killSwitch
         kill.text = a.getString(if (stopped) R.string.jetx_bubble_stopped else R.string.jetx_bubble_kill)
         kill.isEnabled = !stopped

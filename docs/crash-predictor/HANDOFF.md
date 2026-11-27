@@ -137,7 +137,10 @@ Automated clicking on an operator's site may breach its terms; the app warns the
   0.05 / 10 ≈ 2.81), `engine.js` (`analyse(xs, target)`, `verdict(analysis, rails)`), `analysis.js` (per-user cache
   keyed on round count + newest id + target + limit, 5-minute TTL, 500 users max). `store.js` gains
   `recentMultipliers` and `roundsMeta`. `index.js` adds `analysis()`, `handlers.getAnalysis` and `engine`.
-- Verdict order: STOP (any guardrail) → WAIT (0 rounds; < 300 rounds; rounds don't fit the published odds: fit
+- 0.39.2 replaces the order below: STOP (any guardrail) → WAIT (< 10 rounds, reason "collecting rounds (n/10)", no
+  estimate; from 300 rounds, data that don't fit the published odds) → BET when the estimate (hits eased toward the
+  baseline by 10 pseudo-rounds, or a proven rule's unseen rate) ≥ `CRASH_BET_MIN_CHANCE` (default 0.8), else WAIT.
+- Verdict order (0.36.0–0.39.1): STOP (any guardrail) → WAIT (0 rounds; < 300 rounds; rounds don't fit the published odds: fit
   p < 0.001 or < 10 distinct multipliers; no rule chosen; chosen rule < 100 unseen bets; its corrected lower bound
   ≤ 1 / target; its condition false for the next round) → BET. Shape: `{ action, verdict, reason, strategy: { id,
   name, rule } | null, numbers, engine: true, note }`. Thresholds are constants in `engine.js` / `strategies.js`.
@@ -271,3 +274,8 @@ The owner's two ChatGPT conversations ("JetX AI Crash Predictor — Complete Tec
   type-checked with kotlinc against android.jar with stubs except `JetxActivity` (CI builds it). Unverified on a
   phone: OCR targets (dropdown button position, Bet word, the auto cash-out label JetX uses), whether the game
   accepts synthetic taps and typed keys, newest-left grid order, and timing of a screen-tap bet before the round.
+- 2026-11-27: Hotfix 0.39.2 on branch `fix/jetx-early-estimate` (draft PR), owner's decision: an estimate from 10
+  rounds (was 300), WAIT "collecting rounds (n/10)" with no probability below that, BET only at an estimated chance
+  ≥ 80% (`CRASH_BET_MIN_CHANCE`), no "low confidence" label. `/crash/live` returns `estimate.chance: null` until 10
+  rounds; the bubble and Live page show "3/10 rounds" instead of the baseline. Guardrails unchanged. Note: with few
+  rounds the estimate is noisy, so fair rounds can give BET (about a quarter of 10-round samples in a seeded check).

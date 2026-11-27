@@ -8,8 +8,8 @@
 //   settleWith(bet, report) -> { outcome, payout, multiplier, cashout } or null (not enough to settle)
 //   roundFor(bet, rounds)   -> the first round that ended after the bet was placed (within SETTLE_MS), or null
 //   summarize(bets)         -> hit rate vs the bets' baseline (0.97 / target) and break-even (1 / target)
-//   estimate(verdict, target) -> the estimated chance the next round reaches the target: the chosen rule's rate on
-//                             unseen rounds when the verdict is BET, else the baseline 0.97 / target. An estimate.
+//   estimate(verdict, target) -> the engine's estimated chance the next round reaches the target (0.39.2: null while
+//                             it collects its first 10 rounds, never the baseline in its place). An estimate.
 // Nothing here predicts a round. A BET verdict only means a rule beat break-even on rounds it had not seen.
 const M = require('./math');
 
@@ -165,13 +165,19 @@ function summarize(bets) {
 
 function estimate(verdict, target) {
   const n = (verdict && verdict.numbers) || {};
-  const action = verdict && (verdict.action || verdict.verdict);
   const base = M.baseline(target);
-  const rule = action === 'BET' && Number.isFinite(Number(n.test_rate)) && n.test_rate != null;
-  return { chance: rule ? M.round(Number(n.test_rate)) : base, source: rule ? 'rule' : 'baseline', baseline: base,
-    break_even: M.round(1 / Number(target)),
-    label: rule ? 'Estimate: the chosen rule’s hit rate on rounds it had not seen. Not a guarantee.'
-      : 'Estimate: JetX’s published odds (0.97 / target). No rule has a proven edge. Not a guarantee.' };
+  const minRounds = Number(n.min_rounds) || 10;
+  const rounds = Number(n.rounds) || 0;
+  const chance = n.estimate != null && Number.isFinite(Number(n.estimate)) ? M.round(Number(n.estimate)) : null;
+  const source = chance == null ? (n.estimate_source === 'bad_data' ? 'bad_data' : 'collecting')
+    : n.estimate_source === 'rule' ? 'rule' : 'measured';
+  const label = source === 'rule' ? 'Estimate: the chosen rule’s hit rate on rounds it had not seen. Not a guarantee.'
+    : source === 'measured' ? 'Estimate: the hit rate of your recorded rounds, eased toward JetX’s published odds '
+      + '(0.97 / target). Not a guarantee.'
+      : source === 'bad_data' ? 'No estimate: the recorded rounds do not fit JetX’s published odds.'
+        : `No estimate yet: collecting rounds (${Math.min(rounds, minRounds)}/${minRounds}).`;
+  return { chance, source, rounds, min_rounds: minRounds, min_chance: n.min_chance == null ? null : n.min_chance,
+    baseline: base, break_even: M.round(1 / Number(target)), label };
 }
 
 module.exports = { estimate, GAME, DEMO_START, SETTLE_MS, CONTROLS, SOURCES, MODES, REASONS, MIN_AUTO_NOTE, NOTICE,

@@ -29,16 +29,18 @@ function verdictCard(v, opts) {
   var a = v.verdict || v.action || 'WAIT', n = v.numbers || {}, s = v.strategy;
   var nums = [];
   if (n.rounds != null) nums.push(stat(String(n.rounds), 'Rounds analysed'));
+  // 0.39.2: the engine's estimate from 10 rounds; before that only how many rounds it still needs.
+  if (n.estimate != null) nums.push(stat(pct(n.estimate), 'Estimated chance (BET at ' + pct(n.min_chance, 0) + ')'));
+  else if (n.min_rounds && n.rounds < n.min_rounds) nums.push(stat(n.rounds + '/' + n.min_rounds, 'Rounds collected'));
   if (n.break_even != null) nums.push(stat(pct(n.break_even), 'Break-even at ' + mult(n.target)));
   if (n.corrected_low != null) nums.push(stat(pct(n.corrected_low), 'Rule’s cautious low (unseen)'));
-  else if (n.hit_rate != null) nums.push(stat(pct(n.hit_rate), 'Measured hit rate'));
   return '<section class="card cx-verdict cx-' + a.toLowerCase() + '" aria-live="polite"><div class="cx-verdict-k">'
     + 'Verdict</div><div class="cx-verdict-a">' + esc(a) + '</div><p class="small">' + esc(v.reason || '') + '</p>'
     + (s ? '<p class="tiny"><b>' + esc(s.name) + '</b> · ' + esc(s.rule) + '</p>' : '')
     + (nums.length ? '<div class="grid cols-' + nums.length + ' cx-vnums">' + nums.join('') + '</div>' : '')
     + (opts && opts.link ? '<p class="small"><a href="#/analysis">' + icon('target') + ' See the analysis</a></p>' : '')
-    + '<p class="tiny muted">' + esc(v.note || 'Not a prediction or a guarantee. Colon only says BET when a rule has '
-      + 'beaten break-even on rounds it had not seen.') + '</p></section>';
+    + '<p class="tiny muted">' + esc(v.note || 'Not a prediction or a guarantee. Colon says BET only when its '
+      + 'estimate reaches the threshold.') + '</p></section>';
 }
 
 // b: dashboard.baseline, h: today.hit_rate

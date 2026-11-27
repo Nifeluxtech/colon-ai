@@ -20,10 +20,14 @@ object JetxAutobetRules {
         val demo: Boolean, val betId: String?,
     )
 
-    /** What the side panel and the full-screen bubble show (GET /crash/live). */
+    /**
+     * What the side panel and the full-screen bubble show (GET /crash/live). 0.39.2: [chance] is null until the
+     * engine has [minRounds] rounds ([rounds] so far); the bubble then shows "3/10 rounds", never the baseline.
+     */
     data class Live(
         val target: Double, val chance: Double?, val source: String, val action: String, val reason: String,
-        val recent: List<Double>, val killSwitch: Boolean, val demo: Boolean,
+        val recent: List<Double>, val killSwitch: Boolean, val demo: Boolean, val rounds: Int = 0,
+        val minRounds: Int = MIN_ROUNDS,
     )
 
     /** The user's own Bet press, as the read-only watcher saw it. */
@@ -32,6 +36,8 @@ object JetxAutobetRules {
     /** The click script's answer for one frame. */
     data class ClickReply(val nonce: String, val ok: Boolean, val reason: String, val bet: Boolean)
 
+    /** Rounds the engine needs before it estimates anything (GET /crash/live estimate.min_rounds). */
+    const val MIN_ROUNDS = 10
     const val CLICK_TIMEOUT_MS = 4_000L
     const val MAX_MANUAL_PER_MINUTE = 10
     private const val MAX_MESSAGE = 512
@@ -129,20 +135,27 @@ object JetxAutobetRules {
         val est = o.optJSONObject("estimate")
         val v = o.getJSONObject("verdict")
         val recent = o.optJSONArray("recent") ?: JSONArray()
-        Live(o.getDouble("target"), est?.optDouble("chance")?.takeIf { !it.isNaN() }, est?.optString("source")
-            ?: "baseline", v.optString("action", "WAIT"), v.optString("reason").take(600),
+        val chance = est?.takeIf { !it.isNull("chance") }?.optDouble("chance")?.takeIf { !it.isNaN() }
+        Live(o.getDouble("target"), chance, est?.optString("source")?.takeIf { it.isNotEmpty() } ?: "collecting",
+            v.optString("action", "WAIT"), v.optString("reason").take(600),
             (0 until minOf(recent.length(), 20)).mapNotNull { recent.optJSONObject(it)?.optDouble("multiplier") }
-                .filter { !it.isNaN() }, o.optBoolean("kill_switch", false), o.optBoolean("demo_mode", true))
+                .filter { !it.isNaN() }, o.optBoolean("kill_switch", false), o.optBoolean("demo_mode", true),
+            est?.optInt("rounds", 0)?.coerceAtLeast(0) ?: 0,
+            est?.optInt("min_rounds", MIN_ROUNDS)?.takeIf { it > 0 } ?: MIN_ROUNDS)
     } catch (_: Exception) {
         null
     }
 
-    /** "1.30x · 74.6% · WAIT": the target, the estimated chance for the next round and the verdict. */
+    /** "1.30x · 82.3% · BET", or "1.30x · 3/10 rounds · WAIT" while the engine has no estimate yet. */
     fun bubbleLine(l: Live): String =
-        "${x2(l.target)} · ${pct(l.chance)} · ${l.action}"
+        "${x2(l.target)} · ${middle(l)} · ${l.action}"
 
-    /** The bubble's three short lines (target, estimate, verdict). */
-    fun bubbleLines(l: Live): String = "${x2(l.target)}\n${pct(l.chance)}\n${l.action}"
+    /** The bubble's three short lines (target, estimate or rounds collected, verdict). */
+    fun bubbleLines(l: Live): String = "${x2(l.target)}\n${middle(l)}\n${l.action}"
+
+    /** The engine's estimate, else "3/10 rounds": the baseline is never shown as if it were a prediction. */
+    fun middle(l: Live): String = l.chance?.let { pct(it) }
+        ?: if (l.rounds < l.minRounds) "${l.rounds}/${l.minRounds} rounds" else "no estimate"
 
     fun amount(v: Double): String = String.format(Locale.US, "%.2f", v)
     fun x2(m: Double): String = String.format(Locale.US, "%.2fx", m)

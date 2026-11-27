@@ -234,18 +234,28 @@ test('GET state honesty: notice never claims a guarantee; the 1.35x minimum auto
   assert.doesNotMatch(JSON.stringify(st), /guaranteed win|sure win|100% accurate/i);
 });
 
-test('live view: estimate is the baseline unless the verdict is BET (the rule’s unseen rate)', async () => {
+test('live view: no estimate before 10 rounds (never the baseline in its place), then the engine’s', async () => {
   const { e, store, at } = make({ verdict: WAIT });
   await round(store, 'a', 1.5, at() - 20000);
   await round(store, 'b', 1.1, at() - 10000);
   const v = await e.live(ada);
   assert.equal(v.target, 1.3);
-  assert.equal(v.estimate.chance, 0.7462);
-  assert.equal(v.estimate.source, 'baseline');
-  assert.match(v.estimate.label, /Estimate.*Not a guarantee/);
+  assert.equal(v.estimate.chance, null);
+  assert.equal(v.estimate.source, 'collecting');
+  assert.equal(v.estimate.baseline, 0.7462);
+  assert.equal(v.estimate.break_even, 0.7692);
   assert.equal(v.verdict.action, 'WAIT');
   assert.deepEqual(v.recent.map((r) => [r.multiplier, r.hit]), [[1.1, false], [1.5, true]]);
-  const bet = A.estimate({ action: 'BET', numbers: { test_rate: 0.81234 } }, 1.3);
-  assert.deepEqual([bet.chance, bet.source], [0.8123, 'rule']);
-  assert.equal(A.estimate({ action: 'STOP', numbers: { test_rate: 0.9 } }, 2).chance, 0.485);
+  const real = await crash.create({ store, clock: () => new Date(at()) }).live(ada);
+  assert.deepEqual([real.estimate.chance, real.estimate.rounds, real.estimate.min_rounds], [null, 2, 10]);
+  assert.equal(real.verdict.reason, 'collecting rounds (2/10)');
+  assert.match(real.estimate.label, /collecting rounds \(2\/10\)/);
+  const m = A.estimate({ action: 'WAIT', numbers: { rounds: 40, min_rounds: 10, estimate: 0.76543,
+    estimate_source: 'measured', min_chance: 0.8 } }, 1.3);
+  assert.deepEqual([m.chance, m.source, m.min_chance], [0.7654, 'measured', 0.8]);
+  assert.match(m.label, /Estimate.*Not a guarantee/);
+  const bet = A.estimate({ action: 'BET', numbers: { rounds: 900, estimate: 0.91234, estimate_source: 'rule' } }, 1.3);
+  assert.deepEqual([bet.chance, bet.source], [0.9123, 'rule']);
+  assert.equal(A.estimate({ action: 'STOP', numbers: { rounds: 3 } }, 2).chance, null);
+  assert.doesNotMatch(JSON.stringify([v, real, m]), /low confidence/i);
 });

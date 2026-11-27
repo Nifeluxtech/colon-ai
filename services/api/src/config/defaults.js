@@ -198,6 +198,9 @@ const SCHEMA = [
   num('SAGA_SCHEDULES_MAX', 10, 'scheduled browsing checks a user may keep (0.11.0)'),
   num('SAGA_RECONNECT_GRACE_MS', 90000,
     'a task whose phone socket dropped waits this long for the same phone to reconnect before it ends (0.10.4)'),
+  // Crash Predictor (0.39.2; modules/crash/engine.js)
+  num('CRASH_BET_MIN_CHANCE', 0.8, 'JetX: BET only when the estimated chance the next round reaches the target is '
+    + 'at least this (0..1; 0.8 = 80%); below it the verdict is WAIT'),
   // Safety layer (modules/safety; ADR 0003)
   oneOf('SAFETY', ['on', 'off'], 'on', '"off" switches the rule filters off (child-safety rules always stay on)'),
   oneOf('SAFETY_LOG_TEXT', ['off', 'hash', 'excerpt'], 'off',

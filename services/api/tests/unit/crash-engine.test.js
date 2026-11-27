@@ -1,6 +1,7 @@
 // Unit tests for the Crash Predictor analysis engine (v0.36.0, step 4): the probability helpers, the statistics, the
 // out-of-sample rule tests and the BET / WAIT / STOP verdict. Synthetic rounds come from a seeded RNG: fair rounds
-// follow JetX's published odds (P(X >= m) = 0.97 / m, independent), so the engine must never say BET on them.
+// follow JetX's published odds (P(X >= m) = 0.97 / m, independent), so from 300 rounds the engine must never say BET
+// on them. 0.39.2: an estimate from 10 rounds; BET only at an estimated chance >= 80% (CRASH_BET_MIN_CHANCE).
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const crash = require('../../src/modules/crash');
@@ -105,11 +106,14 @@ test('engine: a planted dependence is found on unseen rounds and gives BET when 
     assert.ok(['after_1_below', 'after_instant'].includes(a.decision.strategy.id));
     assert.ok(a.decision.numbers.corrected_low > a.decision.numbers.break_even);
     assert.ok(a.decision.numbers.test_bets >= E.MIN_TEST_BETS);
+    assert.equal(a.decision.numbers.estimate_source, 'rule');
+    assert.ok(a.decision.numbers.estimate >= 0.8);
     assert.match(a.decision.reason, /not a prediction/i);
     xs.push(2.5);
     const later = E.analyse(xs, 1.3);
     assert.equal(later.decision.action, 'WAIT');
-    assert.match(later.decision.reason, /condition is not met/);
+    assert.match(later.decision.reason, /below the 80\.0% Colon needs/);
+    assert.equal(later.decision.numbers.estimate_source, 'measured');
   }
 });
 
@@ -124,14 +128,37 @@ test('engine: rounds that do not fit the published odds never get a BET', () => 
   assert.equal(same.stats.runs.p, null);
 });
 
-test('engine: no rounds or too few rounds wait, with the numbers', () => {
+test('engine: below 10 rounds it waits, collecting, with no probability', () => {
   const none = E.verdict(E.analyse([], 1.3), ok);
   assert.deepEqual([none.action, none.verdict, none.engine, none.numbers.rounds], ['WAIT', 'WAIT', true, 0]);
-  assert.match(none.reason, /No rounds recorded/);
-  const few = E.verdict(E.analyse(fair(2, 120), 1.3), ok);
+  assert.equal(none.reason, 'collecting rounds (0/10)');
+  const few = E.verdict(E.analyse([2, 3, 1.5, 4, 9, 2, 1.4, 5, 2], 1.3), ok);
   assert.equal(few.action, 'WAIT');
-  assert.match(few.reason, /Only 120 rounds/);
+  assert.equal(few.reason, 'collecting rounds (9/10)');
+  assert.deepEqual([few.numbers.estimate, few.numbers.estimate_source], [null, 'collecting']);
+  assert.equal(few.numbers.hit_rate, undefined);
+  assert.equal(few.numbers.baseline, 0.7462);
+  assert.equal(few.numbers.break_even, 0.7692);
   assert.match(few.note, /Not a prediction/);
+});
+
+test('engine: from 10 rounds an estimate (hits eased toward the baseline); BET only at >= 80%', () => {
+  assert.equal(E.MIN_ROUNDS, 10);
+  assert.equal(E.DEFAULT_MIN_CHANCE, 0.8);
+  assert.equal(E.configured(), 0.8);
+  const all = E.analyse([2, 3, 1.5, 4, 9, 2, 1.4, 5, 2, 1.8], 1.3).decision; // 10 of 10
+  assert.equal(all.numbers.estimate, Math.round(((10 + 10 * 0.7462) / 20) * 1e4) / 1e4);
+  assert.deepEqual([all.action, all.numbers.estimate_source, all.numbers.min_chance], ['BET', 'measured', 0.8]);
+  assert.match(all.reason, /Estimated 87\.3%.*not a prediction/i);
+  const nine = E.analyse([2, 3, 1.5, 4, 9, 2, 1.4, 5, 2, 1.1], 1.3).decision; // 9 of 10: 82.3%
+  assert.equal(nine.action, 'BET');
+  const eight = E.analyse([2, 3, 1.5, 4, 9, 2, 1.4, 5, 1.2, 1.1], 1.3).decision; // 8 of 10: 77.3%
+  assert.equal(eight.action, 'WAIT');
+  assert.match(eight.reason, /Estimated 77\.3%.*below the 80\.0%/);
+  assert.equal(E.analyse([2, 3, 1.5, 4, 9, 2, 1.4, 5, 2, 1.1], 1.3, { minChance: 0.85 }).decision.action, 'WAIT');
+  const mid = E.analyse(fair(2, 120), 1.3).decision;
+  assert.equal(mid.action, 'WAIT');
+  assert.match(mid.reason, /from 120 recorded rounds/);
 });
 
 test('engine: a tripped guardrail is STOP, even when a rule has held up', () => {
