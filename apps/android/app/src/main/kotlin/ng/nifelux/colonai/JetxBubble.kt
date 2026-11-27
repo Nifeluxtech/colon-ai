@@ -7,6 +7,10 @@ import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
 import android.os.Handler
 import android.os.Looper
+import android.text.SpannableStringBuilder
+import android.text.Spanned
+import android.text.style.BackgroundColorSpan
+import android.text.style.ForegroundColorSpan
 import android.view.Gravity
 import android.view.MotionEvent
 import android.view.View
@@ -32,7 +36,8 @@ import java.util.TimeZone
  * the left edge being the "what Colon sees" column (JetxSeenColumn), which gets the 20 newest rounds ([onLive]).
  * 0.39.3: a fourth line "Guess 1.89–2.34x" (JetxGuessRules; the badge is a rounded 104 x 84 dp tile so it fits)
  * and, on the card, the big-round range, the measured "after a crash under 1.20x" line and the "not a prediction"
- * label. Display only: the verdict and auto-bet never read the guess.
+ * label, the previous -> next bucket table (the newest round's row tinted) and the reasoning (an AI read when one
+ * answered). Display only: the verdict and auto-bet never read the guess.
  */
 class JetxBubble(
     private val a: JetxActivity,
@@ -50,6 +55,7 @@ class JetxBubble(
     private val reason = TextView(a)
     private val recent = TextView(a)
     private val guess = TextView(a)
+    private val table = TextView(a)
     private val note = TextView(a)
     private val kill = Button(a)
     private var live: JetxAutobetRules.Live? = null
@@ -84,11 +90,13 @@ class JetxBubble(
             setColor(ContextCompat.getColor(a, R.color.jetx_surface))
             setStroke((1 * dp).toInt(), ContextCompat.getColor(a, R.color.jetx_line))
         }
-        listOf(head, reason, recent, guess, note).forEach {
+        listOf(head, reason, recent, guess, table, note).forEach {
             it.setTextColor(ContextCompat.getColor(a, R.color.jetx_text))
             it.textSize = 12f
             card.addView(it)
         }
+        table.typeface = Typeface.MONOSPACE
+        table.textSize = 9.5f
         head.setTypeface(head.typeface, Typeface.BOLD)
         head.textSize = 14f
         note.setTextColor(ContextCompat.getColor(a, R.color.jetx_muted))
@@ -144,6 +152,8 @@ class JetxBubble(
             if (l.recent.isEmpty()) "—" else l.recent.take(8).joinToString("  ") { JetxAutobetRules.x2(it) })
         guess.text = l.guess?.let { JetxGuessRules.detail(it) }
             ?: a.getString(R.string.jetx_bubble_guess_none)
+        table.text = l.guess?.transitions?.let { tableText(it) } ?: ""
+        table.visibility = if (table.text.isEmpty()) View.GONE else View.VISIBLE
         note.text = when {
             l.chance == null && l.rounds < l.minRounds -> a.getString(R.string.jetx_bubble_note_collecting, l.minRounds)
             l.chance == null -> a.getString(R.string.jetx_bubble_note_none)
@@ -153,6 +163,24 @@ class JetxBubble(
         val stopped = prefs.stopped || l.killSwitch
         kill.text = a.getString(if (stopped) R.string.jetx_bubble_stopped else R.string.jetx_bubble_kill)
         kill.isEnabled = !stopped
+    }
+
+    /** The previous -> next bucket table, the newest round's row tinted green. */
+    private fun tableText(t: JetxGuessRules.Transitions): CharSequence {
+        val (lines, mark) = JetxGuessRules.tableRows(t)
+        val out = SpannableStringBuilder()
+        lines.forEachIndexed { i, line ->
+            val start = out.length
+            out.append(line)
+            if (i == mark) {
+                out.setSpan(BackgroundColorSpan(Color.argb(60, 34, 197, 94)), start, out.length,
+                    Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+                out.setSpan(ForegroundColorSpan(ContextCompat.getColor(a, R.color.jetx_green)), start, out.length,
+                    Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+            }
+            if (i < lines.size - 1) out.append('\n')
+        }
+        return out
     }
 
     private fun place() {
@@ -228,7 +256,7 @@ class JetxBubble(
     private companion object {
         const val W_DP = 104
         const val H_DP = 84
-        const val CARD_DP = 240
+        const val CARD_DP = 280
         const val POLL_MS = 15_000L
     }
 }

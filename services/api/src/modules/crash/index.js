@@ -22,6 +22,7 @@ const { analyzer } = require('./analysis');
 const { autobet, betOut } = require('./autobet');
 const AR = require('./autobet-rules');
 const G = require('./guess');
+const { aiReader } = require('./ai-read');
 
 const GAME = 'jetx';
 const err = (status, code, message) => Object.assign(new Error(message), { status, code });
@@ -42,13 +43,30 @@ const roundOut = (r) => ({ id: String(r.id), round_id: r.round_id, multiplier: N
 // -> { action, verdict, reason, strategy, numbers, engine, note }: STOP on a guardrail, else the engine's call.
 const verdictFor = (rails, analysis = null) => E.verdict(analysis, rails);
 
+async function defaultGenerate(o) {
+  const ai = require('../ai');
+  return ai.generate({ ...o, routing: await ai.dynamic.load() });
+}
+function aiEnabled() {
+  try { return require('../../config').crash.aiReasoning !== false; } catch { return true; }
+}
+
 // verdictOf (tests only): (userId, settings, rails) -> a verdict, in place of the analysis engine's.
-function create({ store = sqlStore(), clock = () => new Date(), verdictOf = null } = {}) {
+// aiGenerate (0.39.3): the AI client for guess.ai_reasoning (tests pass a mock); aiOn: CRASH_AI_REASONING.
+function create({ store = sqlStore(), clock = () => new Date(), verdictOf = null, aiGenerate = defaultGenerate,
+  aiOn = aiEnabled, aiWaitMs } = {}) {
   const uid = (u) => { if (!u || !u.id) throw err(401, 'unauthenticated', 'Please sign in.'); return u.id; };
   const col = collector({ store, clock, settingsOf: async (id) => S.fromRow(await store.getSettings(id)) });
   const engine = analyzer({ store, clock });
   const settingsOf = async (id) => S.fromRow(await store.getSettings(id));
-  const auto = autobet({ store, clock, settingsOf,
+  const reader = aiReader({ generate: aiGenerate, clock, enabled: aiOn, ...(aiWaitMs != null ? { waitMs: aiWaitMs }
+    : {}) });
+  // The guess for the newest stored rounds (newest first), with the AI read; after the verdict, never feeding it.
+  const guessOf = async (id, rows, verdict) => {
+    const xs = rows.map((r) => Number(r.multiplier)).reverse();
+    return reader.annotate(id, rows.length ? rows[0].id : null, G.guess(xs), verdict, xs.slice(-10));
+  };
+  const auto = autobet({ store, clock, settingsOf, guessOf,
     railsFor: async (id, settings, { since, demo }) => railsOf(id, settings, since || dayStart(clock()), demo),
     verdictOf: verdictOf || (async (id, settings, rails) => verdictFor(rails,
       await engine.run(id, GAME, settings.target_cashout))) });
@@ -118,9 +136,11 @@ function create({ store = sqlStore(), clock = () => new Date(), verdictOf = null
     const settings = S.fromRow(await store.getSettings(id));
     const [{ rails }, an, last] = await Promise.all([railsOf(id, settings, dayStart(clock(), tzOffset)),
       engine.run(id, GAME, settings.target_cashout, { limit }), store.recentMultipliers(id, GAME, G.ALL_ROUNDS)]);
-    return { game: GAME, target: settings.target_cashout, limit: an.limit, analysed: an.analysed,
-      total_rounds: an.total_rounds, stats: an.stats, strategies: an.strategies, verdict: verdictFor(rails, an),
-      guardrails: rails, notice: E.NOTE, guess: G.guess(last.map((r) => Number(r.multiplier)).reverse()) };
+    const out = { game: GAME, target: settings.target_cashout, limit: an.limit, analysed: an.analysed,
+      total_rounds: an.total_rounds, stats: an.stats, strategies: an.strategies,
+      guardrails: rails, notice: E.NOTE };
+    const verdict = verdictFor(rails, an);
+    return { ...out, verdict, guess: await guessOf(id, last, verdict) };
   }
 
   const rounds = async (u, { limit } = {}) => (await store.listRounds(uid(u), GAME, limitOf(limit, 50))).map(roundOut);

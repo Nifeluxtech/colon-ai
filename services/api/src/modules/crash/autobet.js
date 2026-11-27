@@ -22,7 +22,7 @@ const betOut = (b) => ({ id: String(b.id), session_id: b.session_id ? String(b.s
   client_ref: b.client_ref || null, placed_at: iso(b.placed_at), settled_at: iso(b.settled_at) });
 
 // railsFor(userId, settings, { since, demo }) -> { rails, session }: the guardrails over bets of that mode only.
-function autobet({ store, clock = () => new Date(), settingsOf, railsFor, verdictOf }) {
+function autobet({ store, clock = () => new Date(), settingsOf, railsFor, verdictOf, guessOf }) {
   // Settles pending bets: by the first round collected after each was placed, or void after SETTLE_MS.
   async function settlePending(userId) {
     const now = clock();
@@ -165,8 +165,9 @@ function autobet({ store, clock = () => new Date(), settingsOf, railsFor, verdic
       recent: rounds.map((r) => ({ id: String(r.id), multiplier: Number(r.multiplier), observed_at: iso(r.observed_at),
         hit: Number(r.multiplier) >= settings.target_cashout })),
       kill_switch: settings.kill_switch, demo_mode: settings.demo_mode !== false, notice: A.NOTICE,
-      // 0.39.3: a guessed range (last 30 rounds) and after_last (guess.js). Shown only; the verdict never reads it.
-      guess: G.guess(last.map((r) => Number(r.multiplier)).reverse()) };
+      // 0.39.3: the guess (guess.js) and its AI read (ai-read.js), made after the verdict; nothing reads them back.
+      guess: guessOf ? await guessOf(userId, last, verdict)
+        : G.guess(last.map((r) => Number(r.multiplier)).reverse()) };
   }
 
   return { decide, record, settle, settlePending, state, live };

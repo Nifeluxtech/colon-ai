@@ -2,9 +2,12 @@
    It lists the multipliers Colon has recorded, newest first, and the analyser's suggestion for the next round:
    BET / WAIT / STOP with its reason, the target and the engine's estimated chance of reaching it. An estimate, never
    a guarantee. 0.39.2: no percentage until the engine has one (10 rounds); until then "3/10 rounds".
-   0.39.3: a guessed range for the next round from the last 30 rounds (25th–75th percentile; big rounds 90th–97th),
-   labelled a guess, and a measured line: after a round in the newest round's bucket, how many reached 2x, next to
-   all rounds. Both are separate from the verdict, which never uses them.
+   0.39.3: a guessed range for the next round from the last 30 rounds (big rounds 90th–97th percentile),
+   labelled a guess (calibrated so about 7 of 10 rounds fell inside it on replay), the last 30 rounds' mean,
+   median and reach shares beside the published odds, and a measured line: after a round in the newest round's
+   bucket, how many reached 2x, next to all rounds; the bucket-to-bucket table (newest round's row highlighted)
+   and a plain reasoning line, written by an AI model when one answers (labelled "AI read"). All separate from
+   the verdict, which never uses them.
    It refreshes when the app's collector records a round and every 10 seconds. */
 
 import { Colon } from '../../../../packages/ui/js/colon.js';
@@ -45,6 +48,45 @@ function afterLine(a) {
     + ' reached 2x (' + pc0(a.rate) + ') · all rounds ' + pc0(a.all_rate) + '</p>';
 }
 
+// "Range tuned to hold about 7 of 10 rounds (held 68% of the last 100)", from the replayed calibration.
+function tuned(g) {
+  if (g.coverage_measured == null) return '';
+  return '<p class="tiny muted">Range tuned to hold about ' + Math.round(g.coverage_target * 10) + ' of 10 rounds'
+    + ' (held ' + pc0(g.coverage_measured) + ' of the last ' + g.samples + ')</p>';
+}
+
+// Mean, median and how often the last rounds reached 1.5x / 2x / 5x / 10x, beside the published 0.97 / m odds.
+function measured(g) {
+  if (g.mean == null) return '';
+  return '<p class="small">Last ' + g.rounds_used + ': mean ' + x2(g.mean) + 'x · median ' + x2(g.median) + 'x</p>'
+    + '<p class="small cx-reach">' + (g.reach || []).map(function (r) {
+      return 'Reached ' + r.at + 'x ' + pc0(r.share) + ' <span class="muted">(odds ' + pc0(r.baseline) + ')</span>';
+    }).join(' · ') + '</p>';
+}
+
+// The 4 x 4 bucket table (previous round -> next round, row %), the newest round's row highlighted.
+function matrix(t) {
+  if (!t || !t.pairs) return '';
+  var head = '<tr><th class="tiny muted">prev → next</th>' + t.buckets.map(function (b) {
+    return '<th>' + esc(b.label) + '</th>';
+  }).join('') + '<th class="tiny muted">n</th></tr>';
+  var rows = t.buckets.map(function (b, i) {
+    return '<tr' + (i === t.current ? ' class="cx-now"' : '') + '><th>' + esc(b.label) + '</th>'
+      + t.row_pct[i].map(function (p, j) {
+        return '<td title="' + t.counts[i][j] + '">' + (p == null ? '—' : pc0(p)) + '</td>';
+      }).join('') + '<td class="tiny muted">' + t.row_totals[i] + '</td></tr>';
+  }).join('');
+  return '<table class="cx-table cx-trans">' + head + rows + '</table>';
+}
+
+// The AI read when there is one ("AI read · guess, not a prediction"), else the template account.
+function why(g) {
+  var r = g.ai_reasoning || (g.reasoning ? { text: g.reasoning, label: 'How the guess was made' } : null);
+  if (!r || !r.text) return '';
+  return '<p class="tiny muted cx-why-k">' + esc(r.label || '') + '</p><p class="small cx-why">' + esc(r.text)
+    + '</p>';
+}
+
 // The guessed range from past rounds, labelled as a guess; nothing until 10 rounds.
 function guessCard(g) {
   if (!g) {
@@ -52,9 +94,11 @@ function guessCard(g) {
       + 'range appears after 10 recorded rounds. Not a prediction.</p></section>';
   }
   return '<section class="card cx-guess"><div class="cx-verdict-k">Guess for the next round</div>'
-    + '<div class="cx-guess-r"><b>' + x2(g.range.low) + '–' + x2(g.range.high) + 'x</b></div>'
+    + '<div class="cx-guess-r"><b>' + x2(g.range.low) + '–' + x2(g.range.high) + 'x</b></div>' + tuned(g)
     + '<p class="small">Big round: ' + x2(g.big.low) + '–' + x2(g.big.high) + 'x · ' + esc(g.big_chance)
-    + ' of the last ' + g.rounds_used + ' rounds</p>' + afterLine(g.after_last) + '<p class="tiny muted">'
+    + ' of the last ' + g.rounds_used + ' rounds</p>' + measured(g) + afterLine(g.after_last)
+    + matrix(g.transitions) + why(g)
+    + '<p class="tiny muted">'
     + esc(g.label) + '. Each round is independent; this does not change BET / WAIT / STOP.</p></section>';
 }
 
