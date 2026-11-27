@@ -23,11 +23,12 @@ object JetxAutobetRules {
     /**
      * What the side panel and the full-screen bubble show (GET /crash/live). 0.39.2: [chance] is null until the
      * engine has [minRounds] rounds ([rounds] so far); the bubble then shows "3/10 rounds", never the baseline.
+     * 0.39.3: [guess] (JetxGuessRules), display only; no decision here reads it.
      */
     data class Live(
         val target: Double, val chance: Double?, val source: String, val action: String, val reason: String,
         val recent: List<Double>, val killSwitch: Boolean, val demo: Boolean, val rounds: Int = 0,
-        val minRounds: Int = MIN_ROUNDS,
+        val minRounds: Int = MIN_ROUNDS, val guess: JetxGuessRules.Guess? = null,
     )
 
     /** The user's own Bet press, as the read-only watcher saw it. */
@@ -141,7 +142,8 @@ object JetxAutobetRules {
             (0 until minOf(recent.length(), 20)).mapNotNull { recent.optJSONObject(it)?.optDouble("multiplier") }
                 .filter { !it.isNaN() }, o.optBoolean("kill_switch", false), o.optBoolean("demo_mode", true),
             est?.optInt("rounds", 0)?.coerceAtLeast(0) ?: 0,
-            est?.optInt("min_rounds", MIN_ROUNDS)?.takeIf { it > 0 } ?: MIN_ROUNDS)
+            est?.optInt("min_rounds", MIN_ROUNDS)?.takeIf { it > 0 } ?: MIN_ROUNDS,
+            JetxGuessRules.parse(o.optJSONObject("guess")))
     } catch (_: Exception) {
         null
     }
@@ -150,8 +152,9 @@ object JetxAutobetRules {
     fun bubbleLine(l: Live): String =
         "${x2(l.target)} · ${middle(l)} · ${l.action}"
 
-    /** The bubble's three short lines (target, estimate or rounds collected, verdict). */
-    fun bubbleLines(l: Live): String = "${x2(l.target)}\n${middle(l)}\n${l.action}"
+    /** The bubble's short lines (target, estimate or rounds collected, verdict; 0.39.3: "Guess 1.89–2.34x"). */
+    fun bubbleLines(l: Live): String = "${x2(l.target)}\n${middle(l)}\n${l.action}" +
+        (l.guess?.let { "\n" + JetxGuessRules.line(it) } ?: "")
 
     /** The engine's estimate, else "3/10 rounds": the baseline is never shown as if it were a prediction. */
     fun middle(l: Live): String = l.chance?.let { pct(it) }

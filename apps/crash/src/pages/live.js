@@ -2,6 +2,9 @@
    It lists the multipliers Colon has recorded, newest first, and the analyser's suggestion for the next round:
    BET / WAIT / STOP with its reason, the target and the engine's estimated chance of reaching it. An estimate, never
    a guarantee. 0.39.2: no percentage until the engine has one (10 rounds); until then "3/10 rounds".
+   0.39.3: a guessed range for the next round from the last 30 rounds (25th–75th percentile; big rounds 90th–97th),
+   labelled a guess, and a measured line: after a round in the newest round's bucket, how many reached 2x, next to
+   all rounds. Both are separate from the verdict, which never uses them.
    It refreshes when the app's collector records a round and every 10 seconds. */
 
 import { Colon } from '../../../../packages/ui/js/colon.js';
@@ -31,6 +34,30 @@ function suggestion(d) {
     + '</section>';
 }
 
+var x2 = function (v) { return Number(v).toFixed(2); };
+
+var pc0 = function (r) { return Math.round(Number(r) * 100) + '%'; };
+
+// "After a crash under 1.20x: 41 of 88 reached 2x (47%) · all rounds 48%" (measured, not a guess).
+function afterLine(a) {
+  if (!a) return '';
+  return '<p class="small cx-after">After a crash ' + esc(a.bucket_label) + ': ' + a.reached_2x + ' of ' + a.samples
+    + ' reached 2x (' + pc0(a.rate) + ') · all rounds ' + pc0(a.all_rate) + '</p>';
+}
+
+// The guessed range from past rounds, labelled as a guess; nothing until 10 rounds.
+function guessCard(g) {
+  if (!g) {
+    return '<section class="card cx-guess"><div class="cx-verdict-k">Guess</div><p class="tiny muted">A guessed '
+      + 'range appears after 10 recorded rounds. Not a prediction.</p></section>';
+  }
+  return '<section class="card cx-guess"><div class="cx-verdict-k">Guess for the next round</div>'
+    + '<div class="cx-guess-r"><b>' + x2(g.range.low) + '–' + x2(g.range.high) + 'x</b></div>'
+    + '<p class="small">Big round: ' + x2(g.big.low) + '–' + x2(g.big.high) + 'x · ' + esc(g.big_chance)
+    + ' of the last ' + g.rounds_used + ' rounds</p>' + afterLine(g.after_last) + '<p class="tiny muted">'
+    + esc(g.label) + '. Each round is independent; this does not change BET / WAIT / STOP.</p></section>';
+}
+
 function list(d) {
   if (!d.recent.length) {
     return '<div class="empty small">No rounds recorded yet. Keep JetX open on the left; Colon records each round.'
@@ -46,8 +73,9 @@ function livePage(view) {
   view.innerHTML = '<div id="cx-live">' + skel(2) + '</div>';
   var box = $('#cx-live', view), stop = false, offs = [], line = '';
   function draw(d) {
-    box.innerHTML = suggestion(d) + '<section class="card"><div class="cx-sec"><div class="section-title">Recorded'
-      + '</div><span class="tiny muted">newest first</span></div>' + list(d) + '</section><p class="tiny muted" '
+    box.innerHTML = suggestion(d) + guessCard(d.guess) + '<section class="card"><div class="cx-sec">'
+      + '<div class="section-title">Recorded</div><span class="tiny muted">newest first</span></div>' + list(d)
+      + '</section><p class="tiny muted" '
       + 'id="cx-live-app">' + esc(line) + '</p><p class="small"><a href="#/">' + icon('grid') + ' Dashboard</a> · '
       + '<a href="#/autobet">' + icon('target') + ' Auto-bet</a></p>';
   }

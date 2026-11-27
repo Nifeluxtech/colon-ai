@@ -1,5 +1,24 @@
 # Changelog
 
+## 0.39.3 (2026-11-27) · Colon JetX: a guessed range for the next round
+
+- **Guess** (`modules/crash/guess.js`; `GET /crash/live` and `GET /crash/analysis` gain `guess`): from the last 30
+  stored rounds (null below 10), `range` = 25th to 75th percentile, `big` = 90th to 97th percentile with
+  `big_chance` (the share of those rounds at or above the big range's low end, e.g. "about 1 in 10") and
+  `big_share`, `rounds_used`, `window`, and `label` "Guess from last N rounds, not a prediction". Percentiles
+  interpolate linearly between sorted values, 2 decimals.
+- **After a round like the last one** (`guess.after_last`, measured, not a guess): the newest round's bucket
+  (< 1.20x, 1.20–2x, 2–10x, ≥ 10x); over all stored rounds (up to 5,000) how many rounds that followed a round in
+  that bucket reached 2x, `{ bucket, bucket_label, samples, reached_2x, rate }`, next to `all_rounds`,
+  `all_reached_2x`, `all_rate`. Null below 20 samples.
+- **Display only**: the verdict (BET / WAIT / STOP), the 80% BET rule, the 10-round minimum, every guardrail and
+  auto-bet are unchanged; the engine and auto-bet rules never read the guess.
+- **Colon JetX bubble** (Game layout): a fourth line "Guess 1.89–2.34x" (the badge is now a rounded 104 × 84 dp tile);
+  its card adds the big-round range and chance, "After a crash under 1.20x: 41 of 88 reached 2x (47%) · all rounds
+  48%" and the label. **Live page**: a Guess card with the same lines.
+- Tests: `crash-guess.test.js` (percentiles, null below 10 rounds, after_last, verdict unchanged with or without the
+  guess), `JetxGuessRulesTest`.
+
 ## 0.39.2 (2026-11-27) · Colon JetX: an estimate from 10 rounds, BET at 80%
 
 - **Engine** (`modules/crash/engine.js`; `GET /crash/analysis`, `/crash/dashboard`, `/crash/live`, auto-bet): the

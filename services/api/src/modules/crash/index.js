@@ -21,6 +21,7 @@ const E = require('./engine');
 const { analyzer } = require('./analysis');
 const { autobet, betOut } = require('./autobet');
 const AR = require('./autobet-rules');
+const G = require('./guess');
 
 const GAME = 'jetx';
 const err = (status, code, message) => Object.assign(new Error(message), { status, code });
@@ -115,11 +116,11 @@ function create({ store = sqlStore(), clock = () => new Date(), verdictOf = null
   async function analysis(u, { limit, tzOffset = 0 } = {}) {
     const id = uid(u);
     const settings = S.fromRow(await store.getSettings(id));
-    const [{ rails }, an] = await Promise.all([railsOf(id, settings, dayStart(clock(), tzOffset)),
-      engine.run(id, GAME, settings.target_cashout, { limit })]);
+    const [{ rails }, an, last] = await Promise.all([railsOf(id, settings, dayStart(clock(), tzOffset)),
+      engine.run(id, GAME, settings.target_cashout, { limit }), store.recentMultipliers(id, GAME, G.ALL_ROUNDS)]);
     return { game: GAME, target: settings.target_cashout, limit: an.limit, analysed: an.analysed,
       total_rounds: an.total_rounds, stats: an.stats, strategies: an.strategies, verdict: verdictFor(rails, an),
-      guardrails: rails, notice: E.NOTE };
+      guardrails: rails, notice: E.NOTE, guess: G.guess(last.map((r) => Number(r.multiplier)).reverse()) };
   }
 
   const rounds = async (u, { limit } = {}) => (await store.listRounds(uid(u), GAME, limitOf(limit, 50))).map(roundOut);
@@ -184,7 +185,7 @@ const handlers = {
   // POST /crash/autobet { control: ai | shared, real?, dry_run?, client_ref?, tz_offset? } -> { allow, code, reason,
   // stake, target, demo, mode, verdict, guardrails, bet } (bet: recorded when allowed and not a dry run)
   postAutobet: async (req) => [200, await instance().decide(req.user, req.body, { ip: req.ip })],
-  // GET /crash/live?limit=&tz_offset= -> { target, estimate { chance, source, label }, verdict, recent[], kill_switch }
+  // GET /crash/live?limit=&tz_offset= -> { target, estimate, verdict, recent[], kill_switch, guess (0.39.3) }
   getLive: async (req) => [200, await instance().live(req.user, { tzOffset: req.query.get('tz_offset'),
     limit: req.query.get('limit') })],
   // POST /crash/autobet/stop -> the kill switch on at once -> { settings }
@@ -197,4 +198,4 @@ const handlers = {
 };
 
 module.exports = { create, instance, memoryStore, handlers, dayStart, verdictFor, GAME,
-  math: M, settings: S, rounds: R, engine: E, autobetRules: AR };
+  math: M, settings: S, rounds: R, engine: E, autobetRules: AR, guess: G };

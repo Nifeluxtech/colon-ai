@@ -204,6 +204,14 @@ Automated clicking on an operator's site may breach its terms; the app warns the
   an unconfirmed tap is reported only.
 - Web: `apps/crash/src/core/native.js` diagnostics line (state, SR sent, last SR error, pointer).
 
+### 0.39.3 files (guessed range, display only)
+- API: `modules/crash/guess.js` (pure: `guess`, `afterLast`, `percentile`, `bucketOf`); `autobet.live` and
+  `index.analysis` read `recentMultipliers(…, 5000)` and return `guess` (null below 10 rounds; `after_last` null below
+  20 samples). Nothing in `engine.js`, `autobet-rules.js` or the decide path reads it (checked in
+  `tests/unit/crash-guess.test.js`).
+- Android: `JetxGuessRules.kt` (`JetxGuessRulesTest`), `JetxAutobetRules.Live.guess`, the bubble's fourth line and
+  card text; string `jetx_bubble_guess_none`. Web: `pages/live.js` Guess card, CSS `.cx-guess`.
+
 ### Deploy notes
 - Subdomain **crash.apparatus.name.ng**, docroot `/home/apparatu/crash.apparatus.name.ng`.
 - `https://crash.apparatus.name.ng` is in the default `ALLOWED_ORIGINS` (`config/defaults.js`, `api.env.example`),
@@ -279,3 +287,7 @@ The owner's two ChatGPT conversations ("JetX AI Crash Predictor — Complete Tec
   ≥ 80% (`CRASH_BET_MIN_CHANCE`), no "low confidence" label. `/crash/live` returns `estimate.chance: null` until 10
   rounds; the bubble and Live page show "3/10 rounds" instead of the baseline. Guardrails unchanged. Note: with few
   rounds the estimate is noisy, so fair rounds can give BET (about a quarter of 10-round samples in a seeded check).
+- 2026-11-27: 0.39.3 on branch `feat/jetx-guess-range` (draft PR), owner's request: a guessed range for the next
+  round (25th–75th percentile of the last 30 rounds, big rounds 90th–97th with how often), labelled "Guess from last
+  N rounds, not a prediction", plus a measured "after a crash under 1.20x: k of n reached 2x · all rounds" line.
+  Display only on the bubble and the Live page; verdicts, the 80% rule, the 10-round minimum and guardrails unchanged.
