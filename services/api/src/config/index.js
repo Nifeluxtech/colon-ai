@@ -135,7 +135,8 @@ module.exports = {
     moderationTimeoutMs: Number(env('SAFETY_MODERATION_TIMEOUT_MS')),
   },
   // Crash Predictor (0.39.2): the estimated chance of reaching the target that a BET verdict needs (0.80 = 80%).
-  crash: { betMinChance: Number(env('CRASH_BET_MIN_CHANCE')), aiReasoning: env('CRASH_AI_REASONING') !== 'off' },
+  crash: { betMinChance: Number(env('CRASH_BET_MIN_CHANCE')),
+    cashoutMinChance: Number(env('CRASH_CASHOUT_MIN_CHANCE')) },
   // Throws a ConfigError listing every problem; http/server.js calls it before anything else starts.
   assertValid(envVars = process.env) {
     const problems = validate(SCHEMA, envVars);

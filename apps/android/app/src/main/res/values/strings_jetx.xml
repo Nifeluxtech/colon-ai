@@ -58,8 +58,6 @@
     <string name="jetx_bubble_loading">…</string>
     <string name="jetx_bubble_signin">Sign in\nbelow</string>
     <string name="jetx_bubble_desc">Colon estimate: %1$s. Tap for details.</string>
-    <string name="jetx_bubble_guess_none">Guess: a guessed range appears after 10 recorded rounds. Not a
-        prediction.</string>
     <string name="jetx_bubble_recent">Recent: %1$s</string>
     <string name="jetx_bubble_note">Estimate: the hit rate of your recorded rounds, eased toward the published odds
         (0.97 / target). Not a guarantee.</string>

@@ -2,12 +2,9 @@
    It lists the multipliers Colon has recorded, newest first, and the analyser's suggestion for the next round:
    BET / WAIT / STOP with its reason, the target and the engine's estimated chance of reaching it. An estimate, never
    a guarantee. 0.39.2: no percentage until the engine has one (10 rounds); until then "3/10 rounds".
-   0.39.3: a guessed range for the next round from the last 30 rounds (big rounds 90th–97th percentile),
-   labelled a guess (calibrated so about 7 of 10 rounds fell inside it on replay), the last 30 rounds' mean,
-   median and reach shares beside the published odds, and a measured line: after a round in the newest round's
-   bucket, how many reached 2x, next to all rounds; the bucket-to-bucket table (newest round's row highlighted)
-   and a plain reasoning line, written by an AI model when one answers (labelled "AI read"). All separate from
-   the verdict, which never uses them.
+   0.39.4: a Cash out card (the 0.39.3 guessed range is gone): the highest multiplier the engine estimates the next
+   round reaches with 75% or more ("Cash out at 1.20x · 75%+"), else "Don't bet · not sure enough". Display only:
+   the verdict and auto-bet (the user's own target) never read it.
    It refreshes when the app's collector records a round and every 10 seconds. */
 
 import { Colon } from '../../../../packages/ui/js/colon.js';
@@ -37,69 +34,26 @@ function suggestion(d) {
     + '</section>';
 }
 
-var x2 = function (v) { return Number(v).toFixed(2); };
+var SRC = { measured: 'your recorded rounds eased toward the published odds',
+  rule: 'a rule’s hit rate on rounds it had not seen' };
 
-var pc0 = function (r) { return Math.round(Number(r) * 100) + '%'; };
-
-// "After a crash under 1.20x: 41 of 88 reached 2x (47%) · all rounds 48%" (measured, not a guess).
-function afterLine(a) {
-  if (!a) return '';
-  return '<p class="small cx-after">After a crash ' + esc(a.bucket_label) + ': ' + a.reached_2x + ' of ' + a.samples
-    + ' reached 2x (' + pc0(a.rate) + ') · all rounds ' + pc0(a.all_rate) + '</p>';
-}
-
-// "Range tuned to hold about 7 of 10 rounds (held 68% of the last 100)", from the replayed calibration.
-function tuned(g) {
-  if (g.coverage_measured == null) return '';
-  return '<p class="tiny muted">Range tuned to hold about ' + Math.round(g.coverage_target * 10) + ' of 10 rounds'
-    + ' (held ' + pc0(g.coverage_measured) + ' of the last ' + g.samples + ')</p>';
-}
-
-// Mean, median and how often the last rounds reached 1.5x / 2x / 5x / 10x, beside the published 0.97 / m odds.
-function measured(g) {
-  if (g.mean == null) return '';
-  return '<p class="small">Last ' + g.rounds_used + ': mean ' + x2(g.mean) + 'x · median ' + x2(g.median) + 'x</p>'
-    + '<p class="small cx-reach">' + (g.reach || []).map(function (r) {
-      return 'Reached ' + r.at + 'x ' + pc0(r.share) + ' <span class="muted">(odds ' + pc0(r.baseline) + ')</span>';
-    }).join(' · ') + '</p>';
-}
-
-// The 4 x 4 bucket table (previous round -> next round, row %), the newest round's row highlighted.
-function matrix(t) {
-  if (!t || !t.pairs) return '';
-  var head = '<tr><th class="tiny muted">prev → next</th>' + t.buckets.map(function (b) {
-    return '<th>' + esc(b.label) + '</th>';
-  }).join('') + '<th class="tiny muted">n</th></tr>';
-  var rows = t.buckets.map(function (b, i) {
-    return '<tr' + (i === t.current ? ' class="cx-now"' : '') + '><th>' + esc(b.label) + '</th>'
-      + t.row_pct[i].map(function (p, j) {
-        return '<td title="' + t.counts[i][j] + '">' + (p == null ? '—' : pc0(p)) + '</td>';
-      }).join('') + '<td class="tiny muted">' + t.row_totals[i] + '</td></tr>';
-  }).join('');
-  return '<table class="cx-table cx-trans">' + head + rows + '</table>';
-}
-
-// The AI read when there is one ("AI read · guess, not a prediction"), else the template account.
-function why(g) {
-  var r = g.ai_reasoning || (g.reasoning ? { text: g.reasoning, label: 'How the guess was made' } : null);
-  if (!r || !r.text) return '';
-  return '<p class="tiny muted cx-why-k">' + esc(r.label || '') + '</p><p class="small cx-why">' + esc(r.text)
-    + '</p>';
-}
-
-// The guessed range from past rounds, labelled as a guess; nothing until 10 rounds.
-function guessCard(g) {
-  if (!g) {
-    return '<section class="card cx-guess"><div class="cx-verdict-k">Guess</div><p class="tiny muted">A guessed '
-      + 'range appears after 10 recorded rounds. Not a prediction.</p></section>';
+// "Cash out at 1.20x · 75%+" or "Don't bet · not sure enough" (or "3/10 rounds"): an estimate, never a guarantee.
+function cashoutCard(c) {
+  if (!c) return '';
+  var why;
+  if (c.source === 'collecting') why = 'A cash-out appears after ' + (c.min_rounds || 10) + ' recorded rounds.';
+  else if (c.source === 'bad_data') why = 'The recorded rounds do not fit the published odds, so no cash-out.';
+  else if (c.at != null) {
+    why = 'Estimated ' + pct(c.chance) + ' that the next round reaches ' + mult(c.at) + ' (from '
+      + (SRC[c.source] || SRC.measured) + ').';
+  } else {
+    why = 'No cash-out from 1.10x has an estimated ' + Math.round(c.min_chance * 100) + '% or more'
+      + (c.chance != null ? ' (1.10x: ' + pct(c.chance) + ')' : '') + '.';
   }
-  return '<section class="card cx-guess"><div class="cx-verdict-k">Guess for the next round</div>'
-    + '<div class="cx-guess-r"><b>' + x2(g.range.low) + '–' + x2(g.range.high) + 'x</b></div>' + tuned(g)
-    + '<p class="small">Big round: ' + x2(g.big.low) + '–' + x2(g.big.high) + 'x · ' + esc(g.big_chance)
-    + ' of the last ' + g.rounds_used + ' rounds</p>' + measured(g) + afterLine(g.after_last)
-    + matrix(g.transitions) + why(g)
-    + '<p class="tiny muted">'
-    + esc(g.label) + '. Each round is independent; this does not change BET / WAIT / STOP.</p></section>';
+  return '<section class="card cx-cash' + (c.at != null ? ' cx-cash-on' : '') + '"><div class="cx-verdict-k">'
+    + 'Cash out</div><div class="cx-cash-l"><b>' + esc(c.label || '') + '</b></div><p class="small">' + esc(why)
+    + '</p><p class="tiny muted">Each round is independent: an estimate, not a guarantee. It does not change BET / '
+    + 'WAIT / STOP, and auto-bet keeps your own target.</p></section>';
 }
 
 function list(d) {
@@ -117,9 +71,9 @@ function livePage(view) {
   view.innerHTML = '<div id="cx-live">' + skel(2) + '</div>';
   var box = $('#cx-live', view), stop = false, offs = [], line = '';
   function draw(d) {
-    box.innerHTML = suggestion(d) + guessCard(d.guess) + '<section class="card"><div class="cx-sec">'
-      + '<div class="section-title">Recorded</div><span class="tiny muted">newest first</span></div>' + list(d)
-      + '</section><p class="tiny muted" '
+    box.innerHTML = suggestion(d) + cashoutCard(d.cashout)
+      + '<section class="card"><div class="cx-sec"><div class="section-title">Recorded'
+      + '</div><span class="tiny muted">newest first</span></div>' + list(d) + '</section><p class="tiny muted" '
       + 'id="cx-live-app">' + esc(line) + '</p><p class="small"><a href="#/">' + icon('grid') + ' Dashboard</a> · '
       + '<a href="#/autobet">' + icon('target') + ' Auto-bet</a></p>';
   }

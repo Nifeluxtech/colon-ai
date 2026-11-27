@@ -1,5 +1,30 @@
 # Changelog
 
+## 0.39.4 (2026-11-27) · Colon JetX: "Cash out at X" from the engine's estimate, the guessed range removed
+
+- **Cash out** (`modules/crash/cashout.js`; `GET /crash/live` and `GET /crash/analysis` gain `cashout { at | null,
+  chance, source: measured | rule | collecting | bad_data, min_chance, label, rounds, min_rounds, baseline }`): for
+  candidate cash-outs 1.05x–10x (0.05 steps to 3x, 0.25 to 5x, 0.5 to 10x) the analysis engine itself
+  (`engine.analyse` with that candidate as the target) estimates the chance the next round reaches it: the measured
+  hit rate eased toward 0.97 / m by 10 pseudo-rounds, or a rule's hit rate on rounds it had not seen (the engine's
+  existing chronological split, Bonferroni bound, 300+ rounds, 100+ unseen bets, condition true now; nothing new
+  is fitted on the rounds it reports). `at` is the highest candidate from 1.10x whose estimate is at least
+  `CRASH_CASHOUT_MIN_CHANCE` (new config key, default 0.75): "Cash out at 1.20x · 75%+". No candidate from 1.10x
+  at 75%, or rounds that do not fit the published odds: "Don’t bet · not sure enough". Under 10 rounds:
+  "3/10 rounds". `chance` is the estimate at `at` (or at 1.10x when there is none); the bare 0.97 / m baseline is
+  never returned as the chance. Cached per user by round count and newest round (the scan is ~58 analyses).
+- **Removed** (0.39.3): the guessed range, big range, mean / median / reach shares, the after-a-round line, the
+  transition table, the template reasoning and the AI read (`guess.js`, `calibrate.js`, `ai-read.js`, their
+  tests, `JetxGuessRules`), and the `CRASH_AI_REASONING` key (an old value in the environment is ignored).
+- **Display only**: the verdict (BET / WAIT / STOP), the 80% BET rule, the 10-round minimum, every guardrail and
+  auto-bet (which keeps the user's configured target) are unchanged and never read the cash-out line.
+- **Colon JetX bubble** (Game layout): "1.30x / 82.3% / BET / Cash out at 1.20x / 75%+" (or "Don’t bet / not sure
+  enough"; the tile is 120 × 96 dp); the card shows the line, the estimated chance and where it came from.
+  **Live page**: a Cash out card in place of the Guess card.
+- Honest note: picking the highest of ~58 candidates that clears 75% is itself a choice made on the same estimates,
+  so the shown chance can be a little optimistic; with fair rounds it lands near 1.20–1.30x, as the odds say.
+- Tests: `crash-cashout.test.js`, `JetxCashoutRulesTest`.
+
 ## 0.39.3 (2026-11-27) · Colon JetX: a guessed range for the next round, with its reasoning
 
 - **Guess** (`modules/crash/guess.js`, `calibrate.js`; `GET /crash/live` and `GET /crash/analysis` gain `guess`,
