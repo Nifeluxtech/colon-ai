@@ -1,7 +1,7 @@
 /* Colon JetX · Live (v0.38.0): the compact Colon panel for the app's side-by-side layout (game left, this right).
    It lists the multipliers Colon has recorded, newest first, and the analyser's suggestion for the next round:
-   BET / WAIT / STOP with its reason, the target and the estimated chance of reaching it (the chosen rule's rate on
-   unseen rounds when the verdict is BET, else the published odds 0.97 / target). An estimate, never a guarantee.
+   BET / WAIT / STOP with its reason, the target and the engine's estimated chance of reaching it. An estimate, never
+   a guarantee. 0.39.2: no percentage until the engine has one (10 rounds); until then "3/10 rounds".
    It refreshes when the app's collector records a round and every 10 seconds. */
 
 import { Colon } from '../../../../packages/ui/js/colon.js';
@@ -12,11 +12,20 @@ import { mult, pct } from '../core/state.js';
 
 var C = Colon, icon = C.icon, esc = C.esc, $ = C.$;
 
+// The estimate, or how many rounds the engine still needs: never the baseline in its place.
+function chance(e) {
+  if (e.chance == null) {
+    var m = e.min_rounds || 10;
+    return '<b>' + Math.min(e.rounds || 0, m) + '/' + m + '</b> <span class="tiny muted">rounds</span>';
+  }
+  return '<b>' + pct(e.chance) + '</b> <span class="tiny muted">estimated chance</span>';
+}
+
 function suggestion(d) {
   var v = d.verdict || {}, a = v.action || 'WAIT', e = d.estimate || {};
   return '<section class="card cx-verdict cx-' + a.toLowerCase() + ' cx-live-v"><div class="cx-verdict-k">Next round'
-    + ' at ' + mult(d.target) + '</div><div class="cx-verdict-a">' + esc(a) + '</div><div class="cx-live-est"><b>'
-    + pct(e.chance) + '</b> <span class="tiny muted">estimated chance</span></div><p class="small">'
+    + ' at ' + mult(d.target) + '</div><div class="cx-verdict-a">' + esc(a) + '</div><div class="cx-live-est">'
+    + chance(e) + '</div><p class="small">'
     + esc(v.reason || '') + '</p><p class="tiny muted">' + esc(e.label || 'An estimate, not a guarantee.') + '</p>'
     + (d.kill_switch ? '<p class="small"><span class="status-dot bad"></span> Kill switch on: no bets.</p>' : '')
     + '</section>';

@@ -59,8 +59,10 @@
     <string name="jetx_bubble_signin">Sign in\nbelow</string>
     <string name="jetx_bubble_desc">Colon estimate: %1$s. Tap for details.</string>
     <string name="jetx_bubble_recent">Recent: %1$s</string>
-    <string name="jetx_bubble_note">Estimate from the published odds (0.97 / target): no rule has a proven edge.
-        Not a guarantee.</string>
+    <string name="jetx_bubble_note">Estimate: the hit rate of your recorded rounds, eased toward the published odds
+        (0.97 / target). Not a guarantee.</string>
+    <string name="jetx_bubble_note_none">No estimate: the recorded rounds do not fit the published odds.</string>
+    <string name="jetx_bubble_note_collecting">No estimate yet: Colon needs %1$d recorded rounds first.</string>
     <string name="jetx_bubble_note_rule">Estimate: the chosen rule\'s hit rate on rounds it had not seen. Not a
         guarantee.</string>
     <string name="jetx_bubble_kill">STOP betting</string>

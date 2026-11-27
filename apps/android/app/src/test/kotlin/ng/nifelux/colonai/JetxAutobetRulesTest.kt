@@ -84,17 +84,31 @@ class JetxAutobetRulesTest {
     }
 
     @Test fun theBubbleSaysTargetEstimateAndVerdict() {
-        val l = JetxAutobetRules.parseLive("""{"target":1.3,"estimate":{"chance":0.7462,"source":"baseline"},
-            "verdict":{"action":"WAIT","reason":"No proven edge."},"recent":[{"multiplier":2.01},{"multiplier":1.1}],
-            "kill_switch":false,"demo_mode":true}""")
+        val l = JetxAutobetRules.parseLive("""{"target":1.3,"estimate":{"chance":0.8234,"source":"measured",
+            "rounds":40,"min_rounds":10},"verdict":{"action":"BET","reason":"Estimated 82.3%."},
+            "recent":[{"multiplier":2.01},{"multiplier":1.1}],"kill_switch":false,"demo_mode":true}""")
         assertNotNull(l)
-        assertEquals("1.30x · 74.6% · WAIT", JetxAutobetRules.bubbleLine(l!!))
-        assertEquals("1.30x\n74.6%\nWAIT", JetxAutobetRules.bubbleLines(l))
+        assertEquals("1.30x · 82.3% · BET", JetxAutobetRules.bubbleLine(l!!))
+        assertEquals("1.30x\n82.3%\nBET", JetxAutobetRules.bubbleLines(l))
         assertEquals(listOf(2.01, 1.1), l.recent)
         assertEquals("green", JetxAutobetRules.tone("BET"))
         assertEquals("amber", JetxAutobetRules.tone("WAIT"))
         assertEquals("red", JetxAutobetRules.tone("STOP"))
         assertEquals("—", JetxAutobetRules.pct(null))
         assertNull(JetxAutobetRules.parseLive("{}"))
+    }
+
+    @Test fun beforeTenRoundsTheBubbleCountsRoundsAndNeverShowsTheBaseline() {
+        val l = JetxAutobetRules.parseLive("""{"target":1.3,"estimate":{"chance":null,"source":"collecting",
+            "rounds":3,"min_rounds":10,"baseline":0.7462},"verdict":{"action":"WAIT",
+            "reason":"collecting rounds (3/10)"},"recent":[],"kill_switch":false,"demo_mode":true}""")
+        assertNotNull(l)
+        assertNull(l!!.chance)
+        assertEquals("1.30x · 3/10 rounds · WAIT", JetxAutobetRules.bubbleLine(l))
+        assertEquals("1.30x\n3/10 rounds\nWAIT", JetxAutobetRules.bubbleLines(l))
+        assertFalse(JetxAutobetRules.bubbleLines(l).contains("74.6"))
+        val bad = JetxAutobetRules.parseLive("""{"target":1.3,"estimate":{"chance":null,"source":"bad_data",
+            "rounds":400,"min_rounds":10},"verdict":{"action":"WAIT"}}""")
+        assertEquals("1.30x · no estimate · WAIT", JetxAutobetRules.bubbleLine(bad!!))
     }
 }

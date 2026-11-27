@@ -1,5 +1,26 @@
 # Changelog
 
+## 0.39.2 (2026-11-27) · Colon JetX: an estimate from 10 rounds, BET at 80%
+
+- **Engine** (`modules/crash/engine.js`; `GET /crash/analysis`, `/crash/dashboard`, `/crash/live`, auto-bet): the
+  minimum before any estimate or BET drops from 300 rounds to 10. Below 10 the verdict is WAIT with the reason
+  "collecting rounds (n/10)" and no probability (`numbers.estimate: null`). From 10 rounds the estimated chance that
+  the next round reaches the target is the hit rate of the analysed rounds eased toward the 0.97 / target baseline
+  by 10 pseudo-rounds, or, when a rule has held up on unseen rounds and fires now (300+ rounds, data fit the
+  published odds), that rule's unseen hit rate. BET only when the estimate is at least `CRASH_BET_MIN_CHANCE`
+  (new config key, default 0.8 = 80%); otherwise WAIT. From 300 rounds, rounds that do not fit the published odds
+  still WAIT. STOP rules and every auto-bet guardrail (demo default, stake cap, stop-loss, daily limit, kill switch,
+  Shared confirm) are unchanged. Baseline and break-even are still shown.
+- **`GET /crash/live`**: `estimate { chance | null, source: collecting | measured | rule | bad_data, rounds,
+  min_rounds, min_chance, baseline, break_even, label }`: the baseline is never returned as the chance.
+- **Live page and verdict card**: "3/10 rounds" instead of a percentage until the engine has an estimate; the card
+  shows the estimate and the BET threshold.
+- **Colon JetX bubble** (Game layout): "1.30x / 3/10 rounds / WAIT" until 10 rounds, then the engine's estimate;
+  never the 74.6% baseline as if it were a prediction.
+- Honest note: with only 10–100 rounds the estimate swings a lot by chance, so fair rounds can reach 80% and give
+  BET; the guardrails are what limit the damage.
+- Tests: `crash-engine.test.js`, `crash-autobet.test.js`, `JetxAutobetRulesTest`.
+
 ## 0.39.1 (2026-11-27) · Colon JetX: screen reader sends rounds, full-screen overlay, Colon pointer
 
 - **Screen reader fix**: on the phone 0.38.0 read 7 chips and never sent a round (exact comparisons: one OCR misread
