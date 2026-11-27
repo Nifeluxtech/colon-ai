@@ -204,17 +204,14 @@ Automated clicking on an operator's site may breach its terms; the app warns the
   an unconfirmed tap is reported only.
 - Web: `apps/crash/src/core/native.js` diagnostics line (state, SR sent, last SR error, pointer).
 
-### 0.39.3 files (guessed range and its reasoning, display only)
-- API: `modules/crash/guess.js` (pure: `guess`, `afterLast`, `transitions`, `reasoning`, `percentile`, `bucketOf`),
-  `calibrate.js` (pure: `narrowest`, `replay`, `calibrated`), `ai-read.js` (`aiReader().annotate`: the AI read via
-  `modules/ai` `generate` with `context` = its own rules, cached per user by newest round id, hourly cap, 8 s
-  timeout, template fallback). `index.js` `create({ aiGenerate, aiOn, aiWaitMs })` builds `guessOf`, used by
-  `autobet.live` and `analysis` after the verdict; both read `recentMultipliers(…, 5000)`. Config
-  `CRASH_AI_REASONING` (on | off). Nothing in `engine.js`, `autobet-rules.js` or the decide path reads the guess
-  (`tests/unit/crash-guess.test.js`, `crash-ai-read.test.js`).
-- Android: `JetxGuessRules.kt` (`JetxGuessRulesTest`: parse, lines, `tableRows`, `whyLines`),
-  `JetxAutobetRules.Live.guess`, the bubble's fourth line, card text and the tinted monospaced table; string
-  `jetx_bubble_guess_none`. Web: `pages/live.js` Guess card, CSS `.cx-guess`, `.cx-trans`.
+### 0.39.4 files (cash-out line, display only; the 0.39.3 guess files are removed)
+- API: `modules/crash/cashout.js` (`cashout(xs, { minChance })`: for each of `CANDIDATES` 1.05x..10x runs
+  `engine.analyse(xs, m)` and keeps the highest m >= 1.10x whose estimate >= `CRASH_CASHOUT_MIN_CHANCE` (0.75);
+  `bad_data` / `collecting` straight from the engine; `cashoutCache()` per user keyed on round count + newest id).
+  `index.js` builds `cashoutOf` (newest 5,000 rounds, as the engine) for `autobet.live` and `analysis`, after the
+  verdict. Nothing in `engine.js`, `autobet-rules.js` or the decide path reads it (`tests/unit/crash-cashout.test.js`).
+- Android: `JetxCashoutRules.kt` (`JetxCashoutRulesTest`), `JetxAutobetRules.Live.cashout`, the bubble's last two
+  lines ("Cash out at 1.20x" / "75%+") and card text. Web: `pages/live.js` Cash out card, CSS `.cx-cash`.
 
 ### Deploy notes
 - Subdomain **crash.apparatus.name.ng**, docroot `/home/apparatu/crash.apparatus.name.ng`.
@@ -299,3 +296,9 @@ The owner's two ChatGPT conversations ("JetX AI Crash Predictor — Complete Tec
   numbers (`CRASH_AI_REASONING`, default on). A "Guesses hit" scoreboard was requested and then cancelled before it
   was built. Display only on the bubble and the Live page; verdicts, the 80% rule, the 10-round minimum and
   guardrails unchanged.
+- 2026-11-27: 0.39.4 on branch `feat/jetx-cashout`, owner's request: the guessed range, big range, stats,
+  transition table and AI read are removed from the bubble, its card and the Live page (code deleted). In their
+  place one line, "Cash out at X.XXx · 75%+": the highest candidate multiplier (1.10x..10x) the engine's own
+  estimate (measured eased toward 0.97 / m, or a rule validated on unseen rounds) gives at least 75% for the next
+  round; else "Don't bet · not sure enough"; "n/10 rounds" under 10. `CRASH_CASHOUT_MIN_CHANCE` (0.75). Verdict,
+  80% BET rule, guardrails and auto-bet (user's own target) unchanged.

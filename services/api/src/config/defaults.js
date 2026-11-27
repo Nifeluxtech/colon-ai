@@ -201,8 +201,8 @@ const SCHEMA = [
   // Crash Predictor (0.39.2; modules/crash/engine.js)
   num('CRASH_BET_MIN_CHANCE', 0.8, 'JetX: BET only when the estimated chance the next round reaches the target is '
     + 'at least this (0..1; 0.8 = 80%); below it the verdict is WAIT'),
-  oneOf('CRASH_AI_REASONING', ['on', 'off'], 'on', 'JetX (0.39.3): an AI model writes a short read of the guess '
-    + '(display only, once per new round); "off" keeps the template text'),
+  num('CRASH_CASHOUT_MIN_CHANCE', 0.75, 'JetX (0.39.4): "Cash out at X" is the highest multiplier whose estimated '
+    + 'chance for the next round is at least this (0..1; display only, never the verdict or auto-bet)'),
   // Safety layer (modules/safety; ADR 0003)
   oneOf('SAFETY', ['on', 'off'], 'on', '"off" switches the rule filters off (child-safety rules always stay on)'),
   oneOf('SAFETY_LOG_TEXT', ['off', 'hash', 'excerpt'], 'off',
